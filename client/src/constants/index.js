@@ -1,0 +1,281 @@
+// Vedhunt Website Global Constants
+import { 
+  Laptop, 
+  Smartphone, 
+  Layers, 
+  TrendingUp, 
+  Search, 
+  Share2, 
+  MousePointerClick, 
+  FileSpreadsheet, 
+  Database, 
+  Briefcase, 
+  DollarSign, 
+  Award, 
+  Users, 
+  Clock, 
+  ShieldCheck 
+} from 'lucide-react';
+
+export const CONTACT_INFO = {
+  phone: '+91 86524 10289',
+  phoneDisplay: '+91 86524 10289',
+  email: 'info@vedhunt.in',
+  hours: 'Mon – Fri: 8:00am – 7:00pm',
+  cin: 'CIN - U62099MH2025PTC447275',
+  registration: 'Company Registration: CIN - U62099MH2025PTC447275',
+  copyright: '© 2026 Vedhunt InfoTech. All Rights Reserved.'
+};
+
+export const NAV_LINKS = [
+  { label: 'Home', path: '/' },
+  { label: 'Services', path: '/services' },
+  { label: 'Portfolio', path: '/portfolio' },
+  { label: 'About Us', path: '/about' },
+  { label: 'Contact Us', path: '/contact' }
+];
+
+export const SERVICES = [
+  {
+    id: 'web-dev',
+    title: 'Website Design & Development',
+    subtitle: 'High Performance & Stunning Layouts',
+    shortDescription: 'We build fast, secure, and beautiful websites tailored specifically to turn your visitors into active customers.',
+    description: 'Our development team specializes in crafting high-converting, blazing-fast web solutions that represent your brand with prestige. From responsive corporate landing pages to complex e-commerce engines, we deliver optimized visual layout combined with robust, lightweight clean code.',
+    icon: Laptop,
+    features: [
+      'Custom Responsive UI/UX Design',
+      'Modern Single Page Applications (SPAs)',
+      'High-Speed Performance Optimization',
+      'SEO-Friendly Code Structure',
+      'E-commerce Platform Integration'
+    ],
+    cta: 'Get Started'
+  },
+  {
+    id: 'app-dev',
+    title: 'Mobile Application Development',
+    subtitle: 'Seamless iOS & Android Experiences',
+    shortDescription: 'Engaging, premium mobile apps built with top-tier user experiences for both iOS and Android platforms.',
+    description: 'We develop highly interactive, feature-rich native and cross-platform mobile apps. From wireframing to App Store deployment, we ensure a smooth, premium feel, dynamic animations, and high processing efficiency for your customers on the move.',
+    icon: Smartphone,
+    features: [
+      'Cross-Platform Apps (React Native / Flutter)',
+      'Highly Intuitive Mobile UI/UX Design',
+      'Real-Time Push Notifications',
+      'Offline Storage & Cloud Syncing',
+      'Smooth Native Micro-Animations'
+    ],
+    cta: 'Get Started'
+  },
+  {
+    id: 'logo-brand',
+    title: 'Logo Designings & Branding',
+    subtitle: 'Build an Unforgettable Corporate Identity',
+    shortDescription: 'Memorable brand identity and custom logo designs that distinguish your business from the competition.',
+    description: 'Your brand represents who you are. We construct complete branding packages starting with customized, vector-perfect logos, brand style guidelines, colors, typography, and stationery designs that capture your corporate values and capture instant trust.',
+    icon: Layers,
+    features: [
+      'Custom Vector Logo Designing',
+      'Complete Brand Style Guidelines',
+      'Corporate Stationery & Business Cards',
+      'Typography & Color Palette Selection',
+      'Social Media Branding Kits'
+    ],
+    cta: 'Get Started'
+  },
+  {
+    id: 'digital-marketing',
+    title: 'Digital Marketing',
+    subtitle: 'Paid Ads, Brand Awareness & Content Strategy',
+    shortDescription: 'Accelerate acquisition with highly targeted Google, Meta, and LinkedIn PPC ad campaigns and creative social media branding.',
+    description: 'We deploy high-performance outbound marketing models. From laser-targeted social media advertising on Instagram, Facebook, and LinkedIn, to search retargeting and creative content copy, we maximize your ad spend and scale your customer acquisition pipelines.',
+    icon: TrendingUp,
+    subcategories: [
+      {
+        title: 'Social Media Management',
+        desc: 'We curate compelling content and schedule engaging interactions across platforms.',
+        icon: Share2
+      },
+      {
+        title: 'Paid Ads & PPC',
+        desc: 'Accelerate acquisition with highly targeted Google, Meta, and LinkedIn ad campaigns.',
+        icon: MousePointerClick
+      }
+    ],
+    features: [
+      'Laser-Targeted Google & Social Ads',
+      'Creative Design & Ad Copywriting',
+      'Continuous Conversion Optimization (CRO)',
+      'Detailed Performance ROI Audits',
+      'Custom Multi-Channel Retargeting Funnels'
+    ],
+    cta: 'Get Started'
+  },
+  {
+    id: 'seo',
+    title: 'Search Engine Optimization (SEO)',
+    subtitle: 'Organic Rankings & Search Dominance',
+    shortDescription: 'Achieve page-one search rankings, organic business leads, and thorough technical keyword optimization audits.',
+    description: 'Our organic search solutions optimize your speed, semantic hierarchy, metadata, schema markup, and backlink authority to capture high-intent buyers organically on Google and Bing.',
+    icon: Search,
+    features: [
+      'Page-One Rank Growth Planning',
+      'Detailed Keyword & Competitor Research',
+      'Technical SEO Audits & Schema Markup',
+      'Authority Backlink Building Models',
+      'On-Page Optimization & Semantic Mapping'
+    ],
+    cta: 'Get Started'
+  },
+  {
+    id: 'accounting-finance',
+    title: 'Accounting & Financial Services',
+    subtitle: 'Streamlined Compliance & MIS Reporting',
+    shortDescription: 'Professional bookkeeping, taxation compliances, US/Indian accounts management, and MIS reporting.',
+    description: 'Manage your operations with absolute precision. We offer professional outsource accounting, tax computation, statutory audit preparation, and high-level financial reporting to enable executives to make smart, data-supported decisions.',
+    icon: DollarSign,
+    subcategories: [
+      {
+        title: 'Indian Accounting & Compliance',
+        desc: 'GST computation, filing, direct tax planning, and statutory company filings.',
+        icon: ShieldCheck
+      },
+      {
+        title: 'US Accounting Services',
+        desc: 'GAAP-compliant bookkeeping, financial statements preparation, and audits support.',
+        icon: FileSpreadsheet
+      },
+      {
+        title: 'MIS & Reporting Services',
+        desc: 'Comprehensive ledger reconciliation, executive summaries, and growth audits.',
+        icon: Briefcase
+      }
+    ],
+    features: [
+      'Multi-Currency Bookkeeping',
+      'Tax Planning & Statutory Filings',
+      'Reconciliation of Bank Accounts & Ledgers',
+      'Real-Time Cash Flow Analysis',
+      'Audit Readiness Support'
+    ],
+    cta: 'Get Started'
+  },
+  {
+    id: 'enterprise-automation',
+    title: 'Automation & Business Intelligence',
+    subtitle: 'SQL, Power BI, Python integrations',
+    shortDescription: 'Automate repetitive workflows and transform scattered data into dynamic, interactive dashboards.',
+    description: 'Don\'t let manual reports slow down your team. We create automated pipelines using Python scripts, robust SQL data warehouse modeling, and interactive Power BI charts, helping you monitor critical business KPIs in real time.',
+    icon: Database,
+    features: [
+      'Automated Data Pipelines (ETL)',
+      'Custom Interactive Power BI Dashboards',
+      'Python Automation & Web Scraping',
+      'SQL Query Optimization & Database Architecture',
+      'Instant Email & Slack Report Alerts'
+    ],
+    cta: 'Get Started'
+  }
+];
+
+export const WHY_CHOOSE_US = [
+  {
+    title: 'Economical & Pricing-Friendly',
+    description: 'We deliver top-of-the-line creative solutions and website layouts at highly competitive, business-friendly price structures.',
+    icon: DollarSign
+  },
+  {
+    title: 'Hands-On Tech Experience',
+    description: 'Our team comprises diverse expert minds, modern developers, and seasoned growth marketers who understand execution.',
+    icon: Award
+  },
+  {
+    title: 'Continuous Support & Strategy',
+    description: 'We support you from initial concept drafting, through seamless deployment, to iterative growth strategies and pivots.',
+    icon: Clock
+  },
+  {
+    title: 'Lead-Building Machinery',
+    description: 'Our applications are not just pretty digital brochures. They are engineered to actively acquire and capture high-intent business leads.',
+    icon: Users
+  }
+];
+
+export const TEAM_MEMBERS = [
+  {
+    name: 'Andrew Wills',
+    role: 'Co-Founder & Technology Lead',
+    bio: 'An expert system architect passionate about scalable microservices and lightning-fast user interfaces.',
+    image: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?q=80&w=300&h=300&fit=crop'
+  },
+  {
+    name: 'Alisha Smith',
+    role: 'Head of Creative Design & UI/UX',
+    bio: 'Crafts beautiful, premium visual layouts and digital branding models with extreme precision.',
+    image: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=300&h=300&fit=crop'
+  },
+  {
+    name: 'Robert White',
+    role: 'Lead Growth Marketer & Lead Strategist',
+    bio: 'Specializes in laser-focused PPC campaigns, SEO dominance, and high-yield user acquisition channels.',
+    image: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?q=80&w=300&h=300&fit=crop'
+  },
+  {
+    name: 'Sarah George',
+    role: 'Finance Specialist & Compliance Advisor',
+    bio: 'Ensures flawless financial auditing, reporting systems, and international accounting compliances.',
+    image: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?q=80&w=300&h=300&fit=crop'
+  }
+];
+
+export const TESTIMONIALS = [
+  {
+    quote: "It really met my requirements. You guys were very patient even though there were delays from my side. The price was competitive and all our requirements were met. If somebody were to ask me for something similar, I would definitely recommend you guys!",
+    author: "Reshma S.",
+    role: "E-commerce Founder",
+    avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=150&h=150&fit=crop"
+  },
+  {
+    quote: "Working with Vedhunt was extremely professional. They took our complex reporting workflow and transformed it into a fully automated Power BI dashboard. Saves our department 15 hours every single week.",
+    author: "Piyush K.",
+    role: "Finance Director",
+    avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=150&h=150&fit=crop"
+  },
+  {
+    quote: "Their SEO service is top-notch. Our organic search leads increased by nearly 180% within four months. They are very analytical and direct with their projections.",
+    author: "Shweta G.",
+    role: "Real Estate Marketer",
+    avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=150&h=150&fit=crop"
+  },
+  {
+    quote: "Vedhunt designed our corporate brand identity and logo. They understood our values instantly and gave us options that we absolutely loved. Exceptional branding service!",
+    author: "Ajay Sharma",
+    role: "SaaS Co-Founder",
+    avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=150&h=150&fit=crop"
+  },
+  {
+    quote: "The web development team was fast, structured, and very transparent. Communication was perfect throughout the project lifecycle. Highly recommended for premium website development.",
+    author: "Akash Bansal",
+    role: "Retail Director",
+    avatar: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?q=80&w=150&h=150&fit=crop"
+  },
+  {
+    quote: "Their UI/UX design process completely blew us away. They created an interactive mobile application prototype that helped us secure our pre-seed funding round. Outstanding strategic partners!",
+    author: "Karan Malhotra",
+    role: "FinTech Founder",
+    avatar: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?q=80&w=150&h=150&fit=crop"
+  },
+  {
+    quote: "Absolutely phenomenal results with their digital marketing campaigns. Our brand engagement grew by over 300% and direct inquiries skyrocketed within weeks. The team is hyper-responsive and highly skilled.",
+    author: "Nisha Patel",
+    role: "Creative Director",
+    avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?q=80&w=150&h=150&fit=crop"
+  },
+  {
+    quote: "The custom CRM platform they built for us has streamlined our entire sales operations and team reporting. It is extremely fast, secure, and intuitive. Exceptional product engineering team!",
+    author: "Vikram Seth",
+    role: "Operations Head",
+    avatar: "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=150&h=150&fit=crop"
+  }
+];
