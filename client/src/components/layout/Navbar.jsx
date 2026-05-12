@@ -42,10 +42,6 @@ export default function Navbar() {
           </a>
         </div>
         <div className="flex items-center gap-4">
-          <span className="text-[10px] bg-primary/10 border border-primary/20 text-primary px-2 py-0.5 rounded-full font-medium">
-            Lead Generation Specialists
-          </span>
-          <span className="text-gray-500 dark:text-gray-600">|</span>
           <span>{CONTACT_INFO.hours}</span>
         </div>
       </div>

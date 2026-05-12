@@ -151,15 +151,16 @@ export default function Portfolio() {
   });
 
   return (
-    <div className="bg-app-bg text-app-text-muted min-h-screen pt-32 pb-24 sm:pt-40 sm:pb-32 px-4 sm:px-6 lg:px-8 mesh-grid relative overflow-hidden theme-transition">
+    <div className="bg-app-bg text-app-text-muted min-h-screen pt-24 pb-8 sm:pt-28 sm:pb-12 px-4 sm:px-6 lg:px-8 mesh-grid relative overflow-hidden theme-transition">
       
-      {/* Blended Hero Background Image with Tightened Height - Restricted strictly to dark mode */}
+      {/* Blended Glowing Orange Plexus Network Hero Background Image */}
       <div 
-        className="absolute top-0 left-0 right-0 h-[450px] bg-cover bg-center opacity-[0.12] pointer-events-none mix-blend-screen z-0 hidden dark:block"
+        className="absolute top-0 left-0 right-0 h-[450px] bg-cover bg-center opacity-[0.08] dark:opacity-[0.18] pointer-events-none mix-blend-color-burn dark:mix-blend-screen z-0"
         style={{ 
           backgroundImage: "url('https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=1920')",
           maskImage: 'linear-gradient(to bottom, rgba(0,0,0,1) 40%, rgba(0,0,0,0) 100%)',
-          WebkitMaskImage: 'linear-gradient(to bottom, rgba(0,0,0,1) 40%, rgba(0,0,0,0) 100%)'
+          WebkitMaskImage: 'linear-gradient(to bottom, rgba(0,0,0,1) 40%, rgba(0,0,0,0) 100%)',
+          filter: 'hue-rotate(180deg) saturate(2.5) contrast(1.15)'
         }}
       />
 
@@ -298,12 +299,12 @@ export default function Portfolio() {
                           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
                           
                           {/* Floating Category Tag */}
-                          <div className="absolute top-3.5 left-3.5 bg-primary/20 backdrop-blur-md border border-primary/40 rounded px-2.5 py-0.5 text-[9px] font-extrabold text-primary uppercase tracking-wider">
+                          <div className="absolute top-3.5 left-3.5 bg-slate-950/90 border border-primary/40 rounded px-2.5 py-0.5 text-[9px] font-extrabold text-primary uppercase tracking-wider">
                             {project.category === 'development' ? 'Engineering' : project.category === 'automation' ? 'Finance & Tech' : 'Marketing & SEO'}
                           </div>
 
                           {/* Stat Badge */}
-                          <div className="absolute bottom-3.5 left-3.5 bg-black/80 backdrop-blur-md border border-white/10 rounded-lg px-3 py-1.5 flex items-center gap-1.5 text-xs font-bold text-white shadow-sm">
+                          <div className="absolute bottom-3.5 left-3.5 bg-black/95 border border-white/10 rounded-lg px-3 py-1.5 flex items-center gap-1.5 text-xs font-bold text-white shadow-sm">
                             <span className="text-primary uppercase tracking-wider text-[9px]">{project.statLabel}:</span>
                             <span className="text-white font-extrabold">{project.statValue}</span>
                           </div>
@@ -314,7 +315,7 @@ export default function Portfolio() {
                           <h3 className="text-base sm:text-lg font-black font-heading text-app-text tracking-tight flex items-center justify-between">
                             <span>{project.title}</span>
                             <span className="text-[9px] text-primary/75 font-mono flex items-center gap-1 font-bold animate-pulse">
-                              Hover to flip <Sparkles className="w-2.5 h-2.5 text-primary" />
+                              flip to see more... <Sparkles className="w-2.5 h-2.5 text-primary" />
                             </span>
                           </h3>
                           <p className="text-[10px] sm:text-xs font-extrabold text-primary/70 italic mt-0.5">

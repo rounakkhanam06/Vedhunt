@@ -94,7 +94,7 @@ export default function About() {
   ];
 
   return (
-    <div className="bg-app-bg text-app-text-muted min-h-screen py-24 px-4 sm:px-6 lg:px-8 mesh-grid relative overflow-hidden">
+    <div className="bg-app-bg text-app-text-muted min-h-screen pt-24 pb-8 sm:pb-12 px-4 sm:px-6 lg:px-8 mesh-grid relative overflow-hidden">
       
       {/* Dynamic Floating Gradient Glow Backgrounds */}
       <div className="absolute top-1/4 -right-20 w-96 h-96 bg-primary/8 rounded-full filter blur-[150px] animate-pulse pointer-events-none" />
@@ -342,7 +342,7 @@ export default function About() {
                 whileInView="visible"
                 viewport={{ once: true, margin: '-80px' }}
                 variants={scrollFadeLeft}
-                className="absolute top-0 left-0 w-[68%] aspect-[4/3] rounded-3xl overflow-hidden border-4 border-app-card shadow-2xl z-10 hover:z-30 transition-all duration-300 group cursor-pointer"
+                className="absolute top-0 left-0 w-[68%] aspect-[4/3] rounded-3xl overflow-hidden border-4 border-app-card shadow-2xl z-10 transition-all duration-300 group cursor-pointer"
               >
                 <img 
                   src={compImg1} 
@@ -369,7 +369,7 @@ export default function About() {
               </motion.div>
 
               {/* Overlapping Central Badge (Transparent, Glassmorphic, and Animated Float) */}
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-25">
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-15">
                 <motion.div
                   initial={{ opacity: 0, scale: 0.8 }}
                   whileInView={{ opacity: 1, scale: 1 }}
@@ -728,7 +728,7 @@ export default function About() {
         </div>
 
         {/* Why Choose Us Block (Staggered items slide on scroll) */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center mb-28 text-left">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center mb-12 text-left">
           
           <motion.div 
             initial="hidden"

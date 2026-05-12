@@ -47,7 +47,7 @@ export default function Services() {
       <div className="absolute top-1/4 left-1/3 w-96 h-96 bg-primary/5 rounded-full filter blur-[150px] pointer-events-none" />
       <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-primary/2 dark:bg-white/2 rounded-full filter blur-[150px] pointer-events-none" />
 
-      <div className="max-w-7xl mx-auto relative z-10">
+      <div className="max-w-6xl mx-auto relative z-10">
         
         {/* Banner Section with Scroll Trigger */}
         <motion.div 
@@ -83,11 +83,11 @@ export default function Services() {
               <motion.div
                 key={srv.id}
                 variants={scrollFadeUp}
-                className="relative bg-app-card border border-app-border rounded-3xl overflow-hidden flex flex-col group transition-all duration-300 hover:-translate-y-1.5 hover:shadow-[0_15px_35px_rgba(255,107,0,0.12)] hover:border-primary/40"
+                className="relative bg-app-card border border-app-border rounded-2xl overflow-hidden flex flex-col group transition-all duration-300 hover:-translate-y-1.5 hover:shadow-[0_15px_30px_rgba(255,107,0,0.1)] hover:border-primary/40"
               >
                 {/* Slanted Image Container */}
                 <div 
-                  className="h-[180px] w-full relative select-none border-b border-app-border/40 overflow-hidden"
+                  className="h-[155px] w-full relative select-none border-b border-app-border/40 overflow-hidden"
                   style={{ clipPath: 'polygon(24% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 28%)' }}
                 >
                   <img 
@@ -102,17 +102,17 @@ export default function Services() {
                 </div>
 
                 {/* Circular Floating Brand Accent Icon Block */}
-                <div className="absolute top-[180px] left-8 -translate-y-1/2 z-10 w-14 h-14 rounded-full bg-primary flex items-center justify-center text-white border-4 border-app-card shadow-lg orange-glow-sm transition-transform duration-300 group-hover:scale-105">
-                  <IconComp className="w-5.5 h-5.5" />
+                <div className="absolute top-[155px] left-6 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-primary flex items-center justify-center text-white border-[3px] border-app-card shadow-lg orange-glow-sm transition-transform duration-300 group-hover:scale-105">
+                  <IconComp className="w-4.5 h-4.5" />
                 </div>
 
                 {/* Content Section */}
-                <div className="pt-10 px-8 pb-8 flex flex-col flex-grow text-left">
-                  <h3 className="text-xl font-black font-heading text-app-text mb-3 leading-snug group-hover:text-primary transition-colors duration-300">
+                <div className="pt-8 px-6 pb-6 flex flex-col flex-grow text-left">
+                  <h3 className="text-lg font-black font-heading text-app-text mb-2 leading-snug group-hover:text-primary transition-colors duration-300">
                     {srv.title}
                   </h3>
                   
-                  <p className="text-xs text-app-text-muted leading-relaxed mb-6 flex-grow line-clamp-3">
+                  <p className="text-[11px] text-app-text-muted leading-relaxed mb-4 flex-grow line-clamp-3">
                     {srv.shortDescription}
                   </p>
 

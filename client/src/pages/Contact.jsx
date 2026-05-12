@@ -117,7 +117,7 @@ export default function Contact() {
           >
             {/* Title Block */}
             <div className="space-y-4 text-left">
-              <motion.span variants={scrollFadeUp} className="text-primary text-xs font-black uppercase tracking-widest bg-primary/10 border border-primary/20 px-3.5 py-1 rounded-full">
+              <motion.span variants={scrollFadeUp} className="inline-flex items-center text-primary text-[10px] font-black uppercase tracking-widest bg-primary/10 border border-primary/20 px-2.5 py-0.5 rounded-full relative -translate-y-2">
                 Get In Touch
               </motion.span>
               
@@ -470,7 +470,9 @@ export default function Contact() {
                     href={social.href}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="w-10 h-10 rounded-full bg-zinc-100 hover:bg-primary border border-zinc-200 hover:border-primary text-zinc-700 hover:text-black flex items-center justify-center shadow-md transition-all duration-300 hover:-translate-y-1 dark:bg-zinc-900 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-primary dark:hover:text-black"
+                    className={`w-10 h-10 rounded-full bg-zinc-100 hover:bg-primary border border-zinc-200 hover:border-primary text-zinc-700 hover:text-black flex items-center justify-center shadow-md transition-all duration-300 hover:-translate-y-1 dark:bg-zinc-900 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-primary dark:hover:text-black ${
+                      idx === 0 ? 'ml-3.5' : ''
+                    }`}
                   >
                     <social.icon className="w-4 h-4" />
                   </a>
