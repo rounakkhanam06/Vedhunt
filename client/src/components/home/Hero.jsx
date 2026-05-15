@@ -68,11 +68,11 @@ export default function Hero() {
               initial={prefersReducedMotion ? {} : { opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: prefersReducedMotion ? 0 : 0.1, duration: prefersReducedMotion ? 0 : 0.6 }}
-              className="text-4xl sm:text-5xl md:text-6xl font-black font-heading text-app-text leading-tight"
+              className="text-3xl sm:text-4xl md:text-5xl lg:text-[3.25rem] font-black font-heading text-app-text leading-tight tracking-tight"
             >
               Transform Your Business <br />
               With High-Performance <br />
-              <span className="block min-h-[4rem] sm:min-h-[4.5rem] md:min-h-[5rem] h-auto flex items-center py-1">
+              <span className="block min-h-[3rem] sm:min-h-[3.5rem] md:min-h-[4.25rem] h-auto flex items-center py-1">
                 <AnimatePresence mode="wait">
                   <motion.span
                     key={textIndex}
@@ -80,7 +80,7 @@ export default function Hero() {
                     animate={{ opacity: 1 }}
                     exit={prefersReducedMotion ? {} : { opacity: 0 }}
                     transition={{ duration: prefersReducedMotion ? 0 : 0.25 }}
-                    className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl text-primary block"
+                    className="text-2xl sm:text-3xl md:text-[2.5rem] lg:text-[3.125rem] text-primary block"
                   >
                     <EncryptedText
                       text={rotatingPhrases[textIndex]}
@@ -148,7 +148,7 @@ export default function Hero() {
           </motion.div>
         </div>
 
-        <div className="hidden lg:flex lg:relative lg:col-span-5 items-center justify-center min-h-[420px] lg:opacity-100 lg:pointer-events-auto lg:z-10 lg:overflow-visible">
+        <div className="hidden lg:flex lg:relative lg:col-span-5 items-center justify-center min-h-[420px] lg:opacity-100 lg:pointer-events-auto lg:z-10 lg:overflow-visible lg:-translate-y-12 xl:-translate-y-16 transition-transform duration-500">
 
           <Spotlight className="-top-40 left-0 md:left-20 md:-top-20 opacity-40 dark:opacity-20 pointer-events-none" />
 
