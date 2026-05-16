@@ -104,7 +104,7 @@ export default function About() {
       <div className="absolute top-10 left-1/3 w-3 h-3 bg-primary/30 rounded-full filter blur-sm animate-bounce" style={{ animationDuration: '6s' }} />
       <div className="absolute bottom-20 right-1/3 w-4 h-4 bg-primary/25 rounded-full filter blur-md animate-ping" style={{ animationDuration: '9s' }} />
 
-      <div className="max-w-7xl mx-auto relative z-10">
+      <div className="max-w-6xl mx-auto relative z-10">
 
         {/* Hero Section Split Layout (Tolak inspired with Scroll triggers) */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-16 items-center mb-28">

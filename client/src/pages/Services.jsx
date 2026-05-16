@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowRight } from 'lucide-react';
@@ -23,6 +24,8 @@ const serviceImages = {
 };
 
 export default function Services() {
+  const [hoveredId, setHoveredId] = useState(null);
+
   const staggerContainer = {
     hidden: {},
     visible: {
@@ -68,13 +71,92 @@ export default function Services() {
           </motion.p>
         </motion.div>
 
-        {/* Services Grid with Viewport Scroll Staggering */}
+        {/* Desktop View: Expanding Flex Accordion (lg and up) */}
+        <div className="hidden lg:flex flex-col gap-8">
+          {Array.from({ length: Math.ceil(SERVICES.length / 3) }).map((_, rowIndex) => {
+            const rowServices = SERVICES.slice(rowIndex * 3, rowIndex * 3 + 3);
+            const placeholders = 3 - rowServices.length;
+
+            return (
+              <motion.div
+                key={`row-${rowIndex}`}
+                variants={staggerContainer}
+                initial="hidden"
+                whileInView="visible"
+                viewport={{ once: true, margin: '-60px' }}
+                className="flex flex-row gap-8 items-center h-[400px]"
+              >
+                {rowServices.map((srv) => {
+                  const IconComp = srv.icon;
+                  const isHovered = hoveredId === srv.id;
+                  const isAnyHovered = hoveredId !== null;
+
+                  return (
+                    <motion.div
+                      layout
+                      key={srv.id}
+                      variants={scrollFadeUp}
+                      onMouseEnter={() => setHoveredId(srv.id)}
+                      onMouseLeave={() => setHoveredId(null)}
+                      style={{ 
+                        flex: isHovered ? 1.25 : (isAnyHovered ? 0.875 : 1),
+                        height: isHovered ? '100%' : '80%',
+                      }}
+                      className="relative rounded-lg overflow-hidden flex flex-col group transition-all duration-500 ease-out border border-white/5 bg-app-card shadow-[0_10px_30px_rgba(0,0,0,0.5)]"
+                    >
+                      {/* Full Background Image */}
+                      <div className="absolute inset-0 z-0 overflow-hidden">
+                        <img
+                          src={serviceImages[srv.id]}
+                          alt={srv.title}
+                          loading="lazy"
+                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-in-out"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-app-bg via-app-bg/80 to-transparent z-10" />
+                      </div>
+
+                      {/* Content Overlay */}
+                      <div className="relative z-20 mt-auto p-6 flex flex-col transform transition-transform duration-500 group-hover:-translate-y-2">
+                        <div className="mb-4 w-10 h-10 rounded-lg bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-white group-hover:bg-white/20 transition-all duration-500">
+                          <IconComp className="w-5 h-5" />
+                        </div>
+
+                        <h3 className="text-2xl font-black font-heading text-white mb-2 leading-tight transition-colors duration-300">
+                          {srv.title}
+                        </h3>
+                        
+                        <p className="text-sm text-white/70 leading-relaxed mb-4 line-clamp-2 group-hover:text-white/90 transition-colors duration-300">
+                          {srv.shortDescription}
+                        </p>
+
+                        <Link
+                          to="/contact"
+                          className="inline-flex items-center gap-2 text-sm font-bold text-white transition-colors mt-auto opacity-0 translate-y-4 group-hover:opacity-100 group-hover:translate-y-0 duration-500 delay-75"
+                        >
+                          <span>Get Started</span>
+                          <ArrowRight className="w-4 h-4" />
+                        </Link>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+
+                {/* Invisible Spacer Divs for Incomplete Rows */}
+                {Array.from({ length: placeholders }).map((_, i) => (
+                  <div key={`spacer-${rowIndex}-${i}`} style={{ flex: 1, height: '80%' }} className="pointer-events-none opacity-0" />
+                ))}
+              </motion.div>
+            );
+          })}
+        </div>
+
+        {/* Mobile & Tablet Fallback (Grid) */}
         <motion.div
           variants={staggerContainer}
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true, margin: '-60px' }}
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
+          className="grid lg:hidden grid-cols-1 md:grid-cols-2 gap-6"
         >
           {SERVICES.map((srv) => {
             const IconComp = srv.icon;
@@ -83,50 +165,41 @@ export default function Services() {
               <motion.div
                 key={srv.id}
                 variants={scrollFadeUp}
-                className="relative bg-app-card border border-app-border rounded-2xl overflow-hidden flex flex-col group transition-all duration-300 hover:-translate-y-1.5 hover:shadow-[0_15px_30px_rgba(255,107,0,0.1)] hover:border-primary/40"
+                className="relative rounded-lg overflow-hidden flex flex-col group transition-all duration-500 ease-out hover:scale-[1.03] hover:shadow-[0_20px_40px_rgba(255,107,0,0.15)] min-h-[320px] border border-white/5 bg-app-card"
               >
-                {/* Slanted Image Container */}
-                <div 
-                  className="h-[155px] w-full relative select-none border-b border-app-border/40 overflow-hidden"
-                  style={{ clipPath: 'polygon(24% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 28%)' }}
-                >
-                  <img 
-                    src={serviceImages[srv.id]} 
-                    alt={srv.title} 
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                {/* Full Background Image */}
+                <div className="absolute inset-0 z-0 overflow-hidden">
+                  <img
+                    src={serviceImages[srv.id]}
+                    alt={srv.title}
+                    loading="lazy"
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-in-out"
                   />
-
-                  {/* Subtle brand-orange tinting and lighting overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-primary/5 to-transparent pointer-events-none mix-blend-multiply" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-primary/15 via-transparent to-transparent pointer-events-none" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-app-bg via-app-bg/80 to-transparent z-10" />
                 </div>
 
-                {/* Circular Floating Brand Accent Icon Block */}
-                <div className="absolute top-[155px] left-6 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-primary flex items-center justify-center text-white border-[3px] border-app-card shadow-lg orange-glow-sm transition-transform duration-300 group-hover:scale-105">
-                  <IconComp className="w-4.5 h-4.5" />
-                </div>
+                {/* Content Overlay */}
+                <div className="relative z-20 mt-auto p-6 flex flex-col transform transition-transform duration-500 group-hover:-translate-y-2">
+                  <div className="mb-4 w-10 h-10 rounded-lg bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-white group-hover:bg-white/20 transition-all duration-500">
+                    <IconComp className="w-5 h-5" />
+                  </div>
 
-                {/* Content Section */}
-                <div className="pt-8 px-6 pb-6 flex flex-col flex-grow text-left">
-                  <h3 className="text-lg font-black font-heading text-app-text mb-2 leading-snug group-hover:text-primary transition-colors duration-300">
+                  <h3 className="text-xl md:text-2xl font-black font-heading text-white mb-2 leading-tight transition-colors duration-300">
                     {srv.title}
                   </h3>
                   
-                  <p className="text-[11px] text-app-text-muted leading-relaxed mb-4 flex-grow line-clamp-3">
+                  <p className="text-sm text-white/70 leading-relaxed mb-4 line-clamp-2 group-hover:text-white/90 transition-colors duration-300">
                     {srv.shortDescription}
                   </p>
 
                   <Link
                     to="/contact"
-                    className="inline-flex items-center gap-1.5 text-xs font-black text-primary hover:text-primary transition-colors mt-auto"
+                    className="inline-flex items-center gap-2 text-sm font-bold text-white transition-colors mt-auto opacity-0 translate-y-4 group-hover:opacity-100 group-hover:translate-y-0 duration-500 delay-75"
                   >
                     <span>Get Started</span>
-                    <ArrowRight className="w-3.5 h-3.5 transition-transform duration-300 group-hover:translate-x-1.5" />
+                    <ArrowRight className="w-4 h-4" />
                   </Link>
                 </div>
-
-                {/* Bottom Border Glow Slide-In Accent */}
-                <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-primary scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left z-20" />
               </motion.div>
             );
           })}

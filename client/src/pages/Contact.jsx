@@ -104,7 +104,7 @@ export default function Contact() {
       <div className="absolute -top-20 -left-20 w-[450px] h-[450px] bg-primary/5 rounded-full filter blur-[150px] pointer-events-none z-0" />
       <div className="absolute -bottom-40 right-20 w-96 h-96 bg-primary/4 rounded-full filter blur-[150px] pointer-events-none z-0" />
 
-      <div className="max-w-7xl mx-auto relative z-10">
+      <div className="max-w-6xl mx-auto relative z-10">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-16 lg:gap-24 items-center">
           
           {/* Left Column: Contact Form with Minimalist Bottom-Border Inputs */}

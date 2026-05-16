@@ -7,6 +7,9 @@ const About = lazy(() => import('../pages/About'));
 const Services = lazy(() => import('../pages/Services'));
 const Portfolio = lazy(() => import('../pages/Portfolio'));
 const Contact = lazy(() => import('../pages/Contact'));
+const Blog = lazy(() => import('../pages/Blog'));
+const BlogDetail = lazy(() => import('../pages/BlogDetail'));
+const Videos = lazy(() => import('../pages/Videos'));
 const NotFound = lazy(() => import('../pages/NotFound'));
 
 // High-fidelity, smooth loading fallback component to display during chunk fetching
@@ -46,6 +49,18 @@ export const router = createBrowserRouter([
       {
         path: 'contact',
         element: withSuspense(Contact)
+      },
+      {
+        path: 'blog',
+        element: withSuspense(Blog)
+      },
+      {
+        path: 'blog/:id',
+        element: withSuspense(BlogDetail)
+      },
+      {
+        path: 'videos',
+        element: withSuspense(Videos)
       },
       {
         path: '*',

@@ -31,6 +31,8 @@ export const NAV_LINKS = [
   { label: 'Home', path: '/' },
   { label: 'Services', path: '/services' },
   { label: 'Portfolio', path: '/portfolio' },
+  { label: 'Blog', path: '/blog' },
+  { label: 'Videos', path: '/videos' },
   { label: 'About Us', path: '/about' },
   { label: 'Contact Us', path: '/contact' }
 ];
@@ -234,48 +236,121 @@ export const TESTIMONIALS = [
     quote: "It really met my requirements. You guys were very patient even though there were delays from my side. The price was competitive and all our requirements were met. If somebody were to ask me for something similar, I would definitely recommend you guys!",
     author: "Reshma S.",
     role: "E-commerce Founder",
-    avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=150&h=150&fit=crop"
+    avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=150&h=150&fit=crop",
+    country: "India",
+    countryFlag: "🇮🇳"
   },
   {
     quote: "Working with Vedhunt was extremely professional. They took our complex reporting workflow and transformed it into a fully automated Power BI dashboard. Saves our department 15 hours every single week.",
     author: "Piyush K.",
     role: "Finance Director",
-    avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=150&h=150&fit=crop"
+    avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=150&h=150&fit=crop",
+    country: "India",
+    countryFlag: "🇮🇳"
   },
   {
     quote: "Their SEO service is top-notch. Our organic search leads increased by nearly 180% within four months. They are very analytical and direct with their projections.",
     author: "Shweta G.",
     role: "Real Estate Marketer",
-    avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=150&h=150&fit=crop"
+    avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=150&h=150&fit=crop",
+    country: "United States",
+    countryFlag: "🇺🇸"
   },
   {
     quote: "Vedhunt designed our corporate brand identity and logo. They understood our values instantly and gave us options that we absolutely loved. Exceptional branding service!",
     author: "Ajay Sharma",
     role: "SaaS Co-Founder",
-    avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=150&h=150&fit=crop"
+    avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=150&h=150&fit=crop",
+    country: "United Kingdom",
+    countryFlag: "🇬🇧"
   },
   {
     quote: "The web development team was fast, structured, and very transparent. Communication was perfect throughout the project lifecycle. Highly recommended for premium website development.",
     author: "Akash Bansal",
     role: "Retail Director",
-    avatar: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?q=80&w=150&h=150&fit=crop"
+    avatar: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?q=80&w=150&h=150&fit=crop",
+    country: "Canada",
+    countryFlag: "🇨🇦"
   },
   {
     quote: "Their UI/UX design process completely blew us away. They created an interactive mobile application prototype that helped us secure our pre-seed funding round. Outstanding strategic partners!",
     author: "Karan Malhotra",
     role: "FinTech Founder",
-    avatar: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?q=80&w=150&h=150&fit=crop"
+    avatar: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?q=80&w=150&h=150&fit=crop",
+    country: "Australia",
+    countryFlag: "🇦🇺"
   },
   {
     quote: "Absolutely phenomenal results with their digital marketing campaigns. Our brand engagement grew by over 300% and direct inquiries skyrocketed within weeks. The team is hyper-responsive and highly skilled.",
     author: "Nisha Patel",
     role: "Creative Director",
-    avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?q=80&w=150&h=150&fit=crop"
+    avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?q=80&w=150&h=150&fit=crop",
+    country: "United States",
+    countryFlag: "🇺🇸"
   },
   {
     quote: "The custom CRM platform they built for us has streamlined our entire sales operations and team reporting. It is extremely fast, secure, and intuitive. Exceptional product engineering team!",
     author: "Vikram Seth",
     role: "Operations Head",
-    avatar: "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=150&h=150&fit=crop"
+    avatar: "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=150&h=150&fit=crop",
+    country: "United Arab Emirates",
+    countryFlag: "🇦🇪"
+  }
+];
+
+export const BLOG_POSTS = [
+  {
+    id: 1,
+    title: 'The Future of Web Development: What to Expect in 2026',
+    category: 'DEVELOPMENT',
+    date: 'May 12, 2026',
+    excerpt: 'Explore the latest trends in web development, from AI-driven coding to the rise of edge computing and micro-frontends.',
+    image: 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?q=80&w=800&h=500&fit=crop',
+    author: 'Andrew Wills'
+  },
+  {
+    id: 2,
+    title: 'Mastering Brand Identity in a Digital-First World',
+    category: 'BRANDING',
+    date: 'May 08, 2026',
+    excerpt: 'How to build a brand that resonates with modern consumers and stands out in an increasingly crowded digital marketplace.',
+    image: 'https://images.unsplash.com/photo-1557804506-669a67965ba0?q=80&w=800&h=500&fit=crop',
+    author: 'Alisha Smith'
+  },
+  {
+    id: 3,
+    title: 'Maximizing ROI: Strategies for High-Performance Ad Campaigns',
+    category: 'MARKETING',
+    date: 'May 05, 2026',
+    excerpt: 'Learn the secrets of running successful PPC campaigns that drive conversions and scale your business growth.',
+    image: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?q=80&w=800&h=500&fit=crop',
+    author: 'Robert White'
+  },
+  {
+    id: 4,
+    title: 'The Power of Data: Transforming Business Intelligence with Power BI',
+    category: 'STRATEGY',
+    date: 'April 28, 2026',
+    excerpt: 'Unlock the potential of your business data with interactive dashboards and real-time analytics for better decision making.',
+    image: 'https://images.unsplash.com/photo-1454165833767-027ffea9e778?q=80&w=800&h=500&fit=crop',
+    author: 'Sarah George'
+  },
+  {
+    id: 5,
+    title: 'Mobile App Trends: Creating Seamless User Experiences',
+    category: 'MOBILE APPS',
+    date: 'April 22, 2026',
+    excerpt: 'A deep dive into the latest mobile app design patterns and technologies that are defining the next generation of mobile apps.',
+    image: 'https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?q=80&w=800&h=500&fit=crop',
+    author: 'Andrew Wills'
+  },
+  {
+    id: 6,
+    title: 'SEO Secrets: Dominating Search Rankings in 2026',
+    category: 'SEO',
+    date: 'April 15, 2026',
+    excerpt: 'Everything you need to know about search engine optimization in the era of AI-powered search and semantic understanding.',
+    image: 'https://images.unsplash.com/photo-1571721795195-a2ca2d3370a9?q=80&w=800&h=500&fit=crop',
+    author: 'Robert White'
   }
 ];

@@ -97,7 +97,7 @@ export default function Footer() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-6 pb-8 border-b border-app-border">
             
             {/* Column 1: Branding & Profile */}
-            <div className="space-y-4">
+            <div className="space-y-2">
               <Link to="/" className="flex items-center gap-2 group relative z-10">
                 <img
                   src={theme === 'dark' ? darkLogo : lightLogo}
@@ -115,7 +115,7 @@ export default function Footer() {
             </div>
 
             {/* Column 2: Services Directory */}
-            <div className="space-y-4">
+            <div className="space-y-4 lg:pt-10 lg:pl-6">
               <h4 className="text-primary font-heading font-extrabold text-xs uppercase tracking-wider pl-1.5 border-l-2 border-primary">
                 Our Services
               </h4>
@@ -134,7 +134,7 @@ export default function Footer() {
             </div>
 
             {/* Column 3: Quick Navigation */}
-            <div className="space-y-4">
+            <div className="space-y-4 lg:pt-10 lg:pl-6">
               <h4 className="text-primary font-heading font-extrabold text-xs uppercase tracking-wider pl-1.5 border-l-2 border-primary">
                 Company
               </h4>
@@ -173,7 +173,7 @@ export default function Footer() {
             </div>
 
             {/* Column 4: Contact Info & Social Connections */}
-            <div className="space-y-4">
+            <div className="space-y-4 lg:pt-10 lg:pl-6">
               <h4 className="text-primary font-heading font-extrabold text-xs uppercase tracking-wider pl-1.5 border-l-2 border-primary">
                 Contact Info
               </h4>

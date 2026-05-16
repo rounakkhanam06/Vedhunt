@@ -15,7 +15,7 @@ export default function MainLayout() {
 
       {/* Main Container with Hardware-Accelerated Page Transition Animations */}
       <main className="flex-grow">
-        <div className="w-full h-full theme-transition">
+        <div className="max-w-6xl mx-auto w-full h-full theme-transition">
           <Outlet />
         </div>
       </main>
