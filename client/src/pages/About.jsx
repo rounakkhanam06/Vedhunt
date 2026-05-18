@@ -178,7 +178,7 @@ export default function About() {
               className="pt-6"
             >
               <Link
-                to="/contact"
+                to="/get-quote"
                 className="relative inline-flex items-center gap-2 px-8 py-4 bg-primary hover:bg-primary-hover text-black font-extrabold text-xs uppercase tracking-wider rounded-lg transition-all duration-300 hover:shadow-[0_0_25px_rgba(255,107,0,0.45)] group cursor-pointer overflow-hidden"
               >
                 {/* Gloss slide overlay on hover */}

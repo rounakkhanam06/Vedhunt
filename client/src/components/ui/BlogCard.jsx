@@ -9,7 +9,7 @@ const BlogCard = ({ post }) => {
       initial={{ opacity: 0, y: 20 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
-      className="group flex flex-col h-full cursor-pointer bg-white/[0.03] border border-white/10 rounded-lg p-4"
+      className="group flex flex-col h-full cursor-pointer bg-app-card border border-white/10 rounded-lg p-4 shadow-lg hover:border-primary/30 transition-all duration-500"
     >
       {/* Image and Vertical Category Container */}
       <div className="relative flex mb-6">

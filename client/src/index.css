@@ -1,38 +1,45 @@
 @import "tailwindcss";
 
 :root {
-  --app-bg: #F8FAFC;
-  --app-card: #FFFFFF;
-  --app-text: #020617;
-  --app-text-muted: #1E293B;
-  --app-border: rgba(15, 23, 42, 0.08);
+  --app-bg: #FFFFFF;
+  --app-card: #FFF3EE;
+  --app-text: #1A1A2E;
+  --app-text-muted: #666666;
+  --app-border: rgba(26, 26, 46, 0.08);
   --app-glass-bg: rgba(255, 255, 255, 0.75);
-  --app-glass-border: rgba(15, 23, 42, 0.06);
-  --gradient-start: #020617;
+  --app-glass-border: rgba(26, 26, 46, 0.06);
+  --gradient-start: #1A1A2E;
   --scrollbar-track: #F1F5F9;
   --scrollbar-thumb: #CBD5E1;
-  --mesh-opacity: radial-gradient(rgba(255, 107, 0, 0.05) 1.5px, transparent 1.5px);
+  --mesh-opacity: radial-gradient(rgba(232, 71, 10, 0.05) 1.5px, transparent 1.5px);
 }
 
 .dark {
-  --app-bg: #0B0B0B;
-  --app-card: #121212;
-  --app-text: #F8FAFC;
-  --app-text-muted: #CBD5E1;
+  --app-bg: #0B0B14;
+  --app-card: #1A1A2E;
+  --app-text: #FFFFFF;
+  --app-text-muted: #9CA3AF;
   --app-border: rgba(255, 255, 255, 0.08);
-  --app-glass-bg: rgba(18, 18, 18, 0.6);
+  --app-glass-bg: rgba(26, 26, 46, 0.6);
   --app-glass-border: rgba(255, 255, 255, 0.06);
   --gradient-start: #FFFFFF;
-  --scrollbar-track: #0B0B0B;
-  --scrollbar-thumb: #1F1F1F;
-  --mesh-opacity: radial-gradient(rgba(255, 107, 0, 0.04) 1px, transparent 1px);
+  --scrollbar-track: #0B0B14;
+  --scrollbar-thumb: #1A1A2E;
+  --mesh-opacity: radial-gradient(rgba(232, 71, 10, 0.04) 1px, transparent 1px);
 }
 
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --color-primary: #FF6B00;
-  --color-primary-hover: #E05E00;
+  --color-primary: #E8470A;
+  --color-primary-hover: #D63D08;
+  
+  --color-brand-orange: #E8470A;
+  --color-brand-navy: #1A1A2E;
+  --color-brand-lightOrange: #FFF3EE;
+  --color-brand-grey: #666666;
+  --color-brand-success: #006600;
+  --color-brand-error: #CC0000;
 
   --color-app-bg: var(--app-bg);
   --color-app-card: var(--app-card);
@@ -42,8 +49,8 @@
   --color-app-glass: var(--app-glass-bg);
   --color-app-glass-border: var(--app-glass-border);
 
-  --font-sans: 'Plus Jakarta Sans', system-ui, sans-serif;
-  --font-heading: 'Outfit', system-ui, sans-serif;
+  --font-sans: 'Inter', 'Poppins', sans-serif;
+  --font-heading: 'Outfit', 'Inter', sans-serif;
 
   --animate-spotlight: spotlight 2s ease .75s 1 normal forwards;
 
@@ -70,8 +77,12 @@
   body {
     background-color: var(--app-bg);
     color: var(--app-text-muted);
-    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+    font-family: 'Inter', 'Poppins', sans-serif;
     overflow-x: hidden;
+  }
+  
+  main, .page-container {
+    min-height: 90vh;
   }
 
   ::-webkit-scrollbar {
@@ -86,8 +97,22 @@
     border: 2px solid var(--scrollbar-track);
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: #FF6B00;
+    background: #E8470A;
   }
+}
+
+/* Global utility for dark overlay on background graphic containers */
+.bg-graphic-overlay {
+  position: absolute;
+  inset: 0;
+  background-color: rgba(26, 26, 46, 0.4); /* brand-navy dark overlay */
+  pointer-events: none;
+  z-index: 0;
+  mix-blend-mode: multiply;
+}
+
+.dark .bg-graphic-overlay {
+  background-color: rgba(11, 11, 20, 0.6);
 }
 
 /* Performance-optimized glass panel - reduced backdrop blur */
@@ -101,25 +126,25 @@
 }
 
 .text-gradient {
-  background: linear-gradient(135deg, var(--gradient-start) 30%, #FF6B00 100%);
+  background: linear-gradient(135deg, var(--gradient-start) 30%, #E8470A 100%);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
 .text-gradient-orange {
-  background: linear-gradient(135deg, #FF9E59 0%, #FF6B00 100%);
+  background: linear-gradient(135deg, #FF9E59 0%, #E8470A 100%);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
 .orange-glow {
-  box-shadow: 0 0 50px -10px rgba(255, 107, 0, 0.2);
+  box-shadow: 0 0 50px -10px rgba(232, 71, 10, 0.2);
 }
 
 .orange-glow-hover:hover {
-  box-shadow: 0 0 30px -5px rgba(255, 107, 0, 0.35);
+  box-shadow: 0 0 30px -5px rgba(232, 71, 10, 0.35);
 }
 
 @keyframes float {
@@ -156,7 +181,7 @@
 .loader {
   width: 48px;
   height: 48px;
-  border: 5px solid #FF6B00;
+  border: 5px solid #E8470A;
   border-bottom-color: transparent;
   border-radius: 50%;
   display: inline-block;

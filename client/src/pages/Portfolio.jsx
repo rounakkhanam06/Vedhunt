@@ -382,7 +382,7 @@ export default function Portfolio() {
                         </a>
 
                         <Link
-                          to="/contact"
+                          to="/get-quote"
                           className="w-8 h-8 rounded-full bg-primary/10 border border-primary/20 text-primary flex items-center justify-center hover:bg-primary hover:text-black hover:scale-105 transition-all duration-300"
                           aria-label="Inquire about similar solution"
                         >
@@ -508,7 +508,7 @@ export default function Portfolio() {
 
               <div className="shrink-0 flex justify-center lg:justify-end">
                 <Link
-                  to="/contact"
+                  to="/get-quote"
                   className="relative inline-flex items-center gap-2 px-7 py-3.5 bg-primary hover:bg-primary-hover text-black font-extrabold text-[10px] uppercase tracking-wider rounded-xl transition-all duration-300 hover:shadow-[0_0_25px_rgba(255,107,0,0.4)] group cursor-pointer overflow-hidden"
                 >
                   <span className="absolute inset-0 bg-white/10 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-out" />

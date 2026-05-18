@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Menu, X, ArrowRight, MessageSquareCode } from 'lucide-react';
-import { NAV_LINKS } from '../../constants';
+import { NAV_LINKS, SERVICES } from '../../constants';
 import ThemeToggle from '../common/ThemeToggle';
 import { useTheme } from '../../context/ThemeContext';
 import lightLogo from '../../assets/logo_Square.jpg__1_-removebg-preview.png';
@@ -38,7 +38,7 @@ export default function Navbar() {
               <img
                 src={theme === 'dark' ? darkLogo : lightLogo}
                 alt="Vedhunt Logo"
-                className="h-10 sm:h-12 w-auto object-contain transition-transform duration-300 group-hover:scale-105"
+                className="h-14 sm:h-16 md:h-18 w-auto object-contain transition-transform duration-300 group-hover:scale-105"
               />
             </Link>
           </div>
@@ -52,45 +52,81 @@ export default function Navbar() {
                   : 'bg-app-card/30 backdrop-blur-md border-primary/10'
               }`}
             >
-              {NAV_LINKS.map((link) => (
-                <NavLink
-                  key={link.path}
-                  to={link.path}
-                  className={({ isActive }) =>
-                    `px-4 py-1.5 rounded-full text-xs font-bold tracking-tight transition-all duration-300 relative group overflow-visible ${
-                      isActive
-                        ? 'text-black'
-                        : 'text-app-text-muted hover:text-app-text'
-                    }`
-                  }
-                >
-                  {({ isActive }) => (
-                    <>
-                      <motion.span
-                        whileHover={{ scale: 1.1 }}
-                        whileTap={{ scale: 0.9 }}
-                        className="relative z-10 block"
-                      >
-                        {link.label}
-                      </motion.span>
-                      
-                      {/* Active Background Pill - Smooth Layout Transition */}
-                      {isActive && (
-                        <motion.div
-                          layoutId="activePill"
-                          className="absolute inset-0 bg-primary rounded-full shadow-[0_0_15px_rgba(255,107,0,0.4)] z-0"
-                          transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
-                        />
-                      )}
+              {NAV_LINKS.map((link) => {
+                const isServices = link.path === '/services';
+                return (
+                  <NavLink
+                    key={link.path}
+                    to={link.path}
+                    className={({ isActive }) =>
+                      `px-4 py-1.5 rounded-full text-xs font-bold tracking-tight whitespace-nowrap transition-all duration-300 relative group/nav overflow-visible ${
+                        isActive
+                          ? 'text-black'
+                          : 'text-app-text-muted hover:text-app-text'
+                      }`
+                    }
+                  >
+                    {({ isActive }) => (
+                      <>
+                        <motion.span
+                          whileHover={{ scale: 1.1 }}
+                          whileTap={{ scale: 0.9 }}
+                          className="relative z-10 block"
+                        >
+                          {link.label}
+                        </motion.span>
+                        
+                        {/* Active Background Pill - Smooth Layout Transition */}
+                        {isActive && (
+                          <motion.div
+                            layoutId="activePill"
+                            className="absolute inset-0 bg-primary rounded-full shadow-[0_0_15px_rgba(255,107,0,0.4)] z-0"
+                            transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                          />
+                        )}
 
-                      {/* Hover Underline Effect */}
-                      {!isActive && (
-                        <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-0 h-0.5 bg-primary transition-all duration-300 group-hover:w-1/2 rounded-full" />
-                      )}
-                    </>
-                  )}
-                </NavLink>
-              ))}
+                        {/* Hover Underline Effect */}
+                        {!isActive && (
+                          <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-0 h-0.5 bg-primary transition-all duration-300 group-hover/nav:w-1/2 rounded-full" />
+                        )}
+
+                        {/* Dropdown Menu for Services */}
+                        {isServices && (
+                          <div className="absolute top-full left-1/2 -translate-x-1/2 pt-3 w-72 opacity-0 translate-y-2 pointer-events-none group-hover/nav:opacity-100 group-hover/nav:translate-y-0 group-hover/nav:pointer-events-auto transition-all duration-300 z-50 cursor-default">
+                            <div 
+                              className="bg-app-card/95 backdrop-blur-2xl border border-app-border rounded-2xl p-2 shadow-[0_10px_40px_rgba(0,0,0,0.3)] flex flex-col gap-1"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {SERVICES.map((srv) => {
+                                const IconComponent = srv.icon;
+                                return (
+                                  <Link
+                                    key={srv.slug}
+                                    to={`/services/${srv.slug}`}
+                                    className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-primary/10 hover:text-primary text-app-text-muted transition-all duration-200 group/dropitem cursor-pointer"
+                                  >
+                                    <div className="w-8 h-8 rounded-lg bg-primary/5 border border-primary/10 flex items-center justify-center text-primary group-hover/dropitem:scale-110 transition-transform shrink-0">
+                                      {typeof IconComponent === 'object' || typeof IconComponent === 'function' ? (
+                                        <IconComponent className="w-4 h-4" />
+                                      ) : (
+                                        <img src={IconComponent} alt={srv.title} className="w-4 h-4 object-contain" />
+                                      )}
+                                    </div>
+                                    <div className="flex flex-col text-left overflow-hidden">
+                                      <span className="text-xs font-bold text-app-text group-hover/dropitem:text-primary transition-colors truncate">{srv.title}</span>
+                                      <span className="text-[10px] text-app-text-muted/70 truncate">{srv.subtitle}</span>
+                                    </div>
+                                  </Link>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </NavLink>
+                );
+              })}
             </nav>
           </div>
 
@@ -98,7 +134,7 @@ export default function Navbar() {
           <div className="hidden md:flex items-center gap-4">
             <ThemeToggle />
             <Link
-              to="/contact"
+              to="/get-quote"
               className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-primary text-black text-xs font-black hover:bg-primary-hover transition-all duration-300 group shadow-[0_0_20px_rgba(255,107,0,0.2)] hover:shadow-[0_0_25px_rgba(255,107,0,0.4)]"
             >
               <span>Get Quote</span>
@@ -130,27 +166,48 @@ export default function Navbar() {
               className="md:hidden mt-4 w-full bg-app-card/95 backdrop-blur-2xl border border-app-border rounded-3xl shadow-2xl overflow-hidden pointer-events-auto"
             >
               <div className="p-3 space-y-1.5">
-                {NAV_LINKS.map((link) => (
-                  <NavLink
-                    key={link.path}
-                    to={link.path}
-                    onClick={() => setIsMobileMenuOpen(false)}
-                    className={({ isActive }) =>
-                      `flex items-center justify-between px-5 py-3.5 rounded-2xl text-sm font-bold transition-all ${
-                        isActive
-                          ? 'bg-primary text-black'
-                          : 'text-app-text-muted hover:bg-white/5 hover:text-app-text'
-                      }`
-                    }
-                  >
-                    <span>{link.label}</span>
-                    {location.pathname === link.path && <ArrowRight className="w-4 h-4" />}
-                  </NavLink>
-                ))}
+                {NAV_LINKS.map((link) => {
+                  const isServices = link.path === '/services';
+                  return (
+                    <div key={link.path} className="space-y-1">
+                      <NavLink
+                        to={link.path}
+                        onClick={() => setIsMobileMenuOpen(false)}
+                        className={({ isActive }) =>
+                          `flex items-center justify-between px-5 py-3.5 rounded-2xl text-sm font-bold transition-all ${
+                            isActive
+                              ? 'bg-primary text-black'
+                              : 'text-app-text-muted hover:bg-white/5 hover:text-app-text'
+                          }`
+                        }
+                      >
+                        <span>{link.label}</span>
+                        {location.pathname === link.path && <ArrowRight className="w-4 h-4" />}
+                      </NavLink>
+
+                      {/* Indented Submenu for Mobile Services */}
+                      {isServices && (
+                        <div className="pl-4 pr-2 py-1 space-y-1 border-l-2 border-primary/20 ml-4">
+                          {SERVICES.map((srv) => (
+                            <Link
+                              key={srv.slug}
+                              to={`/services/${srv.slug}`}
+                              onClick={() => setIsMobileMenuOpen(false)}
+                              className="flex items-center justify-between px-4 py-2.5 rounded-xl text-xs font-medium text-app-text-muted hover:bg-primary/10 hover:text-primary transition-all"
+                            >
+                              <span>{srv.title}</span>
+                              <ArrowRight className="w-3 h-3 opacity-50" />
+                            </Link>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
                 
                 <div className="pt-2">
                   <Link
-                    to="/contact"
+                    to="/get-quote"
                     onClick={() => setIsMobileMenuOpen(false)}
                     className="w-full py-4 rounded-2xl font-black text-center bg-primary text-black flex items-center justify-center gap-2"
                   >

@@ -6,11 +6,14 @@ const Home = lazy(() => import('../pages/Home'));
 const About = lazy(() => import('../pages/About'));
 const Services = lazy(() => import('../pages/Services'));
 const Portfolio = lazy(() => import('../pages/Portfolio'));
-const Contact = lazy(() => import('../pages/Contact'));
+const GetQuote = lazy(() => import('../pages/GetQuote'));
+const Pricing = lazy(() => import('../pages/Pricing'));
+const Career = lazy(() => import('../pages/Career'));
 const Blog = lazy(() => import('../pages/Blog'));
 const BlogDetail = lazy(() => import('../pages/BlogDetail'));
-const Videos = lazy(() => import('../pages/Videos'));
+const ServiceDetails = lazy(() => import('../pages/ServiceDetails'));
 const NotFound = lazy(() => import('../pages/NotFound'));
+
 
 // High-fidelity, smooth loading fallback component to display during chunk fetching
 const withSuspense = (Component) => (
@@ -47,8 +50,16 @@ export const router = createBrowserRouter([
         element: withSuspense(Portfolio)
       },
       {
-        path: 'contact',
-        element: withSuspense(Contact)
+        path: 'get-quote',
+        element: withSuspense(GetQuote)
+      },
+      {
+        path: 'pricing',
+        element: withSuspense(Pricing)
+      },
+      {
+        path: 'career',
+        element: withSuspense(Career)
       },
       {
         path: 'blog',
@@ -59,13 +70,18 @@ export const router = createBrowserRouter([
         element: withSuspense(BlogDetail)
       },
       {
-        path: 'videos',
-        element: withSuspense(Videos)
+        path: 'service/:slug',
+        element: withSuspense(ServiceDetails)
+      },
+      {
+        path: 'services/:slug',
+        element: withSuspense(ServiceDetails)
       },
       {
         path: '*',
         element: withSuspense(NotFound)
       }
+
     ]
   }
 ]);

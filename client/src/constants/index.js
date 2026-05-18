@@ -1,11 +1,12 @@
 // Vedhunt Website Global Constants
 import { 
-  Laptop, 
+  Globe,
   Smartphone, 
-  Layers, 
-  TrendingUp, 
-  Search, 
   Share2, 
+  TrendingUp, 
+  Calculator,
+  LayoutDashboard,
+  Search, 
   MousePointerClick, 
   FileSpreadsheet, 
   Database, 
@@ -14,8 +15,12 @@ import {
   Award, 
   Users, 
   Clock, 
-  ShieldCheck 
+  ShieldCheck,
+  Layers
 } from 'lucide-react';
+
+import webDevIcon from '../assets/services/Gemini_Generated_Image_89l1mm89l1mm89l1.png';
+
 
 export const CONTACT_INFO = {
   phone: '+91 86524 10289',
@@ -29,22 +34,24 @@ export const CONTACT_INFO = {
 
 export const NAV_LINKS = [
   { label: 'Home', path: '/' },
+  { label: 'About', path: '/about' },
   { label: 'Services', path: '/services' },
   { label: 'Portfolio', path: '/portfolio' },
   { label: 'Blog', path: '/blog' },
-  { label: 'Videos', path: '/videos' },
-  { label: 'About Us', path: '/about' },
-  { label: 'Contact Us', path: '/contact' }
+  { label: 'Pricing', path: '/pricing' },
+  { label: 'Career', path: '/career' }
 ];
 
 export const SERVICES = [
   {
     id: 'web-dev',
-    title: 'Website Design & Development',
+    slug: 'website-development',
+    title: 'Website Development',
     subtitle: 'High Performance & Stunning Layouts',
-    shortDescription: 'We build fast, secure, and beautiful websites tailored specifically to turn your visitors into active customers.',
+    shortDescription: 'We build fast, mobile-friendly websites — from landing pages to full web portals.',
     description: 'Our development team specializes in crafting high-converting, blazing-fast web solutions that represent your brand with prestige. From responsive corporate landing pages to complex e-commerce engines, we deliver optimized visual layout combined with robust, lightweight clean code.',
-    icon: Laptop,
+    subServices: 'Static sites, CMS, E-commerce, Web Apps',
+    icon: Globe,
     features: [
       'Custom Responsive UI/UX Design',
       'Modern Single Page Applications (SPAs)',
@@ -52,14 +59,66 @@ export const SERVICES = [
       'SEO-Friendly Code Structure',
       'E-commerce Platform Integration'
     ],
+    pricingCards: [
+      {
+        title: 'React / Framework Website',
+        tech: 'Next.js · React · Tailwind · Custom CMS',
+        price: '₹30,000+',
+        features: [
+          'Custom UI/UX design from scratch',
+          'Built on React / Next.js',
+          'SEO-friendly architecture',
+          'Component-based scalable architecture',
+          'Fully responsive design',
+          'API integrations',
+          'Admin panel / CMS',
+          'Analytics setup',
+          '3 rounds of revisions',
+          'Delivery in 10–20 working days'
+        ],
+        highlight: true
+      },
+      {
+        title: 'WordPress Website',
+        tech: 'Elementor · WooCommerce',
+        price: '₹15,000+',
+        features: [
+          'Custom theme setup & design',
+          'Elementor page builder',
+          'WooCommerce support',
+          'Responsive mobile layout',
+          'SEO plugins support',
+          'Contact forms integration',
+          '2 rounds of revisions',
+          'Delivery in 7–10 working days'
+        ],
+        highlight: false
+      }
+    ],
+    technologies: [
+      { name: 'Next.js', icon: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/nextjs/nextjs-original.svg' },
+      { name: 'React', icon: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/react/react-original.svg' },
+      { name: 'Tailwind', icon: 'https://www.vectorlogo.zone/logos/tailwindcss/tailwindcss-icon.svg' },
+      { name: 'WordPress', icon: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/wordpress/wordpress-plain.svg' },
+      { name: 'WooCommerce', icon: 'https://www.vectorlogo.zone/logos/woocommerce/woocommerce-icon.svg' }
+    ],
+    timeline: [
+      { step: '01', title: 'Discovery', desc: 'Understanding your business goals and target audience.' },
+      { step: '02', title: 'Design', desc: 'Crafting premium UI/UX mockups and brand assets.' },
+      { step: '03', title: 'Development', desc: 'Building your solution with clean, performant code.' },
+      { step: '04', title: 'QA & Testing', desc: 'Rigorous testing across all devices and browsers.' },
+      { step: '05', title: 'Launch', desc: 'Deploying your project and ensuring a smooth start.' }
+    ],
     cta: 'Get Started'
   },
   {
     id: 'app-dev',
-    title: 'Mobile Application Development',
+    slug: 'mobile-app-development',
+    title: 'App Development',
     subtitle: 'Seamless iOS & Android Experiences',
-    shortDescription: 'Engaging, premium mobile apps built with top-tier user experiences for both iOS and Android platforms.',
+    shortDescription: 'Native and cross-platform mobile apps for iOS and Android.',
     description: 'We develop highly interactive, feature-rich native and cross-platform mobile apps. From wireframing to App Store deployment, we ensure a smooth, premium feel, dynamic animations, and high processing efficiency for your customers on the move.',
+    subServices: 'Flutter, React Native, Android, iOS',
     icon: Smartphone,
     features: [
       'Cross-Platform Apps (React Native / Flutter)',
@@ -71,40 +130,32 @@ export const SERVICES = [
     cta: 'Get Started'
   },
   {
-    id: 'logo-brand',
-    title: 'Logo Designings & Branding',
-    subtitle: 'Build an Unforgettable Corporate Identity',
-    shortDescription: 'Memorable brand identity and custom logo designs that distinguish your business from the competition.',
-    description: 'Your brand represents who you are. We construct complete branding packages starting with customized, vector-perfect logos, brand style guidelines, colors, typography, and stationery designs that capture your corporate values and capture instant trust.',
-    icon: Layers,
+    id: 'social-media',
+    slug: 'social-media-management',
+    title: 'Social Media Management',
+    subtitle: 'Build an Unforgettable Social Presence',
+    shortDescription: 'Consistent, creative content that builds your brand and engages your audience.',
+    description: 'Our social media experts curate compelling content and schedule engaging interactions across all major platforms. We help you build a loyal community and maintain a consistent brand voice that resonates with your target audience.',
+    subServices: 'Posts, Reels, Stories, Strategy',
+    icon: Share2,
     features: [
-      'Custom Vector Logo Designing',
-      'Complete Brand Style Guidelines',
-      'Corporate Stationery & Business Cards',
-      'Typography & Color Palette Selection',
-      'Social Media Branding Kits'
+      'Custom Content Calendar',
+      'High-Engagement Reels & Stories',
+      'Community Management',
+      'Brand Tone Development',
+      'Influencer Collaboration'
     ],
     cta: 'Get Started'
   },
   {
-    id: 'digital-marketing',
-    title: 'Digital Marketing',
+    id: 'performance-marketing',
+    slug: 'performance-marketing',
+    title: 'Performance Marketing',
     subtitle: 'Paid Ads, Brand Awareness & Content Strategy',
-    shortDescription: 'Accelerate acquisition with highly targeted Google, Meta, and LinkedIn PPC ad campaigns and creative social media branding.',
+    shortDescription: 'Data-driven ad campaigns across Google, Meta, and more — every rupee tracked.',
     description: 'We deploy high-performance outbound marketing models. From laser-targeted social media advertising on Instagram, Facebook, and LinkedIn, to search retargeting and creative content copy, we maximize your ad spend and scale your customer acquisition pipelines.',
+    subServices: 'Google Ads, Meta Ads, A/B Testing',
     icon: TrendingUp,
-    subcategories: [
-      {
-        title: 'Social Media Management',
-        desc: 'We curate compelling content and schedule engaging interactions across platforms.',
-        icon: Share2
-      },
-      {
-        title: 'Paid Ads & PPC',
-        desc: 'Accelerate acquisition with highly targeted Google, Meta, and LinkedIn ad campaigns.',
-        icon: MousePointerClick
-      }
-    ],
     features: [
       'Laser-Targeted Google & Social Ads',
       'Creative Design & Ad Copywriting',
@@ -115,45 +166,14 @@ export const SERVICES = [
     cta: 'Get Started'
   },
   {
-    id: 'seo',
-    title: 'Search Engine Optimization (SEO)',
-    subtitle: 'Organic Rankings & Search Dominance',
-    shortDescription: 'Achieve page-one search rankings, organic business leads, and thorough technical keyword optimization audits.',
-    description: 'Our organic search solutions optimize your speed, semantic hierarchy, metadata, schema markup, and backlink authority to capture high-intent buyers organically on Google and Bing.',
-    icon: Search,
-    features: [
-      'Page-One Rank Growth Planning',
-      'Detailed Keyword & Competitor Research',
-      'Technical SEO Audits & Schema Markup',
-      'Authority Backlink Building Models',
-      'On-Page Optimization & Semantic Mapping'
-    ],
-    cta: 'Get Started'
-  },
-  {
     id: 'accounting-finance',
-    title: 'Accounting & Financial Services',
+    slug: 'accounting-financial-services',
+    title: 'Accounting & Finance',
     subtitle: 'Streamlined Compliance & MIS Reporting',
-    shortDescription: 'Professional bookkeeping, taxation compliances, US/Indian accounts management, and MIS reporting.',
+    shortDescription: 'Indian and US accounting, GST, compliance, bookkeeping.',
     description: 'Manage your operations with absolute precision. We offer professional outsource accounting, tax computation, statutory audit preparation, and high-level financial reporting to enable executives to make smart, data-supported decisions.',
-    icon: DollarSign,
-    subcategories: [
-      {
-        title: 'Indian Accounting & Compliance',
-        desc: 'GST computation, filing, direct tax planning, and statutory company filings.',
-        icon: ShieldCheck
-      },
-      {
-        title: 'US Accounting Services',
-        desc: 'GAAP-compliant bookkeeping, financial statements preparation, and audits support.',
-        icon: FileSpreadsheet
-      },
-      {
-        title: 'MIS & Reporting Services',
-        desc: 'Comprehensive ledger reconciliation, executive summaries, and growth audits.',
-        icon: Briefcase
-      }
-    ],
+    subServices: 'GST Filing, ITR, US GAAP, Bookkeeping',
+    icon: Calculator,
     features: [
       'Multi-Currency Bookkeeping',
       'Tax Planning & Statutory Filings',
@@ -164,12 +184,14 @@ export const SERVICES = [
     cta: 'Get Started'
   },
   {
-    id: 'enterprise-automation',
-    title: 'Automation & Business Intelligence',
+    id: 'mis-reporting',
+    slug: 'mis-reporting-services',
+    title: 'MIS & Reporting Services',
     subtitle: 'SQL, Power BI, Python integrations',
-    shortDescription: 'Automate repetitive workflows and transform scattered data into dynamic, interactive dashboards.',
+    shortDescription: 'Automated dashboards and reports using Excel, Power BI.',
     description: 'Don\'t let manual reports slow down your team. We create automated pipelines using Python scripts, robust SQL data warehouse modeling, and interactive Power BI charts, helping you monitor critical business KPIs in real time.',
-    icon: Database,
+    subServices: 'Excel Dashboards, Power BI, Automation, KPI Reports',
+    icon: LayoutDashboard,
     features: [
       'Automated Data Pipelines (ETL)',
       'Custom Interactive Power BI Dashboards',
@@ -180,6 +202,7 @@ export const SERVICES = [
     cta: 'Get Started'
   }
 ];
+
 
 export const WHY_CHOOSE_US = [
   {

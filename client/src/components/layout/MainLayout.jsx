@@ -6,7 +6,7 @@ import ScrollToTop from '../common/ScrollToTop';
 export default function MainLayout() {
 
   return (
-    <div className="min-h-screen bg-app-bg text-app-text-muted flex flex-col relative">
+    <div className="min-h-screen bg-app-bg text-app-text-muted flex flex-col relative overflow-x-hidden">
       {/* Scroll Restorer */}
       <ScrollToTop />
 

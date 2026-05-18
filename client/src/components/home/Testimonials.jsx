@@ -48,7 +48,7 @@ export default function Testimonials() {
               className="w-full max-w-2xl px-4 md:px-8"
             >
               {/* The Card - More compact padding */}
-              <div className="relative bg-white/60 dark:bg-[#0a0a0a]/40 backdrop-blur-2xl rounded-[2rem] md:rounded-[2.5rem] rounded-tr-[3rem] md:rounded-tr-[4rem] p-5 md:p-8 shadow-[0_8px_30px_rgb(0,0,0,0.12)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.4)] text-left border border-white/60 dark:border-white/10">
+              <div className="relative bg-app-card backdrop-blur-2xl rounded-[2rem] md:rounded-[2.5rem] rounded-tr-[3rem] md:rounded-tr-[4rem] p-5 md:p-8 shadow-[0_8px_30px_rgb(0,0,0,0.12)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.4)] text-left border border-white/60 dark:border-white/10">
                 
                 {/* Orange Corner Accent */}
                 <div className="absolute top-0 right-0 w-2/3 md:w-1/2 h-full border-t-[4px] md:border-t-[6px] border-r-[4px] md:border-r-[6px] border-primary opacity-80 rounded-tr-[3rem] md:rounded-tr-[4rem] rounded-br-[2.5rem] pointer-events-none" />

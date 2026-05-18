@@ -72,6 +72,11 @@ export default function Hero() {
   return (
     <section 
       ref={sectionRef}
+      style={{
+        width: '100vw',
+        marginLeft: 'calc(-50vw + 50%)',
+        marginRight: 'calc(-50vw + 50%)',
+      }}
       className="relative min-h-[100vh] flex items-center pt-24 pb-16 overflow-hidden bg-app-bg"
     >
       {/* Full-Screen Video Background with Smooth Zoom */}
@@ -164,7 +169,7 @@ export default function Hero() {
             className="flex flex-wrap gap-5"
           >
             <Link
-              to="/contact"
+              to="/get-quote"
               className="px-10 py-4 bg-primary hover:bg-primary-hover text-black font-black text-sm rounded-full flex items-center gap-3 transition-all duration-300 hover:scale-105 group shadow-[0_0_30px_rgba(255,107,0,0.3)]"
             >
               <span>Start Project</span>

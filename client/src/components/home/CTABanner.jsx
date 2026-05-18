@@ -58,7 +58,7 @@ export default function CTABanner() {
             {/* Direct Interaction Buttons */}
             <motion.div variants={scrollFadeUp} className="flex flex-col sm:flex-row gap-4 justify-center items-center">
               <Link
-                to="/contact"
+                to="/get-quote"
                 className="px-8 py-4 bg-primary hover:bg-primary-hover text-black font-extrabold text-sm rounded-lg flex items-center justify-center gap-2.5 transition-all duration-300 shadow-[0_4px_25px_rgba(255,107,0,0.2)] hover:shadow-[0_4px_30px_rgba(255,107,0,0.55)] hover:-translate-y-0.5 group w-full sm:w-auto cursor-pointer"
               >
                 <span>Request Free Quote Callback</span>

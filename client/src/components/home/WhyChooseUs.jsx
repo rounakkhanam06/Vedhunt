@@ -1,235 +1,150 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React from 'react';
 import { motion } from 'framer-motion';
-import { ArrowUpRight } from 'lucide-react';
-import { WHY_CHOOSE_US } from '../../constants';
+import { 
+  Target, 
+  Eye, 
+  Zap, 
+  Headphones, 
+  Lightbulb, 
+  BarChart3 
+} from 'lucide-react';
 
-// Highly premium easing Count-Up number component triggering on entering viewport
-function CountUpNumber({ end, suffix = '', duration = 1600 }) {
-  const [count, setCount] = useState(0);
-  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
-  const elementRef = useRef(null);
-  const [hasTriggered, setHasTriggered] = useState(false);
-
-  // Detect reduced motion preference
-  useEffect(() => {
-    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
-    setPrefersReducedMotion(mediaQuery.matches);
-
-    const handler = (e) => setPrefersReducedMotion(e.matches);
-    mediaQuery.addEventListener('change', handler);
-    return () => mediaQuery.removeEventListener('change', handler);
-  }, []);
-
-  useEffect(() => {
-    if (!elementRef.current) return;
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setHasTriggered(true);
-          observer.disconnect();
-        }
-      },
-      { threshold: 0.1 }
-    );
-
-    observer.observe(elementRef.current);
-    return () => observer.disconnect();
-  }, []);
-
-  useEffect(() => {
-    if (!hasTriggered) return;
-
-    // Skip animation for reduced motion preference - show final value instantly
-    if (prefersReducedMotion) {
-      setCount(end);
-      return;
-    }
-
-    let startTime = null;
-    const step = (timestamp) => {
-      if (!startTime) startTime = timestamp;
-      const progress = Math.min((timestamp - startTime) / duration, 1);
-
-      // easeOutQuad mathematical deceleration
-      const easeProgress = progress * (2 - progress);
-
-      setCount(Math.floor(easeProgress * end));
-
-      if (progress < 1) {
-        window.requestAnimationFrame(step);
-      }
-    };
-
-    window.requestAnimationFrame(step);
-  }, [hasTriggered, end, duration, prefersReducedMotion]);
-
-  return (
-    <span ref={elementRef}>
-      {count}
-      {suffix}
-    </span>
-  );
-}
-
+/**
+ * WhyChooseUs - Updated with Lucide icons and Dark Theme.
+ */
 export default function WhyChooseUs() {
+  const features = [
+    {
+      icon: Target,
+      title: "Result-Oriented",
+      desc: "We focus heavily on measurable outcomes that directly drive your business growth."
+    },
+    {
+      icon: Eye,
+      title: "Full Transparency",
+      desc: "No hidden charges, no vague metrics—clear communication at every phase."
+    },
+    {
+      icon: Zap,
+      title: "Fast Turnaround",
+      desc: "Optimized agile development workflows to deliver your projects ahead of schedule."
+    },
+    {
+      icon: Headphones,
+      title: "Dedicated Support",
+      desc: "Get a dedicated account manager reachable directly over WhatsApp for seamless updates."
+    },
+    {
+      icon: Lightbulb,
+      title: "Creative + Technical",
+      desc: "A powerful combination of stunning visual UX design and robust backend engineering."
+    },
+    {
+      icon: BarChart3,
+      title: "Data-Driven",
+      desc: "Every campaign, design layout, and process optimization is backed by real user data analytics."
+    }
+  ];
 
-  const staggerContainer = {
-    hidden: {},
+  // Animation Variants
+  const containerVariants = {
+    hidden: { opacity: 0 },
     visible: {
-      transition: { staggerChildren: 0.12 }
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1,
+        delayChildren: 0.2
+      }
     }
   };
 
-  const scrollFadeUp = {
-    hidden: { opacity: 0, y: 35 },
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
     visible: {
       opacity: 1,
       y: 0,
-      transition: { duration: 0.7, ease: [0.16, 1, 0.3, 1] }
-    }
-  };
-
-  const scrollFadeLeft = {
-    hidden: { opacity: 0, x: -45 },
-    visible: {
-      opacity: 1,
-      x: 0,
-      transition: { duration: 0.8, ease: [0.16, 1, 0.3, 1] }
-    }
-  };
-
-  const scrollFadeRight = {
-    hidden: { opacity: 0, x: 45 },
-    visible: {
-      opacity: 1,
-      x: 0,
-      transition: { duration: 0.8, ease: [0.16, 1, 0.3, 1] }
+      transition: { duration: 0.5, ease: [0.25, 1, 0.5, 1] }
     }
   };
 
   return (
-    <section className="py-20 px-4 sm:px-6 lg:px-8 bg-app-card/60 relative overflow-hidden border-t border-b border-app-border content-visibility-auto">
-      {/* Glow Ambient Lights */}
-      <div className="absolute top-1/3 left-10 w-96 h-96 bg-primary/3 rounded-full filter blur-[150px] pointer-events-none" />
-      <div className="absolute bottom-1/3 right-10 w-96 h-96 bg-primary/3 rounded-full filter blur-[150px] pointer-events-none" />
-
+    <section className="py-12 px-4 bg-app-bg relative overflow-hidden mesh-grid">
+      {/* Background Ambient Glows */}
+      <div className="absolute top-1/4 left-1/3 w-96 h-96 bg-primary/5 rounded-full filter blur-[150px] pointer-events-none" />
+      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-primary/2 dark:bg-white/2 rounded-full filter blur-[150px] pointer-events-none" />
+      
       <div className="max-w-7xl mx-auto relative z-10">
         
-        {/* Header Block - Staggered scroll entry */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center mb-16">
-          <motion.div 
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: '-100px' }}
-            variants={scrollFadeLeft}
-            className="lg:col-span-7 text-left space-y-4"
+        {/* Section Header */}
+        <div className="text-center mb-20 space-y-4">
+          <motion.span 
+            initial={{ opacity: 0, y: 10 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-primary text-xs font-black uppercase tracking-[0.3em] bg-primary/10 px-4 py-1.5 rounded-full"
           >
-            <span className="text-xs font-bold text-primary uppercase tracking-widest bg-primary/10 border border-primary/25 px-3 py-1 rounded-full">
-              Why Vedhunt Infotech
-            </span>
-            <h2 className="text-3xl md:text-4xl font-extrabold font-heading text-app-text leading-tight">
-              We Don't Just Write Code. <br />
-              We Engineer <span className="text-primary">Corporate Growth Pipelines.</span>
-            </h2>
-          </motion.div>
-          
-          <motion.div 
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: '-100px' }}
-            variants={scrollFadeRight}
-            className="lg:col-span-5 text-left md:text-right"
+            Why Vedhunt
+          </motion.span>
+          <motion.h2 
+            initial={{ opacity: 0, y: 10 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.1 }}
+            className="text-4xl md:text-5xl font-black font-heading text-app-text leading-tight"
           >
-            <p className="text-app-text-muted text-xs md:text-sm leading-relaxed max-w-md lg:ml-auto">
-              Our diverse team coordinates design, lead generation, digital advertisements, legal bookkeepings, and automatic database structures under a unified operational standard.
-            </p>
-          </motion.div>
+            Engineering Success with <span className="text-primary">Precision</span>
+          </motion.h2>
+          <motion.div 
+            initial={{ scaleX: 0 }}
+            whileInView={{ scaleX: 1 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.2, duration: 0.8 }}
+            className="w-24 h-1 bg-primary mx-auto rounded-full"
+          />
         </div>
 
-        {/* Dynamic Infinite Moving Marquee - Left to Right */}
-        <div className="w-full overflow-hidden py-4 relative pointer-events-auto fade-mask">
-          <style>{`
-            @keyframes marquee-right {
-              0% { transform: translateX(-50%); }
-              100% { transform: translateX(0%); }
-            }
-            .animate-marquee-right {
-              animation: marquee-right 25s linear infinite;
-            }
-            .animate-marquee-right:hover {
-              animation-play-state: paused;
-            }
-            .fade-mask {
-              mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent);
-              -webkit-mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent);
-            }
-          `}</style>
-          
-          <div className="flex gap-6 w-max animate-marquee-right">
-            {/* Double the list of cards to make the scrolling seamless */}
-            {[...WHY_CHOOSE_US, ...WHY_CHOOSE_US].map((item, idx) => {
-              const IconComponent = item.icon;
-
-              return (
-                <div
-                  key={idx}
-                  className="glass-panel rounded-2xl p-6 md:p-8 hover:border-primary/25 transition-colors bg-app-bg/40 group flex flex-col justify-between h-72 relative w-[280px] sm:w-[320px] shrink-0"
-                >
-                  {/* Micro hovering icon */}
-                  <div className="absolute top-4 right-4 text-gray-400 dark:text-gray-700 group-hover:text-primary/40 transition-colors duration-300">
-                    <ArrowUpRight className="w-5 h-5" />
-                  </div>
-
-                  <div className="space-y-4 text-left">
-                    {/* Icon Node */}
-                    <div className="w-10 h-10 rounded-lg bg-primary/10 border border-primary/20 text-primary flex items-center justify-center orange-glow-sm">
-                      <IconComponent className="w-5 h-5" />
-                    </div>
-
-                    <h3 className="text-base font-bold text-app-text font-heading">
-                      {item.title}
-                    </h3>
-                  </div>
-
-                  <p className="text-xs text-app-text-muted leading-relaxed text-left mt-4">
-                    {item.description}
-                  </p>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Large Stats / Trust Factor Strip - Staggered scroll entry with custom viewport-triggered count-up animation */}
+        {/* Feature Grid */}
         <motion.div 
-          variants={staggerContainer}
+          variants={containerVariants}
           initial="hidden"
           whileInView="visible"
-          viewport={{ once: true, margin: '-50px' }}
-          className="mt-20 pt-12 border-t border-app-border grid grid-cols-2 md:grid-cols-4 gap-8"
+          viewport={{ once: true, margin: "-50px" }}
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
         >
-          {[
-            { value: 140, suffix: '+', desc: 'Successful Deployments' },
-            { value: 500, suffix: 'k+', desc: 'Validated Leads' },
-            { value: 99, suffix: '%', desc: 'Client Retention Ratio' },
-            { value: 4, suffix: ' Hrs', desc: 'Average Callback Response' }
-          ].map((stat, idx) => (
-            <motion.div 
-              key={idx} 
-              variants={scrollFadeUp}
-              className="text-center md:text-left space-y-1.5"
-            >
-              <div className="text-2xl md:text-4xl font-black text-app-text font-heading tracking-tight flex items-center justify-center md:justify-start gap-1">
-                <CountUpNumber end={stat.value} suffix={stat.suffix} />
-                <span className="w-1.5 h-1.5 bg-primary rounded-full inline-block" />
-              </div>
-              <p className="text-[10px] md:text-xs text-app-text-muted/70 uppercase tracking-widest font-bold">
-                {stat.desc}
-              </p>
-            </motion.div>
-          ))}
+          {features.map((feature, index) => {
+            const Icon = feature.icon;
+            return (
+              <motion.div
+                key={index}
+                variants={itemVariants}
+                className="group relative bg-app-card rounded-2xl p-8 shadow-lg border border-white/5 hover:border-primary/20 hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 flex flex-col items-start text-left"
+              >
+                {/* Subtle Gradient Background on Hover */}
+                <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-2xl" />
+
+                {/* Icon Wrapper */}
+                <div className="mb-6 w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center text-primary shadow-inner group-hover:bg-primary group-hover:text-black transition-all duration-500 transform group-hover:rotate-3">
+                  <Icon size={28} strokeWidth={2.5} />
+                </div>
+
+                {/* Title */}
+                <h3 className="text-xl font-black font-heading text-app-text mb-3 group-hover:text-primary transition-colors duration-300 relative z-10">
+                  {feature.title}
+                </h3>
+
+                {/* Description */}
+                <p className="text-app-text-muted text-sm leading-relaxed font-medium relative z-10">
+                  {feature.desc}
+                </p>
+
+                {/* Bottom Accent Line */}
+                <div className="absolute bottom-0 left-0 w-0 h-1 bg-primary group-hover:w-full transition-all duration-700 rounded-b-2xl" />
+              </motion.div>
+            );
+          })}
         </motion.div>
+
+
 
       </div>
     </section>

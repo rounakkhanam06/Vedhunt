@@ -2,7 +2,11 @@ import { motion } from 'framer-motion';
 import Hero from '../components/home/Hero';
 import ServicesPreview from '../components/home/ServicesPreview';
 import WhyChooseUs from '../components/home/WhyChooseUs';
+import ComparisonTable from '../components/home/ComparisonTable';
+import StatsCounter from '../components/home/StatsCounter';
 import Testimonials from '../components/home/Testimonials';
+import PortfolioPreview from '../components/home/PortfolioPreview';
+import PricingPreview from '../components/home/PricingPreview';
 import CTABanner from '../components/home/CTABanner';
 
 export default function Home() {
@@ -23,8 +27,20 @@ export default function Home() {
       {/* Corporate Strengths Metric Segment */}
       <WhyChooseUs />
 
+      {/* Trust-Building Comparison Matrix */}
+      <ComparisonTable />
+
+      {/* Dynamic Animated Stats Section */}
+      <StatsCounter />
+
       {/* Premium Drag-First Testimonials Slider (wearestokt.com design) */}
       <Testimonials />
+
+      {/* Sleek Portfolio Grid */}
+      <PortfolioPreview />
+
+      {/* Strategic Pricing Preview for Ad Traffic */}
+      <PricingPreview />
 
       {/* Action Billboard Banner */}
       <CTABanner />
