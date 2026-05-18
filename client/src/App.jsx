@@ -7,10 +7,9 @@ import 'lenis/dist/lenis.css';
 export default function App() {
   return (
     <ThemeProvider>
-      <ReactLenis root options={{ autoRaf: true, duration: 1.2, easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)) }}>
+      <ReactLenis root options={{ autoRaf: true, duration: 0.9, lerp: 0.1 }}>
         <RouterProvider router={router} />
       </ReactLenis>
     </ThemeProvider>
   );
 }
-

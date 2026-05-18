@@ -53,6 +53,7 @@
   --font-heading: 'Outfit', 'Inter', sans-serif;
 
   --animate-spotlight: spotlight 2s ease .75s 1 normal forwards;
+  --animate-orbit: orbit calc(var(--duration)*1s) linear infinite;
 
   @keyframes spotlight {
     0% {
@@ -62,6 +63,15 @@
     100% {
       opacity: 1;
       transform: translate(-25%, -40%) scale(1);
+    }
+  }
+
+  @keyframes orbit {
+    0% {
+      transform: rotate(0deg) translateY(calc(var(--radius) * 1px)) rotate(0deg);
+    }
+    100% {
+      transform: rotate(360deg) translateY(calc(var(--radius) * 1px)) rotate(-360deg);
     }
   }
 }

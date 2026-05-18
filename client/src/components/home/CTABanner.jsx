@@ -1,86 +1,91 @@
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowRight, Star, Sparkles } from 'lucide-react';
-import { CONTACT_INFO } from '../../constants';
+import { ArrowRight } from 'lucide-react';
+import ctaImage from '../../assets/Gemini_Generated_Image_jbm779jbm779jbm7-removebg-preview.webp';
 
 export default function CTABanner() {
-  const staggerContainer = {
-    hidden: {},
+  const containerVariants = {
+    hidden: { opacity: 0, scale: 0.98 },
     visible: {
-      transition: { staggerChildren: 0.1 }
+      opacity: 1,
+      scale: 1,
+      transition: {
+        duration: 0.8,
+        ease: [0.16, 1, 0.3, 1],
+        staggerChildren: 0.15
+      }
     }
   };
 
-  const scrollFadeUp = {
-    hidden: { opacity: 0, y: 25 },
+  const itemVariants = {
+    hidden: { opacity: 0, y: 10 },
     visible: {
       opacity: 1,
       y: 0,
-      transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1] }
+      transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] }
     }
   };
 
   return (
-    <section className="pt-2 pb-14 sm:pt-4 sm:pb-16 px-4 sm:px-6 lg:px-8 bg-app-bg relative overflow-hidden">
-      {/* Glow overlays */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[450px] h-[450px] bg-primary/10 rounded-full filter blur-[120px] pointer-events-none animate-pulse" />
-      
-      <div className="max-w-6xl mx-auto relative z-10">
+    <section className="py-4 md:py-8 px-4 sm:px-6 lg:px-8 bg-app-bg relative overflow-hidden">
+      {/* Subtle Ambient Glow */}
+      <div className="absolute top-1/2 left-1/3 -translate-x-1/2 -translate-y-1/2 w-[250px] h-[250px] bg-primary/5 rounded-full filter blur-[80px] pointer-events-none animate-pulse" />
+
+      <div className="max-w-5xl mx-auto relative z-10">
         <motion.div
           initial="hidden"
           whileInView="visible"
-          viewport={{ once: true, margin: '-80px' }}
-          variants={staggerContainer}
-          className="glass-panel rounded-3xl p-8 md:p-16 text-center bg-gradient-to-tr from-app-card via-app-card/95 to-app-bg border-app-border relative overflow-hidden orange-glow shadow-xl"
+          viewport={{ once: true, margin: '-40px' }}
+          variants={containerVariants}
+          className="relative overflow-hidden rounded-2xl border border-app-border bg-[#F5F5F7]/80 dark:bg-[#12121F]/80 p-4 md:p-6 py-6 md:py-8 text-center lg:text-left orange-glow shadow-md backdrop-blur-md"
         >
-          {/* Decorative floating dots */}
-          <div className="absolute top-6 left-6 text-primary/10 select-none">
-            <Sparkles className="w-12 h-12" />
-          </div>
-          <div className="absolute bottom-6 right-6 text-primary/10 select-none">
-            <Star className="w-12 h-12 animate-pulse" />
-          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-center">
+            
+            {/* Left Column: Centralized Text & CTA Content */}
+            <div className="lg:col-span-7 flex flex-col items-center lg:items-start text-center lg:text-left space-y-4 relative z-20">
+              <div className="space-y-1.5">
+                <motion.h2 
+                  variants={itemVariants} 
+                  className="text-xl sm:text-2xl md:text-3xl font-black font-heading text-app-text tracking-tight leading-tight"
+                >
+                  Ready to Grow Your Business?
+                </motion.h2>
+                <motion.p 
+                  variants={itemVariants} 
+                  className="text-app-text-muted text-xs sm:text-sm max-w-sm sm:max-w-md lg:max-w-none leading-relaxed"
+                >
+                  Book a free 30-minute discovery call. No commitment required.
+                </motion.p>
+              </div>
 
-          <div className="max-w-2xl mx-auto space-y-8">
-            <div className="space-y-4">
-              <motion.span variants={scrollFadeUp} className="text-primary text-[10px] md:text-xs font-extrabold uppercase tracking-widest bg-primary/10 border border-primary/20 px-3.5 py-1.5 rounded-full inline-block">
-                Start Your Digital Transformation Today
-              </motion.span>
-              <motion.h2 variants={scrollFadeUp} className="text-3xl sm:text-4xl md:text-5xl font-black font-heading text-app-text leading-tight">
-                Ready to Accelerate Your <br />
-                Business <span className="text-primary text-gradient-orange">Lead Acquisition?</span>
-              </motion.h2>
-              <motion.p variants={scrollFadeUp} className="text-app-text-muted text-xs sm:text-sm md:text-base leading-relaxed">
-                Connect with our system engineers, growth marketers, and bookkeeping experts today. We assemble comprehensive digital platforms designed explicitly to convert search traffic into direct corporate revenue.
-              </motion.p>
+              <motion.div variants={itemVariants} className="pt-1">
+                <Link
+                  to="/get-quote"
+                  className="inline-flex items-center gap-1.5 px-6 py-2 bg-black hover:bg-neutral-900 dark:bg-white dark:hover:bg-neutral-100 text-white dark:text-black font-bold text-xs rounded-full transition-all duration-300 shadow-sm hover:shadow-md hover:-translate-y-0.5 group cursor-pointer"
+                >
+                  <span>Get Free Consultation</span>
+                  <ArrowRight className="w-3.5 h-3.5 transition-transform duration-300 group-hover:translate-x-1" />
+                </Link>
+              </motion.div>
             </div>
 
-            {/* Direct Interaction Buttons */}
-            <motion.div variants={scrollFadeUp} className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-              <Link
-                to="/get-quote"
-                className="px-8 py-4 bg-primary hover:bg-primary-hover text-black font-extrabold text-sm rounded-lg flex items-center justify-center gap-2.5 transition-all duration-300 shadow-[0_4px_25px_rgba(255,107,0,0.2)] hover:shadow-[0_4px_30px_rgba(255,107,0,0.55)] hover:-translate-y-0.5 group w-full sm:w-auto cursor-pointer"
-              >
-                <span>Request Free Quote Callback</span>
-                <ArrowRight className="w-4.5 h-4.5 transition-transform duration-300 group-hover:translate-x-1" />
-              </Link>
-              
-              <a
-                href={`tel:${CONTACT_INFO.phone}`}
-                className="px-8 py-4 bg-app-bg border border-app-border hover:bg-app-card text-app-text font-bold text-sm rounded-lg flex items-center justify-center gap-2 transition-all duration-300 hover:-translate-y-0.5 w-full sm:w-auto shadow-sm"
-              >
-                <span>Call {CONTACT_INFO.phoneDisplay}</span>
-              </a>
-            </motion.div>
+            {/* Right Column: Visual CTA Image Asset */}
+            <div className="lg:col-span-5 relative flex h-[160px] md:h-[200px] w-full items-center justify-center overflow-hidden bg-transparent z-10">
+              <motion.img
+                src={ctaImage}
+                alt="Ready to Grow Your Business"
+                className="h-full w-auto object-contain max-h-[160px] md:max-h-[200px] drop-shadow-[0_10px_20px_rgba(0,0,0,0.12)] dark:drop-shadow-[0_8px_16px_rgba(232,71,10,0.15)] pointer-events-none select-none"
+                animate={{
+                  y: [0, -6, 0]
+                }}
+                transition={{
+                  duration: 5,
+                  repeat: Infinity,
+                  ease: "easeInOut"
+                }}
+              />
+            </div>
 
-            {/* Sub text list of parameters */}
-            <motion.div variants={scrollFadeUp} className="flex flex-wrap justify-center gap-x-6 gap-y-2 pt-4 border-t border-app-border text-[11px] text-app-text-muted/70 font-medium">
-              <span>✓ Itemized Proposals within 4 Hours</span>
-              <span>•</span>
-              <span>✓ 100% Free Consultation Call</span>
-              <span>•</span>
-              <span>✓ Customized Budget-Friendly Plans</span>
-            </motion.div>
           </div>
         </motion.div>
       </div>
