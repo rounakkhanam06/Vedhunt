@@ -40,7 +40,7 @@ export default function ServicesPreview() {
   };
 
   return (
-    <section className="pt-24 pb-12 px-4 sm:px-6 lg:px-8 bg-app-bg relative overflow-hidden">
+    <section className="pt-16 sm:pt-24 pb-12 px-4 sm:px-6 lg:px-8 bg-app-bg relative overflow-hidden">
       {/* Background Subtle Ambient Glows */}
       <div className="absolute top-1/2 right-0 w-96 h-96 bg-primary/5 rounded-full filter blur-[130px] pointer-events-none" />
       <div className="absolute top-1/4 left-0 w-96 h-96 bg-primary/2 dark:bg-white/1 rounded-full filter blur-[130px] pointer-events-none" />
@@ -51,9 +51,9 @@ export default function ServicesPreview() {
         <motion.div 
           initial="hidden"
           whileInView="visible"
-          viewport={{ once: true, margin: '-100px' }}
+          viewport={{ once: true, amount: 0.1 }}
           variants={staggerContainer}
-          className="text-center space-y-4 mb-20 max-w-3xl mx-auto"
+          className="text-center space-y-4 mb-12 sm:mb-16 md:mb-20 max-w-3xl mx-auto"
         >
           <motion.div variants={scrollFadeUp} className="flex items-center justify-center gap-3">
             <span className="w-8 h-[2px] bg-primary" />
@@ -63,11 +63,11 @@ export default function ServicesPreview() {
             <span className="w-8 h-[2px] bg-primary" />
           </motion.div>
           
-          <motion.h2 variants={scrollFadeUp} className="text-4xl md:text-6xl font-black font-heading text-app-text leading-tight">
+          <motion.h2 variants={scrollFadeUp} className="text-3xl sm:text-5xl md:text-6xl font-black font-heading text-app-text leading-tight">
             Services That Fit <span className="text-primary text-gradient-orange">Your Business</span>
           </motion.h2>
 
-          <motion.p variants={scrollFadeUp} className="text-app-text-muted text-sm md:text-base max-w-2xl mx-auto leading-relaxed">
+          <motion.p variants={scrollFadeUp} className="text-app-text-muted text-xs sm:text-sm md:text-base max-w-2xl mx-auto leading-relaxed">
             From digital transformation to financial clarity, we provide end-to-end technical solutions designed to scale your operations and maximize ROI.
           </motion.p>
         </motion.div>
@@ -77,8 +77,8 @@ export default function ServicesPreview() {
           variants={staggerContainer}
           initial="hidden"
           whileInView="visible"
-          viewport={{ once: true, margin: '-60px' }}
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
+          viewport={{ once: true, amount: 0.1 }}
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8"
         >
           {previewServices.map((srv) => (
             <motion.div key={srv.id} variants={scrollFadeUp}>

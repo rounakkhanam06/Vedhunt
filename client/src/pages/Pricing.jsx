@@ -292,25 +292,94 @@ export default function Pricing() {
 
         {/* Custom Requirements Banner */}
         <motion.div 
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
-          className="glass-panel rounded-3xl p-8 md:p-12 text-center space-y-6 max-w-4xl mx-auto border border-primary/20 bg-app-card/40 relative overflow-hidden shadow-2xl"
+          className="relative overflow-hidden rounded-[2.5rem] bg-[#070913] border border-white/10 px-6 py-10 md:py-14 text-center shadow-2xl max-w-5xl mx-auto"
         >
-          <div className="absolute -top-24 -right-24 w-48 h-48 bg-primary/10 rounded-full filter blur-2xl pointer-events-none" />
-          
-          <h3 className="text-2xl md:text-3xl font-black font-heading text-app-text">Need a Custom Enterprise Solution?</h3>
-          <p className="text-sm text-app-text-muted max-w-2xl mx-auto leading-relaxed">
-            Have a complex project that requires multi-service integration, custom SLA agreements, or dedicated offshore engineering teams? Let's discuss your exact architecture.
-          </p>
+          {/* Subtle Ambient Glowing Wave Background */}
+          <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-30 z-0" viewBox="0 0 1200 400" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <g filter="url(#glow-blur)">
+              <path d="M-100 350 C 100 220, 200 50, 450 160 C 700 270, 850 360, 1300 230" stroke="url(#gradient-glow)" strokeWidth="8" strokeLinecap="round" />
+              <path d="M-100 250 C 150 120, 320 310, 550 190 C 780 70, 950 140, 1300 90" stroke="url(#gradient-glow-2)" strokeWidth="4" strokeLinecap="round" opacity="0.7" />
+            </g>
+            <defs>
+              <filter id="glow-blur" x="-20%" y="-20%" width="140%" height="140%" filterUnits="userSpaceOnUse">
+                <feGaussianBlur stdDeviation="30" result="blur" />
+                <feMerge>
+                  <feMergeNode in="blur" />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
+              <linearGradient id="gradient-glow" x1="0%" y1="50%" x2="100%" y2="50%">
+                <stop offset="0%" stopColor="#ffffff" stopOpacity="0.5" />
+                <stop offset="30%" stopColor="#E8470A" stopOpacity="0.4" />
+                <stop offset="70%" stopColor="#3b82f6" stopOpacity="0.2" />
+                <stop offset="100%" stopColor="#000000" stopOpacity="0" />
+              </linearGradient>
+              <linearGradient id="gradient-glow-2" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="#ffffff" stopOpacity="0.6" />
+                <stop offset="50%" stopColor="#E8470A" stopOpacity="0.3" />
+                <stop offset="100%" stopColor="#000000" stopOpacity="0" />
+              </linearGradient>
+            </defs>
+          </svg>
 
-          <div>
-            <a
-              href="/get-quote"
-              className="inline-flex items-center gap-2 px-8 py-3.5 rounded-full bg-primary hover:bg-primary-hover text-black font-extrabold text-xs uppercase tracking-widest transition-all duration-300 shadow-[0_10px_25px_rgba(232,71,10,0.25)] hover:shadow-[0_15px_35px_rgba(232,71,10,0.45)] hover:-translate-y-0.5"
-            >
-              <span>Request Custom Estimate</span>
-            </a>
+          {/* Radial ambient glow orbs */}
+          <div className="absolute top-1/2 left-1/4 -translate-y-1/2 -translate-x-1/2 w-80 h-80 bg-primary/10 rounded-full filter blur-[120px] pointer-events-none z-0" />
+          <div className="absolute top-1/2 right-1/4 -translate-y-1/2 translate-x-1/2 w-80 h-80 bg-blue-500/5 rounded-full filter blur-[120px] pointer-events-none z-0" />
+
+          <div className="relative z-10 max-w-3xl mx-auto space-y-5">
+            {/* Typography Section */}
+            <div className="space-y-2">
+              <h3 className="text-3xl md:text-5xl font-black font-heading text-white tracking-tight leading-tight">
+                Need a Custom Enterprise Solution?
+              </h3>
+              <span className="font-signature text-3xl md:text-5xl text-white/90 font-normal tracking-wide block leading-none pt-1">
+                Like really, really custom.
+              </span>
+            </div>
+
+            {/* Bullets Section / Features Row */}
+            <div className="flex flex-col md:flex-row items-center justify-center gap-4 md:gap-8 text-white/90 text-sm md:text-[15px] font-medium py-1 md:py-2">
+              <div className="flex items-center gap-2.5">
+                <div className="flex items-center justify-center w-5 h-5 rounded-full bg-white/10 border border-white/20 text-white shrink-0">
+                  <svg className="w-3 h-3 stroke-[3]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <span>Multi-Service Integration</span>
+              </div>
+              <div className="flex items-center gap-2.5">
+                <div className="flex items-center justify-center w-5 h-5 rounded-full bg-white/10 border border-white/20 text-white shrink-0">
+                  <svg className="w-3 h-3 stroke-[3]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <span>Custom SLA Agreements</span>
+              </div>
+              <div className="flex items-center gap-2.5">
+                <div className="flex items-center justify-center w-5 h-5 rounded-full bg-white/10 border border-white/20 text-white shrink-0">
+                  <svg className="w-3 h-3 stroke-[3]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <span>Dedicated Offshore Teams</span>
+              </div>
+            </div>
+
+            {/* Button Section */}
+            <div className="pt-1">
+              <a
+                href="/get-quote"
+                className="inline-flex items-center gap-3 px-8 py-3.5 rounded-full bg-[#E8470A] hover:bg-[#D63D08] text-white font-extrabold text-xs uppercase tracking-widest transition-all duration-300 shadow-[0_12px_30px_rgba(232,71,10,0.35)] hover:shadow-[0_18px_40px_rgba(232,71,10,0.55)] hover:-translate-y-1 active:translate-y-0"
+              >
+                <span>Request Custom Estimate</span>
+                <svg className="w-4 h-4 stroke-[3]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                </svg>
+              </a>
+            </div>
           </div>
         </motion.div>
 

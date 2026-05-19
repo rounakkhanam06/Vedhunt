@@ -40,7 +40,7 @@ export default function Services() {
   };
 
   return (
-    <div className="bg-app-bg text-app-text-muted min-h-screen py-24 px-4 sm:px-6 lg:px-8 mesh-grid relative overflow-hidden">
+    <div className="bg-app-bg text-app-text-muted min-h-screen py-16 sm:py-24 px-4 sm:px-6 lg:px-8 mesh-grid relative overflow-hidden">
       {/* Background Ambient Glows */}
       <div className="absolute top-1/4 left-1/3 w-96 h-96 bg-primary/5 rounded-full filter blur-[150px] pointer-events-none" />
       <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-primary/2 dark:bg-white/2 rounded-full filter blur-[150px] pointer-events-none" />
@@ -51,17 +51,17 @@ export default function Services() {
         <motion.div 
           initial="hidden"
           whileInView="visible"
-          viewport={{ once: true, margin: '-100px' }}
+          viewport={{ once: true, amount: 0.1 }}
           variants={staggerContainer}
-          className="text-center max-w-3xl mx-auto mb-20"
+          className="text-center max-w-3xl mx-auto mb-12 sm:mb-16 md:mb-20"
         >
-          <motion.span variants={scrollFadeUp} className="text-primary text-xs font-black uppercase tracking-[0.2em] bg-primary/10 border border-primary/20 px-4 py-1.5 rounded-full">
+          <motion.span variants={scrollFadeUp} className="text-primary text-[10px] sm:text-xs font-bold uppercase tracking-[0.2em] bg-primary/10 border border-primary/20 px-4 py-1.5 rounded-full">
             Our Capabilities
           </motion.span>
-          <motion.h1 variants={scrollFadeUp} className="text-4xl md:text-6xl font-black font-heading text-app-text mt-6 mb-6 leading-tight">
+          <motion.h1 variants={scrollFadeUp} className="text-2xl sm:text-4xl md:text-5xl font-bold font-heading text-app-text mt-4 sm:mt-6 mb-4 sm:mb-6 leading-tight">
             High Performance Solutions at <span className="text-primary text-gradient-orange">Economical Prices</span>
           </motion.h1>
-          <motion.p variants={scrollFadeUp} className="text-app-text-muted text-sm md:text-base leading-relaxed max-w-2xl mx-auto">
+          <motion.p variants={scrollFadeUp} className="text-app-text-muted text-[11px] sm:text-xs md:text-sm leading-relaxed max-w-2xl mx-auto">
             We take pride in our hands-on tech expertise, proactive customer communication, and premium engineering. Explore how we scale business operations through custom solutions.
           </motion.p>
         </motion.div>
@@ -71,8 +71,8 @@ export default function Services() {
           variants={staggerContainer}
           initial="hidden"
           whileInView="visible"
-          viewport={{ once: true, margin: '-60px' }}
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10"
+          viewport={{ once: true, amount: 0.1 }}
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 lg:gap-10"
         >
           {SERVICES.map((srv) => (
             <motion.div key={srv.id} variants={scrollFadeUp}>
@@ -88,24 +88,24 @@ export default function Services() {
         <motion.div
           initial={{ opacity: 0, y: 35 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: '-100px' }}
+          viewport={{ once: true, amount: 0.1 }}
           transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-          className="mt-32 glass-panel rounded-3xl p-8 md:p-16 text-center bg-gradient-to-r from-app-card via-app-card/95 to-app-bg border border-app-border relative overflow-hidden orange-glow shadow-2xl"
+          className="mt-16 sm:mt-24 md:mt-28 glass-panel rounded-3xl py-8 sm:py-10 md:py-12 px-6 sm:px-10 text-center bg-gradient-to-r from-app-card via-app-card/95 to-app-bg border border-app-border relative overflow-hidden orange-glow shadow-2xl"
         >
           <div className="absolute -top-10 -left-10 w-40 h-40 bg-primary/10 rounded-full filter blur-3xl pointer-events-none" />
           <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-primary/10 rounded-full filter blur-3xl pointer-events-none" />
 
-          <div className="max-w-2xl mx-auto space-y-8 relative z-10">
-            <h3 className="text-3xl md:text-4xl font-black font-heading text-app-text">
+          <div className="max-w-2xl mx-auto space-y-4 sm:space-y-5 relative z-10">
+            <h3 className="text-xl sm:text-2xl md:text-3xl font-bold font-heading text-app-text">
               Not Finding a Specific Technical Capability?
             </h3>
-            <p className="text-app-text-muted text-sm md:text-base leading-relaxed">
+            <p className="text-app-text-muted text-[11px] sm:text-xs md:text-sm leading-relaxed">
               We specialize in custom web applications, custom API pipelines, scraping scripts, and specialized corporate bookkeeping architectures. Connect with our principal engineers for a custom scope.
             </p>
-            <div className="pt-4">
+            <div className="pt-2">
               <Link
                 to="/get-quote"
-                className="px-10 py-4 bg-primary hover:bg-primary-hover text-black font-black text-sm uppercase tracking-widest rounded-xl hover:shadow-[0_0_30px_rgba(255,107,0,0.5)] transition-all duration-300 inline-block cursor-pointer transform hover:-translate-y-1"
+                className="px-6 py-2.5 bg-primary hover:bg-primary-hover text-black font-bold text-xs uppercase tracking-wider rounded-xl hover:shadow-[0_0_30px_rgba(255,107,0,0.5)] transition-all duration-300 inline-block cursor-pointer transform hover:-translate-y-1"
               >
                 Connect with our Engineers
               </Link>

@@ -8,7 +8,7 @@ export default function ThemeToggle() {
   return (
     <button
       onClick={toggleTheme}
-      className="relative p-2.5 rounded-xl bg-app-card border border-app-border text-app-text hover:text-primary hover:border-primary/30 transition-colors focus:outline-none flex items-center justify-center cursor-pointer overflow-hidden group shadow-md"
+      className="relative p-1.5 rounded-full bg-app-card border border-app-border text-app-text hover:text-primary hover:border-primary/30 transition-colors focus:outline-none flex items-center justify-center cursor-pointer overflow-hidden group shadow-md"
       aria-label="Toggle Theme"
     >
       <div className="relative w-5 h-5 flex items-center justify-center">

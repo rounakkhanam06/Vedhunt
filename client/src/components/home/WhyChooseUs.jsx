@@ -76,7 +76,7 @@ export default function WhyChooseUs() {
       <div className="max-w-7xl mx-auto relative z-10">
         
         {/* Section Header */}
-        <div className="text-center mb-20 space-y-4">
+        <div className="text-center mb-12 sm:mb-16 md:mb-20 space-y-4">
           <motion.span 
             initial={{ opacity: 0, y: 10 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -90,7 +90,7 @@ export default function WhyChooseUs() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ delay: 0.1 }}
-            className="text-4xl md:text-5xl font-black font-heading text-app-text leading-tight"
+            className="text-3xl sm:text-4xl md:text-5xl font-black font-heading text-app-text leading-tight"
           >
             Engineering Success with <span className="text-primary">Precision</span>
           </motion.h2>
@@ -108,8 +108,8 @@ export default function WhyChooseUs() {
           variants={containerVariants}
           initial="hidden"
           whileInView="visible"
-          viewport={{ once: true, margin: "-50px" }}
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
+          viewport={{ once: true, amount: 0.1 }}
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8"
         >
           {features.map((feature, index) => {
             const Icon = feature.icon;

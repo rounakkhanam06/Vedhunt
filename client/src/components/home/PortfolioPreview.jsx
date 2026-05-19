@@ -136,9 +136,9 @@ export default function PortfolioPreview() {
                             <div className="w-1.5 h-1.5 rounded-full bg-yellow-500/80" />
                             <div className="w-1.5 h-1.5 rounded-full bg-green-500/80" />
                           </div>
-                          <div className="text-[9px] font-mono font-bold tracking-wider text-slate-500 dark:text-white/30 uppercase flex items-center gap-1 truncate max-w-[120px]">
-                            <ClientIcon className="w-2.5 h-2.5 text-primary" />
-                            <span>{project.title.toLowerCase().replace(/\s/g, '')}.in</span>
+                          <div className="text-[9px] font-mono font-bold tracking-wider text-slate-500 dark:text-white/30 uppercase flex items-center gap-1 max-w-[160px] xs:max-w-none min-w-0">
+                            <ClientIcon className="w-2.5 h-2.5 text-primary shrink-0" />
+                            <span className="truncate">{project.clientUrl.replace('https://', '').replace('www.', '').replace(/\/$/, '')}</span>
                           </div>
                           <div className="w-6" />
                         </div>

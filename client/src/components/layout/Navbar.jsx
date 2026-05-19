@@ -30,7 +30,11 @@ export default function Navbar() {
       <header
         className={`fixed top-4 left-1/2 -translate-x-1/2 w-full max-w-6xl z-50 transition-all duration-500 pointer-events-none px-4 md:px-8`}
       >
-        <div className="w-full flex justify-between items-center pointer-events-auto">
+        <div className={`w-full flex justify-between items-center pointer-events-auto transition-all duration-500 px-4 py-0 sm:py-0 rounded-full border shadow-xl md:bg-transparent md:border-transparent md:shadow-none ${
+          isScrolled 
+            ? 'bg-app-bg/85 backdrop-blur-xl border-app-border' 
+            : 'bg-app-card/30 backdrop-blur-md border-primary/10'
+        }`}>
           
           {/* Top Left: Logo Section */}
           <div className="flex items-center gap-4">
@@ -38,7 +42,7 @@ export default function Navbar() {
               <img
                 src={theme === 'dark' ? darkLogo : lightLogo}
                 alt="Vedhunt Logo"
-                className="h-14 sm:h-16 md:h-18 w-auto object-contain transition-transform duration-300 group-hover:scale-105"
+                className="h-16 sm:h-20 md:h-24 w-auto object-contain transition-transform duration-300 group-hover:scale-105 my-[-10px] sm:my-[-16px] md:my-[-24px]"
               />
             </Link>
           </div>
@@ -46,7 +50,7 @@ export default function Navbar() {
           {/* Centered Pill Navigation */}
           <div className="absolute left-1/2 -translate-x-1/2 hidden md:block">
             <nav 
-              className={`flex items-center gap-1 px-2 py-1.5 rounded-full border shadow-2xl transition-all duration-500 ${
+              className={`flex items-center justify-center gap-1 h-7 px-1.5 rounded-full border shadow-2xl transition-all duration-500 ${
                 isScrolled 
                   ? 'bg-app-bg/80 backdrop-blur-xl border-app-border' 
                   : 'bg-app-card/30 backdrop-blur-md border-primary/10'
@@ -59,7 +63,7 @@ export default function Navbar() {
                     key={link.path}
                     to={link.path}
                     className={({ isActive }) =>
-                      `px-4 py-1.5 rounded-full text-xs font-bold tracking-tight whitespace-nowrap transition-all duration-300 relative group/nav overflow-visible ${
+                      `flex items-center justify-center h-full px-4 rounded-full text-xs font-bold tracking-tight whitespace-nowrap transition-all duration-300 relative group/nav overflow-visible ${
                         isActive
                           ? 'text-black'
                           : 'text-app-text-muted hover:text-app-text'
@@ -135,7 +139,7 @@ export default function Navbar() {
             <ThemeToggle />
             <Link
               to="/get-quote"
-              className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-primary text-black text-xs font-black hover:bg-primary-hover transition-all duration-300 group shadow-[0_0_20px_rgba(255,107,0,0.2)] hover:shadow-[0_0_25px_rgba(255,107,0,0.4)]"
+              className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary text-black text-xs font-black hover:bg-primary-hover transition-all duration-300 group shadow-[0_0_20px_rgba(255,107,0,0.2)] hover:shadow-[0_0_25px_rgba(255,107,0,0.4)]"
             >
               <span>Get Quote</span>
               <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-1" />

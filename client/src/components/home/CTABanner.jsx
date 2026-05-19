@@ -1,13 +1,13 @@
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowRight } from 'lucide-react';
-import ctaImage from '../../assets/Gemini_Generated_Image_jbm779jbm779jbm7-removebg-preview.webp';
 
 export default function CTABanner() {
   const containerVariants = {
-    hidden: { opacity: 0, scale: 0.98 },
+    hidden: { opacity: 0, y: 30, scale: 0.98 },
     visible: {
       opacity: 1,
+      y: 0,
       scale: 1,
       transition: {
         duration: 0.8,
@@ -18,74 +18,78 @@ export default function CTABanner() {
   };
 
   const itemVariants = {
-    hidden: { opacity: 0, y: 10 },
+    hidden: { opacity: 0, y: 15 },
     visible: {
       opacity: 1,
       y: 0,
-      transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] }
+      transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1] }
     }
   };
 
   return (
-    <section className="py-4 md:py-8 px-4 sm:px-6 lg:px-8 bg-app-bg relative overflow-hidden">
-      {/* Subtle Ambient Glow */}
-      <div className="absolute top-1/2 left-1/3 -translate-x-1/2 -translate-y-1/2 w-[250px] h-[250px] bg-primary/5 rounded-full filter blur-[80px] pointer-events-none animate-pulse" />
-
-      <div className="max-w-5xl mx-auto relative z-10">
+    <section className="py-6 sm:py-10 px-4 sm:px-6 lg:px-8 bg-app-bg relative overflow-hidden">
+      <div className="max-w-7xl mx-auto relative z-10">
         <motion.div
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true, margin: '-40px' }}
           variants={containerVariants}
-          className="relative overflow-hidden rounded-2xl border border-app-border bg-[#F5F5F7]/80 dark:bg-[#12121F]/80 p-4 md:p-6 py-6 md:py-8 text-center lg:text-left orange-glow shadow-md backdrop-blur-md"
+          className="relative overflow-hidden rounded-[2.5rem] bg-primary p-8 sm:p-12 md:p-14 text-center lg:text-left shadow-2xl shadow-primary/20 border border-white/10"
         >
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-center">
-            
-            {/* Left Column: Centralized Text & CTA Content */}
-            <div className="lg:col-span-7 flex flex-col items-center lg:items-start text-center lg:text-left space-y-4 relative z-20">
-              <div className="space-y-1.5">
-                <motion.h2 
-                  variants={itemVariants} 
-                  className="text-xl sm:text-2xl md:text-3xl font-black font-heading text-app-text tracking-tight leading-tight"
-                >
-                  Ready to Grow Your Business?
-                </motion.h2>
-                <motion.p 
-                  variants={itemVariants} 
-                  className="text-app-text-muted text-xs sm:text-sm max-w-sm sm:max-w-md lg:max-w-none leading-relaxed"
-                >
-                  Book a free 30-minute discovery call. No commitment required.
-                </motion.p>
-              </div>
+          {/* Right Column Concentric Rings Pattern (Stepped Fills) */}
+          <div className="absolute top-1/2 -right-24 md:-right-36 -translate-y-1/2 w-[260px] h-[260px] sm:w-[360px] sm:h-[360px] md:w-[460px] md:h-[460px] lg:w-[520px] lg:h-[520px] flex items-center justify-center pointer-events-none z-0">
+            <div className="absolute w-[100%] h-[100%] rounded-full bg-white/[0.05] backdrop-blur-[0.5px]" />
+            <div className="absolute w-[80%] h-[80%] rounded-full bg-white/[0.08]" />
+            <div className="absolute w-[60%] h-[60%] rounded-full bg-white/[0.12]" />
+            <div className="absolute w-[40%] h-[40%] rounded-full bg-white/[0.18]" />
+            <div className="absolute w-[22%] h-[22%] rounded-full bg-white/45" />
+            <div className="absolute w-[8%] h-[8%] rounded-full bg-white shadow-[0_0_20px_rgba(255,255,255,0.6)]" />
+          </div>
 
-              <motion.div variants={itemVariants} className="pt-1">
-                <Link
-                  to="/get-quote"
-                  className="inline-flex items-center gap-1.5 px-6 py-2 bg-black hover:bg-neutral-900 dark:bg-white dark:hover:bg-neutral-100 text-white dark:text-black font-bold text-xs rounded-full transition-all duration-300 shadow-sm hover:shadow-md hover:-translate-y-0.5 group cursor-pointer"
-                >
-                  <span>Get Free Consultation</span>
-                  <ArrowRight className="w-3.5 h-3.5 transition-transform duration-300 group-hover:translate-x-1" />
-                </Link>
-              </motion.div>
+          <div className="relative z-10 max-w-xl space-y-6 sm:space-y-8">
+            {/* Header Text Segment */}
+            <div className="space-y-3">
+              <motion.h2 
+                variants={itemVariants} 
+                className="text-2xl sm:text-3xl md:text-4xl font-black font-heading text-white tracking-tight leading-tight"
+              >
+                Ready to Grow Your Business?
+              </motion.h2>
+              <motion.p 
+                variants={itemVariants} 
+                className="text-white/85 text-xs sm:text-sm font-medium leading-relaxed max-w-md mx-auto lg:mx-0"
+              >
+                Book a free 30-minute discovery call. No commitment required.
+              </motion.p>
             </div>
 
-            {/* Right Column: Visual CTA Image Asset */}
-            <div className="lg:col-span-5 relative flex h-[160px] md:h-[200px] w-full items-center justify-center overflow-hidden bg-transparent z-10">
-              <motion.img
-                src={ctaImage}
-                alt="Ready to Grow Your Business"
-                className="h-full w-auto object-contain max-h-[160px] md:max-h-[200px] drop-shadow-[0_10px_20px_rgba(0,0,0,0.12)] dark:drop-shadow-[0_8px_16px_rgba(232,71,10,0.15)] pointer-events-none select-none"
-                animate={{
-                  y: [0, -6, 0]
-                }}
-                transition={{
-                  duration: 5,
-                  repeat: Infinity,
-                  ease: "easeInOut"
-                }}
-              />
-            </div>
+            {/* Buttons Row */}
+            <motion.div 
+              variants={itemVariants} 
+              className="flex flex-col sm:flex-row gap-4 items-center justify-center lg:justify-start"
+            >
+              {/* Primary Call */}
+              <Link
+                to="/get-quote"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-4 pl-6 pr-11 py-3 bg-[#0B0B14] hover:bg-black text-white font-black text-xs uppercase tracking-wider rounded-full transition-all duration-300 shadow-xl hover:shadow-black/25 hover:-translate-y-0.5 group cursor-pointer border border-white/5 relative h-11"
+              >
+                <span>Book a discovery call</span>
+                <div className="absolute right-1.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-gradient-to-b from-white to-neutral-200 shadow-[inset_0_-2px_4px_rgba(0,0,0,0.15),0_2px_4px_rgba(0,0,0,0.25)] flex items-center justify-center group-hover:scale-105 transition-transform">
+                  <ArrowRight className="w-3.5 h-3.5 text-black group-hover:translate-x-0.5 transition-transform duration-300" />
+                </div>
+              </Link>
 
+              {/* Secondary Call */}
+              <Link
+                to="/services"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-4 pl-6 pr-11 py-3 bg-[#0B0B14] hover:bg-black text-white font-black text-xs uppercase tracking-wider rounded-full transition-all duration-300 shadow-xl hover:shadow-black/25 hover:-translate-y-0.5 group cursor-pointer border border-white/5 relative h-11"
+              >
+                <span>Explore Services</span>
+                <div className="absolute right-1.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-gradient-to-b from-white to-neutral-200 shadow-[inset_0_-2px_4px_rgba(0,0,0,0.15),0_2px_4px_rgba(0,0,0,0.25)] flex items-center justify-center group-hover:scale-105 transition-transform">
+                  <ArrowRight className="w-3.5 h-3.5 text-black group-hover:translate-x-0.5 transition-transform duration-300" />
+                </div>
+              </Link>
+            </motion.div>
           </div>
         </motion.div>
       </div>

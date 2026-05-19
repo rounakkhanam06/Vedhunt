@@ -166,11 +166,11 @@ export default function Hero() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ delay: 0.4, duration: 0.8 }}
-            className="flex flex-wrap gap-5"
+            className="flex flex-col sm:flex-row gap-4 sm:gap-5 w-full sm:w-auto"
           >
             <Link
               to="/get-quote"
-              className="px-10 py-4 bg-primary hover:bg-primary-hover text-black font-black text-sm rounded-full flex items-center gap-3 transition-all duration-300 hover:scale-105 group shadow-[0_0_30px_rgba(255,107,0,0.3)]"
+              className="px-10 py-4 bg-primary hover:bg-primary-hover text-black font-black text-sm rounded-full flex items-center justify-center gap-3 transition-all duration-300 hover:scale-105 group shadow-[0_0_30px_rgba(255,107,0,0.3)] w-full sm:w-auto text-center"
             >
               <span>Start Project</span>
               <ArrowRight className="w-5 h-5 transition-transform duration-300 group-hover:translate-x-1" />
@@ -178,7 +178,7 @@ export default function Hero() {
 
             <Link
               to="/services"
-              className="px-10 py-4 bg-white/5 backdrop-blur-md border border-white/10 hover:bg-white/10 text-white font-bold text-sm rounded-full flex items-center gap-3 transition-all duration-300 hover:scale-105"
+              className="px-10 py-4 bg-white/5 backdrop-blur-md border border-white/10 hover:bg-white/10 text-white font-bold text-sm rounded-full flex items-center justify-center gap-3 transition-all duration-300 hover:scale-105 w-full sm:w-auto text-center"
             >
               <span>View Services</span>
             </Link>

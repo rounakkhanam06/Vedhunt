@@ -106,7 +106,7 @@ export default function ComparisonTable() {
           <div className="absolute inset-0 border border-white/5 pointer-events-none z-20" />
 
           <div className="overflow-x-auto relative z-10">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full text-left border-collapse min-w-[550px] sm:min-w-full">
               {/* Table Header */}
               <thead>
                 <tr className="bg-white/[0.02] border-b border-white/10">
@@ -135,9 +135,11 @@ export default function ComparisonTable() {
                     </td>
                     
                     {/* Vedhunt Column - Highlighted */}
-                    <td className="px-4 py-2.5 text-[11px] font-black text-primary bg-primary/[0.03] border-l border-r border-primary/20 group-hover:bg-primary/[0.08] transition-colors flex items-center justify-center gap-2">
-                      <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0 shadow-[0_0_8px_rgba(255,107,0,0.8)]" />
-                      {row.vedhunt}
+                    <td className="px-4 py-2.5 text-[11px] font-black text-primary bg-primary/[0.03] border-l border-r border-primary/20 group-hover:bg-primary/[0.08] transition-colors text-center">
+                      <div className="flex items-center justify-center gap-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0 shadow-[0_0_8px_rgba(255,107,0,0.8)]" />
+                        <span>{row.vedhunt}</span>
+                      </div>
                     </td>
                     
                     {/* Typical Agency Column - Muted */}
