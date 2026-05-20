@@ -9,19 +9,19 @@ const BlogCard = ({ post }) => {
       initial={{ opacity: 0, y: 20 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
-      className="group flex flex-col h-full cursor-pointer bg-app-card border border-white/10 rounded-lg p-4 shadow-lg hover:border-primary/30 transition-all duration-500"
+      className="group flex flex-col h-full cursor-pointer glass-panel bg-app-card/65 border border-app-border rounded-lg p-4 shadow-lg hover:border-primary/30 hover:-translate-y-1 transition-all duration-500"
     >
       {/* Image and Vertical Category Container */}
       <div className="relative flex mb-6">
         {/* Vertical Category Label */}
         <div className="relative w-10 flex items-start justify-center">
-          <span className="absolute top-0 rotate-180 [writing-mode:vertical-lr] text-[10px] font-black tracking-[0.3em] text-white/40 uppercase group-hover:text-primary transition-colors duration-300">
+          <span className="absolute top-0 rotate-180 [writing-mode:vertical-lr] text-[10px] font-black tracking-[0.3em] text-app-text-muted uppercase group-hover:text-primary transition-colors duration-300">
             {post.category}
           </span>
         </div>
 
         {/* Image - Reduced height with 16:9 aspect ratio */}
-        <div className="flex-grow aspect-[2/1] overflow-hidden rounded-sm bg-white/5">
+        <div className="flex-grow aspect-[2/1] overflow-hidden rounded-sm bg-app-bg">
           <img
             src={post.image}
             alt={post.title}
@@ -32,16 +32,16 @@ const BlogCard = ({ post }) => {
 
       {/* Content */}
       <div className="flex flex-col flex-grow pl-10">
-        <h3 className="text-xl font-serif text-white mb-3 group-hover:text-primary transition-colors duration-300 leading-tight">
+        <h3 className="text-xl font-heading font-bold text-app-text mb-3 group-hover:text-primary transition-colors duration-300 leading-tight">
           {post.title}
         </h3>
 
-        <p className="text-white/50 text-sm leading-relaxed mb-6 line-clamp-2">
+        <p className="text-app-text-muted text-sm leading-relaxed mb-6 line-clamp-2">
           {post.excerpt}
         </p>
 
         <div className="mt-auto">
-          <Link to={`/blog/${post.id}`} className="flex items-center gap-2 text-white/80 hover:text-primary italic font-serif text-sm transition-colors duration-300 group/btn">
+          <Link to={`/blog/${post.id}`} className="flex items-center gap-2 text-app-text hover:text-primary italic font-serif text-sm transition-colors duration-300 group/btn">
             Read More
             <ArrowRight size={16} className="transition-transform duration-300 group-hover/btn:translate-x-1" />
           </Link>
