@@ -122,9 +122,9 @@ export default function Hero() {
 
       <motion.div 
         style={{ opacity: contentOpacity, y: contentTranslate }}
-        className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full flex items-center min-h-[60vh]"
+        className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full flex items-center min-h-[85vh] sm:min-h-[60vh]"
       >
-        <div className="max-w-4xl space-y-10 text-left">
+        <div className="max-w-4xl w-full flex flex-col justify-center space-y-8 sm:space-y-10 text-left pt-16 pb-12 sm:py-0">
           {/* Tagline from Image - Fade in from Left */}
           <motion.div
             initial={{ opacity: 0, x: -30 }}
@@ -133,18 +133,18 @@ export default function Hero() {
             transition={{ duration: 0.8, ease: "easeOut" }}
             className="space-y-1"
           >
-            <span className="text-[10px] sm:text-xs font-bold text-app-text/50 tracking-[0.4em] uppercase block mb-1">
+            <span className="text-[9.5px] sm:text-xs font-bold text-white/60 sm:text-app-text/50 tracking-[0.25em] sm:tracking-[0.4em] uppercase block mb-2 sm:mb-1">
               REAL VALUE. REAL CONTENT. REAL GROWTH
             </span>
           </motion.div>
 
-          <div className="space-y-6">
+          <div className="space-y-5 sm:space-y-6">
             <motion.h1
               initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 1, ease: [0.22, 1, 0.36, 1] }}
-              className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white font-heading tracking-tighter leading-none drop-shadow-2xl"
+              className="text-[2.5rem] leading-[1.1] sm:text-5xl lg:text-7xl font-bold text-white font-heading tracking-tighter drop-shadow-2xl"
             >
               Build. Market. <span className="text-primary">Grow.</span>
             </motion.h1>
@@ -154,7 +154,7 @@ export default function Hero() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: 0.2, duration: 1, ease: [0.22, 1, 0.36, 1] }}
-              className="max-w-xl text-sm sm:text-base text-primary font-medium leading-relaxed drop-shadow-md opacity-90"
+              className="max-w-xl text-[13px] sm:text-base text-white/90 sm:text-primary font-medium leading-relaxed drop-shadow-md"
             >
               We think beyond the boundaries, So join us to grow your business. <br className="hidden sm:block" />
               And be smart and fast.
@@ -166,19 +166,19 @@ export default function Hero() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ delay: 0.4, duration: 0.8 }}
-            className="flex flex-col sm:flex-row gap-4 sm:gap-5 w-full sm:w-auto"
+            className="flex flex-col sm:flex-row gap-3 sm:gap-5 w-full sm:w-auto pt-2 sm:pt-0"
           >
             <Link
               to="/get-quote"
-              className="px-10 py-4 bg-primary hover:bg-primary-hover text-black font-black text-sm rounded-full flex items-center justify-center gap-3 transition-all duration-300 hover:scale-105 group shadow-[0_0_30px_rgba(255,107,0,0.3)] w-full sm:w-auto text-center"
+              className="px-6 py-3.5 sm:px-10 sm:py-4 bg-primary hover:bg-primary-hover text-black font-black text-sm rounded-full flex items-center justify-center gap-2 sm:gap-3 transition-all duration-300 hover:scale-105 group shadow-[0_0_30px_rgba(255,107,0,0.3)] w-full sm:w-auto text-center"
             >
               <span>Start Project</span>
-              <ArrowRight className="w-5 h-5 transition-transform duration-300 group-hover:translate-x-1" />
+              <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 transition-transform duration-300 group-hover:translate-x-1" />
             </Link>
 
             <Link
               to="/services"
-              className="px-10 py-4 bg-white/5 backdrop-blur-md border border-white/10 hover:bg-white/10 text-white font-bold text-sm rounded-full flex items-center justify-center gap-3 transition-all duration-300 hover:scale-105 w-full sm:w-auto text-center"
+              className="px-6 py-3.5 sm:px-10 sm:py-4 bg-white/5 backdrop-blur-md border border-white/10 hover:bg-white/10 text-white font-bold text-sm rounded-full flex items-center justify-center gap-3 transition-all duration-300 hover:scale-105 w-full sm:w-auto text-center"
             >
               <span>View Services</span>
             </Link>
@@ -190,7 +190,7 @@ export default function Hero() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ delay: 0.5, duration: 0.8 }}
-            className="max-w-3xl text-xs sm:text-sm text-white/60 leading-relaxed font-medium tracking-wide mt-8"
+            className="max-w-3xl text-[11px] sm:text-sm text-white/50 sm:text-white/60 leading-relaxed sm:leading-relaxed font-medium tracking-wide mt-6 sm:mt-8 line-clamp-3 sm:line-clamp-none"
           >
             At our company, professionalism meets smart execution. We offer a wide range of high-quality services designed to simplify operations and support business growth under one trusted platform. We believe every business deserves a service partner that understands modern challenges and delivers practical, efficient solutions. Our multi-service expertise allows us to provide flexible, cost-effective, and scalable support across different industries. Your trusted partner for professional multi-service solutions.
           </motion.p>

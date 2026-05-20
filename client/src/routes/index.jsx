@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react';
 import { createBrowserRouter } from 'react-router-dom';
 import MainLayout from '../components/layout/MainLayout';
+import LandingPageLayout from '../components/layout/LandingPageLayout';
 
 const Home = lazy(() => import('../pages/Home'));
 const About = lazy(() => import('../pages/About'));
@@ -13,6 +14,7 @@ const Blog = lazy(() => import('../pages/Blog'));
 const BlogDetail = lazy(() => import('../pages/BlogDetail'));
 const ServiceDetails = lazy(() => import('../pages/ServiceDetails'));
 const NotFound = lazy(() => import('../pages/NotFound'));
+const LandingPage = lazy(() => import('../pages/LandingPage'));
 
 
 // High-fidelity, smooth loading fallback component to display during chunk fetching
@@ -82,6 +84,16 @@ export const router = createBrowserRouter([
         element: withSuspense(NotFound)
       }
 
+    ]
+  },
+  {
+    path: '/lp',
+    element: <LandingPageLayout />,
+    children: [
+      {
+        path: ':slug',
+        element: withSuspense(LandingPage)
+      }
     ]
   }
 ]);

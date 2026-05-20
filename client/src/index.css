@@ -78,7 +78,7 @@
 
 @layer base {
   html {
-    scroll-behavior: auto !important;
+    scroll-behavior: smooth !important;
     background-color: var(--app-bg);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;

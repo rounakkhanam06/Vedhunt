@@ -10,6 +10,7 @@ import marketingImg from '../assets/marketing.webp';
 import digitalMarketingImg from '../assets/digital_marketing.webp';
 import accountingImg from '../assets/accounting.webp';
 import automationImg from '../assets/automation.webp';
+import servicesHeroImg from '../assets/services/services-new-hero.png';
 
 const serviceImages = {
   'web-dev': webDevImg,
@@ -48,23 +49,56 @@ export default function Services() {
       <div className="max-w-7xl mx-auto relative z-10">
         
         {/* Banner Section */}
-        <motion.div 
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, amount: 0.1 }}
-          variants={staggerContainer}
-          className="text-center max-w-3xl mx-auto mb-12 sm:mb-16 md:mb-20"
-        >
-          <motion.span variants={scrollFadeUp} className="text-primary text-[10px] sm:text-xs font-bold uppercase tracking-[0.2em] bg-primary/10 border border-primary/20 px-4 py-1.5 rounded-full">
-            Our Capabilities
-          </motion.span>
-          <motion.h1 variants={scrollFadeUp} className="text-2xl sm:text-4xl md:text-5xl font-bold font-heading text-app-text mt-4 sm:mt-6 mb-4 sm:mb-6 leading-tight">
-            High Performance Solutions at <span className="text-primary text-gradient-orange">Economical Prices</span>
-          </motion.h1>
-          <motion.p variants={scrollFadeUp} className="text-app-text-muted text-[11px] sm:text-xs md:text-sm leading-relaxed max-w-2xl mx-auto">
-            We take pride in our hands-on tech expertise, proactive customer communication, and premium engineering. Explore how we scale business operations through custom solutions.
-          </motion.p>
-        </motion.div>
+        <div className="flex flex-col-reverse md:flex-row items-center justify-between max-w-6xl mx-auto mb-16 sm:mb-24 gap-10 md:gap-16 relative">
+          
+          {/* Text Content */}
+          <motion.div 
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, amount: 0.1 }}
+            variants={staggerContainer}
+            className="flex-1 text-center md:text-left z-10"
+          >
+            <div className="mb-4 sm:mb-6">
+              <motion.span variants={scrollFadeUp} className="inline-block text-primary text-[10px] sm:text-xs font-semibold uppercase tracking-[0.2em] bg-primary/10 border border-primary/20 px-4 py-1.5 rounded-full">
+                Our Capabilities
+              </motion.span>
+            </div>
+            <motion.h1 variants={scrollFadeUp} className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-medium font-heading text-app-text mb-6 leading-tight">
+              High Performance Solutions at <span className="text-primary text-gradient-orange font-semibold">Economical Prices</span>
+            </motion.h1>
+            <motion.p variants={scrollFadeUp} className="text-app-text-muted text-xs sm:text-sm md:text-base leading-relaxed max-w-xl mx-auto md:mx-0">
+              We take pride in our hands-on tech expertise, proactive customer communication, and premium engineering. Explore how we scale business operations through custom solutions.
+            </motion.p>
+          </motion.div>
+
+          {/* Hero Image Area */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            whileInView={{ opacity: 1, scale: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.8, ease: "easeOut" }}
+            className="flex-1 w-full max-w-sm md:max-w-lg lg:max-w-xl relative flex justify-center md:justify-end"
+          >
+            {/* Background Circle Shades */}
+            <div className="absolute top-[45%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 md:w-80 md:h-80 bg-gradient-to-tr from-primary/30 to-primary/5 rounded-full blur-xl pointer-events-none" />
+            <div className="absolute top-[45%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-56 h-56 md:w-72 md:h-72 border border-primary/20 rounded-full pointer-events-none" />
+            <div className="absolute top-[45%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-[140%] h-[140%] bg-primary/10 blur-[100px] rounded-full pointer-events-none" />
+            
+            {/* Main Image */}
+            <img 
+              src={servicesHeroImg} 
+              alt="Vedhunt Services" 
+              className="relative z-10 w-full h-auto object-contain drop-shadow-2xl animate-float-slow"
+            />
+            
+            {/* Bottom Outline / Ground Glow for UI/UX */}
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 w-3/4 h-6 bg-primary/30 blur-2xl rounded-[50%] pointer-events-none z-0" />
+            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-2/3 h-[2px] bg-gradient-to-r from-transparent via-primary/80 to-transparent opacity-70 pointer-events-none z-20" />
+            
+          </motion.div>
+          
+        </div>
 
         {/* Services Grid */}
         <motion.div

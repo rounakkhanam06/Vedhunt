@@ -36,7 +36,7 @@ const GithubIcon = (props) => (
 export default function Footer() {
   const { theme } = useTheme();
   return (
-    <footer className="relative text-app-text-muted mt-8 sm:mt-12 font-sans theme-transition">
+    <footer className="relative text-app-text-muted mt-6 sm:mt-12 font-sans theme-transition">
       {/* Wave Divider with light orange glow at the top of the footer */}
       <div className="w-full overflow-hidden leading-[0] translate-y-[1px] pointer-events-none relative z-10">
         <svg
@@ -94,10 +94,10 @@ export default function Footer() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 sm:pt-4">
           
           {/* 4-Column Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-6 pb-6 border-b border-app-border">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-4 gap-y-6 lg:gap-6 pb-4 sm:pb-6 border-b border-app-border">
             
             {/* Column 1: Branding & Profile */}
-            <div className="space-y-2">
+            <div className="space-y-2 col-span-2 lg:col-span-1">
               <Link to="/" className="flex items-center gap-2 group relative z-10">
                 <img
                   src={theme === 'dark' ? darkLogo : lightLogo}
@@ -173,7 +173,7 @@ export default function Footer() {
             </div>
 
             {/* Column 4: Contact Info & Social Connections */}
-            <div className="space-y-3 lg:pt-2 lg:pl-6">
+            <div className="space-y-3 lg:pt-2 lg:pl-6 col-span-2 lg:col-span-1">
               <h4 className="text-primary font-heading font-extrabold text-xs uppercase tracking-wider pl-1.5 border-l-2 border-primary">
                 Contact Info
               </h4>
@@ -224,7 +224,7 @@ export default function Footer() {
           </div>
 
           {/* Centered Subscription Input Capsule */}
-          <div className="py-4 border-b border-app-border/40 flex flex-col items-center justify-center text-center space-y-3">
+          <div className="py-3 sm:py-4 border-b border-app-border/40 flex flex-col items-center justify-center text-center space-y-2 sm:space-y-3">
             <div className="space-y-1 max-w-md">
               <h5 className="text-app-text font-heading font-bold text-xs sm:text-sm tracking-wide">
                 Subscribe to Our Newsletter

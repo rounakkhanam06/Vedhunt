@@ -257,13 +257,13 @@ export default function Pricing() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className="flex flex-wrap items-center justify-center gap-2 p-1.5 bg-app-card/60 backdrop-blur-md border border-app-border rounded-full max-w-4xl mx-auto shadow-lg"
+          className="flex flex-nowrap sm:flex-wrap items-center justify-start sm:justify-center gap-2 p-1.5 bg-app-card/60 backdrop-blur-md border border-app-border sm:rounded-full rounded-3xl max-w-4xl mx-auto shadow-lg overflow-x-auto snap-x snap-mandatory [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
         >
           {ALL_PRICING_CATEGORIES.map(category => (
             <button
               key={category.id}
               onClick={() => setActiveCategory(category.id)}
-              className={`px-5 py-2 rounded-full text-xs font-bold tracking-wider transition-all duration-300 cursor-pointer ${
+              className={`px-4 sm:px-5 py-2 rounded-full text-[11px] sm:text-xs font-bold tracking-wider transition-all duration-300 cursor-pointer whitespace-nowrap shrink-0 snap-center ${
                 activeCategory === category.id
                   ? 'bg-primary text-black shadow-[0_0_20px_rgba(232,71,10,0.4)]'
                   : 'text-app-text-muted hover:text-app-text hover:bg-white/5'

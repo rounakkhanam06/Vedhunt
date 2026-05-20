@@ -179,10 +179,10 @@ export default function ServiceDetails() {
           >
             {/* 1. Above the fold - Hero Container */}
             <div className="relative border-b border-app-border/40 bg-gradient-to-b from-brand-lightOrange/20 to-transparent dark:from-primary/2 dark:to-transparent">
-              <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-16">
+              <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-28 pb-10 sm:pt-24 sm:pb-16">
                 
                 {/* Breadcrumbs Navigation */}
-                <div className="mb-8 sm:mb-12">
+                <div className="mb-6 sm:mb-12">
                   <nav className="flex items-center gap-2 text-[10px] sm:text-xs font-bold uppercase tracking-wider text-app-text-muted/60">
                     <Link to="/" className="hover:text-primary transition-colors">Home</Link>
                     <span>/</span>
@@ -200,7 +200,7 @@ export default function ServiceDetails() {
                     initial="hidden"
                     animate="visible"
                     variants={stagger}
-                    className="lg:col-span-7 space-y-4 sm:space-y-6"
+                    className="lg:col-span-7 space-y-5 sm:space-y-6"
                   >
                     <motion.div variants={fadeUp} className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20">
                       <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
@@ -221,17 +221,17 @@ export default function ServiceDetails() {
                       {tagline}
                     </motion.p>
 
-                    <motion.div variants={fadeUp} className="pt-2 flex flex-wrap items-center gap-4">
+                    <motion.div variants={fadeUp} className="pt-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 w-full sm:w-auto">
                       <Link
                         to="/get-quote"
-                        className="px-6 py-2.5 bg-primary hover:bg-primary-hover text-black font-black text-xs uppercase tracking-wider rounded-xl hover:shadow-[0_0_25px_rgba(232,71,10,0.4)] transition-all duration-300 transform hover:-translate-y-0.5 cursor-pointer"
+                        className="w-full sm:w-auto text-center px-6 py-3.5 sm:py-2.5 bg-primary hover:bg-primary-hover text-black font-black text-[11px] sm:text-xs uppercase tracking-wider rounded-xl hover:shadow-[0_0_25px_rgba(232,71,10,0.4)] transition-all duration-300 transform hover:-translate-y-0.5 cursor-pointer"
                       >
                         Get Free Quote
                       </Link>
                       
                       <a
                         href="#overview"
-                        className="px-5 py-2.5 bg-app-card hover:bg-app-card/80 border border-app-border text-app-text font-black text-xs uppercase tracking-wider rounded-xl transition-all duration-300 transform hover:-translate-y-0.5"
+                        className="w-full sm:w-auto text-center px-5 py-3.5 sm:py-2.5 bg-app-card hover:bg-app-card/80 border border-app-border text-app-text font-black text-[11px] sm:text-xs uppercase tracking-wider rounded-xl transition-all duration-300 transform hover:-translate-y-0.5"
                       >
                         Explore Service
                       </a>
@@ -267,20 +267,20 @@ export default function ServiceDetails() {
             </div>
 
             {/* 2. Quick Highlights Strip */}
-            <div className="bg-brand-lightOrange dark:bg-primary/5 border-y border-app-border py-4 relative z-20">
+            <div className="bg-brand-lightOrange dark:bg-primary/5 border-y border-app-border py-6 sm:py-4 relative z-20">
               <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 items-center justify-between text-center md:text-left">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-4 items-start sm:items-center justify-between text-center md:text-left">
                   {highlights.map((hl, idx) => (
-                    <div key={idx} className="flex flex-col sm:flex-row items-center gap-2 justify-center md:justify-start group">
-                      <div className="w-8 h-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center flex-shrink-0 text-primary group-hover:scale-110 transition-transform duration-300">
-                        {idx === 0 && <DollarSign className="w-4 h-4" />}
-                        {idx === 1 && <Zap className="w-4 h-4" />}
-                        {idx === 2 && <TrendingUp className="w-4 h-4" />}
-                        {idx === 3 && <Headphones className="w-4 h-4" />}
+                    <div key={idx} className="flex flex-col sm:flex-row items-center gap-2 sm:gap-2 justify-center md:justify-start group">
+                      <div className="w-10 h-10 sm:w-8 sm:h-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center flex-shrink-0 text-primary group-hover:scale-110 transition-transform duration-300">
+                        {idx === 0 && <DollarSign className="w-5 h-5 sm:w-4 sm:h-4" />}
+                        {idx === 1 && <Zap className="w-5 h-5 sm:w-4 sm:h-4" />}
+                        {idx === 2 && <TrendingUp className="w-5 h-5 sm:w-4 sm:h-4" />}
+                        {idx === 3 && <Headphones className="w-5 h-5 sm:w-4 sm:h-4" />}
                       </div>
-                      <div className="space-y-0.5 text-center sm:text-left">
-                        <h4 className="text-xs font-black text-app-text tracking-tight uppercase leading-none">{hl.text}</h4>
-                        <p className="text-[10px] text-app-text-muted font-bold leading-none">{hl.desc}</p>
+                      <div className="space-y-1 sm:space-y-0.5 text-center sm:text-left px-2 sm:px-0">
+                        <h4 className="text-[11px] sm:text-xs font-black text-app-text tracking-wide uppercase leading-snug">{hl.text}</h4>
+                        <p className="text-[10px] sm:text-[10px] text-app-text-muted font-medium leading-relaxed sm:leading-none">{hl.desc}</p>
                       </div>
                     </div>
                   ))}
@@ -295,7 +295,7 @@ export default function ServiceDetails() {
               whileInView="visible"
               viewport={{ once: true, amount: 0.25 }}
               variants={scrollReveal}
-              className="py-16 sm:py-24 border-b border-app-border/40"
+              className="py-10 sm:py-24 border-b border-app-border/40"
             >
               <div className="max-w-3xl mx-auto px-4 text-center space-y-6">
                 <div className="inline-flex items-center gap-1.5 justify-center">
@@ -317,7 +317,7 @@ export default function ServiceDetails() {
             </motion.section>
 
             {/* 4. Sub-Services Grid Section */}
-            <section className="py-16 sm:py-24 border-b border-app-border/40 bg-app-card/10">
+            <section className="py-10 sm:py-24 border-b border-app-border/40 bg-app-card/10">
               <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
                 
                 <motion.div 
@@ -372,7 +372,7 @@ export default function ServiceDetails() {
             </section>
 
             {/* 5. Process Flow Section */}
-            <section className="py-16 sm:py-24 border-b border-app-border/40 relative">
+            <section className="py-10 sm:py-24 border-b border-app-border/40 relative">
               <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
                 
                 <motion.div 
@@ -401,12 +401,21 @@ export default function ServiceDetails() {
                     className="absolute top-[28px] left-8 right-8 h-0.5 bg-dashed border-t border-dashed border-app-border hidden lg:block z-0 origin-left" 
                   />
 
+                  {/* Connecting Vertical Line for Mobile/Tablet */}
+                  <motion.div 
+                    initial={{ scaleY: 0 }}
+                    whileInView={{ scaleY: 1 }}
+                    viewport={{ once: true, amount: 0.5 }}
+                    transition={{ duration: 1.2, ease: "easeInOut", delay: 0.2 }}
+                    className="absolute top-[28px] bottom-[28px] left-[27px] w-0.5 border-l border-dashed border-app-border block lg:hidden z-0 origin-top" 
+                  />
+
                   <motion.div 
                     initial="hidden"
                     whileInView="visible"
                     viewport={{ once: true, amount: 0.15 }}
                     variants={staggerContainer}
-                    className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8 relative z-10"
+                    className="flex flex-col lg:grid lg:grid-cols-5 gap-6 lg:gap-8 relative z-10"
                   >
                     {process.map((step, idx) => (
                       <motion.div 
@@ -420,21 +429,21 @@ export default function ServiceDetails() {
                             transition: { type: "spring", stiffness: 100, damping: 15 } 
                           }
                         }}
-                        className="flex flex-col items-center lg:items-start text-center lg:text-left space-y-4 group"
+                        className="flex flex-row lg:flex-col items-start text-left gap-6 lg:gap-0 lg:space-y-4 group relative"
                       >
                         
                         {/* Step Number Circle */}
-                        <div className="w-14 h-14 rounded-full bg-app-card border border-app-border flex items-center justify-center text-primary font-black text-sm shadow-sm group-hover:border-primary group-hover:shadow-md transition-all duration-300 relative">
+                        <div className="w-14 h-14 shrink-0 rounded-full bg-app-bg border border-app-border flex items-center justify-center text-primary font-black text-sm shadow-sm group-hover:border-primary group-hover:shadow-md transition-all duration-300 relative z-10">
                           <span className="relative z-10">{step.step}</span>
                           <div className="absolute inset-0.5 rounded-full bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                         </div>
 
                         {/* Title & Description */}
-                        <div className="space-y-1.5 px-4 lg:px-0">
-                          <h4 className="text-xs sm:text-sm font-black text-app-text uppercase tracking-wide group-hover:text-primary transition-colors">
+                        <div className="space-y-1.5 pt-2 lg:pt-0">
+                          <h4 className="text-[13px] sm:text-sm font-black text-app-text uppercase tracking-wide group-hover:text-primary transition-colors">
                             {step.title}
                           </h4>
-                          <p className="text-[11px] sm:text-xs text-app-text-muted leading-relaxed font-medium">
+                          <p className="text-[11px] sm:text-[12px] text-app-text-muted leading-relaxed font-medium">
                             {step.desc}
                           </p>
                         </div>
@@ -448,7 +457,7 @@ export default function ServiceDetails() {
             </section>
 
             {/* 6. Pricing Packages Section */}
-            <section className="py-16 sm:py-24 border-b border-app-border/40 bg-app-card/5">
+            <section className="py-10 sm:py-24 border-b border-app-border/40 bg-app-card/5">
               <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
                 
                 <motion.div 
@@ -497,7 +506,7 @@ export default function ServiceDetails() {
                   whileInView="visible"
                   viewport={{ once: true, amount: 0.15 }}
                   variants={staggerContainer}
-                  className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-stretch max-w-5xl mx-auto"
+                  className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8 items-stretch max-w-5xl mx-auto"
                 >
                   {pricing.plans.map((plan, idx) => {
                     const price = billingCycle === 'primary' ? plan.priceOneTime : plan.priceSupport;
@@ -606,7 +615,7 @@ export default function ServiceDetails() {
             </section>
 
             {/* 7. Portfolio / Case Studies Section */}
-            <section className="py-16 sm:py-24 border-b border-app-border/40">
+            <section className="py-10 sm:py-24 border-b border-app-border/40">
               <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
                 
                 <motion.div 
@@ -671,7 +680,7 @@ export default function ServiceDetails() {
             </section>
 
             {/* 8. FAQ Accordion Section */}
-            <section className="py-16 sm:py-24 border-b border-app-border/40 bg-app-card/10">
+            <section className="py-10 sm:py-24 border-b border-app-border/40 bg-app-card/10">
               <div className="max-w-4xl mx-auto px-4">
                 
                 <motion.div 
@@ -740,7 +749,7 @@ export default function ServiceDetails() {
             </section>
 
             {/* 9. Client Testimonial Section */}
-            <section className="py-16 sm:py-24 border-b border-app-border/40">
+            <section className="py-10 sm:py-24 border-b border-app-border/40">
               <div className="max-w-4xl mx-auto px-4">
                 
                 <motion.div 

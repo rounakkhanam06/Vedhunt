@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { Check, ArrowRight, Laptop, Share2, TrendingUp } from 'lucide-react';
@@ -127,21 +127,60 @@ export default function PricingPreview() {
   const [hoveredIndex, setHoveredIndex] = useState(null);
   // Track active tab for each card index (default all to 'starter')
   const [activeTabs, setActiveTabs] = useState({ 0: 'starter', 1: 'starter', 2: 'starter' });
+  const scrollContainerRef = useRef(null);
+
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    
+    // Only auto-scroll on mobile where it's actually a scrollable row
+    if (window.innerWidth >= 640) return; // sm breakpoint
+
+    let intervalId;
+    const startScroll = () => {
+      intervalId = setInterval(() => {
+        if (!container) return;
+        const maxScrollLeft = container.scrollWidth - container.clientWidth;
+        if (container.scrollLeft >= maxScrollLeft - 10) {
+          container.scrollTo({ left: 0, behavior: 'smooth' });
+        } else {
+          container.scrollBy({ left: container.clientWidth * 0.85, behavior: 'smooth' });
+        }
+      }, 3000); // 3 seconds per slide
+    };
+
+    startScroll();
+
+    const stopScroll = () => clearInterval(intervalId);
+
+    container.addEventListener('mouseenter', stopScroll);
+    container.addEventListener('mouseleave', startScroll);
+    container.addEventListener('touchstart', stopScroll, { passive: true });
+    container.addEventListener('touchend', startScroll, { passive: true });
+
+    return () => {
+      clearInterval(intervalId);
+      container.removeEventListener('mouseenter', stopScroll);
+      container.removeEventListener('mouseleave', startScroll);
+      container.removeEventListener('touchstart', stopScroll);
+      container.removeEventListener('touchend', startScroll);
+    };
+  }, []);
 
   return (
-    <section className="py-16 px-4 bg-app-bg relative overflow-hidden">
+    <section className="py-10 px-4 bg-app-bg relative overflow-hidden">
       {/* Background Ambience */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-[1000px] h-[400px] bg-primary/5 blur-[120px] pointer-events-none rounded-full" />
       
       <div className="max-w-7xl mx-auto relative z-10">
         
         {/* Header */}
-        <div className="text-center mb-12 space-y-3">
+        <div className="text-center mb-8 space-y-2">
           <motion.h2 
             initial={{ opacity: 0, y: 10 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="text-3xl md:text-5xl font-black font-heading text-white tracking-tight"
+            className="text-3xl md:text-4xl font-black font-heading text-white tracking-tight"
           >
             Flexible <span className="text-primary">Pricing Plans</span>
           </motion.h2>
@@ -150,14 +189,17 @@ export default function PricingPreview() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ delay: 0.1 }}
-            className="text-white/60 text-sm md:text-base max-w-2xl mx-auto"
+            className="text-white/60 text-sm max-w-2xl mx-auto"
           >
             Premium solutions built to fit your budget.
           </motion.p>
         </div>
 
         {/* Pricing Cards Grid (Compact & Interactive) */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+        <div 
+          ref={scrollContainerRef}
+          className="flex sm:grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8 overflow-x-auto snap-x snap-mandatory pb-4 -mx-4 px-4 sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+        >
           {serviceCategories.map((card, index) => {
             const currentTier = card.tiers[activeTabs[index]];
 
@@ -170,7 +212,7 @@ export default function PricingPreview() {
                 transition={{ delay: index * 0.1, duration: 0.5 }}
                 onMouseEnter={() => setHoveredIndex(index)}
                 onMouseLeave={() => setHoveredIndex(null)}
-                className={`relative rounded-2xl overflow-hidden transition-all duration-500 ${
+                className={`relative rounded-2xl overflow-hidden transition-all duration-500 min-w-[85vw] sm:min-w-0 snap-center ${
                   card.popular 
                     ? 'border-primary/50 shadow-[0_0_25px_rgba(255,107,0,0.15)] bg-app-card/50' 
                     : 'border-white/10 hover:border-white/20 bg-app-card/20'
@@ -189,31 +231,31 @@ export default function PricingPreview() {
                   </div>
                 )}
 
-                <div className="p-6 md:p-7 relative z-10 flex flex-col flex-grow">
+                <div className="p-5 relative z-10 flex flex-col flex-grow">
                   
                   {/* Tier Icon & Title */}
-                  <div className="flex items-center gap-3.5 mb-3">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
                       card.popular ? 'bg-primary text-black shadow-lg shadow-primary/20' : 'bg-white/5 text-white/80 group-hover:bg-white/10 group-hover:text-white'
                     } transition-colors duration-300`}>
-                      <card.icon size={20} />
+                      <card.icon size={16} />
                     </div>
                     <div>
-                      <h3 className="text-lg font-bold text-white tracking-tight">{card.title}</h3>
+                      <h3 className="text-base font-bold text-white tracking-tight leading-tight">{card.title}</h3>
                     </div>
                   </div>
 
-                  <p className="text-white/50 text-xs mb-5 leading-relaxed min-h-[32px]">
+                  <p className="text-white/50 text-[11px] mb-3 leading-snug min-h-[30px]">
                     {card.description}
                   </p>
 
                   {/* Tabs Switcher (Starter | Growth | Enterprise) */}
-                  <div className="flex bg-white/5 p-1 rounded-xl border border-white/10 mb-6">
+                  <div className="flex bg-white/5 p-1 rounded-lg border border-white/10 mb-4">
                     {['starter', 'growth', 'enterprise'].map((tabKey) => (
                       <button
                         key={tabKey}
                         onClick={() => setActiveTabs(prev => ({ ...prev, [index]: tabKey }))}
-                        className={`flex-1 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all duration-300 ${
+                        className={`flex-1 py-1 text-[9px] font-bold uppercase tracking-wider rounded-md transition-all duration-300 ${
                           activeTabs[index] === tabKey
                             ? card.popular 
                               ? 'bg-primary text-black shadow-md' 
@@ -227,7 +269,7 @@ export default function PricingPreview() {
                   </div>
 
                   {/* Price Display */}
-                  <div className="mb-6 flex items-baseline h-[40px] items-center">
+                  <div className="mb-4 flex items-baseline h-[32px] items-center">
                     <AnimatePresence mode="wait">
                       <motion.div
                         key={currentTier.price}
@@ -237,23 +279,23 @@ export default function PricingPreview() {
                         transition={{ duration: 0.2 }}
                         className="flex items-baseline"
                       >
-                        <span className="text-3xl md:text-4xl font-black text-white tracking-tight">{currentTier.price}</span>
-                        <span className="text-white/40 text-xs font-medium ml-1">{currentTier.period}</span>
+                        <span className="text-2xl md:text-3xl font-black text-white tracking-tight">{currentTier.price}</span>
+                        <span className="text-white/40 text-[10px] font-medium ml-1">{currentTier.period}</span>
                       </motion.div>
                     </AnimatePresence>
                   </div>
 
                   {/* Divider */}
-                  <div className="w-full h-px bg-white/10 mb-6" />
+                  <div className="w-full h-px bg-white/10 mb-4" />
 
                   {/* Features List */}
-                  <ul className="space-y-3 mb-8 flex-grow">
+                  <ul className="space-y-2 mb-5 flex-grow">
                     {currentTier.features.map((feature, i) => (
-                      <li key={i} className="flex items-start gap-2.5">
+                      <li key={i} className="flex items-start gap-2">
                         <div className={`mt-0.5 rounded-full p-0.5 ${card.popular ? 'bg-primary/20 text-primary' : 'bg-white/5 text-white/60'} shrink-0`}>
-                          <Check size={10} strokeWidth={3} />
+                          <Check size={8} strokeWidth={3} />
                         </div>
-                        <span className="text-xs font-medium text-white/80 leading-tight">
+                        <span className="text-[11px] font-medium text-white/80 leading-tight">
                           {feature}
                         </span>
                       </li>
@@ -263,14 +305,14 @@ export default function PricingPreview() {
                   {/* CTA Button */}
                   <Link 
                     to="/pricing"
-                    className={`w-full py-3 rounded-xl flex items-center justify-center gap-2 text-xs font-bold transition-all duration-300 ${
+                    className={`w-full py-2.5 rounded-xl flex items-center justify-center gap-2 text-[11px] font-bold transition-all duration-300 ${
                       card.popular 
                         ? 'bg-primary text-black hover:bg-white shadow-[0_0_15px_rgba(255,107,0,0.3)] hover:shadow-[0_0_15px_rgba(255,255,255,0.4)]' 
                         : 'bg-white/5 text-white hover:bg-white/10 border border-white/10'
                     }`}
                   >
                     Get Started
-                    <ArrowRight size={14} className={hoveredIndex === index ? 'translate-x-1 transition-transform' : 'transition-transform'} />
+                    <ArrowRight size={12} className={hoveredIndex === index ? 'translate-x-1 transition-transform' : 'transition-transform'} />
                   </Link>
                 </div>
               </motion.div>
