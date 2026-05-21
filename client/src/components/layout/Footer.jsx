@@ -162,6 +162,11 @@ export default function Footer() {
                   </Link>
                 </li>
                 <li>
+                  <Link to="/faq" className="hover:text-primary hover:translate-x-1.5 transition-all duration-300 block py-0.5">
+                    FAQ's
+                  </Link>
+                </li>
+                <li>
                   <Link to="/get-quote" className="hover:text-primary hover:translate-x-1.5 transition-all duration-300 block py-0.5">
                     Contact Support
                   </Link>

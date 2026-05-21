@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown, ShieldCheck } from 'lucide-react';
-import dpaHeroImage from '../assets/dpa_hero.png';
+import dpaHeroImage from '../assets/footer-illustration/undraw_security-on_3ykb.svg';
 
 const dpaSections = [
   {
@@ -106,14 +106,13 @@ export default function DPA() {
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.6, delay: 0.2 }}
-              className="relative rounded-3xl overflow-hidden shadow-2xl border border-app-border"
+              className="relative flex justify-center items-center p-4"
             >
               <img 
                 src={dpaHeroImage} 
                 alt="Data Processing Security" 
-                className="w-full h-auto object-cover aspect-video"
+                className="w-full h-auto object-contain dark:opacity-90"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
             </motion.div>
           </div>
         </div>

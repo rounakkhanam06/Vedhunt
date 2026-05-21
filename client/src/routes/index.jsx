@@ -20,7 +20,7 @@ const TermsConditions = lazy(() => import('../pages/TermsConditions'));
 const RefundPolicy = lazy(() => import('../pages/RefundPolicy'));
 const CookiePolicy = lazy(() => import('../pages/CookiePolicy'));
 const DPA = lazy(() => import('../pages/DPA'));
-
+const FAQ = lazy(() => import('../pages/FAQ'));
 
 
 // High-fidelity, smooth loading fallback component to display during chunk fetching
@@ -104,6 +104,10 @@ export const router = createBrowserRouter([
       {
         path: 'data-processing-agreement',
         element: withSuspense(DPA)
+      },
+      {
+        path: 'faq',
+        element: withSuspense(FAQ)
       },
       {
         path: '*',

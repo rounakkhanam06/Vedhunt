@@ -1,135 +1,155 @@
-import LegalPageLayout from '../components/layout/LegalPageLayout';
+import { motion } from 'framer-motion';
+import { Link } from 'react-router-dom';
+import { ArrowLeft } from 'lucide-react';
+import privacyImage from '../assets/footer-illustration/undraw_handshake-deal_nwk6.svg';
 
 export default function PrivacyPolicy() {
   return (
-    <LegalPageLayout
-      title="Privacy Policy"
-      description="Data Protection & User Privacy at Vedhunt"
-      lastUpdated="May 2024"
-    >
-      <div className="space-y-8">
-        <section>
-          <p>
-            Vedhunt InfoTech ("we," "our," or "us") is committed to protecting the privacy and security of our clients, partners, and visitors. We collect and process information only to deliver better services, enhance user experience, and fulfill our contractual and legal obligations.
-          </p>
-          <p className="mt-4">
-            This Privacy Policy explains how we handle, store, and safeguard your personal and business information.
-          </p>
-        </section>
+    <div className="min-h-screen bg-app-bg text-app-text pt-32 pb-24 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto">
+        
+        {/* Header Section */}
+        <div className="mb-12">
+          <Link 
+            to="/" 
+            className="inline-flex items-center text-primary hover:text-primary/80 font-medium mb-6 transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back
+          </Link>
+          <motion.h1 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-4xl md:text-5xl font-black font-heading mb-4"
+          >
+            Privacy Policy
+          </motion.h1>
+          <motion.p 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="text-slate-500 dark:text-slate-400 font-medium"
+          >
+            Last Updated: May 2026
+          </motion.p>
+        </div>
 
-        <section>
-          <h2 className="text-2xl font-bold font-heading text-app-text mb-4">1. Scope of This Policy</h2>
-          <p>This policy applies to:</p>
-          <ul className="list-disc pl-6 mt-2 space-y-2">
-            <li>Visitors to our website (www.vedhunt.in)</li>
-            <li>Registered users of the Vedhunt Client Portal</li>
-            <li>Clients and partners using our services, including website and app development, digital marketing, automation, analytics, accounting, and reporting solutions.</li>
-          </ul>
-        </section>
-
-        <section>
-          <h2 className="text-2xl font-bold font-heading text-app-text mb-4">2. Information We Collect</h2>
-          <h3 className="text-lg font-bold text-app-text mt-4 mb-2">a) Information You Provide Voluntarily</h3>
-          <ul className="list-disc pl-6 space-y-2">
-            <li>Your name, business name, job title, email address, and contact number.</li>
-            <li>Project briefs, files, and data shared for development, automation, or analysis.</li>
-            <li>Login credentials (username, email) for secure access to our client portal.</li>
-            <li>Communication history (emails, chat, forms, or tickets) for support purposes.</li>
-          </ul>
-
-          <h3 className="text-lg font-bold text-app-text mt-6 mb-2">b) Information Collected Automatically</h3>
-          <ul className="list-disc pl-6 space-y-2">
-            <li>Device information (browser, operating system, IP address).</li>
-            <li>Session data (pages visited, duration, and referral sources).</li>
-            <li>Cookies or analytics data to understand how our services are used.</li>
-          </ul>
-
-          <h3 className="text-lg font-bold text-app-text mt-6 mb-2">c) Information from Third Parties</h3>
-          <ul className="list-disc pl-6 space-y-2">
-            <li>Integrated tools (Google Ads, Power BI, LinkedIn, Meta Business Suite).</li>
-            <li>Authorized partners or analytics services that help us optimize performance.</li>
-          </ul>
+        {/* Content Section */}
+        <div className="flex flex-col lg:flex-row gap-12 lg:gap-24 relative">
           
-          <div className="mt-4 p-4 bg-primary/10 text-app-text rounded-xl border border-primary/20">
-            <p className="font-semibold">💡 We do not collect unnecessary personal data, and we never sell, trade, or rent your information.</p>
+          {/* Left Column - Text Content */}
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="flex-1 space-y-10 text-slate-600 dark:text-app-text-muted leading-relaxed"
+          >
+            <section className="text-lg">
+              <p>
+                Your privacy is important to us. It is Vedhunt InfoTech's policy to respect your privacy regarding any information we may collect from you across our website, and other sites we own and operate.
+              </p>
+              <p className="mt-4">
+                We only collect information about you if we have a reason to do so — for example, to provide our Services, to communicate with you, or to make our Services better.
+              </p>
+            </section>
+
+            <section>
+              <h2 className="text-2xl font-bold font-heading text-app-text mb-6">Information We Collect</h2>
+              
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-lg font-bold text-app-text mb-2 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-primary"></span>
+                    Personal Information
+                  </h3>
+                  <p className="ml-4">We collect personal information that you provide to us when you use our Services, such as your name, email address, and any other contact information you provide.</p>
+                </div>
+                
+                <div>
+                  <h3 className="text-lg font-bold text-app-text mb-2 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-primary"></span>
+                    Usage Data
+                  </h3>
+                  <p className="ml-4">We collect information about your interactions with our Services, such as the pages you visit, the links you click, and the search terms you use.</p>
+                </div>
+              </div>
+            </section>
+
+            <section>
+              <h2 className="text-2xl font-bold font-heading text-app-text mb-6">How We Use Information</h2>
+              <p className="mb-4">We use the information we collect in various ways, including to:</p>
+              <ul className="space-y-3">
+                {[
+                  'Provide, operate, and maintain our website.',
+                  'Improve, personalize, and expand our website.',
+                  'Understand and analyze how you use our website.',
+                  'Develop new products, services, features, and functionality.',
+                  'Communicate with you, either directly or through one of our partners, for customer service, updates, and marketing.'
+                ].map((item, index) => (
+                  <li key={index} className="flex items-start">
+                    <span className="text-primary mr-3 mt-1">•</span>
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+
+            <section>
+              <h2 className="text-2xl font-bold font-heading text-app-text mb-6">Data Storage and Security</h2>
+              <p>
+                Your information is stored securely on encrypted servers and trusted cloud platforms. We employ enterprise-grade security systems including SSL encryption, multi-factor authentication, and regular audits to ensure your data remains protected.
+              </p>
+              <div className="mt-6 p-6 bg-primary/5 dark:bg-primary/10 rounded-2xl border border-primary/10 dark:border-primary/20 flex items-start gap-4">
+                <span className="text-2xl">💡</span>
+                <p className="font-medium text-app-text text-sm">
+                  We do not collect unnecessary personal data, and we never sell, trade, or rent your information to third parties.
+                </p>
+              </div>
+            </section>
+
+            <section>
+              <h2 className="text-2xl font-bold font-heading text-app-text mb-6">Contact Us</h2>
+              <p className="mb-6">If you have any questions or concerns regarding this Privacy Policy, please reach out to our team:</p>
+              <div className="bg-white dark:bg-app-card p-8 rounded-2xl shadow-sm border border-slate-200 dark:border-app-border space-y-4">
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">@</div>
+                  <div>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">Email Address</p>
+                    <a href="mailto:info@vedhunt.in" className="text-app-text font-semibold hover:text-primary transition-colors">info@vedhunt.in</a>
+                  </div>
+                </div>
+                <div className="w-full h-px bg-slate-100 dark:bg-app-border"></div>
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">#</div>
+                  <div>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">Phone Number</p>
+                    <p className="text-app-text font-semibold">+91 86524 10289</p>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </motion.div>
+
+          {/* Right Column - Sticky Image */}
+          <div className="hidden lg:block lg:w-5/12 relative">
+            <div className="sticky top-8 -mt-12 lg:-mt-24">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.4, duration: 0.5 }}
+                className="relative flex items-center justify-center p-4"
+              >
+                <img 
+                  src={privacyImage} 
+                  alt="Privacy and Security Illustration" 
+                  className="w-full h-auto object-contain dark:opacity-90 transition-opacity"
+                />
+              </motion.div>
+            </div>
           </div>
-        </section>
 
-        <section>
-          <h2 className="text-2xl font-bold font-heading text-app-text mb-4">3. Purpose of Data Collection</h2>
-          <ul className="list-disc pl-6 space-y-2">
-            <li>Providing and maintaining our services and client portal.</li>
-            <li>Communicating updates, deliverables, and project progress.</li>
-            <li>Improving our systems, dashboards, and user experience.</li>
-            <li>Responding to support requests or technical inquiries.</li>
-            <li>Fulfilling contractual and billing obligations.</li>
-            <li>Ensuring compliance with data protection and security standards.</li>
-          </ul>
-          <p className="mt-4">All data collected is used solely to serve our clients better — not for unsolicited marketing or unrelated activities.</p>
-        </section>
-
-        <section>
-          <h2 className="text-2xl font-bold font-heading text-app-text mb-4">4. Legal Basis for Processing</h2>
-          <ul className="list-disc pl-6 space-y-2">
-            <li><strong>Contractual necessity:</strong> To deliver agreed services.</li>
-            <li><strong>Legitimate interest:</strong> To maintain and improve service quality.</li>
-            <li><strong>Consent:</strong> For communications like newsletters or feedback (optional).</li>
-            <li><strong>Legal obligation:</strong> To comply with applicable data protection laws.</li>
-          </ul>
-        </section>
-
-        <section>
-          <h2 className="text-2xl font-bold font-heading text-app-text mb-4">5. Data Storage and Retention</h2>
-          <ul className="list-disc pl-6 space-y-2">
-            <li>Your information is stored securely on encrypted servers and trusted cloud platforms.</li>
-            <li>Access is restricted to authorized Vedhunt personnel only.</li>
-            <li>We retain personal data only as long as required for the purpose it was collected, after which it is securely deleted or anonymized.</li>
-          </ul>
-        </section>
-
-        <section>
-          <h2 className="text-2xl font-bold font-heading text-app-text mb-4">6. Data Security</h2>
-          <ul className="list-disc pl-6 space-y-2">
-            <li>End-to-end SSL encryption on all Vedhunt websites and portals.</li>
-            <li>Multi-factor authentication for internal accounts.</li>
-            <li>Firewall and malware protection via enterprise-grade security systems.</li>
-            <li>Encrypted data transfers through secure protocols (HTTPS, sFTP).</li>
-            <li>Strict confidentiality agreements with all employees and contractors.</li>
-            <li>Regular audits and data recovery backups.</li>
-          </ul>
-        </section>
-
-        <section>
-          <h2 className="text-2xl font-bold font-heading text-app-text mb-4">7. Data Sharing and Disclosure</h2>
-          <p className="mb-4">Vedhunt InfoTech does not sell, rent, or lease personal data under any circumstance. We may share information only with:</p>
-          <ul className="list-disc pl-6 space-y-2">
-            <li>Internal teams and authorized partners directly involved in service delivery.</li>
-            <li>Third-party vendors providing infrastructure, analytics, or email communication tools — all bound by confidentiality and data protection agreements.</li>
-            <li>Government authorities or regulators, but only when legally required.</li>
-          </ul>
-        </section>
-
-        <section>
-          <h2 className="text-2xl font-bold font-heading text-app-text mb-4">8. Cookies and Tracking Technologies</h2>
-          <p className="mb-4">We use cookies and analytics tools (e.g., Google Analytics, Meta Pixel) to:</p>
-          <ul className="list-disc pl-6 space-y-2">
-            <li>Improve website functionality and user experience.</li>
-            <li>Measure performance of marketing campaigns.</li>
-            <li>Recognize returning visitors and personalize content.</li>
-          </ul>
-          <p className="mt-4">You can manage or disable cookies through your browser settings. Some functions may not work properly if cookies are disabled.</p>
-        </section>
-
-        <section>
-          <h2 className="text-2xl font-bold font-heading text-app-text mb-4">9. Contact Us</h2>
-          <p className="mb-4">If you have any questions or concerns regarding this Privacy Policy or how your information is handled, please contact:</p>
-          <div className="bg-slate-50 dark:bg-black/20 p-6 rounded-xl border border-slate-100 dark:border-app-border space-y-2">
-            <p><strong>Email:</strong> <a href="mailto:info@vedhunt.in" className="text-primary hover:underline">info@vedhunt.in</a></p>
-            <p><strong>Phone:</strong> +91 86524 10289</p>
-            <p><strong>Address:</strong> Vedhunt InfoTech, Pune, Maharashtra, India</p>
-          </div>
-        </section>
+        </div>
       </div>
-    </LegalPageLayout>
+    </div>
   );
 }
