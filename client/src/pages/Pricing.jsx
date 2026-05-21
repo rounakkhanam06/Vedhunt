@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Link } from 'react-router-dom';
 import PricingCard from '../components/services/PricingCard';
 
 const ALL_PRICING_CATEGORIES = [
@@ -371,15 +372,15 @@ export default function Pricing() {
 
             {/* Button Section */}
             <div className="pt-1">
-              <a
-                href="/get-quote"
+              <Link
+                to="/get-quote"
                 className="inline-flex items-center gap-3 px-8 py-3.5 rounded-full bg-black dark:bg-[#E8470A] hover:bg-gray-800 dark:hover:bg-[#D63D08] text-white font-extrabold text-xs uppercase tracking-widest transition-all duration-300 shadow-[0_12px_30px_rgba(0,0,0,0.35)] dark:shadow-[0_12px_30px_rgba(232,71,10,0.35)] hover:-translate-y-1 active:translate-y-0"
               >
                 <span>Request Custom Estimate</span>
                 <svg className="w-4 h-4 stroke-[3]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
                 </svg>
-              </a>
+              </Link>
             </div>
           </div>
         </motion.div>

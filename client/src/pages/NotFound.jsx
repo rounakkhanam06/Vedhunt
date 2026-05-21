@@ -4,7 +4,7 @@ import { Home, ArrowLeft, HelpCircle } from 'lucide-react';
 
 export default function NotFound() {
   return (
-    <div className="min-h-[80vh] flex items-center justify-center px-4 relative overflow-hidden mesh-grid py-20 bg-app-bg text-app-text-muted">
+    <div className="min-h-[80vh] flex items-center justify-center px-4 relative overflow-hidden mesh-grid py-20 bg-white dark:bg-app-bg text-slate-600 dark:text-app-text-muted">
       {/* Dynamic blurred backdrop nodes */}
       <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/10 rounded-full filter blur-[120px] pointer-events-none" />
       <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-primary/2 dark:bg-white/3 rounded-full filter blur-[120px] pointer-events-none" />
@@ -34,7 +34,7 @@ export default function NotFound() {
           <h2 className="text-2xl md:text-3xl font-bold font-heading text-app-text">
             Lost in the Digital Hunt?
           </h2>
-          <p className="text-app-text-muted text-sm leading-relaxed max-w-sm mx-auto">
+          <p className="text-slate-600 dark:text-app-text-muted text-sm leading-relaxed max-w-sm mx-auto">
             The page you are looking for does not exist, has been archived, or was moved to another location. Let's guide you back to safety.
           </p>
         </div>
@@ -56,7 +56,7 @@ export default function NotFound() {
           
           <Link
             to="/services"
-            className="px-6 py-3 bg-app-card border border-app-border hover:bg-app-bg hover:border-primary/20 text-app-text font-bold rounded-lg flex items-center justify-center gap-2 transition-all duration-300 hover:-translate-y-0.5"
+            className="px-6 py-3 bg-white dark:bg-app-card border border-slate-200 dark:border-app-border hover:bg-slate-50 hover:dark:bg-app-bg hover:border-primary/20 hover:dark:border-primary/20 text-app-text font-bold rounded-lg flex items-center justify-center gap-2 transition-all duration-300 hover:-translate-y-0.5 shadow-sm hover:shadow-md dark:shadow-none dark:hover:shadow-none"
           >
             <ArrowLeft className="w-4 h-4" />
             <span>Explore Services</span>
