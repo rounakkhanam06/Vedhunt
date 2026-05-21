@@ -40,7 +40,7 @@ export default function ServicesPreview() {
   };
 
   return (
-    <section className="pt-16 sm:pt-24 pb-12 px-4 sm:px-6 lg:px-8 bg-app-bg relative overflow-hidden">
+    <section className="pt-16 sm:pt-24 pb-4 sm:pb-12 px-4 sm:px-6 lg:px-8 bg-app-bg relative overflow-hidden">
       {/* Background Subtle Ambient Glows */}
       <div className="absolute top-1/2 right-0 w-96 h-96 bg-primary/5 rounded-full filter blur-[130px] pointer-events-none" />
       <div className="absolute top-1/4 left-0 w-96 h-96 bg-primary/2 dark:bg-white/1 rounded-full filter blur-[130px] pointer-events-none" />
@@ -96,11 +96,11 @@ export default function ServicesPreview() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ delay: 0.5, duration: 0.5 }}
-          className="mt-12 text-center"
+          className="mt-8 sm:mt-12 text-center"
         >
           <Link
             to="/services"
-            className="inline-flex items-center gap-2 px-8 py-4 bg-white/5 hover:bg-white/10 text-app-text font-black text-sm uppercase tracking-widest rounded-xl border border-white/10 transition-all duration-300 group"
+            className="inline-flex items-center gap-2 px-5 py-2.5 sm:px-8 sm:py-4 bg-white/5 hover:bg-white/10 text-app-text font-black text-xs sm:text-sm uppercase tracking-widest rounded-xl border border-white/10 transition-all duration-300 group"
           >
             <span>Explore All Services</span>
             <span className="w-5 h-5 rounded-full bg-primary flex items-center justify-center group-hover:scale-110 transition-transform">

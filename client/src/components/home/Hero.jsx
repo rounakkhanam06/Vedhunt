@@ -77,7 +77,7 @@ export default function Hero() {
         marginLeft: 'calc(-50vw + 50%)',
         marginRight: 'calc(-50vw + 50%)',
       }}
-      className="relative min-h-[100vh] flex items-center pt-24 pb-16 overflow-hidden bg-app-bg"
+      className="relative min-h-[50vh] md:min-h-[100vh] flex items-center pt-24 pb-4 md:pb-16 md:pt-28 overflow-hidden bg-app-bg"
     >
       {/* Full-Screen Video Background with Smooth Zoom */}
       <motion.div 
@@ -122,9 +122,9 @@ export default function Hero() {
 
       <motion.div 
         style={{ opacity: contentOpacity, y: contentTranslate }}
-        className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full flex items-center min-h-[85vh] sm:min-h-[60vh]"
+        className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full flex items-center min-h-[auto] sm:min-h-[60vh] md:min-h-[85vh]"
       >
-        <div className="max-w-4xl w-full flex flex-col justify-center space-y-8 sm:space-y-10 text-left pt-16 pb-12 sm:py-0">
+        <div className="max-w-4xl w-full flex flex-col justify-center space-y-8 sm:space-y-10 text-left pt-8 pb-8 sm:py-0">
           {/* Tagline from Image - Fade in from Left */}
           <motion.div
             initial={{ opacity: 0, x: -30 }}

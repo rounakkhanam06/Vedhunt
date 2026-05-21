@@ -109,7 +109,7 @@ export default function Career() {
   };
 
   return (
-    <div className="min-h-screen bg-app-bg text-app-text relative pt-36 pb-20 px-4 sm:px-6 lg:px-8 overflow-hidden">
+    <div className="min-h-screen bg-app-bg text-app-text relative pt-24 sm:pt-36 pb-12 sm:pb-20 px-4 sm:px-6 lg:px-8 overflow-hidden">
       
       {/* Universal Floating Mesh Backdrop */}
       <div className="absolute inset-0 mesh-grid opacity-35 pointer-events-none z-0" />
@@ -130,7 +130,7 @@ export default function Career() {
       <div className="max-w-6xl mx-auto relative z-10 space-y-20">
         
         {/* New Hero Section */}
-        <div className="flex flex-col-reverse lg:flex-row items-center lg:items-start justify-between gap-12 lg:gap-20 mb-16 relative -mt-4 lg:-mt-8">
+        <div className="flex flex-col-reverse lg:flex-row items-center lg:items-start justify-between gap-2 sm:gap-12 lg:gap-20 mb-8 sm:mb-16 relative -mt-4 lg:-mt-8">
           
           {/* Left Content */}
           <div className="flex-1 space-y-4 lg:space-y-6 z-10 w-full max-w-xl text-center lg:text-left pt-0">
@@ -193,12 +193,12 @@ export default function Career() {
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.8 }}
-            className="flex-1 relative w-full flex justify-center lg:justify-end min-h-[300px] lg:min-h-[350px] items-center lg:pr-8"
+            className="flex-1 relative w-full flex justify-center lg:justify-end min-h-[200px] sm:min-h-[300px] lg:min-h-[350px] items-center lg:pr-8 -mb-6 sm:mb-0"
           >
             <img 
               src={careerHeroImg} 
               alt="Career Opportunities" 
-              className="relative z-10 w-full max-w-[280px] sm:max-w-sm lg:max-w-[340px] object-contain drop-shadow-[0_20px_30px_rgba(0,0,0,0.5)]"
+              className="relative z-10 w-full max-w-[240px] sm:max-w-sm lg:max-w-[340px] object-contain drop-shadow-[0_20px_30px_rgba(0,0,0,0.5)]"
             />
           </motion.div>
         </div>

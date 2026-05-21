@@ -21,7 +21,7 @@ export default function Testimonials() {
 
   return (
     <section
-      className="py-16 md:py-24 bg-app-bg text-app-text overflow-hidden relative select-none border-t border-b border-app-border"
+      className="pt-12 pb-6 md:py-24 bg-app-bg text-app-text overflow-hidden relative select-none border-t border-b border-app-border"
       id="testimonials"
     >
       {/* Background Ambient Glows */}
@@ -95,7 +95,7 @@ export default function Testimonials() {
                   </div>
 
                   {/* Quote Text */}
-                  <p className="text-sm md:text-base text-slate-700 dark:text-zinc-300 font-medium italic leading-relaxed relative z-10">
+                  <p className="text-sm md:text-base text-slate-700 dark:text-zinc-300 font-medium italic leading-relaxed relative z-10 line-clamp-5 md:line-clamp-none h-[110px] md:h-auto overflow-hidden">
                     "{t.quote}"
                   </p>
                 </div>
@@ -105,7 +105,7 @@ export default function Testimonials() {
         </div>
 
         {/* Carousel Controls */}
-        <div className="mt-8 flex items-center justify-center gap-6 relative z-20">
+        <div className="mt-4 md:mt-8 flex items-center justify-center gap-6 relative z-20">
           <button 
             onClick={prev} 
             className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-app-bg border border-app-border flex items-center justify-center text-app-text hover:bg-primary hover:text-black hover:border-primary transition-all duration-300 shadow-md"

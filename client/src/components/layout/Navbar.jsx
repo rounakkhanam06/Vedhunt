@@ -46,7 +46,7 @@ export default function Navbar() {
 
       {/* Main Floating Header */}
       <header
-        className={`fixed ${isScrolled ? 'top-4' : 'top-12'} left-1/2 -translate-x-1/2 w-full max-w-6xl z-40 transition-all duration-500 pointer-events-none px-4 md:px-8`}
+        className={`fixed ${isScrolled ? 'top-2 sm:top-4' : 'top-4 sm:top-12'} left-1/2 -translate-x-1/2 w-full max-w-6xl z-40 transition-all duration-500 pointer-events-none px-4 md:px-8`}
       >
         <div className={`w-full flex justify-between items-center pointer-events-auto transition-all duration-500 px-4 py-0 sm:py-0 rounded-full border shadow-xl md:bg-transparent md:border-transparent md:shadow-none ${
           isScrolled 

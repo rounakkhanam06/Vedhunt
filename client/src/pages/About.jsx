@@ -196,72 +196,110 @@ export default function About() {
             whileInView="visible"
             viewport={{ once: true, margin: '-80px' }}
             variants={staggerContainer}
-            className="lg:col-span-6 relative flex items-center justify-center"
+            className="lg:col-span-6 flex items-center justify-center mt-12 lg:mt-0 px-4 sm:px-8 lg:px-0"
           >
-            
-            {/* Curved absolute frame offset around circle */}
-            <div className="absolute -top-6 -left-6 -bottom-6 -right-6 border-[3px] border-dashed border-primary/25 rounded-full pointer-events-none animate-spin" style={{ animationDuration: '40s' }} />
+            {/* Image & Decor Wrapper for perfect relative positioning */}
+            <div className="relative w-full max-w-[280px] sm:max-w-[360px] lg:max-w-[420px] aspect-square">
+              
+              {/* Curved absolute frame offset around circle */}
+              <div className="absolute -top-4 -left-4 -bottom-4 -right-4 sm:-top-6 sm:-left-6 sm:-bottom-6 sm:-right-6 border-[2px] sm:border-[3px] border-dashed border-primary/30 rounded-full pointer-events-none animate-spin" style={{ animationDuration: '40s' }} />
 
-            {/* Glowing Accent Orb underneath circle */}
-            <div className="absolute inset-4 rounded-full bg-primary/15 filter blur-2xl animate-pulse pointer-events-none" />
+              {/* Glowing Accent Orb underneath circle */}
+              <div className="absolute inset-0 rounded-full bg-primary/20 filter blur-xl sm:blur-2xl animate-pulse pointer-events-none" />
 
-            {/* Large Circle image mask with robust orange stroke */}
-            <motion.div 
-              variants={imageReveal}
-              className="relative w-full max-w-[420px] aspect-square rounded-full border-[10px] border-primary overflow-hidden shadow-[0_20px_50px_rgba(255,107,0,0.25)] group transition-transform duration-500 hover:scale-[1.02]"
-            >
-              <img
-                src={teamImg}
-                alt="Vedhunt Creative Team"
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-              />
-              {/* Sleek warm dark brand-orange overlay */}
-              <div className="absolute inset-0 bg-gradient-to-t from-primary/15 via-transparent to-transparent pointer-events-none mix-blend-multiply" />
-            </motion.div>
+              {/* Large Circle image mask with robust orange stroke */}
+              <motion.div 
+                variants={imageReveal}
+                className="relative w-full h-full rounded-full border-[6px] sm:border-[10px] border-primary overflow-hidden shadow-[0_20px_50px_rgba(255,107,0,0.25)] group transition-transform duration-500 hover:scale-[1.02] z-10"
+              >
+                <img
+                  src={teamImg}
+                  alt="Vedhunt Creative Team"
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                />
+                {/* Sleek warm dark brand-orange overlay */}
+                <div className="absolute inset-0 bg-gradient-to-t from-primary/20 via-transparent to-transparent pointer-events-none mix-blend-multiply" />
+              </motion.div>
 
-            {/* Floating Live Stat Bubble 1: Retention */}
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.8, x: -30 }}
-              whileInView={{ opacity: 1, scale: 1, x: 0 }}
-              viewport={{ once: true }}
-              transition={{ type: 'spring', stiffness: 100, delay: 0.5 }}
-              className="absolute top-10 left-0 bg-app-card border border-app-border rounded-2xl p-4 shadow-xl flex items-center gap-3 orange-glow-sm hover:border-primary/35 transition-colors"
-            >
-              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-black text-sm">
-                99%
-              </div>
-              <div className="text-left">
-                <p className="text-[10px] font-extrabold text-primary uppercase tracking-wider">Client</p>
-                <p className="text-xs font-black text-app-text">Retention</p>
-              </div>
-            </motion.div>
+              {/* Floating Live Stat Bubble 1: Retention */}
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.8, x: -20 }}
+                whileInView={{ opacity: 1, scale: 1, x: 0 }}
+                viewport={{ once: true }}
+                transition={{ type: 'spring', stiffness: 100, delay: 0.5 }}
+                className="absolute top-4 -left-8 sm:top-10 sm:-left-12 bg-app-card/95 backdrop-blur-md border border-app-border rounded-2xl p-3 sm:p-4 shadow-xl flex items-center gap-2 sm:gap-3 orange-glow-sm hover:border-primary/40 transition-colors z-20"
+              >
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-black text-xs sm:text-sm">
+                  99%
+                </div>
+                <div className="text-left">
+                  <p className="text-[9px] sm:text-[10px] font-extrabold text-primary uppercase tracking-wider">Client</p>
+                  <p className="text-[11px] sm:text-xs font-black text-app-text">Retention</p>
+                </div>
+              </motion.div>
 
-            {/* Floating Live Stat Bubble 2: Projects */}
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.8, x: 30 }}
-              whileInView={{ opacity: 1, scale: 1, x: 0 }}
-              viewport={{ once: true }}
-              transition={{ type: 'spring', stiffness: 100, delay: 0.6 }}
-              className="absolute bottom-10 right-0 bg-app-card border border-app-border rounded-2xl p-4 shadow-xl flex items-center gap-3 orange-glow-sm hover:border-primary/35 transition-colors"
-            >
-              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-black text-sm">
-                140+
-              </div>
-              <div className="text-left">
-                <p className="text-[10px] font-extrabold text-primary uppercase tracking-wider">Active</p>
-                <p className="text-xs font-black text-app-text">Projects</p>
-              </div>
-            </motion.div>
-
+              {/* Floating Live Stat Bubble 2: Projects */}
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.8, x: 20 }}
+                whileInView={{ opacity: 1, scale: 1, x: 0 }}
+                viewport={{ once: true }}
+                transition={{ type: 'spring', stiffness: 100, delay: 0.6 }}
+                className="absolute bottom-4 -right-8 sm:bottom-10 sm:-right-12 bg-app-card/95 backdrop-blur-md border border-app-border rounded-2xl p-3 sm:p-4 shadow-xl flex items-center gap-2 sm:gap-3 orange-glow-sm hover:border-primary/40 transition-colors z-20"
+              >
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-black text-xs sm:text-sm">
+                  140+
+                </div>
+                <div className="text-left">
+                  <p className="text-[9px] sm:text-[10px] font-extrabold text-primary uppercase tracking-wider">Active</p>
+                  <p className="text-[11px] sm:text-xs font-black text-app-text">Projects</p>
+                </div>
+              </motion.div>
+            </div>
           </motion.div>
 
         </div>
 
         {/* About Our Company Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-16 items-center mb-28 text-left">
+        <div className="flex flex-col lg:grid lg:grid-cols-12 gap-10 lg:gap-16 items-start mb-28 text-left">
           
-          {/* Left Column: Overlapping Offset Double Images */}
-          <div className="lg:col-span-6 relative flex items-center justify-center min-h-[400px] sm:min-h-[480px]">
+          {/* Mobile First Heading Block (Order 1 on mobile, Top-Right on desktop) */}
+          <motion.div 
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: '-80px' }}
+            variants={staggerContainer}
+            className="order-1 lg:col-span-6 lg:col-start-7 lg:row-start-1 space-y-6"
+          >
+            {/* Tagline / Subtitle */}
+            <motion.div variants={scrollFadeUp} className="flex items-center gap-2">
+              <span className="text-xs font-extrabold text-primary uppercase tracking-widest">
+                About Our Company
+              </span>
+              <span className="w-8 h-[2px] bg-primary" />
+            </motion.div>
+
+            {/* Main Header with Scroll Encrypted Text Animation */}
+            <motion.h2 
+              variants={scrollFadeUp}
+              className="text-3xl md:text-4xl font-black font-heading text-app-text leading-tight flex flex-col gap-1"
+            >
+              <EncryptedText 
+                text="Empowering Businesses" 
+                revealedClassName="text-app-text"
+                encryptedClassName="text-primary/60 font-mono"
+                revealDelayMs={25}
+              />
+              <EncryptedText 
+                text="Through Smart Technology & Ethical Strategy" 
+                revealedClassName="text-primary text-gradient-orange"
+                encryptedClassName="text-primary/60 font-mono"
+                revealDelayMs={15}
+              />
+            </motion.h2>
+          </motion.div>
+
+          {/* Overlapping Offset Double Images (Order 2 on mobile, Left-spanning 2 rows on desktop) */}
+          <div className="order-2 lg:col-span-6 lg:col-start-1 lg:row-start-1 lg:row-span-2 relative flex items-center justify-center min-h-[400px] sm:min-h-[480px] w-full self-center">
             
             {/* Fluid Flowing Wave & Halftone Dotted Layer Design (from reference image) */}
             <svg 
@@ -391,41 +429,14 @@ export default function About() {
             </div>
           </div>
 
-          {/* Right Column: Company Content Block */}
+          {/* Remaining Company Content Block (Order 3 on mobile, Bottom-Right on desktop) */}
           <motion.div 
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true, margin: '-80px' }}
             variants={staggerContainer}
-            className="lg:col-span-6 space-y-6"
+            className="order-3 lg:col-span-6 lg:col-start-7 lg:row-start-2 space-y-6 lg:-mt-10"
           >
-            {/* Tagline / Subtitle */}
-            <motion.div variants={scrollFadeUp} className="flex items-center gap-2">
-              <span className="text-xs font-extrabold text-primary uppercase tracking-widest">
-                About Our Company
-              </span>
-              <span className="w-8 h-[2px] bg-primary" />
-            </motion.div>
-
-            {/* Main Header with Scroll Encrypted Text Animation */}
-            <motion.h2 
-              variants={scrollFadeUp}
-              className="text-3xl md:text-4xl font-black font-heading text-app-text leading-tight flex flex-col gap-1"
-            >
-              <EncryptedText 
-                text="Empowering Businesses" 
-                revealedClassName="text-app-text"
-                encryptedClassName="text-primary/60 font-mono"
-                revealDelayMs={25}
-              />
-              <EncryptedText 
-                text="Through Smart Technology & Ethical Strategy" 
-                revealedClassName="text-primary text-gradient-orange"
-                encryptedClassName="text-primary/60 font-mono"
-                revealDelayMs={15}
-              />
-            </motion.h2>
-
             {/* Core Description (Second Image text) */}
             <motion.div 
               variants={scrollFadeUp}
@@ -610,7 +621,7 @@ export default function About() {
         </motion.div>
 
         {/* What We Do Section */}
-        <div className="mb-28 text-left space-y-12">
+        <div className="mb-16 md:mb-28 text-left space-y-12">
           <motion.div 
             initial="hidden"
             whileInView="visible"
@@ -667,7 +678,7 @@ export default function About() {
         </div>
 
         {/* Vision & Mission Section (Slide on scroll from edges with custom offset diagonal corner brackets) */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-28">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-8 mb-16 md:mb-28">
           
           {/* Vision card - slides from left */}
           <motion.div
@@ -675,7 +686,7 @@ export default function About() {
             whileInView="visible"
             viewport={{ once: true, margin: '-100px' }}
             variants={scrollFadeLeft}
-            className="glass-panel rounded-3xl p-8 md:p-10 text-left bg-gradient-to-br from-app-card/60 via-app-card/30 to-transparent border border-app-border relative overflow-visible group hover:border-primary/30 transition-all duration-300 hover:shadow-[0_15px_30px_rgba(255,107,0,0.06)]"
+            className="glass-panel rounded-3xl p-6 md:p-10 text-left bg-gradient-to-br from-app-card/60 via-app-card/30 to-transparent border border-app-border relative overflow-visible group hover:border-primary/30 transition-all duration-300 hover:shadow-[0_15px_30px_rgba(255,107,0,0.06)]"
           >
             {/* Masked internal container for blur circle */}
             <div className="absolute inset-0 overflow-hidden rounded-3xl pointer-events-none">
@@ -683,8 +694,8 @@ export default function About() {
             </div>
 
             {/* Premium Corner Brackets matching website branding theme (diagonal top-right and bottom-left layout) */}
-            <div className="absolute -top-1.5 -right-1.5 w-12 h-12 border-t-[4px] border-r-[4px] border-primary rounded-tr-3xl pointer-events-none transition-transform duration-300 group-hover:translate-x-1 group-hover:-translate-y-1 group-hover:scale-105" />
-            <div className="absolute -bottom-1.5 -left-1.5 w-12 h-12 border-b-[4px] border-l-[4px] border-primary rounded-bl-3xl pointer-events-none transition-transform duration-300 group-hover:-translate-x-1 group-hover:translate-y-1 group-hover:scale-105" />
+            <div className="absolute -top-1.5 -right-1.5 w-8 h-8 md:w-12 md:h-12 border-t-[4px] border-r-[4px] border-primary rounded-tr-3xl pointer-events-none transition-transform duration-300 group-hover:translate-x-1 group-hover:-translate-y-1 group-hover:scale-105" />
+            <div className="absolute -bottom-1.5 -left-1.5 w-8 h-8 md:w-12 md:h-12 border-b-[4px] border-l-[4px] border-primary rounded-bl-3xl pointer-events-none transition-transform duration-300 group-hover:-translate-x-1 group-hover:translate-y-1 group-hover:scale-105" />
 
             <span className="text-[10px] font-extrabold text-primary uppercase tracking-widest bg-primary/10 px-2.5 py-1 rounded-md">
               Our Vision
@@ -703,7 +714,7 @@ export default function About() {
             whileInView="visible"
             viewport={{ once: true, margin: '-100px' }}
             variants={scrollFadeRight}
-            className="glass-panel rounded-3xl p-8 md:p-10 text-left bg-gradient-to-br from-app-card/60 via-app-card/30 to-transparent border border-app-border relative overflow-visible group hover:border-primary/30 transition-all duration-300 hover:shadow-[0_15px_30px_rgba(255,107,0,0.06)]"
+            className="glass-panel rounded-3xl p-6 md:p-10 text-left bg-gradient-to-br from-app-card/60 via-app-card/30 to-transparent border border-app-border relative overflow-visible group hover:border-primary/30 transition-all duration-300 hover:shadow-[0_15px_30px_rgba(255,107,0,0.06)]"
           >
             {/* Masked internal container for blur circle */}
             <div className="absolute inset-0 overflow-hidden rounded-3xl pointer-events-none">
@@ -711,8 +722,8 @@ export default function About() {
             </div>
 
             {/* Premium Corner Brackets matching website branding theme (diagonal top-right and bottom-left layout) */}
-            <div className="absolute -top-1.5 -right-1.5 w-12 h-12 border-t-[4px] border-r-[4px] border-primary rounded-tr-3xl pointer-events-none transition-transform duration-300 group-hover:translate-x-1 group-hover:-translate-y-1 group-hover:scale-105" />
-            <div className="absolute -bottom-1.5 -left-1.5 w-12 h-12 border-b-[4px] border-l-[4px] border-primary rounded-bl-3xl pointer-events-none transition-transform duration-300 group-hover:-translate-x-1 group-hover:translate-y-1 group-hover:scale-105" />
+            <div className="absolute -top-1.5 -right-1.5 w-8 h-8 md:w-12 md:h-12 border-t-[4px] border-r-[4px] border-primary rounded-tr-3xl pointer-events-none transition-transform duration-300 group-hover:translate-x-1 group-hover:-translate-y-1 group-hover:scale-105" />
+            <div className="absolute -bottom-1.5 -left-1.5 w-8 h-8 md:w-12 md:h-12 border-b-[4px] border-l-[4px] border-primary rounded-bl-3xl pointer-events-none transition-transform duration-300 group-hover:-translate-x-1 group-hover:translate-y-1 group-hover:scale-105" />
 
             <span className="text-[10px] font-extrabold text-primary uppercase tracking-widest bg-primary/10 px-2.5 py-1 rounded-md">
               Our Mission

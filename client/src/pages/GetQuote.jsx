@@ -303,6 +303,12 @@ export default function GetQuote() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {config.checkboxes.options.map(opt => (
                 <label key={opt} className="flex items-center gap-3 cursor-pointer group">
+                  <input 
+                    type="checkbox" 
+                    className="hidden"
+                    checked={(checkboxState[config.checkboxes.name] || []).includes(opt)}
+                    onChange={() => handleCheckboxToggle(config.checkboxes.name, opt)}
+                  />
                   <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${
                     (checkboxState[config.checkboxes.name] || []).includes(opt) ? 'bg-primary border-primary' : 'border-app-border/70 group-hover:border-primary/50'
                   }`}>
@@ -698,7 +704,7 @@ export default function GetQuote() {
                   <div className="space-y-2">
                     <h3 className="text-xl md:text-2xl font-black font-heading text-app-text">Quote Request Submitted!</h3>
                     <p className="text-xs md:text-sm text-app-text-muted leading-relaxed max-w-sm">
-                      Thank you for reaching out, <strong className="text-app-text">{submittedData?.firstName}</strong>. Our business engineering and finance analysts will review your project requirements and respond with an estimate in under 4 hours!
+                      Thank you for reaching out, <strong className="text-app-text">{submittedData?.firstName}</strong>. Our domain expert will review your project requirements and respond with an estimate in under 4 hours!
                     </p>
                   </div>
 
