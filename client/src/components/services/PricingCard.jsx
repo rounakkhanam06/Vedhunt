@@ -44,10 +44,10 @@ export default function PricingCard({ plan }) {
       viewport={{ once: true, margin: "-40px" }}
       whileHover={{ y: -6 }}
       transition={{ duration: 0.5, ease: "easeOut" }}
-      className={`relative rounded-[2.25rem] border overflow-hidden flex flex-col justify-between h-full group transition-all duration-500
+      className={`relative rounded-[2.25rem] border-[1.5px] overflow-hidden flex flex-col justify-between h-full group transition-all duration-500
         ${highlight 
-          ? 'border-primary/45 bg-[#FFFDFB] dark:bg-[#0E0E1C] shadow-[0_15px_40px_rgba(232,71,10,0.1)] dark:shadow-[0_15px_40px_rgba(232,71,10,0.15)]' 
-          : 'border-black/5 dark:border-white/10 bg-[#FFFDFB] dark:bg-[#0E0E1C] hover:border-primary/30 shadow-lg hover:shadow-[0_20px_45px_rgba(232,71,10,0.08)]'
+          ? 'border-primary bg-app-card shadow-[0_0_30px_rgba(255,90,31,0.15)] dark:shadow-[0_0_30px_rgba(255,90,31,0.25)]' 
+          : 'border-app-border dark:border-white/10 bg-app-card hover:border-primary hover:shadow-[0_0_30px_rgba(255,90,31,0.2)] shadow-lg'
         }`}
     >
       {/* Floating best choice badge if highlighted */}

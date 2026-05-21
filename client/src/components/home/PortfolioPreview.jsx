@@ -69,7 +69,7 @@ const staggerContainer = {
 
 export default function PortfolioPreview() {
   return (
-    <section className="py-12 px-4 bg-app-bg relative overflow-hidden">
+    <section className="pt-4 pb-12 px-4 bg-app-bg relative overflow-hidden">
       {/* Background Subtle Glow */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[300px] bg-primary/5 blur-[120px] pointer-events-none rounded-full" />
       
@@ -94,7 +94,7 @@ export default function PortfolioPreview() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: '-50px' }}
             transition={{ delay: 0.1 }}
-            className="text-3xl md:text-4xl font-black font-heading text-white"
+            className="text-3xl md:text-4xl font-black font-heading text-app-text"
           >
             Featured <span className="text-primary">Projects</span>
           </motion.h2>
@@ -125,7 +125,7 @@ export default function PortfolioPreview() {
                   <div className="flip-card-inner shadow-lg rounded-2xl group-hover:[transform:rotateY(180deg)] transition-transform duration-700 [transform-style:preserve-3d]">
                     
                     {/* FRONT SIDE FACE */}
-                    <div className="absolute inset-0 rounded-2xl border border-app-border/60 bg-app-card/50 flex flex-col justify-between overflow-hidden shadow-lg transition-colors duration-300 [backface-visibility:hidden]">
+                    <div className="absolute inset-0 [backface-visibility:hidden] [-webkit-backface-visibility:hidden] rounded-2xl border border-app-border/60 bg-white dark:bg-app-card/50 flex flex-col justify-between overflow-hidden shadow-lg transition-colors duration-300">
                       <SpotlightHover size={150} />
 
                       <div className="flex flex-col h-full justify-between relative z-10">
@@ -176,7 +176,7 @@ export default function PortfolioPreview() {
                     </div>
 
                     {/* BACK SIDE FACE */}
-                    <div className="absolute inset-0 rounded-2xl border border-primary/30 bg-gradient-to-br from-app-card via-app-card/95 to-app-bg p-4 flex flex-col justify-between text-left overflow-hidden shadow-2xl [transform:rotateY(180deg)] [backface-visibility:hidden]">
+                    <div className="absolute inset-0 [backface-visibility:hidden] [-webkit-backface-visibility:hidden] [transform:rotateY(180deg)_translateZ(1px)] rounded-2xl border border-primary/30 bg-white dark:bg-gradient-to-br dark:from-app-card dark:via-app-card/95 dark:to-app-bg p-4 flex flex-col justify-between text-left overflow-hidden shadow-2xl">
                       <div className="absolute -bottom-10 -right-10 w-24 h-24 bg-primary/4 rounded-full filter blur-xl pointer-events-none" />
 
                       <div className="space-y-3 relative z-10">
@@ -196,17 +196,17 @@ export default function PortfolioPreview() {
                           </p>
                         </div>
 
-                        <p className="text-[10px] text-app-text-muted leading-relaxed font-medium line-clamp-3">
+                        <p className="text-[10px] text-black dark:text-app-text-muted leading-relaxed font-normal line-clamp-3">
                           {project.description}
                         </p>
 
                         <div className="space-y-1 pt-1">
-                          <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-white/40 block">Tech Stack</span>
+                          <span className="text-[8px] font-normal uppercase tracking-widest text-black dark:text-white/40 block">Tech Stack</span>
                           <div className="flex flex-wrap gap-1">
                             {project.tags.slice(0, 3).map(tag => (
                               <span 
                                 key={tag} 
-                                className="text-[8px] font-bold text-app-text-muted bg-app-bg dark:bg-[#151515] border border-app-border/40 px-1.5 py-0.5 rounded"
+                                className="text-[8px] font-normal text-black dark:text-app-text-muted bg-slate-100 dark:bg-[#151515] border border-app-border/40 px-1.5 py-0.5 rounded"
                               >
                                 {tag}
                               </span>

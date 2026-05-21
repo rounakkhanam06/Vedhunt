@@ -40,7 +40,7 @@ export default function ServicesPreview() {
   };
 
   return (
-    <section className="pt-16 sm:pt-24 pb-4 sm:pb-12 px-4 sm:px-6 lg:px-8 bg-app-bg relative overflow-hidden">
+    <section className="pt-8 sm:pt-12 pb-2 sm:pb-6 px-4 sm:px-6 lg:px-8 bg-app-bg relative overflow-hidden">
       {/* Background Subtle Ambient Glows */}
       <div className="absolute top-1/2 right-0 w-96 h-96 bg-primary/5 rounded-full filter blur-[130px] pointer-events-none" />
       <div className="absolute top-1/4 left-0 w-96 h-96 bg-primary/2 dark:bg-white/1 rounded-full filter blur-[130px] pointer-events-none" />

@@ -296,7 +296,7 @@ export default function Pricing() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-50px" }}
           transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-          className="relative overflow-hidden rounded-[2.5rem] bg-[#070913] border border-white/10 px-6 py-10 md:py-14 text-center shadow-2xl max-w-5xl mx-auto"
+          className="relative overflow-hidden rounded-[2.5rem] bg-primary dark:bg-app-card border border-black/10 dark:border-white/10 px-6 py-10 md:py-14 text-center shadow-2xl max-w-5xl mx-auto"
         >
           {/* Subtle Ambient Glowing Wave Background */}
           <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-30 z-0" viewBox="0 0 1200 400" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -333,18 +333,18 @@ export default function Pricing() {
           <div className="relative z-10 max-w-3xl mx-auto space-y-5">
             {/* Typography Section */}
             <div className="space-y-2">
-              <h3 className="text-3xl md:text-5xl font-black font-heading text-white tracking-tight leading-tight">
+              <h3 className="text-3xl md:text-5xl font-black font-heading text-black dark:text-white tracking-tight leading-tight">
                 Need a Custom Enterprise Solution?
               </h3>
-              <span className="font-signature text-3xl md:text-5xl text-white/90 font-normal tracking-wide block leading-none pt-1">
+              <span className="font-signature text-3xl md:text-5xl text-black/90 dark:text-white/90 font-normal tracking-wide block leading-none pt-1">
                 Like really, really custom.
               </span>
             </div>
 
             {/* Bullets Section / Features Row */}
-            <div className="flex flex-col md:flex-row items-center justify-center gap-4 md:gap-8 text-white/90 text-sm md:text-[15px] font-medium py-1 md:py-2">
+            <div className="flex flex-col md:flex-row items-center justify-center gap-4 md:gap-8 text-black/90 dark:text-white/90 text-sm md:text-[15px] font-medium py-1 md:py-2">
               <div className="flex items-center gap-2.5">
-                <div className="flex items-center justify-center w-5 h-5 rounded-full bg-white/10 border border-white/20 text-white shrink-0">
+                <div className="flex items-center justify-center w-5 h-5 rounded-full bg-black/10 dark:bg-white/10 border border-black/20 dark:border-white/20 text-black dark:text-white shrink-0">
                   <svg className="w-3 h-3 stroke-[3]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                   </svg>
@@ -352,7 +352,7 @@ export default function Pricing() {
                 <span>Multi-Service Integration</span>
               </div>
               <div className="flex items-center gap-2.5">
-                <div className="flex items-center justify-center w-5 h-5 rounded-full bg-white/10 border border-white/20 text-white shrink-0">
+                <div className="flex items-center justify-center w-5 h-5 rounded-full bg-black/10 dark:bg-white/10 border border-black/20 dark:border-white/20 text-black dark:text-white shrink-0">
                   <svg className="w-3 h-3 stroke-[3]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                   </svg>
@@ -360,7 +360,7 @@ export default function Pricing() {
                 <span>Custom SLA Agreements</span>
               </div>
               <div className="flex items-center gap-2.5">
-                <div className="flex items-center justify-center w-5 h-5 rounded-full bg-white/10 border border-white/20 text-white shrink-0">
+                <div className="flex items-center justify-center w-5 h-5 rounded-full bg-black/10 dark:bg-white/10 border border-black/20 dark:border-white/20 text-black dark:text-white shrink-0">
                   <svg className="w-3 h-3 stroke-[3]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                   </svg>
@@ -373,7 +373,7 @@ export default function Pricing() {
             <div className="pt-1">
               <a
                 href="/get-quote"
-                className="inline-flex items-center gap-3 px-8 py-3.5 rounded-full bg-[#E8470A] hover:bg-[#D63D08] text-white font-extrabold text-xs uppercase tracking-widest transition-all duration-300 shadow-[0_12px_30px_rgba(232,71,10,0.35)] hover:shadow-[0_18px_40px_rgba(232,71,10,0.55)] hover:-translate-y-1 active:translate-y-0"
+                className="inline-flex items-center gap-3 px-8 py-3.5 rounded-full bg-black dark:bg-[#E8470A] hover:bg-gray-800 dark:hover:bg-[#D63D08] text-white font-extrabold text-xs uppercase tracking-widest transition-all duration-300 shadow-[0_12px_30px_rgba(0,0,0,0.35)] dark:shadow-[0_12px_30px_rgba(232,71,10,0.35)] hover:-translate-y-1 active:translate-y-0"
               >
                 <span>Request Custom Estimate</span>
                 <svg className="w-4 h-4 stroke-[3]" fill="none" viewBox="0 0 24 24" stroke="currentColor">

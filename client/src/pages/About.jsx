@@ -227,7 +227,7 @@ export default function About() {
                 whileInView={{ opacity: 1, scale: 1, x: 0 }}
                 viewport={{ once: true }}
                 transition={{ type: 'spring', stiffness: 100, delay: 0.5 }}
-                className="absolute top-4 -left-8 sm:top-10 sm:-left-12 bg-app-card/95 backdrop-blur-md border border-app-border rounded-2xl p-3 sm:p-4 shadow-xl flex items-center gap-2 sm:gap-3 orange-glow-sm hover:border-primary/40 transition-colors z-20"
+                className="absolute top-4 -left-8 sm:top-10 sm:-left-12 bg-app-card backdrop-blur-md border border-app-border rounded-2xl p-3 sm:p-4 shadow-xl flex items-center gap-2 sm:gap-3 orange-glow-sm hover:border-primary/40 transition-colors z-20"
               >
                 <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-black text-xs sm:text-sm">
                   99%
@@ -244,7 +244,7 @@ export default function About() {
                 whileInView={{ opacity: 1, scale: 1, x: 0 }}
                 viewport={{ once: true }}
                 transition={{ type: 'spring', stiffness: 100, delay: 0.6 }}
-                className="absolute bottom-4 -right-8 sm:bottom-10 sm:-right-12 bg-app-card/95 backdrop-blur-md border border-app-border rounded-2xl p-3 sm:p-4 shadow-xl flex items-center gap-2 sm:gap-3 orange-glow-sm hover:border-primary/40 transition-colors z-20"
+                className="absolute bottom-4 -right-8 sm:bottom-10 sm:-right-12 bg-app-card backdrop-blur-md border border-app-border rounded-2xl p-3 sm:p-4 shadow-xl flex items-center gap-2 sm:gap-3 orange-glow-sm hover:border-primary/40 transition-colors z-20"
               >
                 <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-black text-xs sm:text-sm">
                   140+
@@ -418,7 +418,7 @@ export default function About() {
                     scale: { type: "spring", stiffness: 100 }
                   }}
                   viewport={{ once: true }}
-                  className="glass-panel bg-app-card/35 backdrop-blur-xl border border-app-border rounded-2xl p-6 shadow-[0_20px_50px_rgba(255,107,0,0.22)] flex flex-col items-center justify-center text-center w-36 h-36 orange-glow-sm hover:border-primary/50 transition-colors duration-300"
+                  className="glass-panel bg-app-card backdrop-blur-xl border border-app-border rounded-2xl p-6 shadow-[0_20px_50px_rgba(255,107,0,0.22)] flex flex-col items-center justify-center text-center w-36 h-36 orange-glow-sm hover:border-primary/50 transition-colors duration-300"
                 >
                   <div className="text-3xl md:text-4xl font-black text-primary font-heading leading-none">5+</div>
                   <div className="text-[9px] font-extrabold text-app-text uppercase tracking-widest mt-1">Years Of</div>
@@ -490,11 +490,7 @@ export default function About() {
               variants={scrollFadeUp} 
               className="flex items-center gap-4 pt-6 border-t border-app-border/40"
             >
-              <div className="flex items-center justify-center px-4 py-2 bg-primary/5 rounded-xl border border-primary/10 select-none">
-                <span className="font-signature text-3xl font-medium text-primary/75 tracking-wider">
-                  Rakesh Kumar
-                </span>
-              </div>
+
               <div className="text-left space-y-0.5">
                 <h5 className="text-xs md:text-sm font-extrabold text-app-text font-heading">Rakesh Kumar</h5>
                 <p className="text-[10px] md:text-xs text-app-text-muted">Chairman & Founder Tech, Vedhunt</p>
@@ -513,10 +509,7 @@ export default function About() {
           variants={staggerContainer}
           className="mb-28 relative"
         >
-          {/* Subtle back ambient glow */}
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[300px] bg-primary/8 rounded-full filter blur-[140px] pointer-events-none" />
-
-          <div className="glass-panel rounded-3xl p-8 md:p-12 bg-gradient-to-br from-app-card/90 via-app-card/75 to-app-bg border border-app-border relative overflow-hidden orange-glow shadow-2xl">
+          <div className="glass-panel rounded-3xl p-8 md:p-12 bg-app-card border border-app-border relative overflow-hidden shadow-2xl">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
               
               {/* Left Column: Copy & Metadata */}
@@ -653,7 +646,7 @@ export default function About() {
                 <motion.div 
                   key={idx} 
                   variants={scrollFadeUp}
-                  className="glass-panel rounded-2xl p-6 bg-app-card/45 border border-app-border hover:border-primary/30 hover:-translate-y-1.5 transition-all duration-300 group relative overflow-hidden flex flex-col justify-between min-h-[220px]"
+                  className="glass-panel rounded-2xl p-6 bg-app-card border border-app-border shadow-md hover:shadow-xl hover:border-primary/30 hover:-translate-y-1.5 transition-all duration-300 group relative overflow-hidden flex flex-col justify-between min-h-[220px]"
                 >
                   {/* Subtle orb background on hover */}
                   <div className="absolute -bottom-10 -right-10 w-24 h-24 bg-primary/3 rounded-full filter blur-xl group-hover:bg-primary/6 transition-colors" />
@@ -686,7 +679,7 @@ export default function About() {
             whileInView="visible"
             viewport={{ once: true, margin: '-100px' }}
             variants={scrollFadeLeft}
-            className="glass-panel rounded-3xl p-6 md:p-10 text-left bg-gradient-to-br from-app-card/60 via-app-card/30 to-transparent border border-app-border relative overflow-visible group hover:border-primary/30 transition-all duration-300 hover:shadow-[0_15px_30px_rgba(255,107,0,0.06)]"
+            className="glass-panel rounded-3xl p-6 md:p-10 text-left bg-app-card border border-app-border relative overflow-visible group hover:border-primary/30 transition-all duration-300 hover:shadow-[0_15px_30px_rgba(255,107,0,0.06)]"
           >
             {/* Masked internal container for blur circle */}
             <div className="absolute inset-0 overflow-hidden rounded-3xl pointer-events-none">
@@ -714,7 +707,7 @@ export default function About() {
             whileInView="visible"
             viewport={{ once: true, margin: '-100px' }}
             variants={scrollFadeRight}
-            className="glass-panel rounded-3xl p-6 md:p-10 text-left bg-gradient-to-br from-app-card/60 via-app-card/30 to-transparent border border-app-border relative overflow-visible group hover:border-primary/30 transition-all duration-300 hover:shadow-[0_15px_30px_rgba(255,107,0,0.06)]"
+            className="glass-panel rounded-3xl p-6 md:p-10 text-left bg-app-card border border-app-border relative overflow-visible group hover:border-primary/30 transition-all duration-300 hover:shadow-[0_15px_30px_rgba(255,107,0,0.06)]"
           >
             {/* Masked internal container for blur circle */}
             <div className="absolute inset-0 overflow-hidden rounded-3xl pointer-events-none">
@@ -780,7 +773,7 @@ export default function About() {
                 <motion.div 
                   key={bidx} 
                   variants={scrollFadeUp}
-                  className={`relative glass-panel bg-app-card/95 backdrop-blur-md border border-app-border rounded-2xl p-4 md:p-5 shadow-lg hover:border-primary/30 transition-all duration-300 hover:shadow-[0_15px_30px_rgba(255,107,0,0.12)] hover:z-50 w-full max-w-[480px] ${mlClass} ${zIndexClass} group`}
+                  className={`relative glass-panel bg-app-card backdrop-blur-md border border-app-border rounded-2xl p-4 md:p-5 shadow-lg hover:border-primary/30 transition-all duration-300 hover:shadow-2xl hover:z-50 w-full max-w-[480px] ${mlClass} ${zIndexClass} group`}
                   style={{ 
                     marginTop: bidx > 0 ? '-20px' : '0px',
                   }}

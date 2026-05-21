@@ -95,7 +95,7 @@ export default function Hero() {
           <source src={backgroundVideo} type="video/mp4" />
         </video>
         {/* Advanced Overlay System */}
-        <div className="absolute inset-0 bg-gradient-to-b from-app-bg/95 via-app-bg/60 to-app-bg/95 z-1" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/95 via-black/60 to-black/95 z-1" />
         <div className="absolute inset-0 bg-black/50 z-1" />
       </motion.div>
 

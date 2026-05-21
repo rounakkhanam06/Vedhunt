@@ -55,7 +55,6 @@ const OPEN_POSITIONS = [
 ];
 
 export default function Career() {
-  const [selectedJob, setSelectedJob] = useState(null);
   const [isSubmitSuccess, setIsSubmitSuccess] = useState(false);
   const [submittedData, setSubmittedData] = useState(null);
   const [fileName, setFileName] = useState('');
@@ -83,16 +82,8 @@ export default function Career() {
     }
   });
 
-  useEffect(() => {
-    setValue('position', selectedJob || 'general');
-  }, [selectedJob, setValue]);
-
   const selectedPosition = watch('position');
-  useEffect(() => {
-    if (selectedPosition && selectedPosition !== (selectedJob || 'general')) {
-      setSelectedJob(selectedPosition === 'general' ? null : selectedPosition);
-    }
-  }, [selectedPosition, selectedJob]);
+  const selectedJob = selectedPosition === 'general' ? null : selectedPosition;
 
   const onSubmitForm = (data) => {
     const jobTitle = selectedJob ? OPEN_POSITIONS.find(p => p.id === selectedJob)?.title : 'General Application';
@@ -179,7 +170,7 @@ export default function Career() {
               <h3 className="text-[11px] uppercase tracking-wider font-semibold text-app-text-muted mb-2.5">Why Work With Us</h3>
               <div className="flex flex-wrap gap-2 justify-center lg:justify-start">
                 {['Growth Opportunities', 'Flexible Work', 'Learning Culture', 'Competitive Pay', 'Team Culture'].map((benefit, i) => (
-                  <span key={i} className="px-2 py-1 bg-app-card border border-app-border/50 rounded text-[10px] font-medium text-app-text-muted flex items-center gap-1.5">
+                  <span key={i} className="px-2 py-1 bg-app-card hover:bg-primary/10 border border-app-border/50 hover:border-primary/30 rounded text-[10px] font-medium text-app-text-muted hover:text-app-text transition-colors cursor-default flex items-center gap-1.5">
                     <CheckCircle2 className="w-3 h-3 text-primary" />
                     {benefit}
                   </span>
@@ -198,7 +189,7 @@ export default function Career() {
             <img 
               src={careerHeroImg} 
               alt="Career Opportunities" 
-              className="relative z-10 w-full max-w-[240px] sm:max-w-sm lg:max-w-[340px] object-contain drop-shadow-[0_20px_30px_rgba(0,0,0,0.5)]"
+              className="relative z-10 w-full max-w-[240px] sm:max-w-sm lg:max-w-[340px] object-contain dark:drop-shadow-[0_20px_30px_rgba(0,0,0,0.5)]"
             />
           </motion.div>
         </div>
@@ -224,16 +215,18 @@ export default function Career() {
                   key={job.id}
                   whileHover={{ scale: 1.01 }}
                   onClick={() => {
-                    setSelectedJob(job.id);
-                    const formEl = document.getElementById('application-form');
-                    if (formEl) {
-                      formEl.scrollIntoView({ behavior: 'smooth' });
-                    }
+                    setValue('position', job.id);
+                    setTimeout(() => {
+                      const formEl = document.getElementById('application-form');
+                      if (formEl) {
+                        formEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      }
+                    }, 50);
                   }}
                   className={`p-6 rounded-2xl border transition-all duration-300 cursor-pointer relative overflow-hidden group flex flex-col justify-between ${
                     selectedJob === job.id
                       ? 'bg-app-card border-primary shadow-[0_10px_30px_rgba(232,71,10,0.15)]'
-                      : 'bg-app-card/40 border-app-border hover:border-primary/30 hover:bg-app-card/80'
+                      : 'bg-app-card border-app-border hover:border-primary/30'
                   }`}
                 >
                   {selectedJob === job.id && (
@@ -285,15 +278,16 @@ export default function Career() {
             className="lg:col-span-5 relative" 
             id="application-form"
           >
-            <div className="sticky top-28 glass-panel rounded-3xl p-8 border border-primary/20 bg-app-card/85 shadow-2xl space-y-8">
+            <div className="sticky top-28 glass-panel rounded-3xl p-8 border border-primary/20 bg-app-card shadow-2xl space-y-8">
               
               <div className="space-y-2 border-b border-app-border pb-4 flex flex-col">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] font-black uppercase tracking-widest text-primary block">Instant Application</span>
                   {selectedJob && (
                     <button 
-                      onClick={() => setSelectedJob(null)}
-                      className="text-[10px] text-app-text-muted hover:text-primary transition-colors underline"
+                      type="button"
+                      onClick={() => setValue('position', 'general')}
+                      className="text-[10px] text-app-text-muted hover:text-primary transition-colors underline cursor-pointer"
                     >
                       Clear Selection
                     </button>
@@ -314,13 +308,13 @@ export default function Career() {
                   >
                     {/* Position Applying For */}
                     <div className="space-y-1.5 text-left relative group">
-                      <label className="text-[10px] font-extrabold text-app-text-muted/70 uppercase tracking-widest block">
+                      <label className="text-[10px] font-bold text-black dark:text-white uppercase tracking-widest block">
                         Position Applying For <span className="text-primary">*</span>
                       </label>
                       <div className="relative">
                         <select
-                          className={`w-full bg-transparent border-b-2 py-2 text-app-text focus:outline-none focus:border-primary transition-colors text-sm font-bold appearance-none cursor-pointer ${
-                            errors.position ? 'border-red-500/50 focus:border-red-500' : 'border-app-border/70'
+                          className={`w-full bg-transparent border-b-2 py-2 text-black dark:text-white focus:outline-none focus:border-primary transition-colors text-sm font-medium appearance-none cursor-pointer ${
+                            errors.position ? 'border-red-500/50 focus:border-red-500' : 'border-black/20 dark:border-white/20'
                           }`}
                           {...register('position', { required: 'Please select a position' })}
                         >
@@ -340,14 +334,14 @@ export default function Career() {
                     </div>
                     {/* Full Name */}
                     <div className="space-y-1.5 text-left relative group">
-                      <label className="text-[10px] font-extrabold text-app-text-muted/70 uppercase tracking-widest block">
+                      <label className="text-[10px] font-bold text-black dark:text-white uppercase tracking-widest block">
                         Full Name <span className="text-primary">*</span>
                       </label>
                       <input
                         type="text"
                         placeholder="e.g. Rahul Sharma"
-                        className={`w-full bg-transparent border-b-2 py-2 text-app-text focus:outline-none focus:border-primary transition-colors text-sm font-bold placeholder:text-app-text-muted/20 ${
-                          errors.fullName ? 'border-red-500/50 focus:border-red-500' : 'border-app-border/70'
+                        className={`w-full bg-transparent border-b-2 py-2 text-black dark:text-white focus:outline-none focus:border-primary transition-colors text-sm font-medium placeholder:text-gray-500 ${
+                          errors.fullName ? 'border-red-500/50 focus:border-red-500' : 'border-black/20 dark:border-white/20'
                         }`}
                         {...register('fullName', { required: 'Full name is required' })}
                       />
@@ -361,14 +355,14 @@ export default function Career() {
 
                     {/* Email Address */}
                     <div className="space-y-1.5 text-left relative group">
-                      <label className="text-[10px] font-extrabold text-app-text-muted/70 uppercase tracking-widest block">
+                      <label className="text-[10px] font-bold text-black dark:text-white uppercase tracking-widest block">
                         Email Address <span className="text-primary">*</span>
                       </label>
                       <input
                         type="email"
                         placeholder="e.g. rahul@example.com"
-                        className={`w-full bg-transparent border-b-2 py-2 text-app-text focus:outline-none focus:border-primary transition-colors text-sm font-bold placeholder:text-app-text-muted/20 ${
-                          errors.email ? 'border-red-500/50 focus:border-red-500' : 'border-app-border/70'
+                        className={`w-full bg-transparent border-b-2 py-2 text-black dark:text-white focus:outline-none focus:border-primary transition-colors text-sm font-medium placeholder:text-gray-500 ${
+                          errors.email ? 'border-red-500/50 focus:border-red-500' : 'border-black/20 dark:border-white/20'
                         }`}
                         {...register('email', { 
                           required: 'Email address is required',
@@ -388,14 +382,14 @@ export default function Career() {
 
                     {/* Phone Number */}
                     <div className="space-y-1.5 text-left relative group">
-                      <label className="text-[10px] font-extrabold text-app-text-muted/70 uppercase tracking-widest block">
+                      <label className="text-[10px] font-bold text-black dark:text-white uppercase tracking-widest block">
                         Phone Number <span className="text-primary">*</span>
                       </label>
                       <input
                         type="tel"
                         placeholder="e.g. +91 98765 43210"
-                        className={`w-full bg-transparent border-b-2 py-2 text-app-text focus:outline-none focus:border-primary transition-colors text-sm font-bold placeholder:text-app-text-muted/20 ${
-                          errors.phone ? 'border-red-500/50 focus:border-red-500' : 'border-app-border/70'
+                        className={`w-full bg-transparent border-b-2 py-2 text-black dark:text-white focus:outline-none focus:border-primary transition-colors text-sm font-medium placeholder:text-gray-500 ${
+                          errors.phone ? 'border-red-500/50 focus:border-red-500' : 'border-black/20 dark:border-white/20'
                         }`}
                         {...register('phone', { required: 'Phone number is required' })}
                       />
@@ -409,14 +403,14 @@ export default function Career() {
 
                     {/* Years of Experience */}
                     <div className="space-y-1.5 text-left relative group">
-                      <label className="text-[10px] font-extrabold text-app-text-muted/70 uppercase tracking-widest block">
+                      <label className="text-[10px] font-bold text-black dark:text-white uppercase tracking-widest block">
                         Years of Experience <span className="text-primary">*</span>
                       </label>
                       <input
                         type="text"
                         placeholder="e.g. 5 Years"
-                        className={`w-full bg-transparent border-b-2 py-2 text-app-text focus:outline-none focus:border-primary transition-colors text-sm font-bold placeholder:text-app-text-muted/20 ${
-                          errors.experience ? 'border-red-500/50 focus:border-red-500' : 'border-app-border/70'
+                        className={`w-full bg-transparent border-b-2 py-2 text-black dark:text-white focus:outline-none focus:border-primary transition-colors text-sm font-medium placeholder:text-gray-500 ${
+                          errors.experience ? 'border-red-500/50 focus:border-red-500' : 'border-black/20 dark:border-white/20'
                         }`}
                         {...register('experience', { required: 'Experience is required' })}
                       />
@@ -431,26 +425,26 @@ export default function Career() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       {/* Current CTC */}
                       <div className="space-y-1.5 text-left relative group">
-                        <label className="text-[10px] font-extrabold text-app-text-muted/70 uppercase tracking-widest block">
+                        <label className="text-[10px] font-bold text-black dark:text-white uppercase tracking-widest block">
                           Current / Last CTC (Optional)
                         </label>
                         <input
                           type="text"
                           placeholder="e.g. 12 LPA"
-                          className="w-full bg-transparent border-b-2 py-2 text-app-text focus:outline-none focus:border-primary transition-colors text-sm font-bold placeholder:text-app-text-muted/20 border-app-border/70"
+                          className="w-full bg-transparent border-b-2 py-2 text-black dark:text-white focus:outline-none focus:border-primary transition-colors text-sm font-medium placeholder:text-gray-500 border-black/20 dark:border-white/20"
                           {...register('currentCTC')}
                         />
                       </div>
 
                       {/* Expected CTC */}
                       <div className="space-y-1.5 text-left relative group">
-                        <label className="text-[10px] font-extrabold text-app-text-muted/70 uppercase tracking-widest block">
+                        <label className="text-[10px] font-bold text-black dark:text-white uppercase tracking-widest block">
                           Expected CTC (Optional)
                         </label>
                         <input
                           type="text"
                           placeholder="e.g. 15 LPA"
-                          className="w-full bg-transparent border-b-2 py-2 text-app-text focus:outline-none focus:border-primary transition-colors text-sm font-bold placeholder:text-app-text-muted/20 border-app-border/70"
+                          className="w-full bg-transparent border-b-2 py-2 text-black dark:text-white focus:outline-none focus:border-primary transition-colors text-sm font-medium placeholder:text-gray-500 border-black/20 dark:border-white/20"
                           {...register('expectedCTC')}
                         />
                       </div>
@@ -458,46 +452,46 @@ export default function Career() {
 
                     {/* Notice Period */}
                     <div className="space-y-1.5 text-left relative group">
-                      <label className="text-[10px] font-extrabold text-app-text-muted/70 uppercase tracking-widest block">
+                      <label className="text-[10px] font-bold text-black dark:text-white uppercase tracking-widest block">
                         Notice Period / Availability (Optional)
                       </label>
                       <input
                         type="text"
                         placeholder="e.g. 30 days, Immediate"
-                        className="w-full bg-transparent border-b-2 py-2 text-app-text focus:outline-none focus:border-primary transition-colors text-sm font-bold placeholder:text-app-text-muted/20 border-app-border/70"
+                        className="w-full bg-transparent border-b-2 py-2 text-black dark:text-white focus:outline-none focus:border-primary transition-colors text-sm font-medium placeholder:text-gray-500 border-black/20 dark:border-white/20"
                         {...register('noticePeriod')}
                       />
                     </div>
 
                     {/* LinkedIn URL */}
                     <div className="space-y-1.5 text-left relative group">
-                      <label className="text-[10px] font-extrabold text-app-text-muted/70 uppercase tracking-widest block">
+                      <label className="text-[10px] font-bold text-black dark:text-white uppercase tracking-widest block">
                         LinkedIn Profile URL (Optional)
                       </label>
                       <input
                         type="url"
                         placeholder="https://linkedin.com/in/username"
-                        className="w-full bg-transparent border-b-2 py-2 text-app-text focus:outline-none focus:border-primary transition-colors text-sm font-bold placeholder:text-app-text-muted/20 border-app-border/70"
+                        className="w-full bg-transparent border-b-2 py-2 text-black dark:text-white focus:outline-none focus:border-primary transition-colors text-sm font-medium placeholder:text-gray-500 border-black/20 dark:border-white/20"
                         {...register('linkedinUrl')}
                       />
                     </div>
 
                     {/* Portfolio / Work Samples URL */}
                     <div className="space-y-1.5 text-left relative group">
-                      <label className="text-[10px] font-extrabold text-app-text-muted/70 uppercase tracking-widest block">
+                      <label className="text-[10px] font-bold text-black dark:text-white uppercase tracking-widest block">
                         Portfolio / Work Samples URL (Optional)
                       </label>
                       <input
                         type="url"
                         placeholder="https://yourportfolio.com"
-                        className="w-full bg-transparent border-b-2 py-2 text-app-text focus:outline-none focus:border-primary transition-colors text-sm font-bold placeholder:text-app-text-muted/20 border-app-border/70"
+                        className="w-full bg-transparent border-b-2 py-2 text-black dark:text-white focus:outline-none focus:border-primary transition-colors text-sm font-medium placeholder:text-gray-500 border-black/20 dark:border-white/20"
                         {...register('portfolioUrl')}
                       />
                     </div>
 
                     {/* Drag & Drop Resume Upload Form */}
                     <div className="space-y-1.5 text-left">
-                      <label className="text-[10px] font-extrabold text-app-text-muted/70 uppercase tracking-widest block">
+                      <label className="text-[10px] font-bold text-black dark:text-white uppercase tracking-widest block">
                         Upload Resume (PDF/DOCX) <span className="text-primary">*</span>
                       </label>
                       
@@ -529,13 +523,13 @@ export default function Career() {
 
                     {/* Cover Letter / Message */}
                     <div className="space-y-1.5 text-left relative group">
-                      <label className="text-[10px] font-extrabold text-app-text-muted/70 uppercase tracking-widest block">
+                      <label className="text-[10px] font-bold text-black dark:text-white uppercase tracking-widest block">
                         Cover Letter / Notes
                       </label>
                       <textarea
                         rows="2"
                         placeholder="Briefly explain why you're a great fit for this role..."
-                        className="w-full bg-transparent border-b-2 py-2 text-app-text focus:outline-none focus:border-primary transition-all resize-none text-sm font-bold placeholder:text-app-text-muted/20 border-app-border/70"
+                        className="w-full bg-transparent border-b-2 py-2 text-black dark:text-white focus:outline-none focus:border-primary transition-all resize-none text-sm font-medium placeholder:text-gray-500 border-black/20 dark:border-white/20"
                         {...register('message')}
                       />
                     </div>

@@ -124,7 +124,7 @@ export default function Services() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, amount: 0.1 }}
           transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-          className="mt-16 sm:mt-24 md:mt-28 glass-panel rounded-3xl py-8 sm:py-10 md:py-12 px-6 sm:px-10 text-center bg-gradient-to-r from-app-card via-app-card/95 to-app-bg border border-app-border relative overflow-hidden orange-glow shadow-2xl"
+          className="mt-16 sm:mt-24 md:mt-28 glass-panel rounded-3xl py-8 sm:py-10 md:py-12 px-6 sm:px-10 text-center bg-app-card border border-app-border relative overflow-hidden orange-glow shadow-2xl"
         >
           <div className="absolute -top-10 -left-10 w-40 h-40 bg-primary/10 rounded-full filter blur-3xl pointer-events-none" />
           <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-primary/10 rounded-full filter blur-3xl pointer-events-none" />

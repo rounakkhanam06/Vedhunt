@@ -2,16 +2,17 @@
 
 :root {
   --app-bg: #FFFFFF;
-  --app-card: #FFF3EE;
-  --app-text: #1A1A2E;
-  --app-text-muted: #666666;
-  --app-border: rgba(26, 26, 46, 0.08);
-  --app-glass-bg: rgba(255, 255, 255, 0.75);
-  --app-glass-border: rgba(26, 26, 46, 0.06);
+  --app-card: #DADDE2;
+  --app-text: #111111;
+  --app-text-muted: #5F6368;
+  --app-border: #EAEAEA;
+  --app-glass-bg: rgba(243, 244, 246, 0.9);
+  --app-glass-border: #EAEAEA;
+  --app-soft-orange: #FFF2EB;
   --gradient-start: #1A1A2E;
   --scrollbar-track: #F1F5F9;
   --scrollbar-thumb: #CBD5E1;
-  --mesh-opacity: radial-gradient(rgba(232, 71, 10, 0.05) 1.5px, transparent 1.5px);
+  --mesh-opacity: radial-gradient(rgba(255, 90, 31, 0.05) 1.5px, transparent 1.5px);
 }
 
 .dark {
@@ -31,13 +32,13 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --color-primary: #E8470A;
-  --color-primary-hover: #D63D08;
+  --color-primary: #FF5A1F;
+  --color-primary-hover: #E04610;
   
-  --color-brand-orange: #E8470A;
+  --color-brand-orange: #FF5A1F;
   --color-brand-navy: #1A1A2E;
-  --color-brand-lightOrange: #FFF3EE;
-  --color-brand-grey: #666666;
+  --color-brand-lightOrange: #FFF2EB;
+  --color-brand-grey: #5F6368;
   --color-brand-success: #006600;
   --color-brand-error: #CC0000;
 
@@ -136,25 +137,25 @@
 }
 
 .text-gradient {
-  background: linear-gradient(135deg, var(--gradient-start) 30%, #E8470A 100%);
+  background: linear-gradient(135deg, var(--gradient-start) 30%, #FF5A1F 100%);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
 .text-gradient-orange {
-  background: linear-gradient(135deg, #FF9E59 0%, #E8470A 100%);
+  background: linear-gradient(135deg, #CC3B02 0%, #FF5A1F 100%);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
 .orange-glow {
-  box-shadow: 0 0 50px -10px rgba(232, 71, 10, 0.2);
+  box-shadow: 0 0 50px -10px rgba(255, 90, 31, 0.12);
 }
 
 .orange-glow-hover:hover {
-  box-shadow: 0 0 30px -5px rgba(232, 71, 10, 0.35);
+  box-shadow: 0 0 30px -5px rgba(255, 90, 31, 0.25);
 }
 
 @keyframes float {

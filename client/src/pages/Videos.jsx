@@ -239,7 +239,7 @@ const Videos = () => {
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.9 }}
                   transition={{ duration: 0.4 }}
-                  className="group relative bg-[#0A0A0A] rounded-2xl overflow-hidden border border-white/5 hover:border-[#FF6B00]/20 transition-all duration-500 flex flex-col h-full"
+                  className="group relative bg-app-card rounded-2xl overflow-hidden border border-white/5 hover:border-[#FF6B00]/20 transition-all duration-500 flex flex-col h-full"
                 >
                   {/* Thumbnail */}
                   <div className="relative aspect-video overflow-hidden bg-black">
@@ -323,7 +323,7 @@ const Videos = () => {
             {VIDEOS_DATA.filter(v => v.category === 'SEO' || v.category === 'Marketing').map((video) => (
               <div 
                 key={`premium-${video.id}`}
-                className="min-w-[300px] md:min-w-[400px] bg-[#0A0A0A] rounded-xl overflow-hidden border border-white/5 hover:border-[#FF6B00]/20 transition-all duration-300"
+                className="min-w-[300px] md:min-w-[400px] bg-app-card rounded-xl overflow-hidden border border-white/5 hover:border-[#FF6B00]/20 transition-all duration-300"
               >
                 <div className="relative aspect-[16/9]">
                   <img src={video.thumbnail} alt={video.title} className="w-full h-full object-cover" />

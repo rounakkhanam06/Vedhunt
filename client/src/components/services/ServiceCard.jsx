@@ -14,8 +14,7 @@ export default function ServiceCard({ service, image }) {
   
   return (
     <motion.div
-      whileHover={{ y: -5 }}
-      className="group relative bg-app-card rounded-2xl border-t-2 border-t-transparent hover:border-t-primary transition-all duration-300 shadow-md hover:shadow-xl flex flex-col h-full overflow-hidden"
+      className="group relative bg-app-card rounded-2xl border border-app-border hover:border-primary transition-all duration-300 shadow-md hover:shadow-xl flex flex-col h-full overflow-hidden"
     >
       {/* Top Image Section - Compact Height */}
       <div className="relative h-32 w-full overflow-hidden">
@@ -24,7 +23,7 @@ export default function ServiceCard({ service, image }) {
           alt={title} 
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-app-card/90 to-transparent opacity-80" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-60" />
       </div>
 
       {/* Content Section - Tightened Padding */}

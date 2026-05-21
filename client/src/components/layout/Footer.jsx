@@ -120,10 +120,10 @@ export default function Footer() {
                 Our Services
               </h4>
               <ul className="space-y-1.5 text-xs sm:text-sm">
-                {SERVICES.slice(0, 5).map((srv) => (
+                {SERVICES.map((srv) => (
                   <li key={srv.id}>
                     <Link
-                      to="/services"
+                      to={`/services/${srv.slug}`}
                       className="hover:text-primary hover:translate-x-1.5 transition-all duration-300 block py-0.5"
                     >
                       {srv.title}
@@ -152,11 +152,6 @@ export default function Footer() {
                 <li>
                   <Link to="/services" className="hover:text-primary hover:translate-x-1.5 transition-all duration-300 block py-0.5">
                     Expert Solutions
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/get-quote" className="hover:text-primary hover:translate-x-1.5 transition-all duration-300 block py-0.5">
-                    Leadership Team
                   </Link>
                 </li>
                 <li>

@@ -227,7 +227,7 @@ export default function Portfolio() {
               className={`relative px-4.5 py-2.5 rounded-xl text-xs font-semibold tracking-wide uppercase cursor-pointer transition-all duration-300 border ${
                 activeFilter === btn.id
                   ? 'text-primary border-primary/30 z-10'
-                  : 'text-app-text-muted hover:text-app-text bg-app-card/25 border-app-border/40 hover:border-app-border/80'
+                  : 'text-app-text hover:text-primary bg-app-card/25 border-app-border/40 hover:border-app-border/80'
               }`}
             >
               {activeFilter === btn.id && (
@@ -268,7 +268,7 @@ export default function Portfolio() {
                   <div className="flip-card-inner shadow-lg rounded-2xl">
                     
                     {/* FRONT SIDE FACE */}
-                    <div className="flip-card-front rounded-2xl border border-app-border/60 bg-app-card/50 flex flex-col justify-between overflow-hidden shadow-lg transition-colors duration-300">
+                    <div className="flip-card-front [backface-visibility:hidden] [-webkit-backface-visibility:hidden] rounded-2xl border border-app-border/60 bg-white dark:bg-app-card/50 flex flex-col justify-between overflow-hidden shadow-lg transition-colors duration-300">
                       {/* Spotlight Hover logic specifically for front card */}
                       <SpotlightHover size={200} />
 
@@ -326,7 +326,7 @@ export default function Portfolio() {
                     </div>
 
                     {/* BACK SIDE FACE (Revealed when card flips around) */}
-                    <div className="flip-card-back rounded-2xl border border-primary/30 bg-gradient-to-br from-app-card via-app-card/95 to-app-bg p-5 sm:p-6 flex flex-col justify-between text-left overflow-hidden shadow-2xl">
+                    <div className="flip-card-back [backface-visibility:hidden] [-webkit-backface-visibility:hidden] [transform:rotateY(180deg)_translateZ(1px)] rounded-2xl border border-primary/30 bg-white dark:bg-gradient-to-br dark:from-app-card dark:via-app-card/95 dark:to-app-bg p-5 sm:p-6 flex flex-col justify-between text-left overflow-hidden shadow-2xl">
                       {/* Back Core ambient light glow */}
                       <div className="absolute -bottom-10 -right-10 w-24 h-24 bg-primary/4 rounded-full filter blur-xl pointer-events-none" />
 
@@ -349,18 +349,18 @@ export default function Portfolio() {
                         </div>
 
                         {/* Elegant full height paragraph details */}
-                        <p className="text-xs sm:text-sm text-app-text-muted leading-relaxed font-medium line-clamp-4 sm:line-clamp-5">
+                        <p className="text-xs sm:text-sm text-black dark:text-app-text-muted leading-relaxed font-normal line-clamp-4 sm:line-clamp-5">
                           {project.description}
                         </p>
 
                         {/* Coding Engineering tags */}
                         <div className="space-y-1.5 pt-1">
-                          <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-white/40 block">Engineering Stack</span>
+                          <span className="text-[9px] font-normal uppercase tracking-widest text-black dark:text-white/40 block">Engineering Stack</span>
                           <div className="flex flex-wrap gap-1">
                             {project.tags.map(tag => (
                               <span 
                                 key={tag} 
-                                className="text-[9px] sm:text-[10px] font-bold text-app-text-muted bg-app-bg dark:bg-[#151515] border border-app-border/40 px-2.5 py-0.5 rounded"
+                                className="text-[9px] sm:text-[10px] font-normal text-black dark:text-app-text-muted bg-slate-100 dark:bg-[#151515] border border-app-border/40 px-2.5 py-0.5 rounded"
                               >
                                 {tag}
                               </span>

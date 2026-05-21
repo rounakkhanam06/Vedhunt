@@ -271,15 +271,15 @@ export default function ServiceDetails() {
               <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-4 items-start sm:items-center justify-between text-center md:text-left">
                   {highlights.map((hl, idx) => (
-                    <div key={idx} className="flex flex-col sm:flex-row items-center gap-2 sm:gap-2 justify-center md:justify-start group">
-                      <div className="w-10 h-10 sm:w-8 sm:h-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center flex-shrink-0 text-primary group-hover:scale-110 transition-transform duration-300">
-                        {idx === 0 && <DollarSign className="w-5 h-5 sm:w-4 sm:h-4" />}
-                        {idx === 1 && <Zap className="w-5 h-5 sm:w-4 sm:h-4" />}
-                        {idx === 2 && <TrendingUp className="w-5 h-5 sm:w-4 sm:h-4" />}
-                        {idx === 3 && <Headphones className="w-5 h-5 sm:w-4 sm:h-4" />}
+                    <div key={idx} className="flex flex-col sm:flex-row items-center gap-3 sm:gap-3 justify-center md:justify-start group p-3 sm:p-4 rounded-2xl hover:-translate-y-1 hover:bg-white/60 dark:hover:bg-[#1A1A2E]/80 hover:shadow-sm border border-transparent hover:border-primary/20 transition-all duration-300 cursor-default">
+                      <div className="w-12 h-12 sm:w-10 sm:h-10 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center flex-shrink-0 text-primary group-hover:bg-primary group-hover:text-white group-hover:scale-110 transition-all duration-300 shadow-sm">
+                        {idx === 0 && <DollarSign className="w-5 h-5" />}
+                        {idx === 1 && <Zap className="w-5 h-5" />}
+                        {idx === 2 && <TrendingUp className="w-5 h-5" />}
+                        {idx === 3 && <Headphones className="w-5 h-5" />}
                       </div>
                       <div className="space-y-1 sm:space-y-0.5 text-center sm:text-left px-2 sm:px-0">
-                        <h4 className="text-[11px] sm:text-xs font-black text-app-text tracking-wide uppercase leading-snug">{hl.text}</h4>
+                        <h4 className="text-[11px] sm:text-xs font-black text-app-text tracking-wide uppercase leading-snug group-hover:text-primary transition-colors duration-300">{hl.text}</h4>
                         <p className="text-[10px] sm:text-[10px] text-app-text-muted font-medium leading-relaxed sm:leading-none">{hl.desc}</p>
                       </div>
                     </div>
@@ -295,7 +295,7 @@ export default function ServiceDetails() {
               whileInView="visible"
               viewport={{ once: true, amount: 0.25 }}
               variants={scrollReveal}
-              className="py-10 sm:py-24 border-b border-app-border/40"
+              className="py-10 sm:py-14 border-b border-app-border/40"
             >
               <div className="max-w-3xl mx-auto px-4 text-center space-y-6">
                 <div className="inline-flex items-center gap-1.5 justify-center">
@@ -317,7 +317,7 @@ export default function ServiceDetails() {
             </motion.section>
 
             {/* 4. Sub-Services Grid Section */}
-            <section className="py-10 sm:py-24 border-b border-app-border/40 bg-app-card/10">
+            <section className="py-10 sm:py-14 border-b border-app-border/40 bg-app-card/10">
               <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
                 
                 <motion.div 
@@ -372,7 +372,7 @@ export default function ServiceDetails() {
             </section>
 
             {/* 5. Process Flow Section */}
-            <section className="py-10 sm:py-24 border-b border-app-border/40 relative">
+            <section className="py-10 sm:py-14 border-b border-app-border/40 relative">
               <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
                 
                 <motion.div 
@@ -457,7 +457,7 @@ export default function ServiceDetails() {
             </section>
 
             {/* 6. Pricing Packages Section */}
-            <section className="py-10 sm:py-24 border-b border-app-border/40 bg-app-card/5">
+            <section className="py-10 sm:py-14 border-b border-app-border/40 bg-app-card/5">
               <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
                 
                 <motion.div 
@@ -516,10 +516,10 @@ export default function ServiceDetails() {
                         key={idx}
                         variants={cardReveal}
                         whileHover={{ y: -8, scale: 1.02 }}
-                        className={`relative rounded-[2.25rem] bg-[#070913] flex flex-col justify-between p-5 md:p-6 text-center shadow-2xl transition-all duration-300 cursor-default ${
+                        className={`group relative rounded-[2.25rem] bg-app-card flex flex-col justify-between p-5 md:p-6 pb-4 md:pb-5 text-center shadow-2xl transition-all duration-300 cursor-default ${
                           plan.highlight 
                             ? 'border border-primary/50 ring-1 ring-primary/20 shadow-[0_15px_35px_rgba(232,71,10,0.15)]' 
-                            : 'border border-white/10 shadow-sm'
+                            : 'border border-app-border shadow-sm'
                         }`}
                       >
                         {/* Inner rounded container with overflow-hidden to clip background SVG waves/glows */}
@@ -562,8 +562,8 @@ export default function ServiceDetails() {
                         <div className="space-y-4 relative z-10">
                           {/* Title Segment */}
                           <div className="space-y-0.5">
-                            <h4 className="text-lg sm:text-xl font-black text-white tracking-tight leading-tight uppercase font-heading">{plan.title}</h4>
-                            <span className="font-signature text-lg md:text-xl text-white/90 font-normal tracking-wide block leading-none pt-0">
+                            <h4 className="text-lg sm:text-xl font-black text-app-text tracking-tight leading-tight uppercase font-heading group-hover:text-primary transition-colors duration-300">{plan.title}</h4>
+                            <span className="font-signature text-lg md:text-xl text-app-text-muted font-normal tracking-wide block leading-none pt-0">
                               {plan.title === 'Starter' && 'Perfect for local brands.'}
                               {plan.title === 'Growth' && 'Best value for scaling.'}
                               {plan.title === 'Enterprise' && 'Custom built for scale.'}
@@ -571,22 +571,22 @@ export default function ServiceDetails() {
                           </div>
 
                           {/* Dynamic Price Display */}
-                          <div className="py-2 border-y border-white/10">
-                            <span className="text-xl sm:text-2xl font-black text-white font-heading">{price}</span>
+                          <div className="py-2 border-y border-app-border">
+                            <span className="text-xl sm:text-2xl font-black text-app-text font-heading">{price}</span>
                           </div>
 
                           {/* Features Checklist */}
-                          <div className="space-y-2.5 text-left">
-                            <p className="text-[9px] font-black text-white/50 uppercase tracking-widest">Key Deliverables</p>
+                          <div className="space-y-2.5 text-left pb-4">
+                            <p className="text-[9px] font-black text-app-text-muted uppercase tracking-widest">Key Deliverables</p>
                             <ul className="space-y-2">
                               {plan.features.map((feature, fIdx) => (
                                 <li key={fIdx} className="flex items-start gap-2">
-                                  <div className="w-3.5 h-3.5 rounded-full bg-white/10 border border-white/20 flex items-center justify-center flex-shrink-0 text-white mt-0.5">
+                                  <div className="w-3.5 h-3.5 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center flex-shrink-0 text-app-text mt-0.5">
                                     <svg className="w-2 h-2 stroke-[3]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                                     </svg>
                                   </div>
-                                  <span className="text-[11px] sm:text-xs text-white/80 font-medium leading-normal font-sans">
+                                  <span className="text-[11px] sm:text-xs text-app-text-muted font-medium leading-normal font-sans">
                                     {feature}
                                   </span>
                                 </li>
@@ -596,7 +596,7 @@ export default function ServiceDetails() {
                         </div>
 
                         {/* CTA button */}
-                        <div className="pt-5 relative z-10">
+                        <div className="pt-2 mt-auto relative z-10">
                           <Link
                             to="/get-quote"
                             className="inline-flex items-center justify-center gap-2 w-full py-2.5 rounded-full bg-[#E8470A] hover:bg-[#D63D08] text-white font-extrabold text-[10px] uppercase tracking-widest transition-all duration-300 shadow-[0_6px_15px_rgba(232,71,10,0.25)] hover:shadow-[0_10px_22px_rgba(232,71,10,0.4)] hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
@@ -615,7 +615,7 @@ export default function ServiceDetails() {
             </section>
 
             {/* 7. Portfolio / Case Studies Section */}
-            <section className="py-10 sm:py-24 border-b border-app-border/40">
+            <section className="py-10 sm:py-14 border-b border-app-border/40">
               <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
                 
                 <motion.div 
@@ -680,7 +680,7 @@ export default function ServiceDetails() {
             </section>
 
             {/* 8. FAQ Accordion Section */}
-            <section className="py-10 sm:py-24 border-b border-app-border/40 bg-app-card/10">
+            <section className="py-10 sm:py-14 border-b border-app-border/40 bg-app-card/10">
               <div className="max-w-4xl mx-auto px-4">
                 
                 <motion.div 
@@ -749,7 +749,7 @@ export default function ServiceDetails() {
             </section>
 
             {/* 9. Client Testimonial Section */}
-            <section className="py-10 sm:py-24 border-b border-app-border/40">
+            <section className="py-10 sm:py-14 border-b border-app-border/40">
               <div className="max-w-4xl mx-auto px-4">
                 
                 <motion.div 
@@ -881,7 +881,7 @@ export default function ServiceDetails() {
                     hidden: { opacity: 0, y: 30 },
                     visible: { opacity: 1, y: 0, transition: { duration: 0.8, ease: [0.16, 1, 0.3, 1] } }
                   }}
-                  className="relative overflow-hidden rounded-3xl bg-[#030305] border border-white/5 py-16 sm:py-20 text-center px-6 sm:px-12 md:px-16 shadow-2xl"
+                  className="relative overflow-hidden rounded-3xl bg-app-card border border-white/5 py-16 sm:py-20 text-center px-6 sm:px-12 md:px-16 shadow-2xl"
                 >
                   {/* Space Starfield Effect */}
                   <div className="absolute inset-0 bg-transparent opacity-25 pointer-events-none z-0 bg-[radial-gradient(ellipse_at_center,_rgba(255,255,255,0.15)_1px,_transparent_1px)] bg-[size:20px_20px]" />
@@ -897,12 +897,12 @@ export default function ServiceDetails() {
 
                   <div className="relative z-10 max-w-2xl mx-auto space-y-6 sm:space-y-8">
                     {/* Centered Heading */}
-                    <h3 className="text-xl sm:text-2xl md:text-3xl font-black font-heading text-white tracking-tight leading-tight">
+                    <h3 className="text-xl sm:text-2xl md:text-3xl font-black font-heading text-app-text tracking-tight leading-tight">
                       Ready to Grow Your <span className="text-primary">Business Operations?</span>
                     </h3>
                     
                     {/* Centered Description */}
-                    <p className="text-white/60 text-xs sm:text-sm leading-relaxed max-w-lg mx-auto font-medium">
+                    <p className="text-app-text-muted text-xs sm:text-sm leading-relaxed max-w-lg mx-auto font-medium">
                       Connect with our technical controller for a direct technical review and dynamic quote tailored for your business specifications.
                     </p>
 
@@ -918,10 +918,10 @@ export default function ServiceDetails() {
 
                       <Link
                         to="/portfolio"
-                        className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-3 bg-white/[0.04] hover:bg-white/[0.08] text-white border border-white/10 hover:border-white/20 font-black text-xs uppercase tracking-wider rounded-xl transition-all duration-300 transform hover:-translate-y-0.5 cursor-pointer"
+                        className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-3 bg-app-card hover:bg-app-border/50 text-app-text border border-app-border hover:border-primary/30 font-black text-xs uppercase tracking-wider rounded-xl transition-all duration-300 transform hover:-translate-y-0.5 cursor-pointer"
                       >
                         <span>Explore Portfolio</span>
-                        <ArrowRight className="w-4 h-4 opacity-60 transition-transform" />
+                        <ArrowRight className="w-4 h-4 transition-transform" />
                       </Link>
                     </div>
                   </div>

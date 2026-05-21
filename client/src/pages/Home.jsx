@@ -7,6 +7,7 @@ import StatsCounter from '../components/home/StatsCounter';
 import Testimonials from '../components/home/Testimonials';
 import PortfolioPreview from '../components/home/PortfolioPreview';
 import PricingPreview from '../components/home/PricingPreview';
+import PresenceMap from '../components/home/PresenceMap';
 import CTABanner from '../components/home/CTABanner';
 
 export default function Home() {
@@ -41,6 +42,9 @@ export default function Home() {
 
       {/* Strategic Pricing Preview for Ad Traffic */}
       <PricingPreview />
+
+      {/* Nationwide Presence Map */}
+      <PresenceMap />
 
       {/* Action Billboard Banner */}
       <CTABanner />

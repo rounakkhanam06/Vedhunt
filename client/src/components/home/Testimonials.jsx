@@ -21,7 +21,7 @@ export default function Testimonials() {
 
   return (
     <section
-      className="pt-12 pb-6 md:py-24 bg-app-bg text-app-text overflow-hidden relative select-none border-t border-b border-app-border"
+      className="pt-12 pb-4 md:pt-24 md:pb-8 bg-app-bg text-app-text overflow-hidden relative select-none border-t border-b border-app-border"
       id="testimonials"
     >
       {/* Background Ambient Glows */}
@@ -87,11 +87,11 @@ export default function Testimonials() {
                           animate={{ opacity: 1, scale: 1, rotate: 0 }}
                           transition={{ delay: i * 0.1, type: 'spring', stiffness: 200, damping: 10 }}
                         >
-                          <Star className="w-4 h-4 md:w-5 md:h-5 fill-[#00204a] text-[#00204a] dark:fill-primary dark:text-primary" />
+                          <Star className="w-4 h-4 md:w-5 md:h-5 fill-primary text-primary" />
                         </motion.div>
                       ))}
                     </div>
-                    <Quote className="w-8 h-8 md:w-10 md:h-10 text-[#00204a] opacity-90 fill-[#00204a] dark:text-primary dark:fill-primary rotate-180" />
+                    <Quote className="w-8 h-8 md:w-10 md:h-10 text-primary opacity-90 fill-primary rotate-180" />
                   </div>
 
                   {/* Quote Text */}

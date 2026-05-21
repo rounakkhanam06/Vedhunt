@@ -116,12 +116,12 @@ export default function WhyChooseUs() {
         </div>
 
         {/* Title */}
-        <h3 className="text-xl font-black font-heading text-app-text mb-3 group-hover:text-primary transition-colors duration-300 relative z-10">
+        <h3 className="text-xl font-black font-heading text-primary mb-3 transition-colors duration-300 relative z-10">
           {feature.title}
         </h3>
 
         {/* Description */}
-        <p className="text-app-text-muted text-sm leading-relaxed font-medium relative z-10">
+        <p className="text-app-text text-sm leading-relaxed font-medium relative z-10">
           {feature.desc}
         </p>
 
@@ -132,7 +132,7 @@ export default function WhyChooseUs() {
   };
 
   return (
-    <section className="pt-4 pb-12 sm:py-12 px-4 bg-app-bg relative overflow-hidden mesh-grid">
+    <section className="pt-2 sm:pt-4 pb-12 px-4 bg-app-bg relative overflow-hidden mesh-grid">
       {/* Background Ambient Glows */}
       <div className="absolute top-1/4 left-1/3 w-96 h-96 bg-primary/5 rounded-full filter blur-[150px] pointer-events-none" />
       <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-primary/2 dark:bg-white/2 rounded-full filter blur-[150px] pointer-events-none" />
@@ -180,7 +180,7 @@ export default function WhyChooseUs() {
                     initial="enter"
                     animate="center"
                     exit="exit"
-                    className="absolute w-full group relative bg-app-card rounded-2xl p-8 shadow-lg border border-white/5 flex flex-col items-start text-left"
+                    className="absolute w-full group relative bg-app-card rounded-2xl p-8 shadow-lg border border-app-border flex flex-col items-start text-left"
                   >
                     <CardContent feature={feature} />
                   </motion.div>
@@ -200,7 +200,7 @@ export default function WhyChooseUs() {
               <motion.div
                 key={index}
                 variants={itemVariants}
-                className="group relative bg-app-card rounded-2xl p-8 shadow-lg border border-white/5 hover:border-primary/20 hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 flex flex-col items-start text-left"
+                className="group relative bg-app-card rounded-2xl p-8 shadow-lg border border-app-border hover:border-primary hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 flex flex-col items-start text-left"
               >
                 <CardContent feature={feature} />
               </motion.div>

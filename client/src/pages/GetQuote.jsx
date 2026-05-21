@@ -781,7 +781,7 @@ export default function GetQuote() {
               initial="hidden"
               animate="visible"
               variants={scrollFadeRight}
-              className="relative z-10 w-full max-w-[440px] aspect-[4/5] bg-white text-zinc-900 rounded-[50%_40%_60%_40%_/_40%_60%_40%_60%] p-10 md:p-12 flex flex-col justify-center items-start shadow-3xl border border-white/60 dark:bg-zinc-950 dark:text-zinc-100 dark:border-zinc-800/80"
+              className="relative z-10 w-full max-w-[440px] aspect-[4/5] bg-app-card text-app-text rounded-[50%_40%_60%_40%_/_40%_60%_40%_60%] p-10 md:p-12 flex flex-col justify-center items-start shadow-3xl border border-app-border"
             >
               <div className="space-y-1 mb-8 text-left">
                 <div className="w-12 h-[3px] bg-primary rounded-full mb-3" />

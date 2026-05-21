@@ -25,6 +25,18 @@ export default function Navbar() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  // Prevent background scrolling when mobile menu is open
+  useEffect(() => {
+    if (isMobileMenuOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isMobileMenuOpen]);
+
   return (
     <>
       {/* Top Contact Bar */}
@@ -48,17 +60,17 @@ export default function Navbar() {
       <header
         className={`fixed ${isScrolled ? 'top-2 sm:top-4' : 'top-4 sm:top-12'} left-1/2 -translate-x-1/2 w-full max-w-6xl z-40 transition-all duration-500 pointer-events-none px-4 md:px-8`}
       >
-        <div className={`w-full flex justify-between items-center pointer-events-auto transition-all duration-500 px-4 py-0 sm:py-0 rounded-full border shadow-xl md:bg-transparent md:border-transparent md:shadow-none ${
+        <div className={`w-full flex justify-between items-center pointer-events-auto transition-all duration-500 px-4 py-0 sm:py-0 rounded-full shadow-xl ${
           isScrolled 
-            ? 'bg-app-bg/85 backdrop-blur-xl border-app-border' 
-            : 'bg-app-card/30 backdrop-blur-md border-primary/10'
+            ? 'bg-white/90 dark:bg-[#0B0B14]/90 backdrop-blur-xl border border-slate-200/50 dark:border-white/10' 
+            : 'md:bg-transparent md:border-transparent md:shadow-none bg-white/70 dark:bg-[#1A1A2E]/30 backdrop-blur-md border border-slate-200/50 dark:border-primary/10'
         }`}>
           
           {/* Top Left: Logo Section */}
           <div className="flex items-center gap-4">
             <Link to="/" className="flex items-center gap-2 group">
               <img
-                src={theme === 'dark' ? darkLogo : lightLogo}
+                src={theme === 'dark' || (location.pathname === '/' && !isScrolled) ? darkLogo : lightLogo}
                 alt="Vedhunt Logo"
                 className="h-16 sm:h-20 md:h-24 w-auto object-contain transition-transform duration-300 group-hover:scale-105 my-[-10px] sm:my-[-16px] md:my-[-24px]"
               />
@@ -70,8 +82,8 @@ export default function Navbar() {
             <nav 
               className={`flex items-center justify-center gap-1 h-7 px-1.5 rounded-full border shadow-2xl transition-all duration-500 ${
                 isScrolled 
-                  ? 'bg-app-bg/80 backdrop-blur-xl border-app-border' 
-                  : 'bg-app-card/30 backdrop-blur-md border-primary/10'
+                  ? 'bg-white/90 dark:bg-[#0B0B14]/80 backdrop-blur-xl border-slate-200 dark:border-white/10' 
+                  : 'bg-white/50 dark:bg-[#1A1A2E]/30 backdrop-blur-md border-slate-200/50 dark:border-primary/10'
               }`}
             >
               {NAV_LINKS.map((link) => {
@@ -84,7 +96,7 @@ export default function Navbar() {
                       `flex items-center justify-center h-full px-4 rounded-full text-xs font-bold tracking-tight whitespace-nowrap transition-all duration-300 relative group/nav overflow-visible ${
                         isActive
                           ? 'text-black'
-                          : 'text-app-text-muted hover:text-app-text'
+                          : 'text-slate-600 hover:text-black dark:text-white/70 dark:hover:text-white'
                       }`
                     }
                   >
@@ -116,7 +128,7 @@ export default function Navbar() {
                         {isServices && (
                           <div className="absolute top-full left-1/2 -translate-x-1/2 pt-3 w-72 opacity-0 translate-y-2 pointer-events-none group-hover/nav:opacity-100 group-hover/nav:translate-y-0 group-hover/nav:pointer-events-auto transition-all duration-300 z-50 cursor-default">
                             <div 
-                              className="bg-app-card/95 backdrop-blur-2xl border border-app-border rounded-2xl p-2 shadow-[0_10px_40px_rgba(0,0,0,0.3)] flex flex-col gap-1"
+                              className="bg-white/95 dark:bg-[#1A1A2E]/95 backdrop-blur-2xl border border-app-border rounded-2xl p-2 shadow-[0_10px_40px_rgba(0,0,0,0.1)] dark:shadow-[0_10px_40px_rgba(0,0,0,0.3)] flex flex-col gap-1"
                               onClick={(e) => e.stopPropagation()}
                             >
                               {SERVICES.map((srv) => {
@@ -125,9 +137,9 @@ export default function Navbar() {
                                   <Link
                                     key={srv.slug}
                                     to={`/services/${srv.slug}`}
-                                    className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-primary/10 hover:text-primary text-app-text-muted transition-all duration-200 group/dropitem cursor-pointer"
+                                    className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-black/5 dark:hover:bg-primary/10 text-app-text-muted hover:text-app-text dark:hover:text-primary transition-all duration-200 group/dropitem cursor-pointer"
                                   >
-                                    <div className="w-8 h-8 rounded-lg bg-primary/5 border border-primary/10 flex items-center justify-center text-primary group-hover/dropitem:scale-110 transition-transform shrink-0">
+                                    <div className="w-8 h-8 rounded-lg bg-primary/10 dark:bg-primary/5 border border-primary/20 dark:border-primary/10 flex items-center justify-center text-primary group-hover/dropitem:scale-110 transition-transform shrink-0">
                                       {typeof IconComponent === 'object' || typeof IconComponent === 'function' ? (
                                         <IconComponent className="w-4 h-4" />
                                       ) : (
@@ -136,7 +148,7 @@ export default function Navbar() {
                                     </div>
                                     <div className="flex flex-col text-left overflow-hidden">
                                       <span className="text-xs font-bold text-app-text group-hover/dropitem:text-primary transition-colors truncate">{srv.title}</span>
-                                      <span className="text-[10px] text-app-text-muted/70 truncate">{srv.subtitle}</span>
+                                      <span className="text-[10px] text-app-text-muted truncate">{srv.subtitle}</span>
                                     </div>
                                   </Link>
                                 );
@@ -169,7 +181,7 @@ export default function Navbar() {
             <ThemeToggle />
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="p-2.5 rounded-full bg-app-card border border-app-border text-app-text-muted hover:text-primary transition-all shadow-xl"
+              className="p-2.5 rounded-full bg-[#1A1A2E] border border-white/10 text-white/70 hover:text-primary transition-all shadow-xl"
               aria-label="Toggle mobile menu"
             >
               {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -185,7 +197,7 @@ export default function Navbar() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: -20 }}
               transition={{ duration: 0.2 }}
-              className="md:hidden mt-4 w-full max-h-[80vh] overflow-y-auto bg-app-card/95 backdrop-blur-2xl border border-app-border rounded-3xl shadow-2xl pointer-events-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+              className="md:hidden mt-4 w-full max-h-[80vh] overflow-y-auto bg-white/95 dark:bg-[#1A1A2E]/95 backdrop-blur-2xl border border-app-border/50 dark:border-white/10 rounded-3xl shadow-2xl pointer-events-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
             >
               <div className="p-3 space-y-1.5">
                 {NAV_LINKS.map((link) => {
@@ -196,7 +208,7 @@ export default function Navbar() {
                         <div className={`flex items-center justify-between px-5 py-3.5 rounded-2xl text-sm font-bold transition-all border border-transparent hover:border-primary ${
                           location.pathname === link.path
                             ? 'bg-primary text-black'
-                            : 'text-app-text-muted hover:bg-white/5 hover:text-app-text'
+                            : 'text-slate-800 hover:bg-slate-100 hover:text-black dark:text-white/70 dark:hover:bg-white/5 dark:hover:text-white'
                         }`}>
                           <NavLink
                             to={link.path}
@@ -207,7 +219,7 @@ export default function Navbar() {
                           </NavLink>
                           <button
                             onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsServicesExpanded(!isServicesExpanded); }}
-                            className="p-1 rounded-full bg-white/5 hover:text-primary transition-colors"
+                            className="p-1 rounded-full bg-slate-100 dark:bg-white/5 hover:text-primary transition-colors"
                           >
                             <ChevronDown className={`w-4 h-4 transition-transform ${isServicesExpanded ? 'rotate-180' : ''}`} />
                           </button>
@@ -220,7 +232,7 @@ export default function Navbar() {
                             `flex items-center justify-between px-5 py-3.5 rounded-2xl text-sm font-bold transition-all border border-transparent hover:border-primary ${
                               isActive
                                 ? 'bg-primary text-black'
-                                : 'text-app-text-muted hover:bg-white/5 hover:text-app-text'
+                                : 'text-slate-800 hover:bg-slate-100 hover:text-black dark:text-white/70 dark:hover:bg-white/5 dark:hover:text-white'
                             }`
                           }
                         >
@@ -243,7 +255,7 @@ export default function Navbar() {
                                 key={srv.slug}
                                 to={`/services/${srv.slug}`}
                                 onClick={() => setIsMobileMenuOpen(false)}
-                                className="flex items-center justify-between px-4 py-2.5 rounded-xl text-xs font-medium text-app-text-muted hover:bg-primary/10 hover:text-primary transition-all border border-transparent hover:border-primary"
+                                className="flex items-center justify-between px-4 py-2.5 rounded-xl text-xs font-medium text-slate-700 dark:text-white/70 hover:bg-primary/10 hover:text-primary transition-all border border-transparent hover:border-primary"
                               >
                                 <span>{srv.title}</span>
                                 <ArrowRight className="w-3 h-3 opacity-50" />

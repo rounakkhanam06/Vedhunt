@@ -168,19 +168,19 @@ export default function PricingPreview() {
   }, []);
 
   return (
-    <section className="py-10 px-4 bg-app-bg relative overflow-hidden">
+    <section className="pt-10 pb-2 px-4 bg-app-bg relative overflow-hidden">
       {/* Background Ambience */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-[1000px] h-[400px] bg-primary/5 blur-[120px] pointer-events-none rounded-full" />
       
       <div className="max-w-7xl mx-auto relative z-10">
         
         {/* Header */}
-        <div className="text-center mb-8 space-y-2">
+        <div className="text-center mb-6 space-y-2">
           <motion.h2 
             initial={{ opacity: 0, y: 10 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="text-3xl md:text-4xl font-black font-heading text-white tracking-tight"
+            className="text-3xl md:text-4xl font-black font-heading text-app-text tracking-tight"
           >
             Flexible <span className="text-primary">Pricing Plans</span>
           </motion.h2>
@@ -189,7 +189,7 @@ export default function PricingPreview() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ delay: 0.1 }}
-            className="text-white/60 text-sm max-w-2xl mx-auto"
+            className="text-app-text-muted text-sm max-w-2xl mx-auto"
           >
             Premium solutions built to fit your budget.
           </motion.p>
@@ -198,7 +198,7 @@ export default function PricingPreview() {
         {/* Pricing Cards Grid (Compact & Interactive) */}
         <div 
           ref={scrollContainerRef}
-          className="flex sm:grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8 overflow-x-auto snap-x snap-mandatory pb-4 -mx-4 px-4 sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+          className="flex sm:grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6 overflow-x-auto snap-x snap-mandatory pb-4 -mx-4 px-4 sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
         >
           {serviceCategories.map((card, index) => {
             const currentTier = card.tiers[activeTabs[index]];
@@ -214,8 +214,8 @@ export default function PricingPreview() {
                 onMouseLeave={() => setHoveredIndex(null)}
                 className={`relative rounded-2xl overflow-hidden transition-all duration-500 min-w-[85vw] sm:min-w-0 snap-center ${
                   card.popular 
-                    ? 'border-primary/50 shadow-[0_0_25px_rgba(255,107,0,0.15)] bg-app-card/50' 
-                    : 'border-white/10 hover:border-white/20 bg-app-card/20'
+                    ? 'border-primary/50 shadow-[0_0_25px_rgba(255,107,0,0.15)] bg-app-card' 
+                    : 'border-app-border hover:border-primary/50 bg-app-card'
                 } border backdrop-blur-xl group flex flex-col ${
                   index === 2 ? 'sm:col-span-2 lg:col-span-1' : ''
                 }`}
@@ -236,21 +236,21 @@ export default function PricingPreview() {
                   {/* Tier Icon & Title */}
                   <div className="flex items-center gap-3 mb-2">
                     <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                      card.popular ? 'bg-primary text-black shadow-lg shadow-primary/20' : 'bg-white/5 text-white/80 group-hover:bg-white/10 group-hover:text-white'
+                      card.popular ? 'bg-primary text-black shadow-lg shadow-primary/20' : 'bg-app-bg text-app-text-muted border border-app-border group-hover:border-primary group-hover:text-primary'
                     } transition-colors duration-300`}>
                       <card.icon size={16} />
                     </div>
                     <div>
-                      <h3 className="text-base font-bold text-white tracking-tight leading-tight">{card.title}</h3>
+                      <h3 className="text-base font-bold text-app-text tracking-tight leading-tight">{card.title}</h3>
                     </div>
                   </div>
 
-                  <p className="text-white/50 text-[11px] mb-3 leading-snug min-h-[30px]">
+                  <p className="text-app-text-muted text-[11px] mb-3 leading-snug min-h-[30px]">
                     {card.description}
                   </p>
 
                   {/* Tabs Switcher (Starter | Growth | Enterprise) */}
-                  <div className="flex bg-white/5 p-1 rounded-lg border border-white/10 mb-4">
+                  <div className="flex bg-app-bg p-1 rounded-lg border border-app-border mb-4">
                     {['starter', 'growth', 'enterprise'].map((tabKey) => (
                       <button
                         key={tabKey}
@@ -259,8 +259,8 @@ export default function PricingPreview() {
                           activeTabs[index] === tabKey
                             ? card.popular 
                               ? 'bg-primary text-black shadow-md' 
-                              : 'bg-white/15 text-white shadow-md border border-white/10'
-                            : 'text-white/40 hover:text-white/70'
+                              : 'bg-app-card text-app-text shadow-md border border-app-border'
+                            : 'text-app-text-muted hover:text-app-text'
                         }`}
                       >
                         {tabKey}
@@ -279,23 +279,23 @@ export default function PricingPreview() {
                         transition={{ duration: 0.2 }}
                         className="flex items-baseline"
                       >
-                        <span className="text-2xl md:text-3xl font-black text-white tracking-tight">{currentTier.price}</span>
-                        <span className="text-white/40 text-[10px] font-medium ml-1">{currentTier.period}</span>
+                        <span className="text-2xl md:text-3xl font-black text-app-text tracking-tight">{currentTier.price}</span>
+                        <span className="text-app-text-muted/60 text-[10px] font-medium ml-1">{currentTier.period}</span>
                       </motion.div>
                     </AnimatePresence>
                   </div>
 
                   {/* Divider */}
-                  <div className="w-full h-px bg-white/10 mb-4" />
+                  <div className="w-full h-px bg-app-border mb-4" />
 
                   {/* Features List */}
                   <ul className="space-y-2 mb-5 flex-grow">
                     {currentTier.features.map((feature, i) => (
                       <li key={i} className="flex items-start gap-2">
-                        <div className={`mt-0.5 rounded-full p-0.5 ${card.popular ? 'bg-primary/20 text-primary' : 'bg-white/5 text-white/60'} shrink-0`}>
+                        <div className={`mt-0.5 rounded-full p-0.5 ${card.popular ? 'bg-primary/20 text-primary' : 'bg-app-bg border border-app-border text-app-text-muted'} shrink-0`}>
                           <Check size={8} strokeWidth={3} />
                         </div>
-                        <span className="text-[11px] font-medium text-white/80 leading-tight">
+                        <span className="text-[11px] font-medium text-app-text-muted leading-tight">
                           {feature}
                         </span>
                       </li>
@@ -307,8 +307,8 @@ export default function PricingPreview() {
                     to="/pricing"
                     className={`w-full py-2.5 rounded-xl flex items-center justify-center gap-2 text-[11px] font-bold transition-all duration-300 ${
                       card.popular 
-                        ? 'bg-primary text-black hover:bg-white shadow-[0_0_15px_rgba(255,107,0,0.3)] hover:shadow-[0_0_15px_rgba(255,255,255,0.4)]' 
-                        : 'bg-white/5 text-white hover:bg-white/10 border border-white/10'
+                        ? 'bg-primary text-black hover:bg-app-text hover:text-app-bg shadow-[0_0_15px_rgba(255,107,0,0.3)]' 
+                        : 'bg-app-bg text-app-text hover:border-primary border border-app-border'
                     }`}
                   >
                     Get Started
@@ -330,10 +330,10 @@ export default function PricingPreview() {
           >
             <Link 
               to="/pricing"
-              className="group relative inline-flex items-center justify-center px-8 py-3.5 text-xs font-bold text-white transition-all duration-300 bg-white/5 border border-white/10 rounded-full hover:bg-white/10 overflow-hidden"
+              className="group relative inline-flex items-center justify-center px-8 py-3.5 text-xs font-bold text-app-text transition-all duration-300 bg-app-bg border border-app-border rounded-full hover:border-primary overflow-hidden"
             >
               <div className="absolute inset-0 flex h-full w-full justify-center [transform:skew(-12deg)_translateX(-100%)] group-hover:duration-1000 group-hover:[transform:skew(-12deg)_translateX(100%)]">
-                <div className="relative h-full w-8 bg-white/20" />
+                <div className="relative h-full w-8 bg-app-border/40" />
               </div>
               <span className="relative z-10 flex items-center gap-2 uppercase tracking-wider">
                 View All Pricing
