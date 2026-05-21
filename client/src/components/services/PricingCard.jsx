@@ -46,13 +46,13 @@ export default function PricingCard({ plan }) {
       transition={{ duration: 0.5, ease: "easeOut" }}
       className={`relative rounded-[2.25rem] border-[1.5px] overflow-hidden flex flex-col justify-between h-full group transition-all duration-500
         ${highlight 
-          ? 'border-primary bg-app-card shadow-[0_0_30px_rgba(255,90,31,0.15)] dark:shadow-[0_0_30px_rgba(255,90,31,0.25)]' 
-          : 'border-app-border dark:border-white/10 bg-app-card hover:border-primary hover:shadow-[0_0_30px_rgba(255,90,31,0.2)] shadow-lg'
+          ? 'border-primary bg-white dark:bg-app-card shadow-[0_0_30px_rgba(255,90,31,0.15)] dark:shadow-[0_0_30px_rgba(255,90,31,0.25)]' 
+          : 'border-slate-100 dark:border-white/10 bg-white dark:bg-app-card hover:border-primary hover:shadow-[0_0_30px_rgba(255,90,31,0.2)] shadow-sm dark:shadow-lg'
         }`}
     >
       {/* Floating best choice badge if highlighted */}
       {highlight && (
-        <div className="absolute top-4 right-6 z-20">
+        <div className="absolute top-2.5 right-3.5 z-20">
           <span className="px-3 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest bg-primary text-white dark:bg-white dark:text-black shadow-md">
             Best Choice
           </span>
@@ -78,12 +78,12 @@ export default function PricingCard({ plan }) {
         </div>
 
         {/* Deliverables / Features Box */}
-        <div className="px-6 pb-6 flex-grow">
-          <div className="rounded-2xl bg-black/[0.01] dark:bg-white/[0.01] border border-black/5 dark:border-white/5 p-4.5 space-y-3 group-hover:bg-black/[0.02] group-hover:dark:bg-white/[0.02] transition-all duration-300">
-            <p className="text-[9px] font-black text-black/40 dark:text-white/40 tracking-[0.2em] uppercase">
+        <div className="px-6 pb-6 flex-grow flex flex-col">
+          <div className="rounded-2xl bg-black/[0.01] dark:bg-white/[0.01] border border-black/5 dark:border-white/5 p-4.5 flex flex-col space-y-3 group-hover:bg-black/[0.02] group-hover:dark:bg-white/[0.02] transition-all duration-300 overflow-hidden">
+            <p className="text-[9px] font-black text-black/40 dark:text-white/40 tracking-[0.2em] uppercase shrink-0">
               Included Deliverables
             </p>
-            <ul className="space-y-2.5 max-h-[160px] overflow-y-auto scrollbar-hide pr-1">
+            <ul className="space-y-2.5 h-[200px] overflow-y-auto pr-2">
               {features.map((feature, idx) => (
                 <li key={idx} className="flex items-start gap-2.5 group/item">
                   <div className="mt-1 w-3.5 h-3.5 rounded-full bg-primary/10 dark:bg-primary/20 flex items-center justify-center flex-shrink-0 group-hover:scale-115 transition-all">

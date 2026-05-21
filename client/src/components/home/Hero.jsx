@@ -178,7 +178,7 @@ export default function Hero() {
 
             <Link
               to="/services"
-              className="px-6 py-3.5 sm:px-10 sm:py-4 bg-white/5 backdrop-blur-md border border-white/10 hover:bg-white/10 text-white font-bold text-sm rounded-full flex items-center justify-center gap-3 transition-all duration-300 hover:scale-105 w-full sm:w-auto text-center"
+              className="px-6 py-3.5 sm:px-10 sm:py-4 bg-white/5 backdrop-blur-md border border-white/10 hover:bg-primary hover:border-primary hover:text-black text-white font-bold text-sm rounded-full flex items-center justify-center gap-3 transition-all duration-300 hover:scale-105 w-full sm:w-auto text-center shadow-lg hover:shadow-[0_0_30px_rgba(255,107,0,0.3)]"
             >
               <span>View Services</span>
             </Link>

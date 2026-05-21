@@ -461,23 +461,23 @@ export default function About() {
               variants={scrollFadeUp} 
               className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-2"
             >
-              <div className="flex items-start gap-3">
-                <div className="w-9 h-9 rounded-lg bg-primary/10 border border-primary/15 text-primary flex items-center justify-center shrink-0 orange-glow-sm">
+              <div className="flex items-start gap-3 group hover:-translate-y-1 transition-all duration-300 cursor-default">
+                <div className="w-9 h-9 rounded-lg bg-primary/10 border border-primary/15 text-primary flex items-center justify-center shrink-0 orange-glow-sm group-hover:bg-primary group-hover:text-white group-hover:scale-110 transition-all duration-300">
                   <ShieldCheck className="w-4.5 h-4.5 stroke-[2.5]" />
                 </div>
                 <div className="space-y-0.5">
-                  <h4 className="text-xs md:text-sm font-extrabold text-app-text font-heading">Certified Company</h4>
+                  <h4 className="text-xs md:text-sm font-extrabold text-app-text font-heading group-hover:text-primary transition-colors duration-300">Certified Company</h4>
                   <p className="text-[10px] md:text-xs text-app-text-muted leading-relaxed">
                     Industry-certified security compliance & standard-driven procedures.
                   </p>
                 </div>
               </div>
-              <div className="flex items-start gap-3">
-                <div className="w-9 h-9 rounded-lg bg-primary/10 border border-primary/15 text-primary flex items-center justify-center shrink-0 orange-glow-sm">
+              <div className="flex items-start gap-3 group hover:-translate-y-1 transition-all duration-300 cursor-default">
+                <div className="w-9 h-9 rounded-lg bg-primary/10 border border-primary/15 text-primary flex items-center justify-center shrink-0 orange-glow-sm group-hover:bg-primary group-hover:text-white group-hover:scale-110 transition-all duration-300">
                   <AwardIcon className="w-4.5 h-4.5 stroke-[2.5]" />
                 </div>
                 <div className="space-y-0.5">
-                  <h4 className="text-xs md:text-sm font-extrabold text-app-text font-heading">Award Ceremony</h4>
+                  <h4 className="text-xs md:text-sm font-extrabold text-app-text font-heading group-hover:text-primary transition-colors duration-300">Award Ceremony</h4>
                   <p className="text-[10px] md:text-xs text-app-text-muted leading-relaxed">
                     Recognized for excellence in automation & performance-driven marketing.
                   </p>
@@ -488,10 +488,10 @@ export default function About() {
             {/* Signature Badge Founder Detail */}
             <motion.div 
               variants={scrollFadeUp} 
-              className="flex items-center gap-4 pt-6 border-t border-app-border/40"
+              className="flex items-center justify-end gap-4 pt-6 border-t border-app-border/40"
             >
 
-              <div className="text-left space-y-0.5">
+              <div className="text-right space-y-0.5">
                 <h5 className="text-xs md:text-sm font-extrabold text-app-text font-heading">Rakesh Kumar</h5>
                 <p className="text-[10px] md:text-xs text-app-text-muted">Chairman & Founder Tech, Vedhunt</p>
               </div>

@@ -79,7 +79,7 @@ export default function ComparisonTable() {
           whileInView={{ opacity: 1, scale: 1 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
-          className="rounded-2xl border border-app-border bg-app-card/80 backdrop-blur-xl shadow-2xl relative"
+          className="rounded-2xl border border-slate-200 dark:border-app-border bg-white dark:bg-app-card/80 backdrop-blur-xl shadow-xl dark:shadow-2xl relative"
           style={{
             clipPath: 'polygon(36px 0%, 100% 0%, 100% calc(100% - 36px), calc(100% - 36px) 100%, 0% 100%, 0% 36px)'
           }}
@@ -109,8 +109,8 @@ export default function ComparisonTable() {
             <table className="w-full text-left border-collapse min-w-[550px] sm:min-w-full">
               {/* Table Header */}
               <thead>
-                <tr className="bg-app-bg border-b border-app-border">
-                  <th className="pl-10 pr-4 py-3 text-[10px] font-black uppercase tracking-widest text-app-text-muted border-r border-app-border w-1/3">
+                <tr className="bg-slate-50 dark:bg-app-bg border-b border-slate-200 dark:border-app-border">
+                  <th className="pl-10 pr-4 py-3 text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-app-text-muted border-r border-slate-200 dark:border-app-border w-1/3">
                     Feature
                   </th>
                   <th className="px-4 py-3 text-xs font-black text-primary bg-primary/10 border-r border-primary/20 w-1/3 text-center">
@@ -123,14 +123,14 @@ export default function ComparisonTable() {
               </thead>
               
               {/* Table Body */}
-              <tbody className="divide-y divide-app-border">
+              <tbody className="divide-y divide-slate-100 dark:divide-app-border">
                 {comparisonData.map((row, index) => (
                   <tr 
                     key={index} 
-                    className="group hover:bg-app-bg transition-colors duration-300"
+                    className="group hover:bg-slate-50 dark:hover:bg-app-bg transition-colors duration-300"
                   >
                     {/* Feature Column */}
-                    <td className="pl-10 pr-4 py-2.5 text-[11px] font-bold text-app-text transition-colors">
+                    <td className="pl-10 pr-4 py-2.5 text-[11px] font-bold text-slate-800 dark:text-app-text transition-colors">
                       {row.feature}
                     </td>
                     
@@ -143,7 +143,7 @@ export default function ComparisonTable() {
                     </td>
                     
                     {/* Typical Agency Column - Muted */}
-                    <td className="px-4 py-2.5 text-[11px] font-medium text-app-text-muted transition-colors text-center">
+                    <td className="px-4 py-2.5 text-[11px] font-medium text-slate-500 dark:text-app-text-muted transition-colors text-center">
                       {row.typical}
                     </td>
                   </tr>

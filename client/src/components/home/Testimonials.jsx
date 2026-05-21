@@ -48,7 +48,7 @@ export default function Testimonials() {
               className="w-full max-w-2xl px-4 md:px-8"
             >
               {/* The Card - More compact padding */}
-              <div className="relative bg-app-card backdrop-blur-2xl rounded-[2rem] md:rounded-[2.5rem] rounded-tr-[3rem] md:rounded-tr-[4rem] p-5 md:p-8 shadow-[0_8px_30px_rgb(0,0,0,0.12)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.4)] text-left border border-white/60 dark:border-white/10">
+              <div className="relative bg-white dark:bg-app-card backdrop-blur-2xl rounded-[2rem] md:rounded-[2.5rem] rounded-tr-[3rem] md:rounded-tr-[4rem] p-5 md:p-8 shadow-[0_8px_30px_rgba(0,0,0,0.06)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.4)] text-left border border-slate-100 dark:border-white/10">
                 
                 {/* Orange Corner Accent */}
                 <div className="absolute top-0 right-0 w-2/3 md:w-1/2 h-full border-t-[4px] md:border-t-[6px] border-r-[4px] md:border-r-[6px] border-primary opacity-80 rounded-tr-[3rem] md:rounded-tr-[4rem] rounded-br-[2.5rem] pointer-events-none" />
@@ -66,7 +66,7 @@ export default function Testimonials() {
                 <div className="pt-12 md:pt-0 pl-0 md:pl-32">
                   {/* Name and Country - Compact spacing */}
                   <div className="mb-3">
-                    <h3 className="text-xl md:text-2xl font-bold text-[#00204a] dark:text-white leading-tight">
+                    <h3 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white leading-tight">
                       {t.author}
                     </h3>
                     <div className="flex items-center gap-2 mt-0.5">

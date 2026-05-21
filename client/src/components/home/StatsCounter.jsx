@@ -61,10 +61,10 @@ export default function StatsCounter() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "-50px" }}
               transition={{ delay: index * 0.1, duration: 0.5 }}
-              className="bg-app-card backdrop-blur-xl border border-app-border rounded-xl sm:rounded-2xl p-3 sm:p-5 flex flex-col sm:flex-row items-center sm:items-center text-center sm:text-left justify-center sm:justify-start gap-2 sm:gap-4 group hover:border-primary transition-all duration-300 shadow-xl relative overflow-hidden"
+              className="bg-white dark:bg-app-card backdrop-blur-xl border border-slate-100 dark:border-app-border rounded-xl sm:rounded-2xl p-3 sm:p-5 flex flex-col sm:flex-row items-center sm:items-center text-center sm:text-left justify-center sm:justify-start gap-2 sm:gap-4 group hover:border-primary transition-all duration-300 shadow-sm dark:shadow-xl relative overflow-hidden"
             >
               {/* Inner glass highlight */}
-              <div className="absolute inset-0 border border-app-border rounded-xl sm:rounded-2xl pointer-events-none" />
+              <div className="absolute inset-0 border border-slate-200 dark:border-app-border rounded-xl sm:rounded-2xl pointer-events-none" />
 
               {/* Icon Box */}
               <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary group-hover:scale-110 group-hover:bg-primary group-hover:text-black transition-all duration-300 shrink-0 shadow-[0_0_15px_rgba(255,107,0,0.15)] relative z-10">
@@ -76,7 +76,7 @@ export default function StatsCounter() {
                 <div className="text-lg sm:text-2xl md:text-3xl font-bold font-heading text-primary transition-colors flex items-center justify-center sm:justify-start tracking-tight">
                   <Counter value={stat.value} suffix={stat.suffix} />
                 </div>
-                <div className="text-app-text text-[9px] sm:text-[11px] font-semibold uppercase tracking-[0.05em] sm:tracking-[0.15em] leading-tight px-1 sm:px-0">
+                <div className="text-slate-800 dark:text-app-text text-[9px] sm:text-[11px] font-semibold uppercase tracking-[0.05em] sm:tracking-[0.15em] leading-tight px-1 sm:px-0">
                   {stat.label}
                 </div>
               </div>

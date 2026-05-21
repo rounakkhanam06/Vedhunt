@@ -111,7 +111,7 @@ export default function WhyChooseUs() {
         <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-2xl" />
 
         {/* Icon Wrapper */}
-        <div className="mb-6 w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center text-primary shadow-inner group-hover:bg-primary group-hover:text-black transition-all duration-500 transform group-hover:rotate-3">
+        <div className="mb-6 w-16 h-16 rounded-2xl bg-primary/10 dark:bg-white/5 flex items-center justify-center text-primary shadow-inner group-hover:bg-primary group-hover:text-black transition-all duration-500 transform group-hover:rotate-3">
           <Icon size={28} strokeWidth={2.5} />
         </div>
 
@@ -121,7 +121,7 @@ export default function WhyChooseUs() {
         </h3>
 
         {/* Description */}
-        <p className="text-app-text text-sm leading-relaxed font-medium relative z-10">
+        <p className="text-slate-600 dark:text-app-text text-sm leading-relaxed font-medium relative z-10">
           {feature.desc}
         </p>
 
@@ -180,7 +180,7 @@ export default function WhyChooseUs() {
                     initial="enter"
                     animate="center"
                     exit="exit"
-                    className="absolute w-full group relative bg-app-card rounded-2xl p-8 shadow-lg border border-app-border flex flex-col items-start text-left"
+                    className="absolute w-full group relative bg-white dark:bg-app-card rounded-2xl p-8 shadow-sm dark:shadow-lg border border-slate-100 dark:border-app-border flex flex-col items-start text-left"
                   >
                     <CardContent feature={feature} />
                   </motion.div>
@@ -200,7 +200,7 @@ export default function WhyChooseUs() {
               <motion.div
                 key={index}
                 variants={itemVariants}
-                className="group relative bg-app-card rounded-2xl p-8 shadow-lg border border-app-border hover:border-primary hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 flex flex-col items-start text-left"
+                className="group relative bg-white dark:bg-app-card rounded-2xl p-8 shadow-sm dark:shadow-lg border border-slate-100 dark:border-app-border hover:border-primary hover:shadow-xl dark:hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 flex flex-col items-start text-left"
               >
                 <CardContent feature={feature} />
               </motion.div>

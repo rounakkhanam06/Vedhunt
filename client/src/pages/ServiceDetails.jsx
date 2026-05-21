@@ -350,9 +350,9 @@ export default function ServiceDetails() {
                         key={idx}
                         variants={cardReveal}
                         whileHover={{ y: -6, scale: 1.01 }}
-                        className="bg-app-card border border-app-border rounded-2xl p-5 hover:border-primary/30 transition-all duration-300 shadow-sm hover:shadow-md group flex flex-col h-full cursor-default"
+                        className="bg-white dark:bg-app-card border border-slate-100 dark:border-app-border rounded-2xl p-5 hover:border-primary/30 transition-all duration-300 shadow-sm dark:shadow-md hover:shadow-lg dark:hover:shadow-lg group flex flex-col h-full cursor-default"
                       >
-                        <div className="w-10 h-10 rounded-xl bg-app-bg border border-app-border flex items-center justify-center text-app-text-muted group-hover:text-primary group-hover:bg-primary/5 group-hover:border-primary/30 transition-all duration-300 mb-4 shadow-sm">
+                        <div className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-app-bg border border-slate-100 dark:border-app-border flex items-center justify-center text-slate-500 dark:text-app-text-muted group-hover:text-primary group-hover:bg-primary/5 group-hover:border-primary/30 transition-all duration-300 mb-4 shadow-sm">
                           <IconComp className="w-5 h-5 transition-transform duration-300 group-hover:scale-110" />
                         </div>
                         
@@ -360,7 +360,7 @@ export default function ServiceDetails() {
                           {sub.title}
                         </h4>
                         
-                        <p className="text-[11px] sm:text-xs text-app-text-muted leading-relaxed font-medium flex-grow">
+                        <p className="text-[11px] sm:text-xs text-slate-600 dark:text-app-text-muted leading-relaxed font-medium flex-grow">
                           {sub.description}
                         </p>
                       </motion.div>

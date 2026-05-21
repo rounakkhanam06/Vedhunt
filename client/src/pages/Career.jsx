@@ -225,8 +225,8 @@ export default function Career() {
                   }}
                   className={`p-6 rounded-2xl border transition-all duration-300 cursor-pointer relative overflow-hidden group flex flex-col justify-between ${
                     selectedJob === job.id
-                      ? 'bg-app-card border-primary shadow-[0_10px_30px_rgba(232,71,10,0.15)]'
-                      : 'bg-app-card border-app-border hover:border-primary/30'
+                      ? 'bg-white dark:bg-app-card border-primary shadow-[0_10px_30px_rgba(232,71,10,0.15)]'
+                      : 'bg-white dark:bg-app-card border-slate-100 dark:border-app-border hover:border-primary/30 shadow-sm dark:shadow-none hover:shadow-lg dark:hover:shadow-none'
                   }`}
                 >
                   {selectedJob === job.id && (
@@ -241,15 +241,15 @@ export default function Career() {
                         </span>
                         <h3 className="text-lg font-bold font-heading text-app-text mt-1.5">{job.title}</h3>
                       </div>
-                      <span className="text-xs font-bold text-app-text-muted bg-white/5 border border-app-border px-3 py-1 rounded-full flex items-center gap-1.5">
+                      <span className="text-xs font-bold text-slate-600 dark:text-app-text-muted bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-app-border px-3 py-1 rounded-full flex items-center gap-1.5">
                         <Briefcase className="w-3.5 h-3.5 text-primary" />
                         <span>{job.type}</span>
                       </span>
                     </div>
 
-                    <p className="text-xs text-app-text-muted leading-relaxed">{job.desc}</p>
+                    <p className="text-xs text-slate-600 dark:text-app-text-muted leading-relaxed">{job.desc}</p>
 
-                    <div className="flex flex-wrap items-center gap-4 text-[11px] text-app-text-muted/80 pt-2 border-t border-app-border/50">
+                    <div className="flex flex-wrap items-center gap-4 text-[11px] text-slate-500 dark:text-app-text-muted/80 pt-2 border-t border-slate-100 dark:border-app-border/50">
                       <div className="flex items-center gap-1.5">
                         <MapPin className="w-3.5 h-3.5 text-primary" />
                         <span>{job.location}</span>
