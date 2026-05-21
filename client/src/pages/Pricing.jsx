@@ -292,9 +292,10 @@ export default function Pricing() {
 
         {/* Custom Requirements Banner */}
         <motion.div 
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
+          initial={{ opacity: 0, y: 40 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-50px" }}
+          transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
           className="relative overflow-hidden rounded-[2.5rem] bg-[#070913] border border-white/10 px-6 py-10 md:py-14 text-center shadow-2xl max-w-5xl mx-auto"
         >
           {/* Subtle Ambient Glowing Wave Background */}

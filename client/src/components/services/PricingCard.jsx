@@ -39,8 +39,11 @@ export default function PricingCard({ plan }) {
 
   return (
     <motion.div
+      initial={{ opacity: 0, y: 30 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-40px" }}
       whileHover={{ y: -6 }}
-      transition={{ duration: 0.4, ease: "easeOut" }}
+      transition={{ duration: 0.5, ease: "easeOut" }}
       className={`relative rounded-[2.25rem] border overflow-hidden flex flex-col justify-between h-full group transition-all duration-500
         ${highlight 
           ? 'border-primary/45 bg-[#FFFDFB] dark:bg-[#0E0E1C] shadow-[0_15px_40px_rgba(232,71,10,0.1)] dark:shadow-[0_15px_40px_rgba(232,71,10,0.15)]' 

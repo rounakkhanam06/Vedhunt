@@ -24,7 +24,7 @@ const Blog = () => {
   return (
     <div className="bg-app-bg text-app-text-muted min-h-screen pt-24 pb-20 mesh-grid relative overflow-hidden">
       {/* Hero Section */}
-      <section className="relative min-h-[35vh] flex items-center overflow-hidden mb-10">
+      <section className="relative min-h-[25vh] flex items-center overflow-hidden mb-4">
         <div className="absolute inset-0 z-0">
           <div className="absolute -top-20 -right-20 w-[60%] h-[120%] bg-gradient-to-bl from-primary/10 via-primary/5 to-transparent rounded-bl-[100px] transform rotate-12 filter blur-2xl" />
           <div className="absolute inset-0 bg-gradient-to-b from-transparent via-app-bg/50 to-app-bg" />
