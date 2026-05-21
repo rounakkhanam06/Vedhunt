@@ -15,6 +15,12 @@ const BlogDetail = lazy(() => import('../pages/BlogDetail'));
 const ServiceDetails = lazy(() => import('../pages/ServiceDetails'));
 const NotFound = lazy(() => import('../pages/NotFound'));
 const LandingPage = lazy(() => import('../pages/LandingPage'));
+const PrivacyPolicy = lazy(() => import('../pages/PrivacyPolicy'));
+const TermsConditions = lazy(() => import('../pages/TermsConditions'));
+const RefundPolicy = lazy(() => import('../pages/RefundPolicy'));
+const CookiePolicy = lazy(() => import('../pages/CookiePolicy'));
+const DPA = lazy(() => import('../pages/DPA'));
+
 
 
 // High-fidelity, smooth loading fallback component to display during chunk fetching
@@ -78,6 +84,26 @@ export const router = createBrowserRouter([
       {
         path: 'services/:slug',
         element: withSuspense(ServiceDetails)
+      },
+      {
+        path: 'privacy-policy',
+        element: withSuspense(PrivacyPolicy)
+      },
+      {
+        path: 'terms-and-conditions',
+        element: withSuspense(TermsConditions)
+      },
+      {
+        path: 'refund-and-billing-policy',
+        element: withSuspense(RefundPolicy)
+      },
+      {
+        path: 'cookie-policy',
+        element: withSuspense(CookiePolicy)
+      },
+      {
+        path: 'data-processing-agreement',
+        element: withSuspense(DPA)
       },
       {
         path: '*',

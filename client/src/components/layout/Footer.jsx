@@ -12,9 +12,11 @@ const FacebookIcon = (props) => (
   </svg>
 );
 
-const TwitterIcon = (props) => (
+const InstagramIcon = (props) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
-    <path d="M22 4s-.7 2.1-2 3.4c1.6 10-9.4 17.3-18 11.6 2.2.1 4.4-.6 6-2C3 15.5.5 9.6 3 5c2.2 2.6 5.6 4.1 9 4-.9-4.2 4-6.6 7-3.8 1.1 0 3-1.2 3-1.2z" />
+    <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
+    <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+    <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
   </svg>
 );
 
@@ -26,10 +28,10 @@ const LinkedinIcon = (props) => (
   </svg>
 );
 
-const GithubIcon = (props) => (
+const YoutubeIcon = (props) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
-    <path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4" />
-    <path d="M9 18c-4.51 2-5-2-7-2" />
+    <path d="M2.5 17a24.12 24.12 0 0 1 0-10 2 2 0 0 1 1.4-1.4 49.56 49.56 0 0 1 16.2 0A2 2 0 0 1 21.5 7a24.12 24.12 0 0 1 0 10 2 2 0 0 1-1.4 1.4 49.55 49.55 0 0 1-16.2 0A2 2 0 0 1 2.5 17" />
+    <path d="m10 15 5-3-5-3z" />
   </svg>
 );
 
@@ -93,8 +95,8 @@ export default function Footer() {
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 sm:pt-4">
           
-          {/* 4-Column Grid */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-4 gap-y-6 lg:gap-6 pb-4 sm:pb-6 border-b border-app-border">
+          {/* 5-Column Grid */}
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-x-4 gap-y-6 lg:gap-6 pb-4 sm:pb-6 border-b border-app-border">
             
             {/* Column 1: Branding & Profile */}
             <div className="space-y-2 col-span-2 lg:col-span-1">
@@ -167,7 +169,41 @@ export default function Footer() {
               </ul>
             </div>
 
-            {/* Column 4: Contact Info & Social Connections */}
+            {/* Column 4: Legal & Compliance */}
+            <div className="space-y-3 lg:pt-2 lg:pl-6">
+              <h4 className="text-primary font-heading font-extrabold text-xs uppercase tracking-wider pl-1.5 border-l-2 border-primary">
+                Legal & Compliance
+              </h4>
+              <ul className="space-y-1.5 text-xs sm:text-sm">
+                <li>
+                  <Link to="/privacy-policy" className="hover:text-primary hover:translate-x-1.5 transition-all duration-300 block py-0.5">
+                    Privacy Policy
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/terms-and-conditions" className="hover:text-primary hover:translate-x-1.5 transition-all duration-300 block py-0.5">
+                    Terms & Conditions
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/cookie-policy" className="hover:text-primary hover:translate-x-1.5 transition-all duration-300 block py-0.5">
+                    Cookie Policy
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/data-processing-agreement" className="hover:text-primary hover:translate-x-1.5 transition-all duration-300 block py-0.5">
+                    Data Processing Agreement (DPA)
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/refund-and-billing-policy" className="hover:text-primary hover:translate-x-1.5 transition-all duration-300 block py-0.5">
+                    Refund & Billing Policy
+                  </Link>
+                </li>
+              </ul>
+            </div>
+
+            {/* Column 5: Contact Info & Social Connections */}
             <div className="space-y-3 lg:pt-2 lg:pl-6 col-span-2 lg:col-span-1">
               <h4 className="text-primary font-heading font-extrabold text-xs uppercase tracking-wider pl-1.5 border-l-2 border-primary">
                 Contact Info
@@ -198,10 +234,10 @@ export default function Footer() {
               {/* High-fidelity custom Social Icons */}
               <div className="flex items-center gap-3 pt-0.5">
                 {[
-                  { icon: FacebookIcon, link: 'https://facebook.com' },
-                  { icon: TwitterIcon, link: 'https://twitter.com' },
-                  { icon: LinkedinIcon, link: 'https://linkedin.com' },
-                  { icon: GithubIcon, link: 'https://github.com' }
+                  { icon: FacebookIcon, link: 'https://www.facebook.com/Vedhunt6' },
+                  { icon: InstagramIcon, link: 'https://www.instagram.com/vedhunt/' },
+                  { icon: LinkedinIcon, link: 'https://www.linkedin.com/company/vedhunt-infotech' },
+                  { icon: YoutubeIcon, link: 'https://www.youtube.com/@vedhuntinfotech1326' }
                 ].map((social, idx) => (
                   <a
                     key={idx}
