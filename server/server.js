@@ -23,7 +23,11 @@ const app = express();
 app.use(helmet());
 app.use(
   cors({
-    origin: process.env.CLIENT_ORIGIN || 'http://localhost:5173',
+    origin: [
+      'http://localhost:5173',
+      'https://vedhunt.vercel.app',
+      process.env.CLIENT_ORIGIN
+    ].filter(Boolean),
     credentials: true, // required to send cookies
   })
 );
