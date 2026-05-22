@@ -12,6 +12,8 @@
   "dependencies": {
     "@splinetool/react-spline": "^4.1.0",
     "@splinetool/runtime": "^1.12.92",
+    "@tanstack/react-query": "^5.100.11",
+    "@tanstack/react-query-devtools": "^5.100.11",
     "axios": "^1.16.0",
     "clsx": "^2.1.1",
     "framer-motion": "^12.38.0",
@@ -21,7 +23,8 @@
     "react-dom": "^19.2.5",
     "react-hook-form": "^7.75.0",
     "react-router-dom": "^7.15.0",
-    "tailwind-merge": "^3.6.0"
+    "tailwind-merge": "^3.6.0",
+    "zustand": "^5.0.13"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

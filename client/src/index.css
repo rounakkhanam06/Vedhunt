@@ -42,6 +42,20 @@
   --color-brand-success: #006600;
   --color-brand-error: #CC0000;
 
+  /* Admin Panel Theme Colors (AgencyOS) */
+  --color-admin-bg: #0F0F12;
+  --color-surface: #141313;
+  --color-surface-container-low: #1c1b1b;
+  --color-surface-container-high: #2b2a2a;
+  --color-surface-variant: #353434;
+  --color-on-surface: #e5e2e1;
+  --color-on-surface-variant: #c4c7c7;
+  --color-outline-variant: #444748;
+  --color-secondary: #FF6B00;
+  --color-secondary-container: #FF6B00;
+  --color-on-primary-container: #848282;
+  --color-admin-glass: #16161A;
+
   --color-app-bg: var(--app-bg);
   --color-app-card: var(--app-card);
   --color-app-text: var(--app-text);

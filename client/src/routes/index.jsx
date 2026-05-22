@@ -22,6 +22,14 @@ const CookiePolicy = lazy(() => import('../pages/CookiePolicy'));
 const DPA = lazy(() => import('../pages/DPA'));
 const FAQ = lazy(() => import('../pages/FAQ'));
 
+// Admin Pages
+const AdminLayout = lazy(() => import('../admin/AdminLayout'));
+const PrivateRoute = lazy(() => import('../admin/PrivateRoute'));
+const Login = lazy(() => import('../admin/pages/Login'));
+const Dashboard = lazy(() => import('../admin/pages/Dashboard'));
+const HeroManager = lazy(() => import('../admin/pages/HeroManager'));
+const SettingsPage = lazy(() => import('../admin/pages/SettingsPage'));
+const TeamManagement = lazy(() => import('../admin/pages/TeamManagement'));
 
 // High-fidelity, smooth loading fallback component to display during chunk fetching
 const withSuspense = (Component) => (
@@ -123,6 +131,42 @@ export const router = createBrowserRouter([
       {
         path: ':slug',
         element: withSuspense(LandingPage)
+      }
+    ]
+  },
+  {
+    path: '/admin/login',
+    element: withSuspense(Login)
+  },
+  {
+    path: '/admin',
+    element: withSuspense(PrivateRoute),
+    children: [
+      {
+        path: '',
+        element: withSuspense(AdminLayout),
+        children: [
+          {
+            path: 'dashboard',
+            element: withSuspense(Dashboard)
+          },
+          {
+            path: 'hero',
+            element: withSuspense(HeroManager)
+          },
+          {
+            path: 'settings',
+            element: withSuspense(SettingsPage)
+          },
+          {
+            path: 'team',
+            element: withSuspense(TeamManagement)
+          },
+          {
+            path: '',
+            element: withSuspense(Dashboard) // Default redirect
+          }
+        ]
       }
     ]
   }

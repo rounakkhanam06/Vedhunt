@@ -9,6 +9,7 @@ import backgroundVideo from '../../assets/vedio/mp_.mp4';
 import { useTheme } from '../../context/ThemeContext';
 import { Spotlight } from '@/components/ui/spotlight';
 import { EncryptedText } from '@/components/ui/encrypted-text';
+import { useHero } from '../../hooks/useHero';
 
 const rotatingPhrases = [
   'Website Development',
@@ -40,6 +41,8 @@ export default function Hero() {
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
   const sectionRef = useRef(null);
   const videoRef = useRef(null);
+  
+  const { data: heroData, isLoading } = useHero();
 
   const { scrollYProgress } = useScroll({
     target: sectionRef,
@@ -84,16 +87,24 @@ export default function Hero() {
         style={{ scale: backgroundScale }}
         className="absolute inset-0 z-0 w-full h-full"
       >
-        <video
-          ref={videoRef}
-          autoPlay
-          loop
-          muted
-          playsInline
-          className="absolute inset-0 w-full h-full object-cover"
-        >
-          <source src={backgroundVideo} type="video/mp4" />
-        </video>
+        {heroData?.backgroundImageUrl ? (
+          <img
+            src={heroData.backgroundImageUrl}
+            alt="Hero Background"
+            className="absolute inset-0 w-full h-full object-cover"
+          />
+        ) : (
+          <video
+            ref={videoRef}
+            autoPlay
+            loop
+            muted
+            playsInline
+            className="absolute inset-0 w-full h-full object-cover"
+          >
+            <source src={backgroundVideo} type="video/mp4" />
+          </video>
+        )}
         {/* Advanced Overlay System */}
         <div className="absolute inset-0 bg-gradient-to-b from-black/95 via-black/60 to-black/95 z-1" />
         <div className="absolute inset-0 bg-black/50 z-1" />
@@ -146,7 +157,9 @@ export default function Hero() {
               transition={{ duration: 1, ease: [0.22, 1, 0.36, 1] }}
               className="text-[2.5rem] leading-[1.1] sm:text-5xl lg:text-7xl font-bold text-white font-heading tracking-tighter drop-shadow-2xl"
             >
-              Build. Market. <span className="text-primary">Grow.</span>
+              {heroData?.heading || (
+                <>Build. Market. <span className="text-primary">Grow.</span></>
+              )}
             </motion.h1>
 
             <motion.p
@@ -154,10 +167,9 @@ export default function Hero() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: 0.2, duration: 1, ease: [0.22, 1, 0.36, 1] }}
-              className="max-w-xl text-[13px] sm:text-base text-white/90 sm:text-primary font-medium leading-relaxed drop-shadow-md"
+              className="max-w-xl text-[13px] sm:text-base text-white/90 sm:text-primary font-medium leading-relaxed drop-shadow-md whitespace-pre-line"
             >
-              We think beyond the boundaries, So join us to grow your business. <br className="hidden sm:block" />
-              And be smart and fast.
+              {heroData?.subheading || "We think beyond the boundaries, So join us to grow your business.\nAnd be smart and fast."}
             </motion.p>
           </div>
 
@@ -169,18 +181,18 @@ export default function Hero() {
             className="flex flex-col sm:flex-row gap-3 sm:gap-5 w-full sm:w-auto pt-2 sm:pt-0"
           >
             <Link
-              to="/get-quote"
+              to={heroData?.primaryButtonLink || "/get-quote"}
               className="px-6 py-3.5 sm:px-10 sm:py-4 bg-primary hover:bg-primary-hover text-black font-black text-sm rounded-full flex items-center justify-center gap-2 sm:gap-3 transition-all duration-300 hover:scale-105 group shadow-[0_0_30px_rgba(255,107,0,0.3)] w-full sm:w-auto text-center"
             >
-              <span>Start Project</span>
+              <span>{heroData?.primaryButtonText || "Start Project"}</span>
               <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 transition-transform duration-300 group-hover:translate-x-1" />
             </Link>
 
             <Link
-              to="/services"
+              to={heroData?.secondaryButtonLink || "/services"}
               className="px-6 py-3.5 sm:px-10 sm:py-4 bg-white/5 backdrop-blur-md border border-white/10 hover:bg-primary hover:border-primary hover:text-black text-white font-bold text-sm rounded-full flex items-center justify-center gap-3 transition-all duration-300 hover:scale-105 w-full sm:w-auto text-center shadow-lg hover:shadow-[0_0_30px_rgba(255,107,0,0.3)]"
             >
-              <span>View Services</span>
+              <span>{heroData?.secondaryButtonText || "View Services"}</span>
             </Link>
           </motion.div>
 
