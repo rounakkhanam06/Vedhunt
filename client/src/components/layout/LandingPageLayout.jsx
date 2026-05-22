@@ -5,6 +5,7 @@ import ScrollToTop from '../common/ScrollToTop';
 import { useTheme } from '../../context/ThemeContext';
 import lightLogo from '../../assets/logo_Square.jpg__1_-removebg-preview.png';
 import darkLogo from '../../assets/DarkthemeLogo.png';
+import WhatsAppWidget from '../common/WhatsAppWidget';
 
 export default function LandingPageLayout() {
   const { theme } = useTheme();
@@ -30,11 +31,11 @@ export default function LandingPageLayout() {
           className={`object-contain transition-all duration-300 ${isScrolled ? 'h-6 md:h-8' : 'h-8 md:h-10'}`}
         />
         <a 
-          href="tel:+919876543210" 
+          href="tel:+917049380550" 
           className="flex items-center gap-2 px-4 py-2 bg-primary/10 hover:bg-primary/20 text-primary rounded-full transition-colors text-sm font-bold"
         >
           <Phone className="w-4 h-4" />
-          <span className="hidden sm:inline">+91 98765 43210</span>
+          <span className="hidden sm:inline">+91 70493 80550</span>
         </a>
       </header>
 
@@ -60,6 +61,9 @@ export default function LandingPageLayout() {
           </div>
         </div>
       </footer>
+
+      {/* Floating WhatsApp Widget */}
+      <WhatsAppWidget />
     </div>
   );
 }

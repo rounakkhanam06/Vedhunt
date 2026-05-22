@@ -2,6 +2,7 @@ import { Outlet } from 'react-router-dom';
 import Navbar from './Navbar';
 import Footer from './Footer';
 import ScrollToTop from '../common/ScrollToTop';
+import WhatsAppWidget from '../common/WhatsAppWidget';
 
 export default function MainLayout() {
 
@@ -22,6 +23,9 @@ export default function MainLayout() {
 
       {/* Universal Footer */}
       <Footer />
+
+      {/* Floating WhatsApp Widget */}
+      <WhatsAppWidget />
     </div>
   );
 }
