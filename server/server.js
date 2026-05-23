@@ -54,6 +54,11 @@ app.use('/api/hero', heroRoutes); // Legacy route, keeping for backwards compati
 app.use('/api/team', teamRoutes);
 app.use('/api/content', contentRoutes);
 
+// Root route for API status
+app.get('/', (req, res) => {
+  res.json({ success: true, message: 'Vedhunt API is running successfully.' });
+});
+
 // Error handling middleware
 app.use(errorHandler);
 
