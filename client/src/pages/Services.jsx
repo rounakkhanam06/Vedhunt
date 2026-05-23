@@ -1,6 +1,7 @@
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { SERVICES } from '../constants';
+import { contentService } from '../services/contentService';
 import ServiceCard from '../components/services/ServiceCard';
 
 // Image Assets
@@ -21,7 +22,51 @@ const serviceImages = {
   'mis-reporting': automationImg,
 };
 
+const SkeletonCard = () => (
+  <div className="bg-app-card rounded-2xl border border-app-border flex flex-col h-full overflow-hidden animate-pulse">
+    {/* Top Image Area */}
+    <div className="h-32 w-full bg-white/5" />
+    
+    {/* Content Area */}
+    <div className="p-5 flex flex-col flex-grow relative">
+      {/* Icon Placeholder */}
+      <div className="mb-4 w-12 h-12 rounded-xl bg-white/10 -mt-11 relative z-20" />
+      
+      {/* Title Placeholder */}
+      <div className="h-5 w-2/3 bg-white/10 rounded-md mb-4" />
+      
+      {/* Description Placeholder */}
+      <div className="space-y-2 mb-4 flex-grow">
+        <div className="h-3 w-full bg-white/5 rounded-md" />
+        <div className="h-3 w-5/6 bg-white/5 rounded-md" />
+      </div>
+
+      {/* Subservices Placeholder */}
+      <div className="h-8 w-full bg-white/5 rounded-lg mb-5" />
+
+      {/* CTA Placeholder */}
+      <div className="h-3 w-24 bg-white/10 rounded-md" />
+    </div>
+  </div>
+);
+
 export default function Services() {
+  const [services, setServices] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchServices = async () => {
+      try {
+        const response = await contentService.getServicesPublic('services');
+        setServices(response.data || []);
+      } catch (error) {
+        console.error("Failed to fetch services:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchServices();
+  }, []);
   const staggerContainer = {
     hidden: {},
     visible: {
@@ -108,14 +153,22 @@ export default function Services() {
           viewport={{ once: true, amount: 0.1 }}
           className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 lg:gap-10"
         >
-          {SERVICES.map((srv) => (
-            <motion.div key={srv.id} variants={scrollFadeUp}>
-              <ServiceCard 
-                service={srv} 
-                image={serviceImages[srv.id]} 
-              />
-            </motion.div>
-          ))}
+          {!isLoading ? (
+            services.map((srv) => (
+              <motion.div key={srv.id_string || srv._id} variants={scrollFadeUp}>
+                <ServiceCard 
+                  service={srv} 
+                  image={srv.imageUrl || serviceImages[srv.id_string] || webDevImg} 
+                />
+              </motion.div>
+            ))
+          ) : (
+            [...Array(6)].map((_, idx) => (
+              <div key={idx}>
+                <SkeletonCard />
+              </div>
+            ))
+          )}
         </motion.div>
 
         {/* Dynamic CTA bottom card */}

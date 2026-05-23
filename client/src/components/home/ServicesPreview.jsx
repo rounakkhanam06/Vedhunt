@@ -1,6 +1,7 @@
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { SERVICES } from '../../constants';
+import { contentService } from '../../services/contentService';
 import ServiceCard from '../services/ServiceCard';
 
 // Image Assets
@@ -21,7 +22,23 @@ const serviceImages = {
 };
 
 export default function ServicesPreview() {
-  const previewServices = SERVICES.slice(0, 6);
+  const [services, setServices] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchServices = async () => {
+      try {
+        const response = await contentService.getServicesPublic('home');
+        // Limit to 6 on homepage
+        setServices((response.data || []).slice(0, 6));
+      } catch (error) {
+        console.error("Failed to fetch services", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchServices();
+  }, []);
 
   const staggerContainer = {
     hidden: {},
@@ -80,13 +97,16 @@ export default function ServicesPreview() {
           viewport={{ once: true, amount: 0.1 }}
           className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8"
         >
-          {previewServices.map((srv) => (
-            <motion.div key={srv.id} variants={scrollFadeUp}>
+          {!isLoading && services.map((srv) => (
+            <motion.div key={srv.id_string || srv._id} variants={scrollFadeUp}>
               <ServiceCard 
                 service={srv} 
-                image={serviceImages[srv.id]}
+                image={srv.imageUrl || serviceImages[srv.id_string] || webDevImg}
               />
             </motion.div>
+          ))}
+          {isLoading && [...Array(6)].map((_, idx) => (
+             <div key={idx} className="h-72 bg-white/5 rounded-2xl animate-pulse"></div>
           ))}
         </motion.div>
 

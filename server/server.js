@@ -16,6 +16,8 @@ const authRoutes = require('./routes/auth');
 const uploadRoutes = require('./routes/upload');
 const heroRoutes = require('./routes/hero');
 const teamRoutes = require('./routes/team');
+const contentRoutes = require('./routes/contentRoutes');
+const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
 
@@ -48,14 +50,12 @@ app.use(
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/upload', uploadRoutes);
-app.use('/api/hero', heroRoutes);
+app.use('/api/hero', heroRoutes); // Legacy route, keeping for backwards compatibility
 app.use('/api/team', teamRoutes);
+app.use('/api/content', contentRoutes);
 
-// Error handling middleware (catch-all)
-app.use((err, req, res, next) => {
-  logger.error(err.stack);
-  res.status(500).json({ success: false, message: 'Internal Server Error' });
-});
+// Error handling middleware
+app.use(errorHandler);
 
 // Serve frontend in production
 if (process.env.NODE_ENV === 'production') {

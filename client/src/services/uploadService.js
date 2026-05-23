@@ -7,7 +7,7 @@ export const uploadService = {
 
     const response = await api.post('/upload', formData, {
       headers: {
-        'Content-Type': 'multipart/form-data',
+        'Content-Type': undefined,
       },
     });
     return response.data;

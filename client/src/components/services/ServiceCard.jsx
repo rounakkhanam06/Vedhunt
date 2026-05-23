@@ -2,15 +2,20 @@ import { motion } from 'framer-motion';
 import { ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
+import * as LucideIcons from 'lucide-react';
+
 /**
  * ServiceCard - A compact reusable component for displaying service details.
  * 
  * @param {Object} props
- * @param {Object} props.service - The service object containing title, shortDescription, subServices, icon, and slug.
+ * @param {Object} props.service - The service object containing title, shortDescription, subServices, iconName, and slug.
  * @param {string} props.image - The image source for the top of the card.
  */
 export default function ServiceCard({ service, image }) {
-  const { title, shortDescription, subServices, icon: Icon, slug } = service;
+  const { title, shortDescription, subServices, iconName, slug, cta } = service;
+  
+  // Resolve the icon component from lucide-react dynamically
+  const Icon = LucideIcons[iconName] || LucideIcons.HelpCircle;
   
   return (
     <motion.div
@@ -30,11 +35,7 @@ export default function ServiceCard({ service, image }) {
       <div className="relative z-10 p-5 flex flex-col flex-grow">
         {/* Icon Overlay - Moved to content area to ensure full visibility */}
         <div className="mb-4 w-12 h-12 rounded-xl bg-primary flex items-center justify-center text-black shadow-lg -mt-11 relative z-20 transform group-hover:scale-110 group-hover:rotate-3 transition-all duration-300">
-          {typeof Icon === 'string' ? (
-            <img src={Icon} alt={title} className="w-6 h-6 object-contain" />
-          ) : (
-            <Icon className="w-6 h-6" />
-          )}
+          <Icon className="w-6 h-6" />
         </div>
         
         {/* Title - Reduced Size */}
@@ -62,7 +63,7 @@ export default function ServiceCard({ service, image }) {
           className="inline-flex items-center gap-2 text-[11px] font-black text-primary uppercase tracking-wider group/link"
         >
           <span className="relative">
-            Learn More
+            {cta || 'Learn More'}
             <span className="absolute -bottom-0.5 left-0 w-0 h-0.5 bg-primary transition-all duration-300 group-hover/link:w-full" />
           </span>
           <ArrowRight className="w-3 h-3 group-hover/link:translate-x-1 transition-transform duration-300" />

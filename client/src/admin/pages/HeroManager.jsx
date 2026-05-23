@@ -3,13 +3,14 @@ import DynamicFormRenderer from '../components/DynamicFormRenderer';
 import { Loader2 } from 'lucide-react';
 
 const heroFormConfig = [
+  { type: 'text', label: 'Tagline', name: 'tagline' },
   { type: 'text', label: 'Main Heading', name: 'heading', required: true },
   { type: 'textarea', label: 'Subheading', name: 'subheading' },
   { type: 'text', label: 'Primary Button Text', name: 'primaryButtonText', required: true },
-  { type: 'url', label: 'Primary Button Link', name: 'primaryButtonLink', required: true },
+  { type: 'text', label: 'Primary Button Link (e.g. /get-quote)', name: 'primaryButtonLink', required: true },
   { type: 'text', label: 'Secondary Button Text', name: 'secondaryButtonText' },
-  { type: 'url', label: 'Secondary Button Link', name: 'secondaryButtonLink' },
-  { type: 'image', label: 'Background Image', name: 'backgroundImageUrl' },
+  { type: 'text', label: 'Secondary Button Link (e.g. /services)', name: 'secondaryButtonLink' },
+  { type: 'textarea', label: 'Bottom Description', name: 'description' },
   { type: 'boolean', label: 'Active', name: 'isActive' }
 ];
 
@@ -39,7 +40,7 @@ const HeroManager = () => {
 
   if (isError) {
     return (
-      <div className="rounded-md bg-red-50 p-4 text-red-700">
+      <div className="rounded-md bg-red-900/50 border border-red-500/50 p-4 text-red-200">
         Error loading hero data. Make sure backend is running.
       </div>
     );
@@ -47,27 +48,27 @@ const HeroManager = () => {
 
   // Fallback defaults if no hero exists yet
   const defaultInitial = {
+    tagline: '',
     heading: '',
     subheading: '',
     primaryButtonText: '',
     primaryButtonLink: '',
     secondaryButtonText: '',
     secondaryButtonLink: '',
-    backgroundImageUrl: '',
-    backgroundImagePublicId: '',
+    description: '',
     isActive: true,
   };
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Manage Hero Section</h1>
-        <p className="mt-1 text-sm text-gray-500">
+        <h1 className="text-2xl font-bold text-white">Manage Hero Section</h1>
+        <p className="mt-1 text-sm text-gray-400">
           Update the content and image for the main landing area of the website.
         </p>
       </div>
 
-      <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-900/5">
+      <div className="rounded-xl bg-[#222222] p-6 shadow-xl border border-white/10">
         <DynamicFormRenderer
           config={heroFormConfig}
           initialData={heroData || defaultInitial}

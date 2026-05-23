@@ -2,11 +2,17 @@ const mongoose = require('mongoose');
 
 const heroSchema = new mongoose.Schema(
   {
+    tagline: {
+      type: String,
+    },
     heading: {
       type: String,
       required: true,
     },
     subheading: {
+      type: String,
+    },
+    description: {
       type: String,
     },
     primaryButtonText: {

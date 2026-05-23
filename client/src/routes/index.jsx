@@ -29,7 +29,12 @@ const Login = lazy(() => import('../admin/pages/Login'));
 const Dashboard = lazy(() => import('../admin/pages/Dashboard'));
 const HeroManager = lazy(() => import('../admin/pages/HeroManager'));
 const SettingsPage = lazy(() => import('../admin/pages/SettingsPage'));
+const ProfilePage = lazy(() => import('../admin/pages/ProfilePage'));
 const TeamManagement = lazy(() => import('../admin/pages/TeamManagement'));
+const ForgotPassword = lazy(() => import('../admin/pages/ForgotPassword'));
+const ResetPassword = lazy(() => import('../admin/pages/ResetPassword'));
+const NavbarManager = lazy(() => import('../admin/pages/NavbarManager'));
+const ServiceManager = lazy(() => import('../admin/pages/ServiceManager'));
 
 // High-fidelity, smooth loading fallback component to display during chunk fetching
 const withSuspense = (Component) => (
@@ -139,6 +144,14 @@ export const router = createBrowserRouter([
     element: withSuspense(Login)
   },
   {
+    path: '/admin/forgot-password',
+    element: withSuspense(ForgotPassword)
+  },
+  {
+    path: '/admin/reset-password/:token',
+    element: withSuspense(ResetPassword)
+  },
+  {
     path: '/admin',
     element: withSuspense(PrivateRoute),
     children: [
@@ -155,8 +168,20 @@ export const router = createBrowserRouter([
             element: withSuspense(HeroManager)
           },
           {
+            path: 'navbar',
+            element: withSuspense(NavbarManager)
+          },
+          {
+            path: 'services',
+            element: withSuspense(ServiceManager)
+          },
+          {
             path: 'settings',
             element: withSuspense(SettingsPage)
+          },
+          {
+            path: 'profile',
+            element: withSuspense(ProfilePage)
           },
           {
             path: 'team',

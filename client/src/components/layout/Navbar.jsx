@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Menu, X, ArrowRight, MessageSquareCode, Phone, Mail, Clock, ChevronDown } from 'lucide-react';
-import { NAV_LINKS, SERVICES } from '../../constants';
+import { NAV_LINKS as DEFAULT_NAV_LINKS, SERVICES } from '../../constants';
+import { contentService } from '../../services/contentService';
 import ThemeToggle from '../common/ThemeToggle';
 import { useTheme } from '../../context/ThemeContext';
 import lightLogo from '../../assets/logo_Square.jpg__1_-removebg-preview.png';
@@ -23,6 +24,22 @@ export default function Navbar() {
 
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const [navLinks, setNavLinks] = useState(DEFAULT_NAV_LINKS);
+
+  useEffect(() => {
+    const fetchNavLinks = async () => {
+      try {
+        const response = await contentService.getNavbarLinksPublic();
+        if (response.data && response.data.length > 0) {
+          setNavLinks(response.data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch navbar links, using defaults.', error);
+      }
+    };
+    fetchNavLinks();
   }, []);
 
   // Prevent background scrolling when mobile menu is open
@@ -86,7 +103,7 @@ export default function Navbar() {
                   : 'bg-white/50 dark:bg-[#1A1A2E]/30 backdrop-blur-md border-slate-200/50 dark:border-primary/10'
               }`}
             >
-              {NAV_LINKS.map((link) => {
+              {navLinks.map((link) => {
                 const isServices = link.path === '/services';
                 return (
                   <div key={link.path} className="relative group/nav h-full flex items-center">
@@ -201,7 +218,7 @@ export default function Navbar() {
               className="md:hidden mt-4 w-full max-h-[80vh] overflow-y-auto bg-white/95 dark:bg-[#1A1A2E]/95 backdrop-blur-2xl border border-app-border/50 dark:border-white/10 rounded-3xl shadow-2xl pointer-events-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
             >
               <div className="p-3 space-y-1.5">
-                {NAV_LINKS.map((link) => {
+                {navLinks.map((link) => {
                   const isServices = link.path === '/services';
                   return (
                     <div key={link.path} className="space-y-1">

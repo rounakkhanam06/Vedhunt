@@ -41,6 +41,8 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
       dropdownKey: 'cms',
       subItems: [
         { name: 'Hero Section', path: '/admin/hero' },
+        { name: 'Navbar Links', path: '/admin/navbar' },
+        { name: 'Services', path: '/admin/services' },
         { name: 'Portfolio Items', path: '/admin/cms/portfolio' },
         { name: 'Blogs & Videos', path: '/admin/cms/content' },
       ]
@@ -62,7 +64,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
 
       {/* Sidebar */}
       <aside className={`
-        fixed inset-y-0 left-0 z-50 w-[280px] bg-surface-container-low border-r border-outline-variant flex flex-col p-6 transition-transform duration-300 ease-in-out lg:translate-x-0
+        fixed inset-y-0 left-0 z-50 w-[280px] bg-surface-container-low border-r border-outline-variant flex flex-col p-6 transition-transform duration-300 ease-in-out
         ${isOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
         <div className="mb-10 flex justify-between items-start">
@@ -70,12 +72,12 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
             <h1 className="text-2xl font-bold text-on-surface">Vedhunt</h1>
             <span className="bg-secondary text-black text-[10px] font-bold px-1.5 py-0.5 rounded-sm uppercase tracking-wider">Admin</span>
           </div>
-          <button onClick={() => setIsOpen(false)} className="lg:hidden text-on-surface-variant hover:text-on-surface">
+          <button onClick={() => setIsOpen(false)} className="text-on-surface-variant hover:text-on-surface" title="Close Sidebar">
             <X size={24} />
           </button>
         </div>
 
-        <nav className="flex-1 space-y-2 overflow-y-auto pr-2 custom-scrollbar">
+        <nav className="flex-1 space-y-2 overflow-y-auto pr-2 scrollbar-hide">
           {navItems.map((item) => {
             const Icon = item.icon;
             

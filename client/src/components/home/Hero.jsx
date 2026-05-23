@@ -145,7 +145,7 @@ export default function Hero() {
             className="space-y-1"
           >
             <span className="text-[9.5px] sm:text-xs font-bold text-white/60 sm:text-app-text/50 tracking-[0.25em] sm:tracking-[0.4em] uppercase block mb-2 sm:mb-1">
-              REAL VALUE. REAL CONTENT. REAL GROWTH
+              {heroData?.tagline || "REAL VALUE. REAL CONTENT. REAL GROWTH"}
             </span>
           </motion.div>
 
@@ -204,7 +204,7 @@ export default function Hero() {
             transition={{ delay: 0.5, duration: 0.8 }}
             className="max-w-3xl text-[11px] sm:text-sm text-white/50 sm:text-white/60 leading-relaxed sm:leading-relaxed font-medium tracking-wide mt-6 sm:mt-8 line-clamp-3 sm:line-clamp-none"
           >
-            At our company, professionalism meets smart execution. We offer a wide range of high-quality services designed to simplify operations and support business growth under one trusted platform. We believe every business deserves a service partner that understands modern challenges and delivers practical, efficient solutions. Our multi-service expertise allows us to provide flexible, cost-effective, and scalable support across different industries. Your trusted partner for professional multi-service solutions.
+            {heroData?.description || "At our company, professionalism meets smart execution. We offer a wide range of high-quality services designed to simplify operations and support business growth under one trusted platform. We believe every business deserves a service partner that understands modern challenges and delivers practical, efficient solutions. Our multi-service expertise allows us to provide flexible, cost-effective, and scalable support across different industries. Your trusted partner for professional multi-service solutions."}
           </motion.p>
         </div>
       </motion.div>
