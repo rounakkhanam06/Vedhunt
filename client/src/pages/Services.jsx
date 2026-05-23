@@ -154,8 +154,15 @@ export default function Services() {
           className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 lg:gap-10"
         >
           {!isLoading ? (
-            services.map((srv) => (
-              <motion.div key={srv.id_string || srv._id} variants={scrollFadeUp}>
+            services.map((srv, idx) => (
+              <motion.div 
+                key={srv.id_string || srv._id} 
+                initial="hidden"
+                whileInView="visible"
+                viewport={{ once: true, amount: 0.1 }}
+                transition={{ delay: idx * 0.1 }}
+                variants={scrollFadeUp}
+              >
                 <ServiceCard 
                   service={srv} 
                   image={srv.imageUrl || serviceImages[srv.id_string] || webDevImg} 
