@@ -278,16 +278,26 @@ export const SERVICE_DETAILS_DATA = {
     },
     portfolio: [
       {
-        image: 'https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?q=80&w=600&h=400&fit=crop',
-        title: 'FitPulse Interactive Health Tracker',
-        metric: '4.8 App Store Rating',
-        description: 'Engineered a React Native fitness app with real-time Bluetooth device tracking and custom calories dashboards.'
+        image: '/vrumarket-screenshot.png',
+        title: 'Vrushahi Market Delivery App',
+        metric: 'Fast Local Deliveries',
+        description: 'Engineered a highly responsive multi-vendor grocery and product delivery platform with real-time store tracking.',
+        appLink: 'https://vrumarket.com/'
       },
       {
-        image: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?q=80&w=600&h=400&fit=crop',
-        title: 'QuickPay FinTech Ledger',
-        metric: '100k+ App Downloads',
-        description: 'Designed a highly secure mobile transactional wallet with real-time biometric locks and ledger sync.'
+        image: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?q=80&w=600&h=800&fit=crop',
+        title: 'Cleanzo Mobile Experience',
+        metric: 'Premium UI/UX',
+        description: 'Designed a highly engaging home cleaning service app with stunning animations and interactive booking flows.',
+        iframeUrl: 'https://cleanzo-theta.vercel.app/',
+        appLink: 'https://cleanzo-theta.vercel.app/'
+      },
+      {
+        image: '/curebasket-screenshot.png',
+        title: 'Cure Basket Pharmacy',
+        metric: '100% Genuine Medicines',
+        description: 'Developed a comprehensive healthcare and pharmacy app featuring fast, discreet delivery and secure payments.',
+        appLink: 'https://cure-basket.vercel.app/'
       }
     ],
     faqs: [

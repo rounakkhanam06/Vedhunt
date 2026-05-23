@@ -21,6 +21,144 @@ import {
 import { SERVICES } from '../constants';
 import { SERVICE_DETAILS_DATA } from '../constants/serviceDetailsData';
 
+const PhoneCarousel3D = ({ items }) => {
+  const [activeIndex, setActiveIndex] = useState(1);
+
+  const next = () => setActiveIndex((prev) => (prev + 1) % items.length);
+  const prev = () => setActiveIndex((prev) => (prev - 1 + items.length) % items.length);
+
+  const handleDragEnd = (e, info) => {
+    if (info.offset.x > 50) {
+      prev();
+    } else if (info.offset.x < -50) {
+      next();
+    }
+  };
+
+  const activeItem = items[activeIndex];
+
+  return (
+    <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center mt-8 mb-4 overflow-hidden">
+      
+      {/* Left side: Info */}
+      <div className="lg:col-span-5 space-y-6 text-center lg:text-left z-20 px-4">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={activeIndex}
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+            transition={{ duration: 0.4 }}
+            className="space-y-5"
+          >
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20">
+               <span className="text-primary text-[10px] font-black uppercase tracking-widest">{activeItem.metric}</span>
+            </div>
+            
+            <h3 className="text-3xl sm:text-4xl lg:text-5xl font-black text-app-text leading-tight font-heading">
+              {activeItem.title}
+            </h3>
+            
+            <p className="text-sm sm:text-base text-app-text-muted leading-relaxed font-medium">
+              {activeItem.description}
+            </p>
+            
+            <div className="pt-4 flex flex-wrap gap-4 justify-center lg:justify-start">
+              <Link
+                to="/get-quote"
+                className="inline-flex items-center gap-2 px-6 py-3.5 bg-primary hover:bg-primary-hover text-black font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5"
+              >
+                <span>Request Similar App</span>
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+              {activeItem.appLink && (
+                <a
+                  href={activeItem.appLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-6 py-3.5 bg-app-card hover:bg-[#222] border border-app-border hover:border-primary/50 text-app-text font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-sm hover:shadow-md hover:-translate-y-0.5"
+                >
+                  <span>Visit App</span>
+                  <ArrowRight className="w-4 h-4" />
+                </a>
+              )}
+            </div>
+          </motion.div>
+        </AnimatePresence>
+      </div>
+
+      {/* Right side: Carousel */}
+      <div className="lg:col-span-7 relative w-full h-[680px] flex items-center justify-center touch-pan-y">
+        {items.map((port, idx) => {
+          const offset = (idx - activeIndex + items.length) % items.length;
+          // 0 is center, 1 is right, 2 is left (if 3 items)
+          let position = offset === 0 ? 'center' : offset === 1 ? 'right' : 'left';
+          
+          let zIndex = position === 'center' ? 30 : 10;
+          let scale = position === 'center' ? 1 : 0.85;
+          let translateX = position === 'center' ? 0 : position === 'right' ? 180 : -180;
+          let opacity = 1;
+
+          return (
+            <motion.div
+              key={idx}
+              drag="x"
+              dragConstraints={{ left: 0, right: 0 }}
+              dragElastic={0.2}
+              onDragEnd={handleDragEnd}
+              animate={{
+                zIndex,
+                scale,
+                x: translateX,
+                opacity
+              }}
+              transition={{ type: "spring", stiffness: 200, damping: 25 }}
+              className="absolute top-1/2 -translate-y-1/2 cursor-grab active:cursor-grabbing outline-none"
+              onClick={() => {
+                 if (position !== 'center') setActiveIndex(idx);
+              }}
+            >
+              <div className={`relative w-[280px] h-[560px] rounded-[3rem] border-[10px] shadow-2xl overflow-hidden transition-all duration-300 pointer-events-none ${position === 'center' ? 'border-[#222] bg-black ring-4 ring-primary/40' : 'border-[#444] bg-[#222] opacity-60'}`}>
+                {/* Phone Notch */}
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-28 h-6 bg-[#222] rounded-b-2xl z-20"></div>
+                
+                {port.iframeUrl ? (
+                  <div className="w-full h-full relative z-10 pointer-events-auto">
+                    <iframe 
+                      src={port.iframeUrl} 
+                      className="w-full h-full border-none bg-white overflow-hidden" 
+                      title={port.title}
+                      sandbox="allow-scripts allow-same-origin"
+                      style={{ pointerEvents: 'none' }}
+                      scrolling="no"
+                    />
+                  </div>
+                ) : (
+                  <img 
+                    src={port.image} 
+                    alt={port.title} 
+                    className="w-full h-full object-cover relative z-10 pointer-events-none" 
+                  />
+                )}
+              </div>
+            </motion.div>
+          );
+        })}
+        
+        {/* Navigation Controls */}
+        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 flex items-center gap-4 z-50 pointer-events-none">
+          <button onClick={prev} className="pointer-events-auto w-10 h-10 rounded-full bg-app-card/80 backdrop-blur-sm border border-app-border flex items-center justify-center text-app-text hover:text-primary hover:border-primary/50 transition-all shadow-lg hover:scale-110 active:scale-95 cursor-pointer">
+            <ArrowLeft className="w-4 h-4" />
+          </button>
+          <button onClick={next} className="pointer-events-auto w-10 h-10 rounded-full bg-app-card/80 backdrop-blur-sm border border-app-border flex items-center justify-center text-app-text hover:text-primary hover:border-primary/50 transition-all shadow-lg hover:scale-110 active:scale-95 cursor-pointer">
+            <ArrowRight className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default function ServiceDetails() {
   const { slug } = useParams();
   const navigate = useNavigate();
@@ -634,47 +772,66 @@ export default function ServiceDetails() {
                   </p>
                 </motion.div>
 
-                <motion.div 
-                  initial="hidden"
-                  whileInView="visible"
-                  viewport={{ once: true, amount: 0.15 }}
-                  variants={staggerContainer}
-                  className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto"
-                >
-                  {portfolio.map((port, idx) => (
-                    <motion.div 
-                      key={idx}
-                      variants={cardReveal}
-                      whileHover={{ y: -6 }}
-                      className="group bg-app-card border border-app-border rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 cursor-default"
-                    >
-                      {/* Case Image */}
-                      <div className="relative aspect-[16/10] w-full overflow-hidden bg-app-bg border-b border-app-border">
-                        <img 
-                          src={port.image} 
-                          alt={port.title} 
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                      </div>
-
-                      {/* Content */}
-                      <div className="p-5 space-y-3">
-                        <div className="inline-block bg-primary/10 border border-primary/20 rounded-md px-2.5 py-0.5">
-                          <span className="text-primary text-[10px] font-black uppercase tracking-wider">{port.metric}</span>
+                {slug === 'mobile-app-development' ? (
+                  <PhoneCarousel3D items={portfolio} />
+                ) : (
+                  <motion.div 
+                    initial="hidden"
+                    whileInView="visible"
+                    viewport={{ once: true, amount: 0.15 }}
+                    variants={staggerContainer}
+                    className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto"
+                  >
+                    {portfolio.map((port, idx) => (
+                      <motion.div 
+                        key={idx}
+                        variants={cardReveal}
+                        whileHover={{ y: -6 }}
+                        className="group bg-app-card border border-app-border rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 cursor-default"
+                      >
+                        {/* Case Image or App Iframe Presentation */}
+                        <div className="relative aspect-[16/10] w-full overflow-hidden bg-app-bg border-b border-app-border flex items-center justify-center">
+                          {port.iframeUrl ? (
+                            <div className="relative w-[320px] h-[650px] scale-[0.45] origin-top md:origin-center transform-gpu rounded-[2.5rem] border-[10px] border-black overflow-hidden shadow-2xl bg-black">
+                              {/* Phone Notch */}
+                              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-6 bg-black rounded-b-2xl z-20"></div>
+                              <iframe 
+                                src={port.iframeUrl} 
+                                className="w-full h-full border-none bg-white relative z-10" 
+                                title={port.title}
+                                sandbox="allow-scripts allow-same-origin"
+                              />
+                            </div>
+                          ) : (
+                            <>
+                              <img 
+                                src={port.image} 
+                                alt={port.title} 
+                                className="w-full h-full absolute inset-0 object-cover group-hover:scale-105 transition-transform duration-500" 
+                              />
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+                            </>
+                          )}
                         </div>
-                        
-                        <h4 className="text-sm sm:text-base font-black text-app-text group-hover:text-primary transition-colors">
-                          {port.title}
-                        </h4>
-                        
-                        <p className="text-[11px] sm:text-xs text-app-text-muted leading-relaxed font-medium">
-                          {port.description}
-                        </p>
-                      </div>
-                    </motion.div>
-                  ))}
-                </motion.div>
+
+                        {/* Content */}
+                        <div className="p-5 space-y-3 z-10 relative bg-app-card">
+                          <div className="inline-block bg-primary/10 border border-primary/20 rounded-md px-2.5 py-0.5">
+                            <span className="text-primary text-[10px] font-black uppercase tracking-wider">{port.metric}</span>
+                          </div>
+                          
+                          <h4 className="text-sm sm:text-base font-black text-app-text group-hover:text-primary transition-colors">
+                            {port.title}
+                          </h4>
+                          
+                          <p className="text-[11px] sm:text-xs text-app-text-muted leading-relaxed font-medium">
+                            {port.description}
+                          </p>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </motion.div>
+                )}
 
               </div>
             </section>
