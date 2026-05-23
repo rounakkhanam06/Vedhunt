@@ -52,7 +52,11 @@ export default function ServiceCard({ service, image }) {
         {subServices && (
           <div className="mb-5 py-2 px-3 bg-black/5 dark:bg-black/20 rounded-lg border border-white/5 backdrop-blur-sm">
             <p className="text-[10px] text-app-text/70 italic font-medium leading-tight line-clamp-1">
-              {subServices}
+              {Array.isArray(subServices) 
+                ? subServices.map(s => typeof s === 'object' ? s.title : s).join(', ') 
+                : typeof subServices === 'object' 
+                ? subServices.title || JSON.stringify(subServices)
+                : subServices}
             </p>
           </div>
         )}

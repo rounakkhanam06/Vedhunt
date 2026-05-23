@@ -6,6 +6,7 @@ import {
   Image as ImageIcon
 } from 'lucide-react';
 import { useAdminStore } from '../../store/useAdminStore';
+import darkLogo from '../../assets/DarkthemeLogo.png';
 
 const Sidebar = ({ isOpen, setIsOpen }) => {
   const { logout, admin } = useAdminStore();
@@ -64,20 +65,20 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
 
       {/* Sidebar */}
       <aside className={`
-        fixed inset-y-0 left-0 z-50 w-[280px] bg-surface-container-low border-r border-outline-variant flex flex-col p-6 transition-transform duration-300 ease-in-out
+        fixed inset-y-0 left-0 z-50 w-[280px] bg-surface-container-low border-r border-outline-variant flex flex-col p-6 transition-transform duration-300 ease-in-out overflow-y-auto overscroll-contain
         ${isOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
-        <div className="mb-10 flex justify-between items-start">
+        <div className="mb-10 flex justify-between items-start shrink-0">
           <div className="flex items-center gap-2 mt-1">
-            <h1 className="text-2xl font-bold text-on-surface">Vedhunt</h1>
+            <img src={darkLogo} alt="Vedhunt Logo" className="h-16 w-auto object-contain max-w-[180px]" />
             <span className="bg-secondary text-black text-[10px] font-bold px-1.5 py-0.5 rounded-sm uppercase tracking-wider">Admin</span>
           </div>
-          <button onClick={() => setIsOpen(false)} className="text-on-surface-variant hover:text-on-surface" title="Close Sidebar">
+          <button onClick={() => setIsOpen(false)} className="text-on-surface-variant hover:text-on-surface lg:hidden" title="Close Sidebar">
             <X size={24} />
           </button>
         </div>
 
-        <nav className="flex-1 space-y-2 overflow-y-auto pr-2 scrollbar-hide">
+        <nav className="flex-1 space-y-2 overflow-y-auto pr-2 scrollbar-hide overscroll-contain">
           {navItems.map((item) => {
             const Icon = item.icon;
             
