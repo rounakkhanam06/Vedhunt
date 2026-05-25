@@ -9,6 +9,20 @@ const api = axios.create({
   },
 });
 
+// Interceptor to add Authorization Bearer token from localStorage
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('adminToken');
+    if (token) {
+      config.headers['Authorization'] = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
 // Interceptor for responses to handle 401 Unauthorized globally
 api.interceptors.response.use(
   (response) => response,

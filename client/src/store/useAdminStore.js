@@ -8,6 +8,9 @@ export const useAdminStore = create((set, get) => ({
 
   login: async (email, password) => {
     const data = await authService.login(email, password);
+    if (data.token) {
+      localStorage.setItem('adminToken', data.token);
+    }
     set({ admin: data.admin, isAuthenticated: true });
   },
 
@@ -17,6 +20,7 @@ export const useAdminStore = create((set, get) => ({
     } catch (e) {
       console.error("Logout error", e);
     } finally {
+      localStorage.removeItem('adminToken');
       set({ admin: null, isAuthenticated: false });
     }
   },
@@ -26,6 +30,7 @@ export const useAdminStore = create((set, get) => ({
       const data = await authService.getMe();
       set({ admin: data.admin, isAuthenticated: true, isInitializing: false });
     } catch (error) {
+      localStorage.removeItem('adminToken');
       set({ admin: null, isAuthenticated: false, isInitializing: false });
     }
   },

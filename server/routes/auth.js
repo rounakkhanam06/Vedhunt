@@ -43,6 +43,7 @@ router.post('/login', ...loginMiddleware, async (req, res) => {
 
       res.json({
         success: true,
+        token,
         admin: {
           _id: admin._id,
           email: admin.email,
