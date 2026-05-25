@@ -14,7 +14,7 @@ const heroFormConfig = [
   { type: 'boolean', label: 'Active', name: 'isActive' }
 ];
 
-const HeroManager = () => {
+const HeroManager = ({ isNested = false }) => {
   const { data: heroData, isLoading, isError } = useHero();
   const updateHeroMutation = useUpdateHero();
 
@@ -60,13 +60,15 @@ const HeroManager = () => {
   };
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-white">Manage Hero Section</h1>
-        <p className="mt-1 text-sm text-gray-400">
-          Update the content and image for the main landing area of the website.
-        </p>
-      </div>
+    <div className={isNested ? "space-y-6" : "mx-auto max-w-4xl space-y-6"}>
+      {!isNested && (
+        <div>
+          <h1 className="text-2xl font-bold text-white">Manage Hero Section</h1>
+          <p className="mt-1 text-sm text-gray-400">
+            Update the content and image for the main landing area of the website.
+          </p>
+        </div>
+      )}
 
       <div className="rounded-xl bg-[#222222] p-6 shadow-xl border border-white/10">
         <DynamicFormRenderer

@@ -41,11 +41,12 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
       icon: FileText,
       dropdownKey: 'cms',
       subItems: [
-        { name: 'Hero Section', path: '/admin/hero' },
+        { name: 'Manage Landing Page', path: '/admin/landing-page' },
         { name: 'Navbar Links', path: '/admin/navbar' },
         { name: 'Services', path: '/admin/services' },
-        { name: 'Portfolio Items', path: '/admin/cms/portfolio' },
+        { name: 'Portfolio Items', path: '/admin/portfolio' },
         { name: 'Blogs & Videos', path: '/admin/cms/content' },
+        { name: 'Testimonials', path: '/admin/testimonials' },
       ]
     },
     { name: 'Financials & Invoicing', path: '/admin/finance', icon: Wallet },
@@ -78,7 +79,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
           </button>
         </div>
 
-        <nav className="flex-1 space-y-2 overflow-y-auto pr-2 scrollbar-hide overscroll-contain">
+        <nav className="flex-1 space-y-2 pr-2 mt-4">
           {navItems.map((item) => {
             const Icon = item.icon;
             
@@ -151,7 +152,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
           })}
         </nav>
 
-        <div className="mt-10 flex items-center justify-between p-4 bg-surface-variant/30 rounded-xl">
+        <div className="mt-6 flex items-center justify-between p-4 bg-surface-variant/30 rounded-xl shrink-0 mt-auto">
           <div className="flex items-center gap-4 overflow-hidden">
             <div className="w-10 h-10 rounded-full bg-admin-primary/20 flex items-center justify-center text-admin-primary font-bold">
               {admin?.email?.charAt(0).toUpperCase()}

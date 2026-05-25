@@ -7,15 +7,18 @@ import {
   Share2, 
   ExternalLink,
   ChevronRight,
+  ChevronLeft,
   Sparkles,
   Zap,
   Award,
-  ArrowRight
+  ArrowRight,
+  Loader
 } from 'lucide-react';
 import { EncryptedText } from '../components/ui/encrypted-text';
 import { OptimizedLazyImage } from '../components/ui/lazy-image';
 import { SpotlightHover } from '../components/ui/spotlight-hover';
 import { Card } from '../components/ui/card';
+import api from '../services/api';
 
 // High-performance animated Counter that increments from 0 to target when scrolled into viewport
 function CountUp({ to, duration = 1.8, suffix = '' }) {
@@ -60,61 +63,12 @@ function CountUp({ to, duration = 1.8, suffix = '' }) {
   );
 }
 
-// Real-world portfolio screenshots directly retrieved from the live website
-const PORTFOLIO_ITEMS = [
-  {
-    id: 'multifarious',
-    title: 'Multifarious Group',
-    clientUrl: 'https://multifariousgroup.com/',
-    category: 'development',
-    tagline: 'High-Fidelity Corporate Infrastructure',
-    description: 'A multi-faceted business conglomerate requiring a highly prestigious digital footprint. We designed and developed a blazing-fast corporate portal representing their extensive range of services with responsive layout, custom graphics, and fluid performance across viewports.',
-    tags: ['Web Engineering', 'UI/UX Design', 'Corporate Branding', 'React & Vite'],
-    image: 'https://vedhunt.in/wp-content/uploads/2026/01/multifarious-1.webp',
-    statLabel: 'Lighthouse Score',
-    statValue: '98/100',
-    icon: Laptop
-  },
-  {
-    id: 'rinnsamadhan',
-    title: 'RINNSAMADHAN',
-    clientUrl: 'https://rinnsamadhan.com/',
-    category: 'automation',
-    tagline: 'Secure Compliance & Bookkeeping Systems',
-    description: 'A premium financial advisory and legal compliance portal. We integrated secure, multi-tier databases, professional outsourced accounting modules, automated document generators, and high-level executive analytics dashboards that streamline daily client-manager collaboration.',
-    tags: ['Financial Tech', 'SQL Automation', 'Data Modeling', 'Client Portal'],
-    image: 'https://vedhunt.in/wp-content/uploads/2026/01/rinn3.webp',
-    statLabel: 'Lead Velocity',
-    statValue: '+220%',
-    icon: Database
-  },
-  {
-    id: 'visionsfinity',
-    title: 'Visionsfinity Shipping',
-    clientUrl: 'https://visionsfinityshipping.com/',
-    category: 'development',
-    tagline: 'Global Freight & Logistic Visualizers',
-    description: 'A global logistics, freight forwarding, and international shipping provider. We engineered their responsive digital platform incorporating real-time booking engines, shipping tracking visualizers, and highly refined, lag-free scrolling animations.',
-    tags: ['Logistics App', 'React Router', 'UX Engineering', 'Global API Sync'],
-    image: 'https://vedhunt.in/wp-content/uploads/2026/01/vision3.webp',
-    statLabel: 'Efficiency',
-    statValue: '3.5x Faster',
-    icon: Laptop
-  },
-  {
-    id: 'mumbaishopper',
-    title: 'Mumbai Shoppers',
-    clientUrl: 'https://mumbaishopper.in/',
-    category: 'marketing',
-    tagline: 'High-Yield E-Commerce Scale & Paid Ads',
-    description: 'A vibrant modern retail and fashion storefront. We developed an incredibly fast, highly intuitive online checkout grid and managed high-performance PPC advertising campaigns across Meta, Instagram, and Google that significantly multiplied purchase intent and organic search traffic.',
-    tags: ['E-Commerce', 'Paid PPC Ads', 'SEO Dominance', 'Social Management'],
-    image: 'https://vedhunt.in/wp-content/uploads/2026/01/mumbai3.webp',
-    statLabel: 'Social Growth',
-    statValue: '+310%',
-    icon: Share2
-  }
-];
+const ICON_MAP = {
+  Laptop,
+  Database,
+  Share2,
+  // Add fallback or others if needed
+};
 
 // Success parameters displaying hard-proof outcomes of Vedhunt projects with numeric values for count-up triggers
 const METRICS_LIST = [
@@ -126,6 +80,37 @@ const METRICS_LIST = [
 
 export default function Portfolio() {
   const [activeFilter, setActiveFilter] = useState('all');
+  const [portfolioItems, setPortfolioItems] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const limit = 4;
+
+  useEffect(() => {
+    fetchPortfolioItems();
+  }, [activeFilter, page]);
+
+  const fetchPortfolioItems = async () => {
+    try {
+      setIsLoading(true);
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: limit.toString(),
+      });
+      if (activeFilter !== 'all') {
+        params.append('category', activeFilter);
+      }
+      const res = await api.get(`/portfolio?${params.toString()}`);
+      if (res.data.success) {
+        setPortfolioItems(res.data.data);
+        setTotalPages(res.data.pagination.totalPages);
+      }
+    } catch (error) {
+      console.error('Error fetching portfolio items:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Animation definitions optimized for GPU hardware acceleration
   const staggerContainer = {
@@ -144,11 +129,10 @@ export default function Portfolio() {
     }
   };
 
-  // Filter items matching selected category tag
-  const filteredItems = PORTFOLIO_ITEMS.filter(item => {
-    if (activeFilter === 'all') return true;
-    return item.category === activeFilter;
-  });
+  const handleFilterChange = (newFilter) => {
+    setActiveFilter(newFilter);
+    setPage(1);
+  };
 
   return (
     <div className="bg-app-bg text-app-text-muted min-h-screen pt-24 pb-8 sm:pt-28 sm:pb-12 px-4 sm:px-6 lg:px-8 mesh-grid relative overflow-hidden theme-transition">
@@ -223,7 +207,7 @@ export default function Portfolio() {
           ].map(btn => (
             <button
               key={btn.id}
-              onClick={() => setActiveFilter(btn.id)}
+              onClick={() => handleFilterChange(btn.id)}
               className={`relative px-4.5 py-2.5 rounded-xl text-xs font-semibold tracking-wide uppercase cursor-pointer transition-all duration-300 border ${
                 activeFilter === btn.id
                   ? 'text-primary border-primary/30 z-10'
@@ -252,8 +236,16 @@ export default function Portfolio() {
           className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 max-w-5xl mx-auto gap-8 mb-20"
         >
           <AnimatePresence mode="popLayout">
-            {filteredItems.map((project) => {
-              const ClientIcon = project.icon;
+            {isLoading ? (
+              <div className="col-span-1 md:col-span-2 flex items-center justify-center min-h-[300px]">
+                <Loader className="w-8 h-8 text-primary animate-spin" />
+              </div>
+            ) : portfolioItems.length === 0 ? (
+              <div className="col-span-1 md:col-span-2 text-center py-20 bg-app-card/30 border border-app-border/40 rounded-2xl text-app-text-muted">
+                No showcases found for this category.
+              </div>
+            ) : portfolioItems.map((project) => {
+              const ClientIcon = ICON_MAP[project.icon] || Laptop;
               
               return (
                 <motion.div
@@ -398,6 +390,29 @@ export default function Portfolio() {
             })}
           </AnimatePresence>
         </motion.div>
+
+        {/* Pagination Controls */}
+        {!isLoading && totalPages > 1 && (
+          <div className="flex items-center justify-center gap-4 mb-20">
+            <button
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="w-10 h-10 rounded-full bg-app-card/50 border border-app-border/40 flex items-center justify-center text-app-text disabled:opacity-30 disabled:cursor-not-allowed hover:border-primary/50 hover:text-primary transition-all duration-300"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+            <div className="text-sm font-medium text-app-text-muted">
+              Page {page} of {totalPages}
+            </div>
+            <button
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+              className="w-10 h-10 rounded-full bg-app-card/50 border border-app-border/40 flex items-center justify-center text-app-text disabled:opacity-30 disabled:cursor-not-allowed hover:border-primary/50 hover:text-primary transition-all duration-300"
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
+          </div>
+        )}
 
         {/* Corporate Proof Segments (Metrics) */}
         <div className="mb-20 text-left space-y-8 content-visibility-auto">

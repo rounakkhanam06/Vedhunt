@@ -1,53 +1,39 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Target, 
-  Eye, 
-  Zap, 
-  Headphones, 
-  Lightbulb, 
-  BarChart3 
-} from 'lucide-react';
+import * as LucideIcons from 'lucide-react';
 
 /**
- * WhyChooseUs - Updated with Lucide icons and Dark Theme.
+ * WhyChooseUs - Updated with dynamic data fetching from DB.
  */
 export default function WhyChooseUs() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
+  const [features, setFeatures] = useState([]);
+  const [header, setHeader] = useState({
+    tagline: 'Why Vedhunt',
+    heading: 'Engineering Success with',
+    highlightText: 'Precision'
+  });
+  const [isLoading, setIsLoading] = useState(true);
 
-  const features = [
-    {
-      icon: Target,
-      title: "Result-Oriented",
-      desc: "We focus heavily on measurable outcomes that directly drive your business growth."
-    },
-    {
-      icon: Eye,
-      title: "Full Transparency",
-      desc: "No hidden charges, no vague metrics—clear communication at every phase."
-    },
-    {
-      icon: Zap,
-      title: "Fast Turnaround",
-      desc: "Optimized agile development workflows to deliver your projects ahead of schedule."
-    },
-    {
-      icon: Headphones,
-      title: "Dedicated Support",
-      desc: "Get a dedicated account manager reachable directly over WhatsApp for seamless updates."
-    },
-    {
-      icon: Lightbulb,
-      title: "Creative + Technical",
-      desc: "A powerful combination of stunning visual UX design and robust backend engineering."
-    },
-    {
-      icon: BarChart3,
-      title: "Data-Driven",
-      desc: "Every campaign, design layout, and process optimization is backed by real user data analytics."
-    }
-  ];
+  // Fetch Data
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const { contentService } = await import('../../services/contentService');
+        const res = await contentService.getWhyChooseUsPublic();
+        if (res.data) {
+          if (res.data.header) setHeader(res.data.header);
+          if (res.data.cards) setFeatures(res.data.cards);
+        }
+      } catch (error) {
+        console.error("Failed to load Why Choose Us data:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
 
   // Detect Mobile View
   useEffect(() => {
@@ -59,7 +45,7 @@ export default function WhyChooseUs() {
 
   // Auto-play interval for mobile slider
   useEffect(() => {
-    if (!isMobile) return;
+    if (!isMobile || features.length === 0) return;
     const interval = setInterval(() => {
       setCurrentIndex((prev) => (prev + 1) % features.length);
     }, 3000);
@@ -104,7 +90,9 @@ export default function WhyChooseUs() {
 
   // Reusable card content component to avoid duplication
   const CardContent = ({ feature }) => {
-    const Icon = feature.icon;
+    // Dynamically resolve icon from string
+    const Icon = LucideIcons[feature.icon] || LucideIcons.HelpCircle;
+    
     return (
       <>
         {/* Subtle Gradient Background on Hover */}
@@ -122,7 +110,7 @@ export default function WhyChooseUs() {
 
         {/* Description */}
         <p className="text-slate-600 dark:text-app-text text-sm leading-relaxed font-medium relative z-10">
-          {feature.desc}
+          {feature.desc || feature.description}
         </p>
 
         {/* Bottom Accent Line */}
@@ -147,7 +135,7 @@ export default function WhyChooseUs() {
             viewport={{ once: true }}
             className="text-primary text-xs font-black uppercase tracking-[0.3em] bg-primary/10 px-4 py-1.5 rounded-full"
           >
-            Why Vedhunt
+            {header.tagline}
           </motion.span>
           <motion.h2 
             initial={{ opacity: 0, y: 10 }}
@@ -156,7 +144,7 @@ export default function WhyChooseUs() {
             transition={{ delay: 0.1 }}
             className="text-3xl sm:text-4xl md:text-5xl font-black font-heading text-app-text leading-tight"
           >
-            Engineering Success with <span className="text-primary">Precision</span>
+            {header.heading} <span className="text-primary">{header.highlightText}</span>
           </motion.h2>
           <motion.div 
             initial={{ scaleX: 0 }}

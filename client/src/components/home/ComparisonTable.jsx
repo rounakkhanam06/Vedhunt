@@ -1,48 +1,53 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { contentService } from '../../services/contentService';
 
 /**
  * ComparisonTable - A CRO-focused component comparing Vedhunt InfoTech with typical agencies.
  * Designed for maximum trust building and clarity using a structured data matrix.
  */
 export default function ComparisonTable() {
-  const comparisonData = [
-    {
-      feature: "All-in-One Services",
-      vedhunt: "8 services under one roof",
-      typical: "Usually 2–3 services"
+  const [data, setData] = useState({ header: null, rows: [] });
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Fallback static data to prevent empty renders before DB is populated
+  const defaultData = {
+    header: {
+      heading: 'The Vedhunt Advantage',
+      description: "We don't just provide services; we build high-performance growth machines. Here is how we stand out from the typical agency model.",
+      vedhuntColumnHeader: 'Vedhunt InfoTech ✅',
+      typicalColumnHeader: 'Typical Agency ❌',
+      bottomNote: 'Empirical Data Based on Regional Industry Audits 2026'
     },
-    {
-      feature: "Pricing",
-      vedhunt: "Transparent, no hidden fees",
-      typical: "Often vague or inflated"
-    },
-    {
-      feature: "Reporting",
-      vedhunt: "Real-time dashboards & reports",
-      typical: "Monthly PDF only"
-    },
-    {
-      feature: "Communication",
-      vedhunt: "Dedicated manager + WhatsApp",
-      typical: "Email tickets only"
-    },
-    {
-      feature: "Strategy",
-      vedhunt: "Custom strategy per client",
-      typical: "Generic templates"
-    },
-    {
-      feature: "Technology",
-      vedhunt: "Own tech stack + automation",
-      typical: "Outsourced delivery"
-    },
-    {
-      feature: "ROI Focus",
-      vedhunt: "KPI-based campaigns always",
-      typical: "Vanity metrics focus"
-    }
-  ];
+    rows: [
+      { feature: "All-in-One Services", vedhunt: "8 services under one roof", typical: "Usually 2–3 services" },
+      { feature: "Pricing", vedhunt: "Transparent, no hidden fees", typical: "Often vague or inflated" },
+      { feature: "Reporting", vedhunt: "Real-time dashboards & reports", typical: "Monthly PDF only" },
+      { feature: "Communication", vedhunt: "Dedicated manager + WhatsApp", typical: "Email tickets only" },
+      { feature: "Strategy", vedhunt: "Custom strategy per client", typical: "Generic templates" },
+      { feature: "Technology", vedhunt: "Own tech stack + automation", typical: "Outsourced delivery" },
+      { feature: "ROI Focus", vedhunt: "KPI-based campaigns always", typical: "Vanity metrics focus" }
+    ]
+  };
+
+  useEffect(() => {
+    const fetchAdvantage = async () => {
+      try {
+        const result = await contentService.getAdvantagePublic();
+        if (result.data) {
+          setData(result.data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch advantage section:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchAdvantage();
+  }, []);
+
+  const header = data.header || defaultData.header;
+  const rows = data.rows?.length > 0 ? data.rows : defaultData.rows;
 
   return (
     <section className="py-8 px-4 bg-app-bg text-app-text relative overflow-hidden">
@@ -59,7 +64,7 @@ export default function ComparisonTable() {
             viewport={{ once: true }}
             className="text-2xl md:text-3xl font-black font-heading text-app-text leading-tight"
           >
-            The Vedhunt Advantage
+            {header.heading}
           </motion.h2>
           <motion.p 
             initial={{ opacity: 0, y: 10 }}
@@ -68,8 +73,7 @@ export default function ComparisonTable() {
             transition={{ delay: 0.1 }}
             className="text-app-text-muted text-[11px] md:text-xs max-w-lg mx-auto leading-relaxed"
           >
-            We don't just provide services; we build high-performance growth machines. 
-            Here is how we stand out from the typical agency model.
+            {header.description}
           </motion.p>
         </div>
 
@@ -114,19 +118,19 @@ export default function ComparisonTable() {
                     Feature
                   </th>
                   <th className="px-4 py-3 text-xs font-black text-primary bg-primary/10 border-r border-primary/20 w-1/3 text-center">
-                    Vedhunt InfoTech ✅
+                    {header.vedhuntColumnHeader}
                   </th>
                   <th className="px-4 py-3 text-xs font-bold text-app-text-muted w-1/3 text-center">
-                    Typical Agency ❌
+                    {header.typicalColumnHeader}
                   </th>
                 </tr>
               </thead>
               
               {/* Table Body */}
               <tbody className="divide-y divide-slate-100 dark:divide-app-border">
-                {comparisonData.map((row, index) => (
+                {rows.map((row, index) => (
                   <tr 
-                    key={index} 
+                    key={row._id || index} 
                     className="group hover:bg-slate-50 dark:hover:bg-app-bg transition-colors duration-300"
                   >
                     {/* Feature Column */}
@@ -154,15 +158,17 @@ export default function ComparisonTable() {
         </motion.div>
 
         {/* Bottom Trust Note */}
-        <motion.p 
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          viewport={{ once: true }}
-          transition={{ delay: 0.4 }}
-          className="mt-5 text-center text-[9px] font-black uppercase tracking-[0.2em] text-app-text-muted/60"
-        >
-          Empirical Data Based on Regional Industry Audits 2026
-        </motion.p>
+        {header.bottomNote && (
+          <motion.p 
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.4 }}
+            className="mt-5 text-center text-[9px] font-black uppercase tracking-[0.2em] text-app-text-muted/60"
+          >
+            {header.bottomNote}
+          </motion.p>
+        )}
 
       </div>
     </section>

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { contentService } from '../../services/contentService';
 import { Pencil, Trash2, Search, Loader2 } from 'lucide-react';
 
-const NavbarManager = () => {
+const NavbarManager = ({ isNested = false }) => {
   const [links, setLinks] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -59,14 +59,16 @@ const NavbarManager = () => {
   const totalPages = Math.ceil(total / limit);
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
+    <div className={isNested ? "space-y-6" : "mx-auto max-w-5xl space-y-6"}>
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-white">Manage Navbar</h1>
-          <p className="mt-1 text-sm text-gray-400">
-            Rename or remove items from the top navigation bar.
-          </p>
-        </div>
+        {!isNested ? (
+          <div>
+            <h1 className="text-2xl font-bold text-white">Manage Navbar</h1>
+            <p className="mt-1 text-sm text-gray-400">
+              Rename or remove items from the top navigation bar.
+            </p>
+          </div>
+        ) : <div />}
         
         <div className="relative w-full sm:w-64">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />

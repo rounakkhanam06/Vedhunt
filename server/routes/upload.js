@@ -26,6 +26,26 @@ router.post('/', authMiddleware, roleMiddleware('SUPER_ADMIN', 'EDITOR'), upload
   }
 });
 
+// @route   POST /api/upload/public
+// @desc    Upload an image to Cloudinary (Public - for testimonials)
+// @access  Public
+router.post('/public', upload.single('image'), (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'No image provided' });
+    }
+
+    res.json({
+      success: true,
+      url: req.file.path, // Cloudinary url
+      publicId: req.file.filename, // Cloudinary public_id
+    });
+  } catch (error) {
+    logger.error('Public Upload error:', error);
+    res.status(500).json({ success: false, message: 'Image upload failed' });
+  }
+});
+
 // @route   DELETE /api/upload/:publicId
 // @desc    Delete an image from Cloudinary
 // @access  Private (SUPER_ADMIN)

@@ -1,23 +1,44 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Star, ChevronLeft, ChevronRight, Quote } from 'lucide-react';
-import { TESTIMONIALS } from '../../constants';
+import { Star, ChevronLeft, ChevronRight, Quote, MessageSquarePlus } from 'lucide-react';
+import axios from 'axios';
+import ReviewModal from './ReviewModal';
 
 export default function Testimonials() {
   const [index, setIndex] = useState(0);
+  const [testimonials, setTestimonials] = useState([]);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  useEffect(() => {
+    const fetchDynamic = async () => {
+      try {
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+        const res = await axios.get(`${apiUrl}/testimonials/approved`);
+        if (res.data && res.data.data) {
+          setTestimonials(res.data.data);
+        }
+      } catch (err) {
+        console.error('Failed to load testimonials', err);
+      }
+    };
+    fetchDynamic();
+  }, []);
 
   // Auto-advance carousel every 5 seconds
   useEffect(() => {
+    if (testimonials.length === 0) return;
     const timer = setInterval(() => {
-      setIndex((prev) => (prev + 1) % TESTIMONIALS.length);
+      setIndex((prev) => (prev + 1) % testimonials.length);
     }, 5000);
     return () => clearInterval(timer);
-  }, []);
+  }, [testimonials.length]);
 
-  const next = () => setIndex((i) => (i + 1) % TESTIMONIALS.length);
-  const prev = () => setIndex((i) => (i - 1 + TESTIMONIALS.length) % TESTIMONIALS.length);
+  const next = () => setIndex((i) => (i + 1) % testimonials.length);
+  const prev = () => setIndex((i) => (i - 1 + testimonials.length) % testimonials.length);
 
-  const t = TESTIMONIALS[index];
+  const t = testimonials[index];
+
+  if (!t) return null; // Don't render if empty
 
   return (
     <section
@@ -29,11 +50,22 @@ export default function Testimonials() {
 
       <div className="max-w-5xl mx-auto px-4 relative z-10">
         
-        {/* Title */}
-        <div className="text-center mb-6 md:mb-10">
-          <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold text-primary uppercase tracking-wider">
-            CLIENT SAYS:
-          </h2>
+        {/* Title and Write Review Button */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 md:mb-10 gap-4">
+          <div className="flex-1 text-center md:text-left">
+            <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold text-primary uppercase tracking-wider">
+              CLIENT SAYS:
+            </h2>
+          </div>
+          <div className="flex-shrink-0 flex justify-center md:justify-end">
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="flex items-center gap-2 px-5 py-2.5 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 hover:border-primary/40 rounded-full font-semibold transition-all duration-300"
+            >
+              <MessageSquarePlus className="w-5 h-5" />
+              Write a Review
+            </button>
+          </div>
         </div>
 
         {/* Carousel Container - More compact height */}
@@ -114,8 +146,8 @@ export default function Testimonials() {
           </button>
           
           {/* Pagination Dots */}
-          <div className="flex gap-2 md:gap-3">
-            {TESTIMONIALS.map((_, i) => (
+          <div className="flex gap-2 md:gap-3 flex-wrap justify-center max-w-[60vw]">
+            {testimonials.map((_, i) => (
               <button
                 key={i}
                 onClick={() => setIndex(i)}
@@ -136,6 +168,9 @@ export default function Testimonials() {
         </div>
 
       </div>
+      
+      {/* Review Modal */}
+      <ReviewModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
     </section>
   );
 }

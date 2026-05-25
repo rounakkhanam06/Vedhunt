@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { contentService } from '../../services/contentService';
 import { uploadService } from '../../services/uploadService';
-import { Pencil, Trash2, Search, Loader2, Plus, X, Upload } from 'lucide-react';
+import { Pencil, Trash2, Search, Loader2, Plus, X, Upload, Save, Loader } from 'lucide-react';
 
 const generateSlug = (text) => {
   return text
@@ -15,7 +15,7 @@ const generateSlug = (text) => {
     .replace(/-+$/, '');          // Trim - from end of text
 };
 
-const ServiceManager = () => {
+const ServiceManager = ({ isNested = false }) => {
   const [services, setServices] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -116,87 +116,83 @@ const ServiceManager = () => {
     setEditingService(null);
   };
 
-  const handleTitleChange = (e) => {
-    const newTitle = e.target.value;
-    const oldTitle = formData.title;
-
-    const oldGeneratedSlug = generateSlug(oldTitle);
-    const oldGeneratedId = generateSlug(oldTitle);
-
-    const shouldUpdateSlug = formData.slug === '' || formData.slug === oldGeneratedSlug;
-    const shouldUpdateId = formData.id_string === '' || formData.id_string === oldGeneratedId;
-
-    setFormData(prev => {
-      const updated = { ...prev, title: newTitle };
-      if (shouldUpdateSlug) {
-        updated.slug = generateSlug(newTitle);
-      }
-      if (shouldUpdateId) {
-        updated.id_string = generateSlug(newTitle);
-      }
-      return updated;
-    });
+  const handleInputChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    
+    if (name === 'title' && !editingService) {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value,
+        slug: generateSlug(value),
+        id_string: generateSlug(value)
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: type === 'checkbox' ? checked : value
+      }));
+    }
   };
-
-  // Inline form handles scrolling natively; scroll lock effect is removed
 
   const handleImageUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
-    setIsUploading(true);
     try {
-      const res = await uploadService.uploadImage(file);
-      setFormData(prev => ({ 
-        ...prev, 
-        imageUrl: res.url,
-        imagePublicId: res.publicId 
+      setIsUploading(true);
+      const response = await uploadService.uploadImage(file);
+      setFormData(prev => ({
+        ...prev,
+        imageUrl: response.url,
+        imagePublicId: response.publicId
       }));
     } catch (error) {
-      console.error("Upload failed", error);
-      alert("Image upload failed");
+      alert('Failed to upload image');
+      console.error(error);
     } finally {
       setIsUploading(false);
     }
   };
 
   const handleImageRemove = async () => {
-    const publicId = formData.imagePublicId;
-    if (publicId) {
+    if (formData.imagePublicId) {
       try {
-        await uploadService.deleteImage(publicId);
-      } catch (err) {
-        console.error("Delete from cloudinary failed", err);
+        await uploadService.deleteImage(formData.imagePublicId);
+      } catch (error) {
+        console.error('Failed to delete image from Cloudinary', error);
       }
     }
-    
-    setFormData(prev => ({ 
-      ...prev, 
+    setFormData(prev => ({
+      ...prev,
       imageUrl: '',
-      imagePublicId: '' 
+      imagePublicId: ''
     }));
   };
 
   const handleSubmit = async (e) => {
-    if (e && e.preventDefault) e.preventDefault();
+    e.preventDefault();
     setIsSaving(true);
     try {
-      // Process features back into an array
-      const dataToSave = { ...formData };
-      if (typeof dataToSave.features === 'string') {
-        dataToSave.features = dataToSave.features.split(',').map(f => f.trim()).filter(f => f);
+      const dataToSubmit = { ...formData };
+      if (typeof dataToSubmit.features === 'string') {
+        dataToSubmit.features = dataToSubmit.features.split('\n').filter(f => f.trim() !== '');
+      }
+      if (typeof dataToSubmit.subServices === 'string') {
+        dataToSubmit.subServices = dataToSubmit.subServices.split('\n').filter(s => s.trim() !== '');
       }
 
-      if (editingService && editingService._id) {
-        await contentService.updateService(editingService._id, dataToSave);
+      if (editingService) {
+        await contentService.updateService(editingService._id, dataToSubmit);
+        alert('Service updated successfully!');
       } else {
-        await contentService.createService(dataToSave);
+        await contentService.createService(dataToSubmit);
+        alert('Service created successfully!');
       }
-      
       handleCloseForm();
       fetchServices();
     } catch (error) {
-      alert('Failed to save service: ' + (error.response?.data?.message || error.message));
+      alert(error.response?.data?.message || 'Failed to save service');
+      console.error(error);
     } finally {
       setIsSaving(false);
     }
@@ -208,34 +204,34 @@ const ServiceManager = () => {
 
   const confirmDelete = async () => {
     if (!deleteTargetId) return;
-    setIsSaving(true);
     try {
       await contentService.deleteService(deleteTargetId);
+      setDeleteTargetId(null);
       fetchServices();
     } catch (error) {
-      alert('Failed to delete service: ' + (error.response?.data?.message || error.message));
-    } finally {
-      setIsSaving(false);
-      setDeleteTargetId(null);
+      alert(error.response?.data?.message || 'Failed to delete service');
+      console.error(error);
     }
   };
 
   const totalPages = Math.ceil(total / limit);
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
+    <div className={isNested ? "space-y-6" : "mx-auto max-w-6xl space-y-6"}>
       {!isModalOpen ? (
         <>
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div>
-              <h1 className="text-2xl font-bold text-white">Manage Services</h1>
-              <p className="mt-1 text-sm text-gray-400">
-                Add, update, or remove services offered by Vedhunt.
-              </p>
-            </div>
+            {!isNested ? (
+              <div>
+                <h1 className="text-2xl font-bold text-white">Manage Services</h1>
+                <p className="mt-1 text-sm text-gray-400">
+                  Add, edit, or remove services offered.
+                </p>
+              </div>
+            ) : <div />}
             
             <div className="flex items-center gap-4 w-full sm:w-auto">
-              <div className="relative w-full sm:w-64">
+              <div className="relative flex-1 sm:w-64">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
                 <input 
                   type="text" 
@@ -248,11 +244,12 @@ const ServiceManager = () => {
                   }}
                 />
               </div>
-              <button 
+              <button
                 onClick={() => handleOpenForm()}
-                className="flex items-center gap-2 bg-[#FF6B00] hover:bg-[#e66000] text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap"
+                className="flex items-center gap-2 px-4 py-2 bg-[#FF6B00] text-white font-semibold rounded-lg hover:bg-[#e66000] transition-colors whitespace-nowrap"
               >
-                <Plus className="w-4 h-4" /> Add New
+                <Plus className="w-4 h-4" />
+                Add Service
               </button>
             </div>
           </div>
@@ -370,10 +367,11 @@ const ServiceManager = () => {
                   <label className="block text-sm font-medium text-gray-300 mb-1">Title *</label>
                   <input
                     type="text"
+                    name="title"
                     required
                     className="w-full rounded-lg border border-white/10 bg-[#1A1A1A] px-3.5 py-2 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00] transition-colors"
                     value={formData.title}
-                    onChange={handleTitleChange}
+                    onChange={handleInputChange}
                   />
                 </div>
                 <div>

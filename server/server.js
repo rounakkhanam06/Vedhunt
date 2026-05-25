@@ -17,6 +17,9 @@ const uploadRoutes = require('./routes/upload');
 const heroRoutes = require('./routes/hero');
 const teamRoutes = require('./routes/team');
 const contentRoutes = require('./routes/contentRoutes');
+const testimonialRoutes = require('./routes/testimonialRoutes');
+const portfolioRoutes = require('./routes/portfolioRoutes');
+const { seedPortfolioData } = require('./controllers/portfolioController');
 const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
@@ -53,6 +56,8 @@ app.use('/api/upload', uploadRoutes);
 app.use('/api/hero', heroRoutes); // Legacy route, keeping for backwards compatibility
 app.use('/api/team', teamRoutes);
 app.use('/api/content', contentRoutes);
+app.use('/api/testimonials', testimonialRoutes);
+app.use('/api/portfolio', portfolioRoutes);
 
 // Root route for API status
 app.get('/', (req, res) => {
@@ -77,8 +82,12 @@ const PORT = process.env.PORT || 5000;
 
 mongoose
   .connect(process.env.MONGODB_URI)
-  .then(() => {
+  .then(async () => {
     logger.info('Connected to MongoDB');
+    
+    // Seed data
+    await seedPortfolioData();
+
     app.listen(PORT, () => {
       logger.info(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
     });

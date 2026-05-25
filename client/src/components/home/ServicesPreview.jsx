@@ -23,21 +23,32 @@ const serviceImages = {
 
 export default function ServicesPreview() {
   const [services, setServices] = useState([]);
+  const [headerData, setHeaderData] = useState({
+    tagline: 'Our Expertise',
+    heading: 'Services That Fit',
+    highlightText: 'Your Business',
+    description: 'From digital transformation to financial clarity, we provide end-to-end technical solutions designed to scale your operations and maximize ROI.'
+  });
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const fetchServices = async () => {
+    const fetchData = async () => {
       try {
-        const response = await contentService.getServicesPublic('home');
-        // Limit to 6 on homepage
-        setServices((response.data || []).slice(0, 6));
+        const [servicesRes, headerRes] = await Promise.all([
+          contentService.getServicesPublic('home'),
+          contentService.getHomeServicesSection()
+        ]);
+        setServices((servicesRes.data || []).slice(0, 6));
+        if (headerRes.data) {
+          setHeaderData(headerRes.data);
+        }
       } catch (error) {
-        console.error("Failed to fetch services", error);
+        console.error("Failed to fetch data", error);
       } finally {
         setIsLoading(false);
       }
     };
-    fetchServices();
+    fetchData();
   }, []);
 
   const staggerContainer = {
@@ -75,17 +86,17 @@ export default function ServicesPreview() {
           <motion.div variants={scrollFadeUp} className="flex items-center justify-center gap-3">
             <span className="w-8 h-[2px] bg-primary" />
             <span className="text-xs font-black text-primary uppercase tracking-[0.3em]">
-              Our Expertise
+              {headerData.tagline}
             </span>
             <span className="w-8 h-[2px] bg-primary" />
           </motion.div>
           
           <motion.h2 variants={scrollFadeUp} className="text-3xl sm:text-5xl md:text-6xl font-black font-heading text-app-text leading-tight">
-            Services That Fit <span className="text-primary text-gradient-orange">Your Business</span>
+            {headerData.heading} <span className="text-primary text-gradient-orange">{headerData.highlightText}</span>
           </motion.h2>
 
           <motion.p variants={scrollFadeUp} className="text-app-text-muted text-xs sm:text-sm md:text-base max-w-2xl mx-auto leading-relaxed">
-            From digital transformation to financial clarity, we provide end-to-end technical solutions designed to scale your operations and maximize ROI.
+            {headerData.description}
           </motion.p>
         </motion.div>
 

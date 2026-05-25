@@ -35,6 +35,9 @@ const ForgotPassword = lazy(() => import('../admin/pages/ForgotPassword'));
 const ResetPassword = lazy(() => import('../admin/pages/ResetPassword'));
 const NavbarManager = lazy(() => import('../admin/pages/NavbarManager'));
 const ServiceManager = lazy(() => import('../admin/pages/ServiceManager'));
+const PortfolioManager = lazy(() => import('../admin/pages/PortfolioManager'));
+const LandingPageManager = lazy(() => import('../admin/pages/LandingPageManager'));
+const TestimonialManager = lazy(() => import('../admin/pages/TestimonialManager'));
 
 // High-fidelity, smooth loading fallback component to display during chunk fetching
 const withSuspense = (Component) => (
@@ -164,8 +167,8 @@ export const router = createBrowserRouter([
             element: withSuspense(Dashboard)
           },
           {
-            path: 'hero',
-            element: withSuspense(HeroManager)
+            path: 'landing-page',
+            element: withSuspense(LandingPageManager)
           },
           {
             path: 'navbar',
@@ -186,6 +189,14 @@ export const router = createBrowserRouter([
           {
             path: 'team',
             element: withSuspense(TeamManagement)
+          },
+          {
+            path: 'portfolio',
+            element: withSuspense(PortfolioManager)
+          },
+          {
+            path: 'testimonials',
+            element: withSuspense(TestimonialManager)
           },
           {
             path: '',

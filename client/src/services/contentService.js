@@ -12,6 +12,96 @@ export const contentService = {
     return response.data;
   },
 
+  // Advantage Section
+  getAdvantagePublic: async () => {
+    const response = await api.get('/content/advantage');
+    return response.data;
+  },
+  getAdvantageAdmin: async () => {
+    const response = await api.get('/content/admin/advantage');
+    return response.data;
+  },
+  updateAdvantageHeader: async (data) => {
+    const response = await api.put('/content/admin/advantage/header', data);
+    return response.data;
+  },
+  createAdvantageRow: async (data) => {
+    const response = await api.post('/content/admin/advantage/row', data);
+    return response.data;
+  },
+  updateAdvantageRow: async (id, data) => {
+    const response = await api.put(`/content/admin/advantage/row/${id}`, data);
+    return response.data;
+  },
+  deleteAdvantageRow: async (id) => {
+    const response = await api.delete(`/content/admin/advantage/row/${id}`);
+    return response.data;
+  },
+
+  // Stats Counter Section
+  getStatsCounterPublic: async () => {
+    const response = await api.get('/content/stats-counter');
+    return response.data;
+  },
+  getStatsCounterAdmin: async (page = 1, limit = 20) => {
+    const response = await api.get(`/content/admin/stats-counter?page=${page}&limit=${limit}`);
+    return response.data;
+  },
+  createStat: async (data) => {
+    const response = await api.post('/content/admin/stats-counter', data);
+    return response.data;
+  },
+  updateStat: async (id, data) => {
+    const response = await api.put(`/content/admin/stats-counter/${id}`, data);
+    return response.data;
+  },
+  deleteStat: async (id) => {
+    const response = await api.delete(`/content/admin/stats-counter/${id}`);
+    return response.data;
+  },
+
+  // Home Services Section
+  getHomeServicesSection: async () => {
+    const response = await api.get('/content/home-services-section');
+    return response.data;
+  },
+
+  updateHomeServicesSection: async (data) => {
+    const response = await api.put('/content/admin/home-services-section', data);
+    return response.data;
+  },
+
+  // Why Choose Us Section
+  getWhyChooseUsPublic: async () => {
+    const response = await api.get('/content/why-choose-us');
+    return response.data;
+  },
+
+  getWhyChooseUsAdmin: async (page = 1, limit = 20) => {
+    const response = await api.get(`/content/admin/why-choose-us?page=${page}&limit=${limit}`);
+    return response.data;
+  },
+
+  updateWhyChooseUsHeader: async (data) => {
+    const response = await api.put('/content/admin/why-choose-us/header', data);
+    return response.data;
+  },
+
+  createWhyChooseUsCard: async (data) => {
+    const response = await api.post('/content/admin/why-choose-us/cards', data);
+    return response.data;
+  },
+
+  updateWhyChooseUsCard: async (id, data) => {
+    const response = await api.put(`/content/admin/why-choose-us/cards/${id}`, data);
+    return response.data;
+  },
+
+  deleteWhyChooseUsCard: async (id) => {
+    const response = await api.delete(`/content/admin/why-choose-us/cards/${id}`);
+    return response.data;
+  },
+
   // Navbar
   getNavbarLinksPublic: async () => {
     const response = await api.get('/content/navbar');
