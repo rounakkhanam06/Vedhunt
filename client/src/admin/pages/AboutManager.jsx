@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { contentService } from '../../services/contentService';
-import { Loader2, Save, ChevronDown, ChevronUp } from 'lucide-react';
+import { Loader2, Save, ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const AboutManager = () => {
@@ -33,12 +33,59 @@ const AboutManager = () => {
   });
   const [isSavingCompany, setIsSavingCompany] = useState(false);
 
+  // Video Presentation State
+  const [isVideoOpen, setIsVideoOpen] = useState(false);
+  const [videoData, setVideoData] = useState({
+    headingLine1: '',
+    headingLine2: '',
+    description: '',
+    checklists: '',
+    videoUrl: ''
+  });
+  const [isSavingVideo, setIsSavingVideo] = useState(false);
+
+  // What We Do State
+  const [isWhatWeDoOpen, setIsWhatWeDoOpen] = useState(false);
+  const [whatWeDoData, setWhatWeDoData] = useState({
+    tagline: '',
+    title: '',
+    description: '',
+    cards: []
+  });
+  const [isSavingWhatWeDo, setIsSavingWhatWeDo] = useState(false);
+
+  // Vision Mission State
+  const [isVisionMissionOpen, setIsVisionMissionOpen] = useState(false);
+  const [visionMissionData, setVisionMissionData] = useState({
+    visionTagline: '',
+    visionTitle: '',
+    visionDescription: '',
+    missionTagline: '',
+    missionTitle: '',
+    missionDescription: ''
+  });
+  const [isSavingVisionMission, setIsSavingVisionMission] = useState(false);
+
+  // Our Edge State
+  const [isOurEdgeOpen, setIsOurEdgeOpen] = useState(false);
+  const [ourEdgeData, setOurEdgeData] = useState({
+    tagline: '',
+    title: '',
+    description: '',
+    cards: []
+  });
+  const [isSavingOurEdge, setIsSavingOurEdge] = useState(false);
+
   useEffect(() => {
     const fetchAboutData = async () => {
       try {
-        const [heroResponse, companyResponse] = await Promise.all([
+        const [heroResponse, companyResponse, videoResponse, whatWeDoResponse, visionMissionResponse, ourEdgeResponse] = await Promise.all([
           contentService.getAboutHero(),
-          contentService.getAboutCompany()
+          contentService.getAboutCompany(),
+          contentService.getAboutVideo(),
+          contentService.getAboutWhatWeDo(),
+          contentService.getAboutVisionMission(),
+          contentService.getAboutOurEdge()
         ]);
         
         if (heroResponse) {
@@ -65,6 +112,45 @@ const AboutManager = () => {
             checklistItem1: companyResponse.checklistItem1 || { title: '', description: '' },
             checklistItem2: companyResponse.checklistItem2 || { title: '', description: '' },
             signature: companyResponse.signature || { name: '', role: '' }
+          });
+        }
+
+        if (videoResponse) {
+          setVideoData({
+            headingLine1: videoResponse.headingLine1 || '',
+            headingLine2: videoResponse.headingLine2 || '',
+            description: videoResponse.description || '',
+            checklists: videoResponse.checklists ? videoResponse.checklists.join('\n') : '',
+            videoUrl: videoResponse.videoUrl || ''
+          });
+        }
+
+        if (whatWeDoResponse) {
+          setWhatWeDoData({
+            tagline: whatWeDoResponse.tagline || '',
+            title: whatWeDoResponse.title || '',
+            description: whatWeDoResponse.description || '',
+            cards: whatWeDoResponse.cards || []
+          });
+        }
+
+        if (visionMissionResponse) {
+          setVisionMissionData({
+            visionTagline: visionMissionResponse.visionTagline || '',
+            visionTitle: visionMissionResponse.visionTitle || '',
+            visionDescription: visionMissionResponse.visionDescription || '',
+            missionTagline: visionMissionResponse.missionTagline || '',
+            missionTitle: visionMissionResponse.missionTitle || '',
+            missionDescription: visionMissionResponse.missionDescription || ''
+          });
+        }
+
+        if (ourEdgeResponse) {
+          setOurEdgeData({
+            tagline: ourEdgeResponse.tagline || '',
+            title: ourEdgeResponse.title || '',
+            description: ourEdgeResponse.description || '',
+            cards: ourEdgeResponse.cards || []
           });
         }
       } catch (error) {
@@ -125,6 +211,114 @@ const AboutManager = () => {
     } finally {
       setIsSavingCompany(false);
     }
+  };
+
+  const handleVideoSubmit = async (e) => {
+    e.preventDefault();
+    setIsSavingVideo(true);
+    // Show a loading toast because fetching YT duration might take 1-2 seconds
+    const loadingToast = toast.loading('Saving and fetching video duration...');
+    try {
+      const dataToSubmit = {
+        ...videoData,
+        checklists: typeof videoData.checklists === 'string'
+          ? videoData.checklists.split('\n').filter(s => s.trim() !== '')
+          : videoData.checklists
+      };
+      await contentService.updateAboutVideo(dataToSubmit);
+      toast.success('Video Presentation updated successfully!', { id: loadingToast });
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to update video presentation', { id: loadingToast });
+      console.error(error);
+    } finally {
+      setIsSavingVideo(false);
+    }
+  };
+
+  const handleWhatWeDoSubmit = async (e) => {
+    e.preventDefault();
+    setIsSavingWhatWeDo(true);
+    try {
+      await contentService.updateAboutWhatWeDo(whatWeDoData);
+      toast.success('What We Do section updated successfully!');
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to update What We Do section');
+      console.error(error);
+    } finally {
+      setIsSavingWhatWeDo(false);
+    }
+  };
+
+  const handleAddWhatWeDoCard = () => {
+    setWhatWeDoData(prev => ({
+      ...prev,
+      cards: [...prev.cards, { icon: 'Code', title: '', desc: '' }]
+    }));
+  };
+
+  const handleRemoveWhatWeDoCard = (index) => {
+    setWhatWeDoData(prev => ({
+      ...prev,
+      cards: prev.cards.filter((_, i) => i !== index)
+    }));
+  };
+
+  const handleWhatWeDoCardChange = (index, field, value) => {
+    setWhatWeDoData(prev => {
+      const newCards = [...prev.cards];
+      newCards[index] = { ...newCards[index], [field]: value };
+      return { ...prev, cards: newCards };
+    });
+  };
+
+  const handleVisionMissionSubmit = async (e) => {
+    e.preventDefault();
+    setIsSavingVisionMission(true);
+    try {
+      await contentService.updateAboutVisionMission(visionMissionData);
+      toast.success('Vision and Mission updated successfully!');
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to update Vision and Mission');
+      console.error(error);
+    } finally {
+      setIsSavingVisionMission(false);
+    }
+  };
+
+  const handleOurEdgeSubmit = async (e) => {
+    e.preventDefault();
+    setIsSavingOurEdge(true);
+    try {
+      await contentService.updateAboutOurEdge(ourEdgeData);
+      toast.success('Our Edge section updated successfully!');
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to update Our Edge section');
+      console.error(error);
+    } finally {
+      setIsSavingOurEdge(false);
+    }
+  };
+
+  const handleAddOurEdgeCard = () => {
+    setOurEdgeData(prev => ({
+      ...prev,
+      cards: [...prev.cards, { title: '', desc: '' }]
+    }));
+  };
+
+  const handleRemoveOurEdgeCard = (index) => {
+    setOurEdgeData(prev => ({
+      ...prev,
+      cards: prev.cards.filter((_, i) => i !== index)
+    }));
+  };
+
+  const handleOurEdgeCardChange = (index, field, value) => {
+    setOurEdgeData(prev => {
+      const newCards = [...prev.cards];
+      newCards[index] = { ...newCards[index], [field]: value };
+      return { ...prev, cards: newCards };
+    });
   };
 
   if (isLoading) {
@@ -484,6 +678,435 @@ const AboutManager = () => {
                 >
                   {isSavingCompany ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
                   Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+      </div>
+
+      {/* Video Presentation Manager */}
+      <div className="bg-[#222222] border border-white/10 rounded-xl overflow-hidden mb-6">
+        <button
+          onClick={() => setIsVideoOpen(!isVideoOpen)}
+          className="w-full flex items-center justify-between p-4 bg-[#1A1A1A] hover:bg-white/5 transition-colors cursor-pointer"
+        >
+          <div>
+            <h3 className="text-lg font-bold text-white text-left">Video Presentation Section</h3>
+            <p className="text-sm text-gray-400 text-left">Update the headings, checklists, and YouTube embed URL. Duration is fetched automatically.</p>
+          </div>
+          {isVideoOpen ? <ChevronUp className="w-5 h-5 text-gray-400" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
+        </button>
+        
+        {isVideoOpen && (
+          <div className="p-6 border-t border-white/10">
+            <form onSubmit={handleVideoSubmit} className="space-y-5 text-left">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">Heading Line 1</label>
+                  <input
+                    type="text"
+                    className="w-full rounded-lg border border-white/10 bg-[#1A1A1A] px-3.5 py-2 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                    value={videoData.headingLine1}
+                    onChange={(e) => setVideoData({ ...videoData, headingLine1: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">Heading Line 2 (Highlighted)</label>
+                  <input
+                    type="text"
+                    className="w-full rounded-lg border border-white/10 bg-[#1A1A1A] px-3.5 py-2 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                    value={videoData.headingLine2}
+                    onChange={(e) => setVideoData({ ...videoData, headingLine2: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">Description</label>
+                <textarea
+                  rows={3}
+                  className="w-full rounded-lg border border-white/10 bg-[#1A1A1A] px-3.5 py-2 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                  value={videoData.description}
+                  onChange={(e) => setVideoData({ ...videoData, description: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">Checklists (One per line, up to 4)</label>
+                <textarea
+                  rows={4}
+                  className="w-full rounded-lg border border-white/10 bg-[#1A1A1A] px-3.5 py-2 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                  value={videoData.checklists}
+                  onChange={(e) => setVideoData({ ...videoData, checklists: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">YouTube Embed URL</label>
+                <input
+                  type="text"
+                  placeholder="https://www.youtube.com/embed/hb6CFtZnj2c?autoplay=0&rel=0&modestbranding=1"
+                  className="w-full rounded-lg border border-white/10 bg-[#1A1A1A] px-3.5 py-2 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                  value={videoData.videoUrl}
+                  onChange={(e) => setVideoData({ ...videoData, videoUrl: e.target.value })}
+                />
+                <p className="text-xs text-gray-400 mt-1">Duration will be extracted automatically when you save.</p>
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <button
+                  type="submit"
+                  disabled={isSavingVideo}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-[#FF6B00] text-white font-semibold rounded-lg hover:bg-[#e66000] transition-colors disabled:opacity-50 cursor-pointer shadow-lg shadow-[#FF6B00]/20"
+                >
+                  {isSavingVideo ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+                  Save Video Section
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+      </div>
+
+      {/* What We Do Section Manager */}
+      <div className="bg-[#222222] border border-white/10 rounded-xl overflow-hidden mb-6">
+        <button
+          onClick={() => setIsWhatWeDoOpen(!isWhatWeDoOpen)}
+          className="w-full flex items-center justify-between p-4 bg-[#1A1A1A] hover:bg-white/5 transition-colors cursor-pointer"
+        >
+          <div>
+            <h3 className="text-lg font-bold text-white text-left">What We Do Section</h3>
+            <p className="text-sm text-gray-400 text-left">Manage the section header and the grid of service cards dynamically.</p>
+          </div>
+          {isWhatWeDoOpen ? <ChevronUp className="w-5 h-5 text-gray-400" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
+        </button>
+        
+        {isWhatWeDoOpen && (
+          <div className="p-6 border-t border-white/10">
+            <form onSubmit={handleWhatWeDoSubmit} className="space-y-6 text-left">
+              
+              <div className="space-y-4">
+                <h4 className="text-md font-bold text-white border-b border-white/10 pb-2">Header Texts</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">Tagline</label>
+                    <input
+                      type="text"
+                      className="w-full rounded-lg border border-white/10 bg-[#1A1A1A] px-3.5 py-2 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                      value={whatWeDoData.tagline}
+                      onChange={(e) => setWhatWeDoData({ ...whatWeDoData, tagline: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">Title</label>
+                    <input
+                      type="text"
+                      className="w-full rounded-lg border border-white/10 bg-[#1A1A1A] px-3.5 py-2 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                      value={whatWeDoData.title}
+                      onChange={(e) => setWhatWeDoData({ ...whatWeDoData, title: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">Description</label>
+                  <textarea
+                    rows={2}
+                    className="w-full rounded-lg border border-white/10 bg-[#1A1A1A] px-3.5 py-2 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                    value={whatWeDoData.description}
+                    onChange={(e) => setWhatWeDoData({ ...whatWeDoData, description: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-4 pt-4">
+                <div className="flex items-center justify-between border-b border-white/10 pb-2">
+                  <h4 className="text-md font-bold text-white">Service Cards ({whatWeDoData.cards.length})</h4>
+                  <button
+                    type="button"
+                    onClick={handleAddWhatWeDoCard}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-[#FF6B00]/10 text-[#FF6B00] hover:bg-[#FF6B00]/20 rounded-md text-xs font-semibold transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    Add Card
+                  </button>
+                </div>
+                
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {whatWeDoData.cards.map((card, index) => (
+                    <div key={index} className="bg-[#1A1A1A] border border-white/5 p-4 rounded-xl relative group">
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveWhatWeDoCard(index)}
+                        className="absolute top-3 right-3 p-1.5 text-red-400 hover:text-red-300 hover:bg-red-400/10 rounded-md transition-colors"
+                        title="Remove Card"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                      
+                      <div className="space-y-3 pr-8">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-400 mb-1">Icon Name (lucide-react)</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. Code, Share2, Calculator"
+                            className="w-full rounded-lg border border-white/10 bg-[#222222] px-3 py-1.5 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                            value={card.icon}
+                            onChange={(e) => handleWhatWeDoCardChange(index, 'icon', e.target.value)}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-400 mb-1">Title</label>
+                          <input
+                            type="text"
+                            className="w-full rounded-lg border border-white/10 bg-[#222222] px-3 py-1.5 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                            value={card.title}
+                            onChange={(e) => handleWhatWeDoCardChange(index, 'title', e.target.value)}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-400 mb-1">Description</label>
+                          <textarea
+                            rows={2}
+                            className="w-full rounded-lg border border-white/10 bg-[#222222] px-3 py-1.5 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                            value={card.desc}
+                            onChange={(e) => handleWhatWeDoCardChange(index, 'desc', e.target.value)}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex justify-end pt-4">
+                <button
+                  type="submit"
+                  disabled={isSavingWhatWeDo}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-[#FF6B00] text-white font-semibold rounded-lg hover:bg-[#e66000] transition-colors disabled:opacity-50 cursor-pointer shadow-lg shadow-[#FF6B00]/20"
+                >
+                  {isSavingWhatWeDo ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+                  Save What We Do Section
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+      </div>
+
+      {/* Vision and Mission Section Manager */}
+      <div className="bg-[#222222] border border-white/10 rounded-xl overflow-hidden mb-6">
+        <button
+          onClick={() => setIsVisionMissionOpen(!isVisionMissionOpen)}
+          className="w-full flex items-center justify-between p-4 bg-[#1A1A1A] hover:bg-white/5 transition-colors cursor-pointer"
+        >
+          <div>
+            <h3 className="text-lg font-bold text-white text-left">Our Vision & Mission Section</h3>
+            <p className="text-sm text-gray-400 text-left">Update the Vision and Mission cards.</p>
+          </div>
+          {isVisionMissionOpen ? <ChevronUp className="w-5 h-5 text-gray-400" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
+        </button>
+        
+        {isVisionMissionOpen && (
+          <div className="p-6 border-t border-white/10">
+            <form onSubmit={handleVisionMissionSubmit} className="space-y-6 text-left">
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                
+                {/* Vision Block */}
+                <div className="space-y-4 bg-[#1A1A1A] p-4 rounded-xl border border-white/5">
+                  <h4 className="text-md font-bold text-white border-b border-white/10 pb-2">Our Vision Card</h4>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-300 mb-1">Tagline</label>
+                    <input
+                      type="text"
+                      className="w-full rounded-lg border border-white/10 bg-[#222222] px-3.5 py-2 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                      value={visionMissionData.visionTagline}
+                      onChange={(e) => setVisionMissionData({ ...visionMissionData, visionTagline: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-300 mb-1">Title</label>
+                    <input
+                      type="text"
+                      className="w-full rounded-lg border border-white/10 bg-[#222222] px-3.5 py-2 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                      value={visionMissionData.visionTitle}
+                      onChange={(e) => setVisionMissionData({ ...visionMissionData, visionTitle: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-300 mb-1">Description</label>
+                    <textarea
+                      rows={3}
+                      className="w-full rounded-lg border border-white/10 bg-[#222222] px-3.5 py-2 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                      value={visionMissionData.visionDescription}
+                      onChange={(e) => setVisionMissionData({ ...visionMissionData, visionDescription: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                {/* Mission Block */}
+                <div className="space-y-4 bg-[#1A1A1A] p-4 rounded-xl border border-white/5">
+                  <h4 className="text-md font-bold text-white border-b border-white/10 pb-2">Our Mission Card</h4>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-300 mb-1">Tagline</label>
+                    <input
+                      type="text"
+                      className="w-full rounded-lg border border-white/10 bg-[#222222] px-3.5 py-2 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                      value={visionMissionData.missionTagline}
+                      onChange={(e) => setVisionMissionData({ ...visionMissionData, missionTagline: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-300 mb-1">Title</label>
+                    <input
+                      type="text"
+                      className="w-full rounded-lg border border-white/10 bg-[#222222] px-3.5 py-2 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                      value={visionMissionData.missionTitle}
+                      onChange={(e) => setVisionMissionData({ ...visionMissionData, missionTitle: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-300 mb-1">Description</label>
+                    <textarea
+                      rows={3}
+                      className="w-full rounded-lg border border-white/10 bg-[#222222] px-3.5 py-2 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                      value={visionMissionData.missionDescription}
+                      onChange={(e) => setVisionMissionData({ ...visionMissionData, missionDescription: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+              </div>
+
+              <div className="flex justify-end pt-4">
+                <button
+                  type="submit"
+                  disabled={isSavingVisionMission}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-[#FF6B00] text-white font-semibold rounded-lg hover:bg-[#e66000] transition-colors disabled:opacity-50 cursor-pointer shadow-lg shadow-[#FF6B00]/20"
+                >
+                  {isSavingVisionMission ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+                  Save Vision & Mission
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+      </div>
+
+      {/* Our Edge Section Manager */}
+      <div className="bg-[#222222] border border-white/10 rounded-xl overflow-hidden mb-6">
+        <button
+          onClick={() => setIsOurEdgeOpen(!isOurEdgeOpen)}
+          className="w-full flex items-center justify-between p-4 bg-[#1A1A1A] hover:bg-white/5 transition-colors cursor-pointer"
+        >
+          <div>
+            <h3 className="text-lg font-bold text-white text-left">Our Edge Section</h3>
+            <p className="text-sm text-gray-400 text-left">Manage the staggered "Why Choose Us" cards dynamically.</p>
+          </div>
+          {isOurEdgeOpen ? <ChevronUp className="w-5 h-5 text-gray-400" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
+        </button>
+        
+        {isOurEdgeOpen && (
+          <div className="p-6 border-t border-white/10">
+            <form onSubmit={handleOurEdgeSubmit} className="space-y-6 text-left">
+              
+              <div className="space-y-4">
+                <h4 className="text-md font-bold text-white border-b border-white/10 pb-2">Header Texts</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">Tagline</label>
+                    <input
+                      type="text"
+                      className="w-full rounded-lg border border-white/10 bg-[#1A1A1A] px-3.5 py-2 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                      value={ourEdgeData.tagline}
+                      onChange={(e) => setOurEdgeData({ ...ourEdgeData, tagline: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">Title</label>
+                    <input
+                      type="text"
+                      className="w-full rounded-lg border border-white/10 bg-[#1A1A1A] px-3.5 py-2 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                      value={ourEdgeData.title}
+                      onChange={(e) => setOurEdgeData({ ...ourEdgeData, title: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">Description</label>
+                  <textarea
+                    rows={2}
+                    className="w-full rounded-lg border border-white/10 bg-[#1A1A1A] px-3.5 py-2 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                    value={ourEdgeData.description}
+                    onChange={(e) => setOurEdgeData({ ...ourEdgeData, description: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-4 pt-4">
+                <div className="flex items-center justify-between border-b border-white/10 pb-2">
+                  <h4 className="text-md font-bold text-white">Staggered Cards ({ourEdgeData.cards.length})</h4>
+                  <button
+                    type="button"
+                    onClick={handleAddOurEdgeCard}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-[#FF6B00]/10 text-[#FF6B00] hover:bg-[#FF6B00]/20 rounded-md text-xs font-semibold transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    Add Card
+                  </button>
+                </div>
+                
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {ourEdgeData.cards.map((card, index) => (
+                    <div key={index} className="bg-[#1A1A1A] border border-white/5 p-4 rounded-xl relative group">
+                      <div className="absolute top-3 left-3 bg-[#FF6B00]/10 text-[#FF6B00] font-bold px-2 py-0.5 rounded text-xs">
+                        {String(index + 1).padStart(2, '0')}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveOurEdgeCard(index)}
+                        className="absolute top-3 right-3 p-1.5 text-red-400 hover:text-red-300 hover:bg-red-400/10 rounded-md transition-colors"
+                        title="Remove Card"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                      
+                      <div className="space-y-3 mt-6 pr-8">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-400 mb-1">Title</label>
+                          <input
+                            type="text"
+                            className="w-full rounded-lg border border-white/10 bg-[#222222] px-3 py-1.5 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                            value={card.title}
+                            onChange={(e) => handleOurEdgeCardChange(index, 'title', e.target.value)}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-400 mb-1">Description</label>
+                          <textarea
+                            rows={2}
+                            className="w-full rounded-lg border border-white/10 bg-[#222222] px-3 py-1.5 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                            value={card.desc}
+                            onChange={(e) => handleOurEdgeCardChange(index, 'desc', e.target.value)}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex justify-end pt-4">
+                <button
+                  type="submit"
+                  disabled={isSavingOurEdge}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-[#FF6B00] text-white font-semibold rounded-lg hover:bg-[#e66000] transition-colors disabled:opacity-50 cursor-pointer shadow-lg shadow-[#FF6B00]/20"
+                >
+                  {isSavingOurEdge ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+                  Save Our Edge Section
                 </button>
               </div>
             </form>

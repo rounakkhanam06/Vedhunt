@@ -14,6 +14,10 @@ const servicesHeroController = require('../controllers/servicesHeroController');
 const presenceController = require('../controllers/presenceController');
 const aboutHeroController = require('../controllers/aboutHeroController');
 const aboutCompanyController = require('../controllers/aboutCompanyController');
+const aboutVideoController = require('../controllers/aboutVideoController');
+const aboutWhatWeDoController = require('../controllers/aboutWhatWeDoController');
+const aboutVisionMissionController = require('../controllers/aboutVisionMissionController');
+const aboutOurEdgeController = require('../controllers/aboutOurEdgeController');
 
 const router = express.Router();
 
@@ -61,6 +65,10 @@ router.get('/services-hero', servicesHeroController.getServicesHero);
 // --- About Routes ---
 router.get('/about-hero', aboutHeroController.getAboutHero);
 router.get('/about-company', aboutCompanyController.getAboutCompany);
+router.get('/about-video', aboutVideoController.getAboutVideo);
+router.get('/about-what-we-do', aboutWhatWeDoController.getAboutWhatWeDo);
+router.get('/about-vision-mission', aboutVisionMissionController.getAboutVisionMission);
+router.get('/about-our-edge', aboutOurEdgeController.getAboutOurEdge);
 
 // --- Admin routes (Below this uses Auth Middleware) ---
 router.use('/admin', authMiddleware, roleMiddleware('SUPER_ADMIN', 'EDITOR'));
@@ -78,6 +86,10 @@ router.delete('/admin/services/:id', serviceController.deleteService);
 // Admin About Routes
 router.put('/admin/about-hero', aboutHeroController.updateAboutHero);
 router.put('/admin/about-company', aboutCompanyController.updateAboutCompany);
+router.put('/admin/about-video', aboutVideoController.updateAboutVideo);
+router.put('/admin/about-what-we-do', aboutWhatWeDoController.updateAboutWhatWeDo);
+router.put('/admin/about-vision-mission', aboutVisionMissionController.updateAboutVisionMission);
+router.put('/admin/about-our-edge', aboutOurEdgeController.updateAboutOurEdge);
 
 // --- Presence Routes ---
 router.get('/presence', presenceController.getPresencePublic);

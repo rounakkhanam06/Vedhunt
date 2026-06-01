@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Check, ArrowRight, Code, Share2, Megaphone, Palette, Calculator, BarChart3, Cpu, Play, Tv } from 'lucide-react';
+import * as Icons from 'lucide-react';
 import { EncryptedText } from '@/components/ui/encrypted-text';
 import { contentService } from '../services/contentService';
 
@@ -14,16 +15,28 @@ import { ShieldCheck, Award as AwardIcon } from 'lucide-react';
 export default function About() {
   const [heroData, setHeroData] = useState(null);
   const [companyData, setCompanyData] = useState(null);
+  const [videoData, setVideoData] = useState(null);
+  const [whatWeDoData, setWhatWeDoData] = useState(null);
+  const [visionMissionData, setVisionMissionData] = useState(null);
+  const [ourEdgeData, setOurEdgeData] = useState(null);
   
   useEffect(() => {
     const fetchAboutData = async () => {
       try {
-        const [heroRes, companyRes] = await Promise.all([
+        const [heroRes, companyRes, videoRes, whatWeDoRes, visionMissionRes, ourEdgeRes] = await Promise.all([
           contentService.getAboutHero(),
-          contentService.getAboutCompany()
+          contentService.getAboutCompany(),
+          contentService.getAboutVideo(),
+          contentService.getAboutWhatWeDo(),
+          contentService.getAboutVisionMission(),
+          contentService.getAboutOurEdge()
         ]);
         setHeroData(heroRes);
         setCompanyData(companyRes);
+        setVideoData(videoRes);
+        setWhatWeDoData(whatWeDoRes);
+        setVisionMissionData(visionMissionRes);
+        setOurEdgeData(ourEdgeRes);
       } catch (error) {
         console.error('Failed to fetch About data', error);
       }
@@ -90,43 +103,6 @@ export default function About() {
     }
   };
 
-  const whatWeDoServices = [
-    {
-      title: 'Web & Mobile Engineering',
-      desc: 'High-performing, responsive, and scalable web and mobile applications tailored to your brand and business goals.',
-      icon: Code,
-    },
-    {
-      title: 'Social Media Management',
-      desc: 'Strategic content, engagement, and analytics to strengthen your brand presence across Facebook, Instagram, LinkedIn, and more.',
-      icon: Share2,
-    },
-    {
-      title: 'Paid Ads & PPC Campaigns',
-      desc: 'Data-backed campaigns across Google, Meta, and LinkedIn Ads that drive leads, conversions, and long-term brand value.',
-      icon: Megaphone,
-    },
-    {
-      title: 'Logo Designing & Branding',
-      desc: 'Creative and memorable designs that communicate your vision and values effectively to your targeted audience.',
-      icon: Palette,
-    },
-    {
-      title: 'Accounting & Financial Services',
-      desc: 'Transparent financial management, outsourced bookkeeping, and compliance reporting services for smooth business operations.',
-      icon: Calculator,
-    },
-    {
-      title: 'MIS & Reporting Services',
-      desc: 'Smart dashboards and automated insights to enable quick, data-driven, and highly effective executive decision-making.',
-      icon: BarChart3,
-    },
-    {
-      title: 'Enterprise Process Automation',
-      desc: 'Streamlining business workflows through powerful automation and custom business intelligence tools (SQL, Power BI, Python) to save time and eliminate errors.',
-      icon: Cpu,
-    }
-  ];
 
   return (
     <div className="bg-app-bg text-app-text-muted min-h-screen pt-24 pb-8 sm:pb-12 px-4 sm:px-6 lg:px-8 mesh-grid relative overflow-hidden">
@@ -574,20 +550,20 @@ export default function About() {
                 </div>
 
                 <h3 className="text-2xl md:text-3xl font-black font-heading text-app-text leading-tight">
-                  Watch Our 2-Minute <span className="text-primary text-gradient-orange">Company Introduction</span>
+                  {videoData?.headingLine1 || 'Watch Our 2-Minute'} <span className="text-primary text-gradient-orange">{videoData?.headingLine2 || 'Company Introduction'}</span>
                 </h3>
 
                 <p className="text-xs md:text-sm text-app-text-muted leading-relaxed">
-                  Take a quick virtual tour of Vedhunt InfoTech. Discover our advanced workspace, metrically proven software engineering standards, result-oriented marketing models, and compliant bookkeeping workflows.
+                  {videoData?.description || 'Take a quick virtual tour of Vedhunt InfoTech. Discover our advanced workspace, metrically proven software engineering standards, result-oriented marketing models, and compliant bookkeeping workflows.'}
                 </p>
 
                 <div className="space-y-3.5 pt-2">
-                  {[
+                  {(videoData?.checklists || [
                     '2 Minutes of clear, concise strategic overview',
                     'Direct insights into our operational workflows',
                     'Real-world examples of our software & marketing platforms',
                     'A message from our executive leadership team'
-                  ].map((bullet, bIdx) => (
+                  ]).map((bullet, bIdx) => (
                     <div key={bIdx} className="flex items-start gap-2.5 text-xs text-app-text font-medium">
                       <div className="w-5 h-5 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0 mt-0.5">
                         <Check className="w-3 h-3 stroke-[3]" />
@@ -599,7 +575,7 @@ export default function About() {
 
                 <div className="pt-4 flex items-center gap-4 text-xs font-bold text-app-text">
                   <div className="px-3.5 py-2 bg-app-bg border border-app-border rounded-xl">
-                    Duration: <span className="text-primary">2:15 Mins</span>
+                    Duration: <span className="text-primary">{videoData?.duration || '2:15'} Mins</span>
                   </div>
                   <div className="px-3.5 py-2 bg-app-bg border border-app-border rounded-xl">
                     Format: <span className="text-primary">Full HD</span>
@@ -635,7 +611,7 @@ export default function About() {
                   <div className="aspect-video w-full relative">
                     <iframe 
                       className="w-full h-full border-0 absolute inset-0"
-                      src="https://www.youtube.com/embed/hb6CFtZnj2c?autoplay=0&rel=0&modestbranding=1" 
+                      src={videoData?.videoUrl || "https://www.youtube.com/embed/hb6CFtZnj2c?autoplay=0&rel=0&modestbranding=1"} 
                       title="Vedhunt InfoTech Corporate Intro"
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-view; web-share" 
                       allowFullScreen
@@ -652,7 +628,7 @@ export default function About() {
                       <div className="absolute top-0 left-0 bottom-0 bg-primary w-[35%]" />
                     </div>
                     <div className="flex items-center gap-2">
-                      <span>02:15</span>
+                      <span>{videoData?.duration || '02:15'}</span>
                       <span className="bg-primary/20 text-primary border border-primary/35 px-1.5 py-0.5 rounded text-[8px] font-bold">1080P</span>
                     </div>
                   </div>
@@ -674,13 +650,13 @@ export default function About() {
             className="max-w-3xl space-y-4"
           >
             <span className="text-[10px] font-extrabold text-primary uppercase tracking-widest bg-primary/10 px-2.5 py-1 rounded-md">
-              What We Do
+              {whatWeDoData?.tagline || 'What We Do'}
             </span>
             <h2 className="text-3xl md:text-4xl font-black font-heading text-app-text leading-tight">
-              Comprehensive Technology & Financial Solutions
+              {whatWeDoData?.title || 'Comprehensive Technology & Financial Solutions'}
             </h2>
             <p className="text-xs md:text-sm text-app-text-muted leading-relaxed">
-              Vedhunt InfoTech provides successful business solutions to its clients to scale their profitability. It’s a trusted agency which provides customized services to businesses across India.
+              {whatWeDoData?.description || 'Vedhunt InfoTech provides successful business solutions to its clients to scale their profitability. It’s a trusted agency which provides customized services to businesses across India.'}
             </p>
           </motion.div>
 
@@ -691,8 +667,8 @@ export default function About() {
             variants={staggerContainer}
             className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
           >
-            {whatWeDoServices.map((service, idx) => {
-              const ServiceIcon = service.icon;
+            {(whatWeDoData?.cards || []).map((service, idx) => {
+              const ServiceIcon = Icons[service.icon] || Icons.CheckCircle;
               return (
                 <motion.div 
                   key={idx} 
@@ -742,13 +718,13 @@ export default function About() {
             <div className="absolute -bottom-1.5 -left-1.5 w-8 h-8 md:w-12 md:h-12 border-b-[4px] border-l-[4px] border-primary rounded-bl-3xl pointer-events-none transition-transform duration-300 group-hover:-translate-x-1 group-hover:translate-y-1 group-hover:scale-105" />
 
             <span className="text-[10px] font-extrabold text-primary uppercase tracking-widest bg-primary/10 px-2.5 py-1 rounded-md">
-              Our Vision
+              {visionMissionData?.visionTagline || 'Our Vision'}
             </span>
             <h3 className="text-2xl font-black font-heading text-app-text mt-4 mb-3 leading-snug">
-              Grow Smarter, Faster & More Ethically
+              {visionMissionData?.visionTitle || 'Grow Smarter, Faster & More Ethically'}
             </h3>
             <p className="text-xs md:text-sm text-app-text-muted leading-relaxed">
-              To become a globally recognized technology partner that empowers organizations to leverage digital systems securely and ethically, fostering massive organic business scale.
+              {visionMissionData?.visionDescription || 'To become a globally recognized technology partner that empowers organizations to leverage digital systems securely and ethically, fostering massive organic business scale.'}
             </p>
           </motion.div>
 
@@ -770,13 +746,13 @@ export default function About() {
             <div className="absolute -bottom-1.5 -left-1.5 w-8 h-8 md:w-12 md:h-12 border-b-[4px] border-l-[4px] border-primary rounded-bl-3xl pointer-events-none transition-transform duration-300 group-hover:-translate-x-1 group-hover:translate-y-1 group-hover:scale-105" />
 
             <span className="text-[10px] font-extrabold text-primary uppercase tracking-widest bg-primary/10 px-2.5 py-1 rounded-md">
-              Our Mission
+              {visionMissionData?.missionTagline || 'Our Mission'}
             </span>
             <h3 className="text-2xl font-black font-heading text-app-text mt-4 mb-3 leading-snug">
-              Simplifying Core Digital Processes
+              {visionMissionData?.missionTitle || 'Simplifying Core Digital Processes'}
             </h3>
             <p className="text-xs md:text-sm text-app-text-muted leading-relaxed">
-              To deliver innovative, result-driven solutions using modern technologies that simplify business processes, enhance productivity, and maximize client profitability with zero compromises.
+              {visionMissionData?.missionDescription || 'To deliver innovative, result-driven solutions using modern technologies that simplify business processes, enhance productivity, and maximize client profitability with zero compromises.'}
             </p>
           </motion.div>
 
@@ -793,13 +769,13 @@ export default function About() {
             className="lg:col-span-5 space-y-4"
           >
             <span className="text-[10px] font-extrabold text-primary uppercase tracking-widest bg-primary/10 px-2.5 py-1 rounded-md">
-              Our Edge
+              {ourEdgeData?.tagline || 'Our Edge'}
             </span>
             <h2 className="text-2xl md:text-3xl font-black font-heading text-app-text leading-tight">
-              Why Scaled Brands Trust Vedhunt InfoTech
+              {ourEdgeData?.title || 'Why Scaled Brands Trust Vedhunt InfoTech'}
             </h2>
             <p className="text-xs text-app-text-muted leading-relaxed">
-              We eliminate technical bottlenecks by uniting engineering precision, marketing strategy, and transparent reporting systems under one single cohesive roof.
+              {ourEdgeData?.description || 'We eliminate technical bottlenecks by uniting engineering precision, marketing strategy, and transparent reporting systems under one single cohesive roof.'}
             </p>
           </motion.div>
 
@@ -810,23 +786,21 @@ export default function About() {
             variants={staggerContainer}
             className="lg:col-span-7 flex flex-col relative w-full"
           >
-            {[
-              { step: '01', title: 'End-to-End Ownership', desc: 'From wireframes and strategic plans to high-availability production deployments.' },
-              { step: '02', title: 'Dedicated Domain Experts', desc: 'Seniors and principal architects leading app design, automation, and bookkeeping.' },
-              { step: '03', title: '100% Tailored Strategies', desc: 'No cookie-cutter templates. Custom digital models to solve your explicit bottlenecks.' },
-              { step: '04', title: 'Ethical Digital Practices', desc: 'Absolute compliance, semantic code structure, and honest metric-supported dashboards.' }
-            ].map((box, bidx) => {
-              // Staircase horizontal offsets for desktop, staggering left to use left-side space
-              const mlClass = bidx === 0 ? 'lg:ml-72' : bidx === 1 ? 'lg:ml-48' : bidx === 2 ? 'lg:ml-24' : 'ml-0';
+            {(ourEdgeData?.cards || []).map((box, bidx) => {
+              const totalCards = ourEdgeData.cards.length;
+              // Staircase horizontal offsets for desktop using CSS variable
+              const deskMl = Math.max(0, (totalCards - 1 - bidx) * 4);
               const zIndexClass = bidx === 0 ? 'z-10' : bidx === 1 ? 'z-20' : bidx === 2 ? 'z-30' : 'z-40';
+              const stepNumber = String(bidx + 1).padStart(2, '0');
               
               return (
                 <motion.div 
                   key={bidx} 
                   variants={scrollFadeUp}
-                  className={`relative glass-panel bg-app-card backdrop-blur-md border border-app-border rounded-2xl p-4 md:p-5 shadow-lg hover:border-primary/30 transition-all duration-300 hover:shadow-2xl hover:z-50 w-full max-w-[480px] ${mlClass} ${zIndexClass} group`}
+                  className={`relative glass-panel bg-app-card backdrop-blur-md border border-app-border rounded-2xl p-4 md:p-5 shadow-lg hover:border-primary/30 transition-all duration-300 hover:shadow-2xl hover:z-50 w-full max-w-[480px] lg:[margin-left:var(--desk-ml)] ${zIndexClass} group`}
                   style={{ 
                     marginTop: bidx > 0 ? '-20px' : '0px',
+                    '--desk-ml': `${deskMl}rem`
                   }}
                 >
                   <div className="flex items-start justify-between gap-4">
@@ -842,7 +816,7 @@ export default function About() {
 
                     {/* Step tag watermark */}
                     <div className="text-2xl font-black font-heading text-primary/10 select-none group-hover:text-primary/25 group-hover:scale-105 transition-all duration-300">
-                      {box.step}
+                      {stepNumber}
                     </div>
                   </div>
                 </motion.div>

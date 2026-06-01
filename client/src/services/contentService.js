@@ -33,6 +33,46 @@ export const contentService = {
     return response.data;
   },
 
+  getAboutVideo: async () => {
+    const response = await api.get('/content/about-video');
+    return response.data;
+  },
+
+  updateAboutVideo: async (data) => {
+    const response = await api.put('/content/admin/about-video', data);
+    return response.data;
+  },
+
+  getAboutWhatWeDo: async () => {
+    const response = await api.get('/content/about-what-we-do');
+    return response.data;
+  },
+
+  updateAboutWhatWeDo: async (data) => {
+    const response = await api.put('/content/admin/about-what-we-do', data);
+    return response.data;
+  },
+
+  getAboutVisionMission: async () => {
+    const response = await api.get('/content/about-vision-mission');
+    return response.data;
+  },
+
+  updateAboutVisionMission: async (data) => {
+    const response = await api.put('/content/admin/about-vision-mission', data);
+    return response.data;
+  },
+
+  getAboutOurEdge: async () => {
+    const response = await api.get('/content/about-our-edge');
+    return response.data;
+  },
+
+  updateAboutOurEdge: async (data) => {
+    const response = await api.put('/content/admin/about-our-edge', data);
+    return response.data;
+  },
+
   // Services Hero
   getServicesHero: async () => {
     const response = await api.get('/content/services-hero');
