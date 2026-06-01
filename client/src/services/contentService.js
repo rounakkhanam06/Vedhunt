@@ -12,6 +12,17 @@ export const contentService = {
     return response.data;
   },
 
+  // Services Hero
+  getServicesHero: async () => {
+    const response = await api.get('/content/services-hero');
+    return response.data;
+  },
+
+  updateServicesHero: async (data) => {
+    const response = await api.put('/content/admin/services-hero', data);
+    return response.data;
+  },
+
   // Advantage Section
   getAdvantagePublic: async () => {
     const response = await api.get('/content/advantage');
@@ -168,6 +179,32 @@ export const contentService = {
   },
   deletePortfolioMetric: async (id) => {
     const response = await api.delete(`/portfolio/admin/metrics/${id}`);
+    return response.data;
+  },
+
+  // Presence Section
+  getPresencePublic: async () => {
+    const response = await api.get('/content/presence');
+    return response.data;
+  },
+  getPresenceAdmin: async () => {
+    const response = await api.get('/content/admin/presence');
+    return response.data;
+  },
+  updatePresenceHeader: async (data) => {
+    const response = await api.put('/content/admin/presence/header', data);
+    return response.data;
+  },
+  createPresenceLocation: async (data) => {
+    const response = await api.post('/content/admin/presence/location', data);
+    return response.data;
+  },
+  updatePresenceLocation: async (id, data) => {
+    const response = await api.put(`/content/admin/presence/location/${id}`, data);
+    return response.data;
+  },
+  deletePresenceLocation: async (id) => {
+    const response = await api.delete(`/content/admin/presence/location/${id}`);
     return response.data;
   }
 };

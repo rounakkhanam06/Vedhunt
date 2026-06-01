@@ -1,13 +1,38 @@
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { MapPin } from 'lucide-react';
-
-const locations = [
-  { name: 'Kolkata', top: '48%', left: '70%', delay: 0 },
-  { name: 'Mumbai', top: '65%', left: '28%', delay: 0.2 },
-  { name: 'Indore', top: '52%', left: '36%', delay: 0.4 },
-];
+import { contentService } from '../../services/contentService';
 
 export default function PresenceMap() {
+  const [header, setHeader] = useState({
+    titlePrefix: 'Our',
+    highlightedWord: 'Presence',
+    description: 'From thriving startup ecosystems to rapidly growing business hubs, our network spans across the nation—helping us deliver innovation, collaboration, and technology without boundaries.'
+  });
+  
+  const [locations, setLocations] = useState([
+    { _id: '1', name: 'Kolkata', top: '48%', left: '70%', delay: 0 },
+    { _id: '2', name: 'Mumbai', top: '65%', left: '28%', delay: 0.2 },
+    { _id: '3', name: 'Indore', top: '52%', left: '36%', delay: 0.4 },
+  ]);
+
+  useEffect(() => {
+    const fetchPresence = async () => {
+      try {
+        const data = await contentService.getPresencePublic();
+        if (data.header) {
+          setHeader(data.header);
+        }
+        if (data.locations && data.locations.length > 0) {
+          setLocations(data.locations);
+        }
+      } catch (error) {
+        console.error('Failed to load presence data', error);
+      }
+    };
+    fetchPresence();
+  }, []);
+
   return (
     <section className="py-24 relative overflow-hidden bg-app-bg text-app-text">
       {/* Background Glow */}
@@ -23,16 +48,16 @@ export default function PresenceMap() {
             transition={{ duration: 0.6 }}
             className="text-4xl md:text-5xl font-black mb-6 tracking-tight"
           >
-            Our <span className="text-primary text-gradient-orange">Presence</span>
+            {header.titlePrefix} <span className="text-primary text-gradient-orange">{header.highlightedWord}</span>
           </motion.h2>
           <motion.p 
             initial={{ opacity: 0, x: -50 }}
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true, amount: 0.3 }}
             transition={{ delay: 0.2, duration: 0.6 }}
-            className="text-app-text-muted text-lg max-w-xl"
+            className="text-app-text-muted text-lg max-w-xl whitespace-pre-line"
           >
-            From thriving startup ecosystems to rapidly growing business hubs, our network spans across the nation—helping us deliver innovation, collaboration, and technology without boundaries.
+            {header.description}
           </motion.p>
         </div>
 
@@ -56,13 +81,13 @@ export default function PresenceMap() {
           {/* Location Pins */}
           {locations.map((loc, idx) => (
             <motion.div
-              key={idx}
+              key={loc._id || idx}
               className="absolute flex flex-col items-center justify-center pointer-events-none"
               style={{ top: loc.top, left: loc.left }}
               initial={{ opacity: 0, scale: 0, y: 20 }}
               whileInView={{ opacity: 1, scale: 1, y: 0 }}
               viewport={{ once: true, amount: 0.8 }}
-              transition={{ delay: 0.4 + loc.delay, type: 'spring', bounce: 0.5 }}
+              transition={{ delay: 0.4 + (loc.delay || 0), type: 'spring', bounce: 0.5 }}
             >
               <div className="relative">
                 {/* Ping Animation */}
@@ -75,10 +100,8 @@ export default function PresenceMap() {
                 initial={{ opacity: 0, y: -10 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                transition={{ delay: 0.8 + loc.delay }}
-                className={`absolute top-full mt-2 whitespace-nowrap bg-primary/90 border border-primary/50 px-3 py-1.5 rounded-lg shadow-xl backdrop-blur-md text-sm font-bold z-20 ${
-                  loc.name.toLowerCase() === 'indore' ? 'text-white' : 'text-white'
-                }`}
+                transition={{ delay: 0.8 + (loc.delay || 0) }}
+                className={`absolute top-full mt-2 whitespace-nowrap bg-primary/90 border border-primary/50 px-3 py-1.5 rounded-lg shadow-xl backdrop-blur-md text-sm font-bold z-20 text-white`}
               >
                 {loc.name}
               </motion.div>

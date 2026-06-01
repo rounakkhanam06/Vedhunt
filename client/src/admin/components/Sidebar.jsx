@@ -12,7 +12,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
   const { logout, admin } = useAdminStore();
   const navigate = useNavigate();
   const location = useLocation();
-  const [openDropdowns, setOpenDropdowns] = useState({ leads: true, cms: false });
+  const [openDropdowns, setOpenDropdowns] = useState({ leads: true, cms: false, pricing: false });
 
   const handleLogout = async () => {
     await logout();
@@ -47,11 +47,19 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
         { name: 'Portfolio Items', path: '/admin/portfolio' },
         { name: 'Blogs & Videos', path: '/admin/cms/content' },
         { name: 'Testimonials', path: '/admin/testimonials' },
+        { name: 'Our Presence', path: '/admin/presence' },
       ]
     },
     { name: 'Financials & Invoicing', path: '/admin/finance', icon: Wallet },
-    { name: 'Pricing Plans', path: '/admin/pricing', icon: Tag },
-    { name: 'Home Pricing Cards', path: '/admin/home-pricing', icon: Tag },
+    { 
+      name: 'Pricing Management', 
+      icon: Tag,
+      dropdownKey: 'pricing',
+      subItems: [
+        { name: 'Home Pricing Cards', path: '/admin/home-pricing' },
+        { name: 'Pricing Plan', path: '/admin/pricing' },
+      ]
+    },
     { name: 'Team Management', path: '/admin/team', icon: ShieldCheck },
     { name: 'Settings', path: '/admin/settings', icon: Settings },
   ];
@@ -68,7 +76,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
 
       {/* Sidebar */}
       <aside className={`
-        fixed inset-y-0 left-0 z-50 w-[280px] bg-surface-container-low border-r border-outline-variant flex flex-col p-6 transition-transform duration-300 ease-in-out overflow-y-auto overscroll-contain
+        fixed inset-y-0 left-0 z-50 w-[280px] bg-surface-container-low border-r border-outline-variant flex flex-col p-6 transition-transform duration-300 ease-in-out overflow-y-auto
         ${isOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
         <div className="mb-10 flex justify-between items-start shrink-0">
@@ -81,7 +89,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
           </button>
         </div>
 
-        <nav className="flex-1 space-y-2 pr-2 mt-4">
+        <nav className="flex-1 space-y-2 pr-2 mt-4 pb-4">
           {navItems.map((item) => {
             const Icon = item.icon;
             
@@ -94,7 +102,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                   <button
                     onClick={() => toggleDropdown(item.dropdownKey)}
                     className={`
-                      w-full flex items-center justify-between gap-4 px-4 py-2 rounded-lg text-sm transition-all duration-200
+                      w-full flex items-center justify-between gap-4 px-4 py-2 rounded-lg text-sm transition-all duration-200 cursor-pointer
                       ${isOpen
                         ? 'text-on-surface bg-surface-variant/30' 
                         : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-variant/50'
@@ -108,8 +116,8 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                     {isOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                   </button>
                   
-                  {isOpen && (
-                    <div className="ml-9 space-y-1 mt-1">
+                  <div className={`ml-9 overflow-hidden transition-all duration-300 ease-in-out ${isOpen ? 'max-h-96 opacity-100 mt-1' : 'max-h-0 opacity-0 mt-0'}`}>
+                    <div className="space-y-1">
                       {item.subItems.map((subItem) => {
                         const isSubActive = location.pathname === subItem.path;
                         return (
@@ -129,7 +137,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                         );
                       })}
                     </div>
-                  )}
+                  </div>
                 </div>
               );
             }

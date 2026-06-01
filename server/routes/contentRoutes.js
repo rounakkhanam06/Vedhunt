@@ -10,6 +10,8 @@ const authMiddleware = require('../middleware/authMiddleware');
 const roleMiddleware = require('../middleware/roleMiddleware');
 const validate = require('../middleware/validate');
 const { serviceCreateSchema, serviceUpdateSchema } = require('../validators/serviceValidator');
+const servicesHeroController = require('../controllers/servicesHeroController');
+const presenceController = require('../controllers/presenceController');
 
 const router = express.Router();
 
@@ -52,6 +54,7 @@ router.get('/navbar', navbarController.getNavbarLinksPublic);
 // --- Services Routes ---
 // Public route
 router.get('/services', serviceController.getServicesPublic);
+router.get('/services-hero', servicesHeroController.getServicesHero);
 
 // --- Admin routes (Below this uses Auth Middleware) ---
 router.use('/admin', authMiddleware, roleMiddleware('SUPER_ADMIN', 'EDITOR'));
@@ -60,9 +63,18 @@ router.put('/admin/navbar/:id', navbarController.renameNavbarLink);
 router.delete('/admin/navbar/:id', navbarController.deleteNavbarLink);
 
 // Admin Service Routes
+router.put('/admin/services-hero', servicesHeroController.updateServicesHero);
 router.get('/admin/services', serviceController.getServicesAdmin);
 router.post('/admin/services', validate(serviceCreateSchema), serviceController.createService);
 router.put('/admin/services/:id', validate(serviceUpdateSchema), serviceController.updateService);
 router.delete('/admin/services/:id', serviceController.deleteService);
+
+// --- Presence Routes ---
+router.get('/presence', presenceController.getPresencePublic);
+router.get('/admin/presence', authMiddleware, roleMiddleware('SUPER_ADMIN', 'EDITOR'), presenceController.getPresenceAdmin);
+router.put('/admin/presence/header', authMiddleware, roleMiddleware('SUPER_ADMIN', 'EDITOR'), presenceController.updatePresenceHeader);
+router.post('/admin/presence/location', authMiddleware, roleMiddleware('SUPER_ADMIN', 'EDITOR'), presenceController.createPresenceLocation);
+router.put('/admin/presence/location/:id', authMiddleware, roleMiddleware('SUPER_ADMIN', 'EDITOR'), presenceController.updatePresenceLocation);
+router.delete('/admin/presence/location/:id', authMiddleware, roleMiddleware('SUPER_ADMIN', 'EDITOR'), presenceController.deletePresenceLocation);
 
 module.exports = router;

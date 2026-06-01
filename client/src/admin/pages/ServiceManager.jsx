@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { contentService } from '../../services/contentService';
 import { uploadService } from '../../services/uploadService';
-import { Pencil, Trash2, Search, Loader2, Plus, X, Upload, Save, Loader } from 'lucide-react';
+import { Pencil, Trash2, Search, Loader2, Plus, X, Upload, Save, Loader, ChevronDown, ChevronUp } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 const generateSlug = (text) => {
   return text
@@ -26,6 +27,16 @@ const ServiceManager = ({ isNested = false }) => {
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState(null);
+  
+  // Hero Section State
+  const [isHeroOpen, setIsHeroOpen] = useState(false);
+  const [heroData, setHeroData] = useState({
+    badgeText: '',
+    headingTop: '',
+    headingHighlight: '',
+    description: ''
+  });
+  const [isSavingHero, setIsSavingHero] = useState(false);
 
   const [formData, setFormData] = useState({
     title: '',
@@ -63,6 +74,25 @@ const ServiceManager = ({ isNested = false }) => {
   useEffect(() => {
     fetchServices();
   }, [page, search]);
+
+  useEffect(() => {
+    const fetchHeroData = async () => {
+      try {
+        const response = await contentService.getServicesHero();
+        if (response.data) {
+          setHeroData({
+            badgeText: response.data.badgeText || '',
+            headingTop: response.data.headingTop || '',
+            headingHighlight: response.data.headingHighlight || '',
+            description: response.data.description || ''
+          });
+        }
+      } catch (error) {
+        console.error('Failed to fetch services hero content:', error);
+      }
+    };
+    fetchHeroData();
+  }, []);
 
   const handleOpenForm = (service = null) => {
     if (service) {
@@ -214,6 +244,21 @@ const ServiceManager = ({ isNested = false }) => {
     }
   };
 
+  const handleHeroSubmit = async (e) => {
+    e.preventDefault();
+    setIsSavingHero(true);
+    try {
+      await contentService.updateServicesHero(heroData);
+      toast.success('Services Hero content updated successfully!');
+      setIsHeroOpen(false);
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to update hero content');
+      console.error(error);
+    } finally {
+      setIsSavingHero(false);
+    }
+  };
+
   const totalPages = Math.ceil(total / limit);
 
   return (
@@ -252,6 +297,78 @@ const ServiceManager = ({ isNested = false }) => {
                 Add Service
               </button>
             </div>
+          </div>
+
+          {/* Hero Content Manager */}
+          <div className="bg-[#222222] border border-white/10 rounded-xl overflow-hidden mb-6">
+            <button
+              onClick={() => setIsHeroOpen(!isHeroOpen)}
+              className="w-full flex items-center justify-between p-4 bg-[#1A1A1A] hover:bg-white/5 transition-colors cursor-pointer"
+            >
+              <div>
+                <h3 className="text-lg font-bold text-white text-left">Manage Page Hero Section</h3>
+                <p className="text-sm text-gray-400 text-left">Update the top heading and description on the Services page.</p>
+              </div>
+              {isHeroOpen ? <ChevronUp className="w-5 h-5 text-gray-400" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
+            </button>
+            
+            {isHeroOpen && (
+              <div className="p-6 border-t border-white/10">
+                <form onSubmit={handleHeroSubmit} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">Badge Text</label>
+                    <input
+                      type="text"
+                      className="w-full rounded-lg border border-white/10 bg-[#1A1A1A] px-3.5 py-2 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00] transition-colors"
+                      value={heroData.badgeText}
+                      onChange={(e) => setHeroData({ ...heroData, badgeText: e.target.value })}
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-1">Heading (Main Text)</label>
+                      <input
+                        type="text"
+                        className="w-full rounded-lg border border-white/10 bg-[#1A1A1A] px-3.5 py-2 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00] transition-colors"
+                        value={heroData.headingTop}
+                        onChange={(e) => setHeroData({ ...heroData, headingTop: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-1">Heading (Highlighted Text)</label>
+                      <input
+                        type="text"
+                        className="w-full rounded-lg border border-white/10 bg-[#1A1A1A] px-3.5 py-2 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00] transition-colors"
+                        value={heroData.headingHighlight}
+                        onChange={(e) => setHeroData({ ...heroData, headingHighlight: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">Description</label>
+                    <textarea
+                      rows={3}
+                      className="w-full rounded-lg border border-white/10 bg-[#1A1A1A] px-3.5 py-2 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00] transition-colors"
+                      value={heroData.description}
+                      onChange={(e) => setHeroData({ ...heroData, description: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="flex justify-end pt-2">
+                    <button
+                      type="submit"
+                      disabled={isSavingHero}
+                      className="flex items-center gap-2 px-4 py-2 bg-[#FF6B00] text-white font-semibold rounded-lg hover:bg-[#e66000] transition-colors disabled:opacity-50 cursor-pointer"
+                    >
+                      {isSavingHero ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                      Save Hero Content
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
           </div>
 
           <div className="bg-[#222222] shadow-xl border border-white/10 rounded-xl overflow-hidden">

@@ -52,20 +52,27 @@ const SkeletonCard = () => (
 
 export default function Services() {
   const [services, setServices] = useState([]);
+  const [heroData, setHeroData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const fetchServices = async () => {
+    const fetchData = async () => {
       try {
-        const response = await contentService.getServicesPublic('services');
-        setServices(response.data || []);
+        const [servicesRes, heroRes] = await Promise.all([
+          contentService.getServicesPublic('services'),
+          contentService.getServicesHero()
+        ]);
+        setServices(servicesRes.data || []);
+        if (heroRes.data) {
+          setHeroData(heroRes.data);
+        }
       } catch (error) {
-        console.error("Failed to fetch services:", error);
+        console.error("Failed to fetch data:", error);
       } finally {
         setIsLoading(false);
       }
     };
-    fetchServices();
+    fetchData();
   }, []);
   const staggerContainer = {
     hidden: {},
@@ -106,14 +113,14 @@ export default function Services() {
           >
             <div className="mb-4 sm:mb-6">
               <motion.span variants={scrollFadeUp} className="inline-block text-primary text-[10px] sm:text-xs font-semibold uppercase tracking-[0.2em] bg-primary/10 border border-primary/20 px-4 py-1.5 rounded-full">
-                Our Capabilities
+                {heroData?.badgeText || 'Our Capabilities'}
               </motion.span>
             </div>
             <motion.h1 variants={scrollFadeUp} className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-medium font-heading text-app-text mb-6 leading-tight">
-              High Performance Solutions at <span className="text-primary text-gradient-orange font-semibold">Economical Prices</span>
+              {heroData?.headingTop || 'High Performance Solutions at'} <span className="text-primary text-gradient-orange font-semibold">{heroData?.headingHighlight || 'Economical Prices'}</span>
             </motion.h1>
-            <motion.p variants={scrollFadeUp} className="text-app-text-muted text-xs sm:text-sm md:text-base leading-relaxed max-w-xl mx-auto md:mx-0">
-              We take pride in our hands-on tech expertise, proactive customer communication, and premium engineering. Explore how we scale business operations through custom solutions.
+            <motion.p variants={scrollFadeUp} className="text-app-text-muted text-xs sm:text-sm md:text-base leading-relaxed max-w-xl mx-auto md:mx-0 whitespace-pre-line">
+              {heroData?.description || 'We take pride in our hands-on tech expertise, proactive customer communication, and premium engineering. Explore how we scale business operations through custom solutions.'}
             </motion.p>
           </motion.div>
 
