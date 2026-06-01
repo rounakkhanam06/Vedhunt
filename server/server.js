@@ -23,6 +23,8 @@ const pricingRoutes = require('./routes/pricingRoutes');
 const homePricingCardRoutes = require('./routes/homePricingCardRoutes');
 const { seedPortfolioData, seedPortfolioMetrics, seedPortfolioCTA } = require('./controllers/portfolioController');
 const { seedHomePricingCards } = require('./controllers/homePricingCardController');
+const { seedBlogsAndSettings } = require('./controllers/blogSeeder');
+const blogRoutes = require('./routes/blogRoutes');
 const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
@@ -63,6 +65,7 @@ app.use('/api/testimonials', testimonialRoutes);
 app.use('/api/portfolio', portfolioRoutes);
 app.use('/api/pricing', pricingRoutes);
 app.use('/api/home-pricing', homePricingCardRoutes);
+app.use('/api/blogs', blogRoutes);
 
 // Root route for API status
 app.get('/', (req, res) => {
@@ -95,6 +98,7 @@ mongoose
     await seedPortfolioMetrics();
     await seedPortfolioCTA();
     await seedHomePricingCards();
+    await seedBlogsAndSettings();
 
     app.listen(PORT, () => {
       logger.info(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
