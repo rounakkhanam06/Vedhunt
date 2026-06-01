@@ -2,132 +2,38 @@ import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { Check, ArrowRight, Laptop, Share2, TrendingUp } from 'lucide-react';
+import api from '../../services/api';
 
-const serviceCategories = [
-  {
-    title: "Website Development",
-    icon: Laptop,
-    description: "High-performance web applications & corporate sites.",
-    color: "from-blue-500/20",
-    popular: false,
-    tiers: {
-      starter: {
-        price: "₹15K-30K",
-        period: "",
-        features: [
-          "Single/Multi-page Landing Site", 
-          "Mobile Responsive Design", 
-          "Basic SEO Setup", 
-          "1 Month Free Support"
-        ]
-      },
-      growth: {
-        price: "₹35K-75K",
-        period: "",
-        features: [
-          "Custom UI/UX Design", 
-          "CMS Integration (WordPress/Webflow)", 
-          "Advanced Speed Optimization", 
-          "3 Months Priority Support"
-        ]
-      },
-      enterprise: {
-        price: "₹80K+",
-        period: "",
-        features: [
-          "Full Custom Web Application", 
-          "MERN / Next.js Stack", 
-          "Advanced Security & Scalability", 
-          "Dedicated Support & Maintenance"
-        ]
-      }
-    }
-  },
-  {
-    title: "Social Media Management",
-    icon: Share2,
-    description: "Viral content strategies & brand authority building.",
-    color: "from-primary/20",
-    popular: true,
-    tiers: {
-      starter: {
-        price: "₹6K",
-        period: "/mo",
-        features: [
-          "12 High-Quality Posts/Reels", 
-          "2 Platforms (IG + FB)", 
-          "Basic Hashtag Strategy", 
-          "Monthly Analytics Report"
-        ]
-      },
-      growth: {
-        price: "₹12K",
-        period: "/mo",
-        features: [
-          "20 Posts/Reels + Stories", 
-          "3 Platforms (IG + FB + LI)", 
-          "Community Engagement", 
-          "Bi-Weekly Strategy Review"
-        ]
-      },
-      enterprise: {
-        price: "₹22K+",
-        period: "/mo",
-        features: [
-          "Daily Posts + Premium Reels", 
-          "4+ Social Platforms", 
-          "Influencer Strategy Setup", 
-          "Dedicated Account Manager"
-        ]
-      }
-    }
-  },
-  {
-    title: "Performance Marketing",
-    icon: TrendingUp,
-    description: "KPI-driven paid ad campaigns for maximum ROI.",
-    color: "from-purple-500/20",
-    popular: false,
-    tiers: {
-      starter: {
-        price: "₹8K",
-        period: "/mo",
-        features: [
-          "Meta OR Google Ads Setup", 
-          "Ad Copy & Creative Guidance", 
-          "Basic Pixel/Tracking Setup", 
-          "Monthly Performance Review"
-        ]
-      },
-      growth: {
-        price: "₹18K",
-        period: "/mo",
-        features: [
-          "Meta AND Google Ads Setup", 
-          "A/B Testing & Retargeting", 
-          "Advanced Conversion Tracking", 
-          "Bi-Weekly Optimization Calls"
-        ]
-      },
-      enterprise: {
-        price: "₹35K+",
-        period: "/mo",
-        features: [
-          "Omnichannel Scaling Setup", 
-          "Custom Funnel Optimization", 
-          "High-Budget Scaling Strategy", 
-          "Real-Time Dashboard Access"
-        ]
-      }
-    }
-  }
-];
+const iconMap = {
+  Laptop,
+  Share2,
+  TrendingUp
+};
 
 export default function PricingPreview() {
+  const [pricingCards, setPricingCards] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [hoveredIndex, setHoveredIndex] = useState(null);
   // Track active tab for each card index (default all to 'starter')
   const [activeTabs, setActiveTabs] = useState({ 0: 'starter', 1: 'starter', 2: 'starter' });
   const scrollContainerRef = useRef(null);
+
+  useEffect(() => {
+    const fetchPricing = async () => {
+      try {
+        const response = await api.get('/home-pricing');
+        const data = response.data;
+        if (data.success) {
+          setPricingCards(data.data);
+        }
+      } catch (error) {
+        console.error('Error fetching home pricing cards:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchPricing();
+  }, []);
 
   useEffect(() => {
     const container = scrollContainerRef.current;
@@ -200,8 +106,13 @@ export default function PricingPreview() {
           ref={scrollContainerRef}
           className="flex sm:grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6 overflow-x-auto snap-x snap-mandatory pb-4 -mx-4 px-4 sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
         >
-          {serviceCategories.map((card, index) => {
+          {loading ? (
+            <div className="col-span-1 sm:col-span-2 lg:col-span-3 py-10 flex justify-center">
+              <div className="w-8 h-8 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
+            </div>
+          ) : pricingCards.map((card, index) => {
             const currentTier = card.tiers[activeTabs[index]];
+            const IconComponent = iconMap[card.icon] || Check;
 
             return (
               <motion.div
@@ -238,7 +149,7 @@ export default function PricingPreview() {
                     <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
                       card.popular ? 'bg-primary text-black shadow-lg shadow-primary/20' : 'bg-app-bg text-app-text-muted border border-app-border group-hover:border-primary group-hover:text-primary'
                     } transition-colors duration-300`}>
-                      <card.icon size={16} />
+                      <IconComponent size={16} />
                     </div>
                     <div>
                       <h3 className="text-base font-bold text-app-text tracking-tight leading-tight">{card.title}</h3>

@@ -18,6 +18,7 @@ import { EncryptedText } from '../components/ui/encrypted-text';
 import { OptimizedLazyImage } from '../components/ui/lazy-image';
 import { SpotlightHover } from '../components/ui/spotlight-hover';
 import { Card } from '../components/ui/card';
+import EmptyState from '../components/ui/EmptyState';
 import api from '../services/api';
 
 // High-performance animated Counter that increments from 0 to target when scrolled into viewport
@@ -71,12 +72,20 @@ const ICON_MAP = {
 };
 
 // Success parameters displaying hard-proof outcomes of Vedhunt projects with numeric values for count-up triggers
-const METRICS_LIST = [
-  { numericValue: 140, suffix: '+', label: 'Deployments Delivered', desc: 'Secure web systems and custom automation modules.', icon: Zap },
-  { numericValue: 99, suffix: '%', label: 'Retention Rate', desc: 'SMEs & enterprises continuing partnerships with us.', icon: Award },
-  { numericValue: 300, suffix: '%+', label: 'Engagement Growth', desc: 'Average increase across client marketing funnels.', icon: Share2 },
-  { numericValue: 15, suffix: ' Hrs', label: 'Saved per Week', desc: 'Through automated SQL and Power BI workflows.', icon: Database }
+const METRICS_LIST_FALLBACK = [
+  { numericValue: 140, suffix: '+', label: 'Deployments Delivered', desc: 'Secure web systems and custom automation modules.', icon: 'Zap' },
+  { numericValue: 99, suffix: '%', label: 'Retention Rate', desc: 'SMEs & enterprises continuing partnerships with us.', icon: 'Award' },
+  { numericValue: 300, suffix: '%+', label: 'Engagement Growth', desc: 'Average increase across client marketing funnels.', icon: 'Share2' },
+  { numericValue: 15, suffix: ' Hrs', label: 'Saved per Week', desc: 'Through automated SQL and Power BI workflows.', icon: 'Database' }
 ];
+
+const PORTFOLIO_ICON_MAP = {
+  Zap,
+  Award,
+  Share2,
+  Database,
+  Laptop
+};
 
 export default function Portfolio() {
   const [activeFilter, setActiveFilter] = useState('all');
@@ -84,11 +93,55 @@ export default function Portfolio() {
   const [isLoading, setIsLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [metrics, setMetrics] = useState([]);
+  const [ctaData, setCtaData] = useState({
+    tagText: "Let's Collaborate",
+    tagIcon: 'Sparkles',
+    headingRegular: 'Ready to Build Your',
+    headingHighlight: 'Digital Legacy?',
+    buttonText: 'Start a Project',
+    buttonLink: '/get-quote',
+    features: [
+      { text: 'Free Visual Mockup Draft', icon: 'Sparkles' },
+      { text: 'Direct Engineering Channel', icon: 'Laptop' },
+      { text: 'High-Performance Launch', icon: 'Zap' }
+    ]
+  });
   const limit = 4;
 
   useEffect(() => {
     fetchPortfolioItems();
   }, [activeFilter, page]);
+
+  useEffect(() => {
+    fetchMetrics();
+    fetchCTAData();
+  }, []);
+
+  const fetchCTAData = async () => {
+    try {
+      const res = await api.get('/portfolio/cta');
+      if (res.data.success && res.data.data) {
+        setCtaData(res.data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching portfolio CTA:', error);
+    }
+  };
+
+  const fetchMetrics = async () => {
+    try {
+      const res = await api.get('/portfolio/metrics');
+      if (res.data.success && res.data.data.length > 0) {
+        setMetrics(res.data.data);
+      } else {
+        setMetrics(METRICS_LIST_FALLBACK);
+      }
+    } catch (error) {
+      console.error('Error fetching portfolio metrics:', error);
+      setMetrics(METRICS_LIST_FALLBACK);
+    }
+  };
 
   const fetchPortfolioItems = async () => {
     try {
@@ -241,8 +294,11 @@ export default function Portfolio() {
                 <Loader className="w-8 h-8 text-primary animate-spin" />
               </div>
             ) : portfolioItems.length === 0 ? (
-              <div className="col-span-1 md:col-span-2 text-center py-20 bg-app-card/30 border border-app-border/40 rounded-2xl text-app-text-muted">
-                No showcases found for this category.
+              <div className="col-span-1 md:col-span-2">
+                <EmptyState 
+                  message="No showcases found for this category." 
+                  subMessage="We are currently updating our portfolio. Please check back later."
+                />
               </div>
             ) : portfolioItems.map((project) => {
               const ClientIcon = ICON_MAP[project.icon] || Laptop;
@@ -436,8 +492,8 @@ export default function Portfolio() {
 
           {/* Cards for metrics */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {METRICS_LIST.map((m, mIdx) => {
-              const MetricIcon = m.icon;
+            {metrics.map((m, mIdx) => {
+              const MetricIcon = typeof m.icon === 'string' ? (PORTFOLIO_ICON_MAP[m.icon] || Zap) : (m.icon || Zap);
               return (
                 <motion.div
                   key={mIdx}
@@ -489,23 +545,22 @@ export default function Portfolio() {
               <div className="flex-1 space-y-4 text-left">
                 <div className="flex">
                   <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-primary/10 border border-primary/20 text-primary text-[10px] font-extrabold uppercase tracking-widest rounded-md">
-                    <Sparkles className="w-3 h-3" />
-                    <span>Let's Collaborate</span>
+                    {(() => {
+                      const TagIcon = PORTFOLIO_ICON_MAP[ctaData.tagIcon] || Sparkles;
+                      return <TagIcon className="w-3 h-3" />;
+                    })()}
+                    <span>{ctaData.tagText}</span>
                   </span>
                 </div>
                 
                 <h3 className="text-2xl sm:text-3xl font-black font-heading text-app-text leading-tight">
-                  Ready to Build Your <span className="text-primary text-gradient-orange">Digital Legacy?</span>
+                  {ctaData.headingRegular} <span className="text-primary text-gradient-orange">{ctaData.headingHighlight}</span>
                 </h3>
 
                 {/* Micro benefits cards with UPGRADED text sizes for perfect visibility */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 pt-1.5">
-                  {[
-                    { text: 'Free Visual Mockup Draft', icon: Sparkles },
-                    { text: 'Direct Engineering Channel', icon: Laptop },
-                    { text: 'High-Performance Launch', icon: Zap }
-                  ].map((feat, fIdx) => {
-                    const FeatIcon = feat.icon;
+                  {ctaData.features.map((feat, fIdx) => {
+                    const FeatIcon = PORTFOLIO_ICON_MAP[feat.icon] || Sparkles;
                     return (
                       <div 
                         key={fIdx} 
@@ -523,11 +578,11 @@ export default function Portfolio() {
 
               <div className="shrink-0 flex justify-center lg:justify-end">
                 <Link
-                  to="/get-quote"
+                  to={ctaData.buttonLink}
                   className="relative inline-flex items-center gap-2 px-7 py-3.5 bg-primary hover:bg-primary-hover text-black font-extrabold text-[10px] uppercase tracking-wider rounded-xl transition-all duration-300 hover:shadow-[0_0_25px_rgba(255,107,0,0.4)] group cursor-pointer overflow-hidden"
                 >
                   <span className="absolute inset-0 bg-white/10 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-out" />
-                  <span>Start a Project</span>
+                  <span>{ctaData.buttonText}</span>
                   <ArrowRight className="w-3.5 h-3.5 transition-transform duration-300 group-hover:translate-x-1" />
                 </Link>
               </div>

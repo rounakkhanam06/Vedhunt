@@ -147,5 +147,27 @@ export const contentService = {
   deleteService: async (id) => {
     const response = await api.delete(`/content/admin/services/${id}`);
     return response.data;
+  },
+
+  // Portfolio Metrics Section
+  getPortfolioMetricsPublic: async () => {
+    const response = await api.get('/portfolio/metrics');
+    return response.data;
+  },
+  getPortfolioMetricsAdmin: async () => {
+    const response = await api.get('/portfolio/admin/metrics');
+    return response.data;
+  },
+  createPortfolioMetric: async (data) => {
+    const response = await api.post('/portfolio/admin/metrics', data);
+    return response.data;
+  },
+  updatePortfolioMetric: async (id, data) => {
+    const response = await api.put(`/portfolio/admin/metrics/${id}`, data);
+    return response.data;
+  },
+  deletePortfolioMetric: async (id) => {
+    const response = await api.delete(`/portfolio/admin/metrics/${id}`);
+    return response.data;
   }
 };

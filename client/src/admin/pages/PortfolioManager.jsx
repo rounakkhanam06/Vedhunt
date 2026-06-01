@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
-import { Loader, Edit2, Trash2, Plus, Image as ImageIcon, Laptop, Database, Share2 } from 'lucide-react';
+import { Loader, Edit2, Trash2, Plus, Image as ImageIcon, Laptop, Database, Share2, AlertTriangle } from 'lucide-react';
 import toast from 'react-hot-toast';
+import PortfolioMetricsManager from './PortfolioMetricsManager';
+import PortfolioCTAManager from './PortfolioCTAManager';
 
 export default function PortfolioManager() {
   const [portfolios, setPortfolios] = useState([]);
@@ -9,6 +11,9 @@ export default function PortfolioManager() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [activeTab, setActiveTab] = useState('showcases');
+  const [deleteModal, setDeleteModal] = useState({ isOpen: false, itemId: null });
+  const [isDeleting, setIsDeleting] = useState(false);
   
   const initialFormState = {
     title: '',
@@ -46,15 +51,23 @@ export default function PortfolioManager() {
     }
   };
 
-  const deletePortfolio = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this portfolio item?')) return;
+  const deletePortfolio = (id) => {
+    setDeleteModal({ isOpen: true, itemId: id });
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteModal.itemId) return;
+    setIsDeleting(true);
     try {
-      await api.delete(`/portfolio/${id}`);
+      await api.delete(`/portfolio/${deleteModal.itemId}`);
       toast.success('Portfolio item deleted successfully');
+      setDeleteModal({ isOpen: false, itemId: null });
       fetchPortfolios();
     } catch (error) {
       toast.error('Failed to delete portfolio');
       console.error(error);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -387,65 +400,146 @@ export default function PortfolioManager() {
           <div className="flex items-center justify-between border-b border-white/10 pb-4">
             <div>
               <h1 className="text-2xl font-bold text-white">Portfolio Management</h1>
-              <p className="text-gray-400 text-sm mt-1">Manage showcases, case studies, and past projects.</p>
+              <p className="text-gray-400 text-sm mt-1">Manage showcases, case studies, past projects, and metrics.</p>
             </div>
-            <button
-              onClick={openAddModal}
-              className="flex items-center gap-2 px-4 py-2 bg-primary text-black font-medium rounded-lg hover:bg-primary/90 transition-colors"
-            >
-              <Plus className="w-4 h-4" /> Add Showcase
-            </button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {portfolios.map((item) => (
-              <div key={item._id} className={`bg-[#1a1a1a] border ${item.status === 'inactive' ? 'border-red-500/50' : 'border-white/10'} rounded-xl p-6 relative flex flex-col`}>
-                {item.featured && (
-                  <span className="absolute -top-2 -right-2 bg-yellow-500 text-black text-[10px] font-bold px-2 py-1 rounded shadow">
-                    FEATURED
-                  </span>
-                )}
-                <div className="flex gap-4 items-start mb-4">
-                  {item.image ? (
-                    <img src={item.image} alt={item.title} className="w-16 h-12 rounded object-cover border border-white/10" />
-                  ) : (
-                    <div className="w-16 h-12 bg-white/5 rounded flex items-center justify-center">
-                      <ImageIcon className="w-6 h-6 text-white/20" />
-                    </div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-lg font-bold text-white truncate pr-2">{item.title}</h3>
-                    <span className="text-[10px] bg-primary/20 text-primary px-2 py-0.5 rounded-full uppercase tracking-wider">
-                      {item.category}
-                    </span>
-                  </div>
-                </div>
-                
-                <p className="text-xs text-gray-400 italic mb-2 line-clamp-1">{item.tagline}</p>
-                <p className="text-xs text-gray-500 mb-4 line-clamp-2 flex-1">{item.description}</p>
+          {/* Tab Navigation */}
+          <div className="border-b border-white/10 my-6">
+            <nav className="-mb-px flex space-x-8" aria-label="Tabs">
+              <button
+                onClick={() => setActiveTab('showcases')}
+                className={`whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium transition-colors ${
+                  activeTab === 'showcases'
+                    ? 'border-[#FF6B00] text-[#FF6B00]'
+                    : 'border-transparent text-gray-400 hover:border-gray-300 hover:text-gray-300'
+                }`}
+              >
+                Project Showcases
+              </button>
+              <button
+                onClick={() => setActiveTab('metrics')}
+                className={`whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium transition-colors ${
+                  activeTab === 'metrics'
+                    ? 'border-[#FF6B00] text-[#FF6B00]'
+                    : 'border-transparent text-gray-400 hover:border-gray-300 hover:text-gray-300'
+                }`}
+              >
+                Portfolio Metrics
+              </button>
+              <button
+                onClick={() => setActiveTab('cta')}
+                className={`whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium transition-colors ${
+                  activeTab === 'cta'
+                    ? 'border-[#FF6B00] text-[#FF6B00]'
+                    : 'border-transparent text-gray-400 hover:border-gray-300 hover:text-gray-300'
+                }`}
+              >
+                CTA Section
+              </button>
+            </nav>
+          </div>
 
-                <div className="flex items-center justify-between pt-4 border-t border-white/10 mt-auto">
-                  <div className="flex gap-2">
-                    <button 
-                      onClick={() => openEditModal(item)}
-                      className="p-2 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 rounded transition-colors"
-                      title="Edit"
-                    >
-                      <Edit2 size={16} />
-                    </button>
-                  </div>
-                  <button 
-                    onClick={() => deletePortfolio(item._id)}
-                    className="p-2 bg-red-500/10 text-red-500 hover:bg-red-500/20 rounded transition-colors"
-                    title="Delete"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
+          {activeTab === 'showcases' ? (
+            <>
+              <div className="flex justify-end mb-6">
+                <button
+                  onClick={openAddModal}
+                  className="flex items-center gap-2 px-4 py-2 bg-primary text-black font-medium rounded-lg hover:bg-primary/90 transition-colors"
+                >
+                  <Plus className="w-4 h-4" /> Add Showcase
+                </button>
               </div>
-            ))}
-          </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {portfolios.map((item) => (
+                  <div key={item._id} className={`bg-[#1a1a1a] border ${item.status === 'inactive' ? 'border-red-500/50' : 'border-white/10'} rounded-xl p-6 relative flex flex-col`}>
+                    {item.featured && (
+                      <span className="absolute -top-2 -right-2 bg-yellow-500 text-black text-[10px] font-bold px-2 py-1 rounded shadow">
+                        FEATURED
+                      </span>
+                    )}
+                    <div className="flex gap-4 items-start mb-4">
+                      {item.image ? (
+                        <img src={item.image} alt={item.title} className="w-16 h-12 rounded object-cover border border-white/10" />
+                      ) : (
+                        <div className="w-16 h-12 bg-white/5 rounded flex items-center justify-center">
+                          <ImageIcon className="w-6 h-6 text-white/20" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-lg font-bold text-white truncate pr-2">{item.title}</h3>
+                        <span className="text-[10px] bg-primary/20 text-primary px-2 py-0.5 rounded-full uppercase tracking-wider">
+                          {item.category}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    <p className="text-xs text-gray-400 italic mb-2 line-clamp-1">{item.tagline}</p>
+                    <p className="text-xs text-gray-500 mb-4 line-clamp-2 flex-1">{item.description}</p>
+
+                    <div className="flex items-center justify-between pt-4 border-t border-white/10 mt-auto">
+                      <div className="flex gap-2">
+                        <button 
+                          onClick={() => openEditModal(item)}
+                          className="p-2 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 rounded transition-colors"
+                          title="Edit"
+                        >
+                          <Edit2 size={16} />
+                        </button>
+                      </div>
+                      <button 
+                        onClick={() => deletePortfolio(item._id)}
+                        className="p-2 bg-red-500/10 text-red-500 hover:bg-red-500/20 rounded transition-colors"
+                        title="Delete"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : activeTab === 'metrics' ? (
+            <PortfolioMetricsManager isNested={true} />
+          ) : (
+            <PortfolioCTAManager isNested={true} />
+          )}
         </>
+      )}
+      {/* Delete Confirmation Modal */}
+      {deleteModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-[#1a1a1a] border border-white/10 rounded-xl p-6 w-full max-w-md shadow-2xl relative">
+            <div className="flex flex-col items-center text-center">
+              <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center mb-4">
+                <AlertTriangle className="w-6 h-6 text-red-500" />
+              </div>
+              <h3 className="text-xl font-bold text-white mb-2">Delete Showcase</h3>
+              <p className="text-gray-400 mb-6 text-sm">
+                Are you sure you want to delete this showcase? This action cannot be undone.
+              </p>
+              <div className="flex gap-3 w-full">
+                <button
+                  type="button"
+                  onClick={() => setDeleteModal({ isOpen: false, itemId: null })}
+                  disabled={isDeleting}
+                  className="flex-1 px-4 py-2.5 border border-white/10 rounded-lg text-gray-300 hover:text-white hover:bg-white/5 transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmDelete}
+                  disabled={isDeleting}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-red-500 text-white font-semibold rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50"
+                >
+                  {isDeleting ? <Loader className="w-4 h-4 animate-spin" /> : 'Delete'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -38,6 +38,8 @@ const ServiceManager = lazy(() => import('../admin/pages/ServiceManager'));
 const PortfolioManager = lazy(() => import('../admin/pages/PortfolioManager'));
 const LandingPageManager = lazy(() => import('../admin/pages/LandingPageManager'));
 const TestimonialManager = lazy(() => import('../admin/pages/TestimonialManager'));
+const PricingManager = lazy(() => import('../admin/pages/PricingManager'));
+const HomePricingManager = lazy(() => import('../admin/pages/HomePricingManager'));
 
 // High-fidelity, smooth loading fallback component to display during chunk fetching
 const withSuspense = (Component) => (
@@ -197,6 +199,14 @@ export const router = createBrowserRouter([
           {
             path: 'testimonials',
             element: withSuspense(TestimonialManager)
+          },
+          {
+            path: 'pricing',
+            element: withSuspense(PricingManager)
+          },
+          {
+            path: 'home-pricing',
+            element: withSuspense(HomePricingManager)
           },
           {
             path: '',

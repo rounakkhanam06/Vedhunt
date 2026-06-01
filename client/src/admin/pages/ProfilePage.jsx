@@ -1,14 +1,24 @@
-import { User, Mail, Lock } from 'lucide-react';
+import { User, Mail, Lock, ArrowLeft } from 'lucide-react';
 import { useAdminStore } from '../../store/useAdminStore';
+import { useNavigate } from 'react-router-dom';
 
 const ProfilePage = () => {
   const { admin } = useAdminStore();
+  const navigate = useNavigate();
 
   const inputClasses = "w-full bg-[#121215] border border-[#2D2D33] rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] transition-all duration-300";
   const labelClasses = "block text-[12px] font-medium text-gray-400 mb-1.5 font-mono uppercase tracking-wider";
 
   return (
     <div className="max-w-3xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <button 
+        onClick={() => navigate(-1)} 
+        className="flex items-center gap-2 text-gray-400 hover:text-[#FF6B00] mb-6 text-sm transition-colors group font-mono uppercase tracking-wider"
+      >
+        <ArrowLeft size={16} className="transform group-hover:-translate-x-1 transition-transform duration-300" />
+        Back
+      </button>
+
       <h3 className="text-2xl font-bold text-white mb-2">Profile Settings</h3>
       <p className="text-gray-400 text-sm mb-8">Manage your personal information and security preferences.</p>
       

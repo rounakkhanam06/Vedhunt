@@ -1,4 +1,6 @@
 const Portfolio = require('../models/Portfolio');
+const PortfolioMetric = require('../models/PortfolioMetric');
+const PortfolioCTA = require('../models/PortfolioCTA');
 
 // @desc    Get all portfolio items with pagination, filtering, and sorting
 // @route   GET /api/portfolio
@@ -245,6 +247,182 @@ const seedPortfolioData = async () => {
   }
 };
 
+// @desc    Get all active portfolio metrics for public display
+// @route   GET /api/portfolio/metrics
+// @access  Public
+const getPortfolioMetrics = async (req, res) => {
+  try {
+    const metrics = await PortfolioMetric.find({ isActive: true }).sort({ order: 1 });
+    res.status(200).json({
+      success: true,
+      count: metrics.length,
+      data: metrics
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Get all portfolio metrics for Admin
+// @route   GET /api/portfolio/admin/metrics
+// @access  Private/Admin
+const getAdminPortfolioMetrics = async (req, res) => {
+  try {
+    const metrics = await PortfolioMetric.find().sort({ order: 1 });
+    res.status(200).json({
+      success: true,
+      count: metrics.length,
+      data: metrics
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Create a new portfolio metric
+// @route   POST /api/portfolio/admin/metrics
+// @access  Private/Admin
+const createPortfolioMetric = async (req, res) => {
+  try {
+    const count = await PortfolioMetric.countDocuments();
+    const order = req.body.order !== undefined ? req.body.order : count + 1;
+    const metric = await PortfolioMetric.create({ 
+      ...req.body, 
+      order, 
+      updatedBy: req.user._id 
+    });
+    res.status(201).json({
+      success: true,
+      data: metric
+    });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Update a portfolio metric
+// @route   PUT /api/portfolio/admin/metrics/:id
+// @access  Private/Admin
+const updatePortfolioMetric = async (req, res) => {
+  try {
+    const metric = await PortfolioMetric.findByIdAndUpdate(
+      req.params.id, 
+      { ...req.body, updatedBy: req.user._id }, 
+      { new: true, runValidators: true }
+    );
+    if (!metric) {
+      return res.status(404).json({ success: false, message: 'Metric not found' });
+    }
+    res.status(200).json({
+      success: true,
+      data: metric
+    });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Delete a portfolio metric
+// @route   DELETE /api/portfolio/admin/metrics/:id
+// @access  Private/Admin
+const deletePortfolioMetric = async (req, res) => {
+  try {
+    const metric = await PortfolioMetric.findByIdAndDelete(req.params.id);
+    if (!metric) {
+      return res.status(404).json({ success: false, message: 'Metric not found' });
+    }
+    res.status(200).json({
+      success: true,
+      data: {}
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Seed function for portfolio metrics
+const seedPortfolioMetrics = async () => {
+  try {
+    const count = await PortfolioMetric.countDocuments();
+    if (count === 0) {
+      console.log('Seeding initial portfolio metrics data...');
+      const initialMetrics = [
+        { numericValue: 140, suffix: '+', label: 'Deployments Delivered', desc: 'Secure web systems and custom automation modules.', icon: 'Zap', order: 1 },
+        { numericValue: 99, suffix: '%', label: 'Retention Rate', desc: 'SMEs & enterprises continuing partnerships with us.', icon: 'Award', order: 2 },
+        { numericValue: 300, suffix: '%+', label: 'Engagement Growth', desc: 'Average increase across client marketing funnels.', icon: 'Share2', order: 3 },
+        { numericValue: 15, suffix: ' Hrs', label: 'Saved per Week', desc: 'Through automated SQL and Power BI workflows.', icon: 'Database', order: 4 }
+      ];
+      await PortfolioMetric.insertMany(initialMetrics);
+      console.log('Portfolio metrics data seeded successfully!');
+    }
+  } catch (error) {
+    console.error('Error seeding portfolio metrics:', error);
+  }
+};
+
+// @desc    Get the portfolio CTA section data
+// @route   GET /api/portfolio/cta
+// @access  Public
+const getPortfolioCTA = async (req, res) => {
+  try {
+    let cta = await PortfolioCTA.findOne();
+    if (!cta) {
+      await seedPortfolioCTA();
+      cta = await PortfolioCTA.findOne();
+    }
+    res.status(200).json({ success: true, data: cta });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Update the portfolio CTA section data
+// @route   PUT /api/portfolio/admin/cta
+// @access  Private/Admin
+const updatePortfolioCTA = async (req, res) => {
+  try {
+    let cta = await PortfolioCTA.findOne();
+    if (!cta) {
+      cta = await PortfolioCTA.create({ ...req.body, updatedBy: req.user._id });
+    } else {
+      cta = await PortfolioCTA.findOneAndUpdate(
+        {},
+        { ...req.body, updatedBy: req.user._id },
+        { new: true, runValidators: true }
+      );
+    }
+    res.status(200).json({ success: true, data: cta });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+// Seed function for portfolio CTA
+const seedPortfolioCTA = async () => {
+  try {
+    const count = await PortfolioCTA.countDocuments();
+    if (count === 0) {
+      console.log('Seeding initial portfolio CTA data...');
+      await PortfolioCTA.create({
+        tagText: "Let's Collaborate",
+        tagIcon: 'Sparkles',
+        headingRegular: 'Ready to Build Your',
+        headingHighlight: 'Digital Legacy?',
+        buttonText: 'Start a Project',
+        buttonLink: '/get-quote',
+        features: [
+          { text: 'Free Visual Mockup Draft', icon: 'Sparkles' },
+          { text: 'Direct Engineering Channel', icon: 'Laptop' },
+          { text: 'High-Performance Launch', icon: 'Zap' }
+        ]
+      });
+      console.log('Portfolio CTA data seeded successfully!');
+    }
+  } catch (error) {
+    console.error('Error seeding portfolio CTA data:', error);
+  }
+};
+
 module.exports = {
   getPortfolioItems,
   getAllAdminPortfolioItems,
@@ -252,5 +430,14 @@ module.exports = {
   createPortfolioItem,
   updatePortfolioItem,
   deletePortfolioItem,
-  seedPortfolioData
+  seedPortfolioData,
+  getPortfolioMetrics,
+  getAdminPortfolioMetrics,
+  createPortfolioMetric,
+  updatePortfolioMetric,
+  deletePortfolioMetric,
+  seedPortfolioMetrics,
+  getPortfolioCTA,
+  updatePortfolioCTA,
+  seedPortfolioCTA
 };

@@ -3,7 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, Users, ChevronDown, ChevronRight, Activity, 
   Briefcase, FileText, Wallet, ShieldCheck, Settings, LogOut, X,
-  Image as ImageIcon
+  Image as ImageIcon, Tag
 } from 'lucide-react';
 import { useAdminStore } from '../../store/useAdminStore';
 import darkLogo from '../../assets/DarkthemeLogo.png';
@@ -50,6 +50,8 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
       ]
     },
     { name: 'Financials & Invoicing', path: '/admin/finance', icon: Wallet },
+    { name: 'Pricing Plans', path: '/admin/pricing', icon: Tag },
+    { name: 'Home Pricing Cards', path: '/admin/home-pricing', icon: Tag },
     { name: 'Team Management', path: '/admin/team', icon: ShieldCheck },
     { name: 'Settings', path: '/admin/settings', icon: Settings },
   ];
