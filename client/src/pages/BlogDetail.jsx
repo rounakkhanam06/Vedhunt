@@ -1,14 +1,80 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Calendar, User, Tag } from 'lucide-react';
-import { BLOG_POSTS } from '../constants';
+import api from '../services/api';
+
+// Block Components
+const TextBlock = ({ text }) => (
+  <p className="text-app-text-muted text-base leading-relaxed mb-6 font-serif">
+    {text}
+  </p>
+);
+
+const HeadingBlock = ({ text, level }) => {
+  const TagName = `h${level || 2}`;
+  return (
+    <TagName className="text-app-text font-heading font-bold mb-4 mt-8">
+      {text}
+    </TagName>
+  );
+};
+
+const ImageBlock = ({ url, caption }) => (
+  <figure className="mb-8">
+    <div className="aspect-[21/9] overflow-hidden rounded-lg bg-app-card/30 border border-app-border/40">
+      <img src={url} alt={caption || "Blog image"} className="w-full h-full object-cover" />
+    </div>
+    {caption && <figcaption className="text-center text-sm text-app-text-muted mt-2 italic">{caption}</figcaption>}
+  </figure>
+);
+
+const QuoteBlock = ({ text, author }) => (
+  <blockquote className="border-l-4 border-primary pl-4 my-8 italic">
+    <p className="text-app-text text-lg mb-2">{text}</p>
+    {author && <footer className="text-sm text-primary">— {author}</footer>}
+  </blockquote>
+);
+
+const DefaultBlock = () => null;
+
+const blockRenderer = {
+  paragraph: TextBlock,
+  heading: HeadingBlock,
+  image: ImageBlock,
+  quote: QuoteBlock,
+};
 
 const BlogDetail = () => {
-  const { id } = useParams();
+  const { id: slug } = useParams(); // Using the existing route parameter name ':id' as 'slug'
   
-  // Find the post by ID
-  const post = BLOG_POSTS.find(p => p.id === parseInt(id) || p.id === id);
+  const [post, setPost] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchBlog = async () => {
+      try {
+        const response = await api.get(`/blogs/${slug}`);
+        const result = response.data;
+        if (result.success) {
+          setPost(result.data);
+        }
+      } catch (error) {
+        console.error("Error fetching blog details:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchBlog();
+  }, [slug]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-app-bg text-app-text flex flex-col items-center justify-center mesh-grid">
+        <h1 className="text-2xl font-heading font-bold mb-4">Loading Post...</h1>
+      </div>
+    );
+  }
 
   if (!post) {
     return (
@@ -20,6 +86,12 @@ const BlogDetail = () => {
       </div>
     );
   }
+
+  const formattedDate = new Date(post.createdAt || new Date()).toLocaleDateString('en-US', {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric'
+  });
 
   return (
     <div className="min-h-screen bg-app-bg text-app-text-muted pt-28 pb-20 mesh-grid relative overflow-hidden">
@@ -49,11 +121,11 @@ const BlogDetail = () => {
           <div className="flex flex-wrap items-center gap-6 text-app-text-muted text-sm mb-10 pb-6 border-b border-app-border/40">
             <div className="flex items-center gap-2">
               <User size={14} className="text-primary" />
-              <span>By Vedhunt Team</span>
+              <span>By {post.author || 'Vedhunt Team'}</span>
             </div>
             <div className="flex items-center gap-2">
               <Calendar size={14} className="text-primary" />
-              <span>May 16, 2026</span>
+              <span>{formattedDate}</span>
             </div>
             <div className="flex items-center gap-2">
               <Tag size={14} className="text-primary" />
@@ -63,18 +135,20 @@ const BlogDetail = () => {
         </motion.div>
 
         {/* Image */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
-          className="aspect-[21/9] overflow-hidden rounded-lg mb-10 bg-app-card/30 border border-app-border/40"
-        >
-          <img
-            src={post.image}
-            alt={post.title}
-            className="w-full h-full object-cover"
-          />
-        </motion.div>
+        {post.thumbnail && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+            className="aspect-[21/9] overflow-hidden rounded-lg mb-10 bg-app-card/30 border border-app-border/40"
+          >
+            <img
+              src={post.thumbnail}
+              alt={post.title}
+              className="w-full h-full object-cover"
+            />
+          </motion.div>
+        )}
 
         {/* Content */}
         <motion.div
@@ -83,21 +157,16 @@ const BlogDetail = () => {
           transition={{ duration: 0.6, delay: 0.4 }}
           className="prose dark:prose-invert max-w-none text-app-text-muted"
         >
-          <p className="text-app-text text-lg leading-relaxed mb-6 font-serif italic">
-            {post.excerpt}
-          </p>
+          {post.excerpt && (
+            <p className="text-app-text text-lg leading-relaxed mb-6 font-serif italic">
+              {post.excerpt}
+            </p>
+          )}
           
-          <p className="text-app-text-muted text-base leading-relaxed mb-6">
-            Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.
-          </p>
-          
-          <p className="text-app-text-muted text-base leading-relaxed mb-6">
-            Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo. Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit.
-          </p>
-          
-          <p className="text-app-text-muted text-base leading-relaxed mb-6">
-            At vero eos et accusamus et iusto odio dignissimos ducimus qui blanditiis praesentium voluptatum deleniti atque corrupti quos dolores et quas molestias excepturi sint occaecati cupiditate non provident, similique sunt in culpa qui officia deserunt mollitia animi, id est laborum et dolorum fuga.
-          </p>
+          {post.contentBlocks && post.contentBlocks.map((block) => {
+            const BlockComponent = blockRenderer[block.type] || DefaultBlock;
+            return <BlockComponent key={block.id || Math.random()} {...block.data} />;
+          })}
         </motion.div>
       </div>
     </div>

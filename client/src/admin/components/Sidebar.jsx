@@ -45,7 +45,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
         { name: 'Navbar Links', path: '/admin/navbar' },
         { name: 'Services', path: '/admin/services' },
         { name: 'Portfolio Items', path: '/admin/portfolio' },
-        { name: 'Blogs & Videos', path: '/admin/cms/content' },
+        { name: 'Blogs', path: '/admin/blogs' },
         { name: 'Testimonials', path: '/admin/testimonials' },
         { name: 'Our Presence', path: '/admin/presence' },
         { name: 'About Page', path: '/admin/about' },

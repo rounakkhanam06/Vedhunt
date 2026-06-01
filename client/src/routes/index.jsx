@@ -42,6 +42,8 @@ const PricingManager = lazy(() => import('../admin/pages/PricingManager'));
 const HomePricingManager = lazy(() => import('../admin/pages/HomePricingManager'));
 const PresenceManager = lazy(() => import('../admin/pages/PresenceManager'));
 const AboutManager = lazy(() => import('../admin/pages/AboutManager'));
+const BlogManager = lazy(() => import('../admin/pages/BlogManager'));
+const CreateEditBlog = lazy(() => import('../admin/pages/CreateEditBlog'));
 
 // High-fidelity, smooth loading fallback component to display during chunk fetching
 const withSuspense = (Component) => (
@@ -217,6 +219,18 @@ export const router = createBrowserRouter([
           {
             path: 'about',
             element: withSuspense(AboutManager)
+          },
+          {
+            path: 'blogs',
+            element: withSuspense(BlogManager)
+          },
+          {
+            path: 'blogs/create',
+            element: withSuspense(CreateEditBlog)
+          },
+          {
+            path: 'blogs/edit/:slug',
+            element: withSuspense(CreateEditBlog)
           },
           {
             path: '',

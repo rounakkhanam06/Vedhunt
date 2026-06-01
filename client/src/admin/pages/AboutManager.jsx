@@ -256,11 +256,24 @@ const AboutManager = () => {
     }));
   };
 
-  const handleRemoveWhatWeDoCard = (index) => {
-    setWhatWeDoData(prev => ({
-      ...prev,
-      cards: prev.cards.filter((_, i) => i !== index)
-    }));
+  const handleRemoveWhatWeDoCard = async (index) => {
+    if (!window.confirm("Are you sure you want to delete this card? This will take effect immediately.")) return;
+    
+    const updatedCards = whatWeDoData.cards.filter((_, i) => i !== index);
+    const newData = { ...whatWeDoData, cards: updatedCards };
+    
+    setWhatWeDoData(newData);
+    
+    try {
+      setIsSavingWhatWeDo(true);
+      await contentService.updateAboutWhatWeDo(newData);
+      toast.success('Card deleted successfully!');
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to delete card');
+      console.error(error);
+    } finally {
+      setIsSavingWhatWeDo(false);
+    }
   };
 
   const handleWhatWeDoCardChange = (index, field, value) => {
@@ -306,11 +319,24 @@ const AboutManager = () => {
     }));
   };
 
-  const handleRemoveOurEdgeCard = (index) => {
-    setOurEdgeData(prev => ({
-      ...prev,
-      cards: prev.cards.filter((_, i) => i !== index)
-    }));
+  const handleRemoveOurEdgeCard = async (index) => {
+    if (!window.confirm("Are you sure you want to delete this card? This will take effect immediately.")) return;
+    
+    const updatedCards = ourEdgeData.cards.filter((_, i) => i !== index);
+    const newData = { ...ourEdgeData, cards: updatedCards };
+    
+    setOurEdgeData(newData);
+    
+    try {
+      setIsSavingOurEdge(true);
+      await contentService.updateAboutOurEdge(newData);
+      toast.success('Card deleted successfully!');
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to delete card');
+      console.error(error);
+    } finally {
+      setIsSavingOurEdge(false);
+    }
   };
 
   const handleOurEdgeCardChange = (index, field, value) => {

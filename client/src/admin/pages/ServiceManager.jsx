@@ -177,7 +177,7 @@ const ServiceManager = ({ isNested = false }) => {
         imagePublicId: response.publicId
       }));
     } catch (error) {
-      alert('Failed to upload image');
+      toast.error(error.message || 'Failed to upload image');
       console.error(error);
     } finally {
       setIsUploading(false);

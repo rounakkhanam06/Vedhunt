@@ -32,9 +32,10 @@ const DynamicFormRenderer = ({ config, initialData = {}, onSubmit, isLoading }) 
         [name]: res.url,
         [publicIdName]: res.publicId 
       }));
+      toast.success('Image uploaded successfully');
     } catch (error) {
       console.error("Upload failed", error);
-      alert("Image upload failed");
+      toast.error(error.message || 'Image upload failed');
     } finally {
       setIsUploading(false);
     }

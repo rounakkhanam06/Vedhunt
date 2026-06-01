@@ -1,25 +1,66 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Search, ArrowRight, ArrowUpRight } from 'lucide-react';
-import { BLOG_POSTS } from '../constants';
+import api from '../services/api';
 import BlogCard from '../components/ui/BlogCard';
 
 const Blog = () => {
   const [activeCategory, setActiveCategory] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
+  
+  const [allBlogs, setAllBlogs] = useState([]);
+  const [heroData, setHeroData] = useState({
+    title: 'The Blog',
+    description: 'Stay up to date on tips, tricks, & trends for social media & digital marketing. Explore our latest articles and insights.',
+    tags: ['New', 'Insights & Trends']
+  });
+  const [loading, setLoading] = useState(true);
 
-  // Dynamically extract and format categories from BLOG_POSTS
-  const dynamicCategories = ['All', ...new Set(BLOG_POSTS.map(post => {
+  useEffect(() => {
+    const fetchAllData = async () => {
+      try {
+        const [heroRes, blogsRes] = await Promise.all([
+          api.get('/blogs/hero'),
+          api.get('/blogs')
+        ]);
+        
+        const heroResult = heroRes.data;
+        if (heroResult.success && heroResult.data && heroResult.data.value) {
+          setHeroData(heroResult.data.value);
+        }
+
+        const blogsResult = blogsRes.data;
+        if (blogsResult.success) {
+          setAllBlogs(blogsResult.data);
+        }
+      } catch (error) {
+        console.error("Error fetching data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchAllData();
+  }, []);
+
+  // Dynamically extract and format categories from fetched blogs
+  const dynamicCategories = ['All', ...new Set(allBlogs.map(post => {
     return post.category.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ');
   }))];
 
-  const filteredPosts = BLOG_POSTS.filter(post => {
+  const filteredPosts = allBlogs.filter(post => {
     const formattedPostCategory = post.category.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ');
     const matchesCategory = activeCategory === 'All' || formattedPostCategory === activeCategory;
     const matchesSearch = post.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          post.excerpt.toLowerCase().includes(searchQuery.toLowerCase());
+                          (post.excerpt && post.excerpt.toLowerCase().includes(searchQuery.toLowerCase()));
     return matchesCategory && matchesSearch;
   });
+
+  const [visibleCount, setVisibleCount] = useState(6);
+
+  useEffect(() => {
+    // Reset visible count when filters change
+    setVisibleCount(6);
+  }, [activeCategory, searchQuery]);
 
   return (
     <div className="bg-app-bg text-app-text-muted min-h-screen pt-24 pb-20 mesh-grid relative overflow-hidden">
@@ -38,20 +79,22 @@ const Blog = () => {
             className="text-center max-w-3xl mx-auto"
           >
             <div className="flex items-center justify-center gap-3 mb-4">
-              <span className="px-3 py-1 bg-primary/10 border border-primary/20 text-primary text-[10px] font-black tracking-widest rounded-full uppercase">
-                New
-              </span>
-              <span className="text-app-text-muted text-[10px] font-black tracking-widest uppercase">
-                Insights & Trends
-              </span>
+              {heroData.tags && heroData.tags.map((tag, idx) => (
+                <span key={idx} className={idx === 0 
+                  ? "px-3 py-1 bg-primary/10 border border-primary/20 text-primary text-[10px] font-black tracking-widest rounded-full uppercase"
+                  : "text-app-text-muted text-[10px] font-black tracking-widest uppercase"
+                }>
+                  {tag}
+                </span>
+              ))}
             </div>
             
             <h1 className="text-4xl md:text-5xl font-heading font-black text-app-text mb-4 tracking-tighter leading-none uppercase">
-              The Blog
+              {heroData.title}
             </h1>
             
             <p className="text-app-text-muted text-sm md:text-base mb-6 max-w-2xl mx-auto leading-relaxed">
-              Stay up to date on tips, tricks, & trends for social media & digital marketing. Explore our latest articles and insights.
+              {heroData.description}
             </p>
           </motion.div>
         </div>
@@ -93,15 +136,33 @@ const Blog = () => {
 
         {/* Blog Grid */}
         <div className="mt-10">
-          {filteredPosts.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-12 gap-y-24">
-              {filteredPosts.map((post) => (
-                <BlogCard 
-                  key={post.id} 
-                  post={post} 
-                />
-              ))}
+          {loading ? (
+            <div className="py-20 text-center">
+              <h3 className="text-2xl text-app-text-muted font-bold">Loading articles...</h3>
             </div>
+          ) : filteredPosts.length > 0 ? (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-12 gap-y-24">
+                {filteredPosts.slice(0, visibleCount).map((post) => (
+                  <BlogCard 
+                    key={post._id || post.id} 
+                    post={post} 
+                  />
+                ))}
+              </div>
+              
+              {/* Show More Button */}
+              {filteredPosts.length > visibleCount && (
+                <div className="mt-16 flex justify-center">
+                  <button 
+                    onClick={() => setVisibleCount(filteredPosts.length)}
+                    className="bg-transparent border border-primary text-primary font-bold px-8 py-3 rounded-full hover:bg-primary hover:text-black transition-all duration-300 uppercase text-xs tracking-widest"
+                  >
+                    Show More Blogs
+                  </button>
+                </div>
+              )}
+            </>
           ) : (
             <div className="py-20 text-center">
               <h3 className="text-2xl text-app-text-muted font-bold">No articles found matching your criteria.</h3>

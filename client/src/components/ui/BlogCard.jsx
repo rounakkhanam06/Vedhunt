@@ -23,7 +23,7 @@ const BlogCard = ({ post }) => {
         {/* Image - Reduced height with 16:9 aspect ratio */}
         <div className="flex-grow aspect-[2/1] overflow-hidden rounded-sm bg-app-bg">
           <img
-            src={post.image}
+            src={post.thumbnail || post.image}
             alt={post.title}
             className="w-full h-full object-cover grayscale-[0.2] group-hover:grayscale-0 transition-all duration-700 group-hover:scale-105"
           />
@@ -41,7 +41,7 @@ const BlogCard = ({ post }) => {
         </p>
 
         <div className="mt-auto">
-          <Link to={`/blog/${post.id}`} className="flex items-center gap-2 text-app-text hover:text-primary italic font-serif text-sm transition-colors duration-300 group/btn">
+          <Link to={`/blog/${post.slug || post.id}`} className="flex items-center gap-2 text-app-text hover:text-primary italic font-serif text-sm transition-colors duration-300 group/btn">
             Read More
             <ArrowRight size={16} className="transition-transform duration-300 group-hover/btn:translate-x-1" />
           </Link>
