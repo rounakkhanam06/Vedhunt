@@ -59,17 +59,11 @@ exports.getAboutWhatWeDo = async (req, res) => {
 exports.updateAboutWhatWeDo = async (req, res) => {
   try {
     const { tagline, title, description, cards } = req.body;
-    let data = await AboutWhatWeDo.findOne();
-    
-    if (data) {
-      data.tagline = tagline;
-      data.title = title;
-      data.description = description;
-      data.cards = cards;
-      await data.save();
-    } else {
-      data = await AboutWhatWeDo.create({ tagline, title, description, cards });
-    }
+    let data = await AboutWhatWeDo.findOneAndUpdate(
+      {},
+      { tagline, title, description, cards },
+      { new: true, upsert: true }
+    );
     
     res.json(data);
   } catch (error) {
