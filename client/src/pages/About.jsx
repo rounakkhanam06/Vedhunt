@@ -1,7 +1,9 @@
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Check, ArrowRight, Code, Share2, Megaphone, Palette, Calculator, BarChart3, Cpu, Play, Tv } from 'lucide-react';
 import { EncryptedText } from '@/components/ui/encrypted-text';
+import { contentService } from '../services/contentService';
 
 // Import newly generated transparent background team illustration
 import teamImg from '../assets/team_about-removebg-preview.webp';
@@ -10,6 +12,39 @@ import compImg2 from '../assets/Gemini_Generated_Image_jbm779jbm779jbm7-removebg
 import { ShieldCheck, Award as AwardIcon } from 'lucide-react';
 
 export default function About() {
+  const [heroData, setHeroData] = useState(null);
+  const [companyData, setCompanyData] = useState(null);
+  
+  useEffect(() => {
+    const fetchAboutData = async () => {
+      try {
+        const [heroRes, companyRes] = await Promise.all([
+          contentService.getAboutHero(),
+          contentService.getAboutCompany()
+        ]);
+        setHeroData(heroRes);
+        setCompanyData(companyRes);
+      } catch (error) {
+        console.error('Failed to fetch About data', error);
+      }
+    };
+    fetchAboutData();
+  }, []);
+
+  const parseStyledText = (text) => {
+    if (!text) return null;
+    const parts = text.split(/(\*\*.*?\*\*|\*.*?\*)/g);
+    return parts.map((part, i) => {
+      if (part.startsWith('**') && part.endsWith('**')) {
+        return <strong key={i} className="text-primary font-bold">{part.slice(2, -2)}</strong>;
+      }
+      if (part.startsWith('*') && part.endsWith('*')) {
+        return <strong key={i} className="text-app-text font-black">{part.slice(1, -1)}</strong>;
+      }
+      return part;
+    });
+  };
+
   const staggerContainer = {
     hidden: {},
     visible: {
@@ -122,24 +157,28 @@ export default function About() {
             <motion.div variants={scrollFadeUp} className="flex items-center gap-2">
               <span className="w-6 h-[2px] bg-primary" />
               <span className="text-xs font-extrabold text-primary uppercase tracking-widest">
-                Who We Are
+                {heroData?.tagline || 'Who We Are'}
               </span>
             </motion.div>
 
             {/* Bottom Text Reveal Title on scroll */}
-            <h1 className="text-4xl md:text-5xl font-black font-heading text-app-text leading-tight tracking-tight flex flex-col gap-1.5">
-              <EncryptedText 
-                text="Creative Solutions" 
-                revealedClassName="text-app-text"
-                encryptedClassName="text-primary/60 font-mono"
-                revealDelayMs={30}
-              />
-              <EncryptedText 
-                text="Driven by Data & Engineering" 
-                revealedClassName="text-primary text-gradient-orange"
-                encryptedClassName="text-primary/60 font-mono"
-                revealDelayMs={20}
-              />
+            <h1 className="text-4xl md:text-5xl font-black font-heading text-app-text leading-tight tracking-tight flex flex-col gap-1.5 min-h-[100px]">
+              {heroData ? (
+                <>
+                  <EncryptedText 
+                    text={heroData.titleLine1 || "Creative Solutions"} 
+                    revealedClassName="text-app-text"
+                    encryptedClassName="text-primary/60 font-mono"
+                    revealDelayMs={30}
+                  />
+                  <EncryptedText 
+                    text={heroData.titleLine2 || "Driven by Data & Engineering"} 
+                    revealedClassName="text-primary text-gradient-orange"
+                    encryptedClassName="text-primary/60 font-mono"
+                    revealDelayMs={20}
+                  />
+                </>
+              ) : null}
             </h1>
 
             {/* Main Narrative paragraph on scroll */}
@@ -147,7 +186,7 @@ export default function About() {
               variants={scrollFadeUp}
               className="text-xs md:text-sm text-app-text leading-relaxed"
             >
-              Vedhunt InfoTech provides successful business solutions to its clients to scale their profitability. It’s a trusted agency which provides customized services to businesses across India.
+              {heroData?.description || 'Vedhunt InfoTech provides successful business solutions to its clients to scale their profitability. It’s a trusted agency which provides customized services to businesses across India.'}
             </motion.p>
 
             {/* Structured Capabilities checklist on scroll */}
@@ -155,14 +194,14 @@ export default function About() {
               variants={scrollFadeUp}
               className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2"
             >
-              {[
+              {(heroData?.servicesList || [
                 'Web & App Engineering',
                 'Creative Brand Identity',
                 'Performance Ads & PPC',
                 'SEO Search Dominance',
                 'Outsource Bookkeeping',
                 'SQL & Power BI Automation'
-              ].map((item, idx) => (
+              ]).map((item, idx) => (
                 <div key={idx} className="flex items-center gap-2.5 text-xs text-app-text font-medium">
                   <div className="w-5 h-5 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0">
                     <Check className="w-3 h-3 stroke-[3]" />
@@ -178,12 +217,12 @@ export default function About() {
               className="pt-6"
             >
               <Link
-                to="/get-quote"
+                to={heroData?.ctaLink || "/get-quote"}
                 className="relative inline-flex items-center gap-2 px-8 py-4 bg-primary hover:bg-primary-hover text-black font-extrabold text-xs uppercase tracking-wider rounded-lg transition-all duration-300 hover:shadow-[0_0_25px_rgba(255,107,0,0.45)] group cursor-pointer overflow-hidden"
               >
                 {/* Gloss slide overlay on hover */}
                 <span className="absolute inset-0 bg-white/10 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-out" />
-                <span>Get Solution</span>
+                <span>{heroData?.ctaText || 'Get Solution'}</span>
                 <ArrowRight className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1.5" />
               </Link>
             </motion.div>
@@ -230,11 +269,11 @@ export default function About() {
                 className="absolute top-4 -left-8 sm:top-10 sm:-left-12 bg-app-card backdrop-blur-md border border-app-border rounded-2xl p-3 sm:p-4 shadow-xl flex items-center gap-2 sm:gap-3 orange-glow-sm hover:border-primary/40 transition-colors z-20"
               >
                 <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-black text-xs sm:text-sm">
-                  99%
+                  {heroData?.stat1?.value || '99%'}
                 </div>
                 <div className="text-left">
-                  <p className="text-[9px] sm:text-[10px] font-extrabold text-primary uppercase tracking-wider">Client</p>
-                  <p className="text-[11px] sm:text-xs font-black text-app-text">Retention</p>
+                  <p className="text-[9px] sm:text-[10px] font-extrabold text-primary uppercase tracking-wider">{heroData?.stat1?.labelTop || 'Client'}</p>
+                  <p className="text-[11px] sm:text-xs font-black text-app-text">{heroData?.stat1?.labelBottom || 'Retention'}</p>
                 </div>
               </motion.div>
 
@@ -247,11 +286,11 @@ export default function About() {
                 className="absolute bottom-4 -right-8 sm:bottom-10 sm:-right-12 bg-app-card backdrop-blur-md border border-app-border rounded-2xl p-3 sm:p-4 shadow-xl flex items-center gap-2 sm:gap-3 orange-glow-sm hover:border-primary/40 transition-colors z-20"
               >
                 <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-black text-xs sm:text-sm">
-                  140+
+                  {heroData?.stat2?.value || '140+'}
                 </div>
                 <div className="text-left">
-                  <p className="text-[9px] sm:text-[10px] font-extrabold text-primary uppercase tracking-wider">Active</p>
-                  <p className="text-[11px] sm:text-xs font-black text-app-text">Projects</p>
+                  <p className="text-[9px] sm:text-[10px] font-extrabold text-primary uppercase tracking-wider">{heroData?.stat2?.labelTop || 'Active'}</p>
+                  <p className="text-[11px] sm:text-xs font-black text-app-text">{heroData?.stat2?.labelBottom || 'Projects'}</p>
                 </div>
               </motion.div>
             </div>
@@ -273,7 +312,7 @@ export default function About() {
             {/* Tagline / Subtitle */}
             <motion.div variants={scrollFadeUp} className="flex items-center gap-2">
               <span className="text-xs font-extrabold text-primary uppercase tracking-widest">
-                About Our Company
+                {companyData?.tagline || 'About Our Company'}
               </span>
               <span className="w-8 h-[2px] bg-primary" />
             </motion.div>
@@ -281,20 +320,24 @@ export default function About() {
             {/* Main Header with Scroll Encrypted Text Animation */}
             <motion.h2 
               variants={scrollFadeUp}
-              className="text-3xl md:text-4xl font-black font-heading text-app-text leading-tight flex flex-col gap-1"
+              className="text-3xl md:text-4xl font-black font-heading text-app-text leading-tight flex flex-col gap-1 min-h-[80px]"
             >
-              <EncryptedText 
-                text="Empowering Businesses" 
-                revealedClassName="text-app-text"
-                encryptedClassName="text-primary/60 font-mono"
-                revealDelayMs={25}
-              />
-              <EncryptedText 
-                text="Through Smart Technology & Ethical Strategy" 
-                revealedClassName="text-primary text-gradient-orange"
-                encryptedClassName="text-primary/60 font-mono"
-                revealDelayMs={15}
-              />
+              {companyData ? (
+                <>
+                  <EncryptedText 
+                    text={companyData.headerLine1 || "Empowering Businesses"} 
+                    revealedClassName="text-app-text"
+                    encryptedClassName="text-primary/60 font-mono"
+                    revealDelayMs={25}
+                  />
+                  <EncryptedText 
+                    text={companyData.headerLine2 || "Through Smart Technology & Ethical Strategy"} 
+                    revealedClassName="text-primary text-gradient-orange"
+                    encryptedClassName="text-primary/60 font-mono"
+                    revealDelayMs={15}
+                  />
+                </>
+              ) : null}
             </motion.h2>
           </motion.div>
 
@@ -420,9 +463,9 @@ export default function About() {
                   viewport={{ once: true }}
                   className="glass-panel bg-app-card backdrop-blur-xl border border-app-border rounded-2xl p-6 shadow-[0_20px_50px_rgba(255,107,0,0.22)] flex flex-col items-center justify-center text-center w-36 h-36 orange-glow-sm hover:border-primary/50 transition-colors duration-300"
                 >
-                  <div className="text-3xl md:text-4xl font-black text-primary font-heading leading-none">5+</div>
-                  <div className="text-[9px] font-extrabold text-app-text uppercase tracking-widest mt-1">Years Of</div>
-                  <div className="text-xs font-black text-app-text-muted">Excellence</div>
+                  <div className="text-3xl md:text-4xl font-black text-primary font-heading leading-none">{companyData?.centralBadge?.value || '5+'}</div>
+                  <div className="text-[9px] font-extrabold text-app-text uppercase tracking-widest mt-1">{companyData?.centralBadge?.label1 || 'Years Of'}</div>
+                  <div className="text-xs font-black text-app-text-muted">{companyData?.centralBadge?.label2 || 'Excellence'}</div>
                 </motion.div>
               </div>
 
@@ -442,18 +485,26 @@ export default function About() {
               variants={scrollFadeUp}
               className="space-y-4 text-xs md:text-sm text-app-text leading-relaxed"
             >
-              <p>
-                At <strong className="text-app-text font-black">Vedhunt InfoTech</strong>, we believe technology isn't just about code — it's about creating meaningful impact.
-              </p>
-              <p>
-                We are a <strong className="text-primary font-bold">next-generation IT, Digital Marketing, and Automation solutions company</strong> helping businesses streamline operations, boost digital presence, and accelerate growth through intelligent, ethical, and scalable solutions.
-              </p>
-              <p>
-                Founded with a vision to <strong className="text-app-text font-black">bridge the gap between technology and business success</strong>, Vedhunt InfoTech has evolved into a trusted partner for startups, SMEs, and enterprises across multiple industries.
-              </p>
-              <p>
-                Our team of innovators, strategists, and engineers work together to design and deliver end-to-end digital solutions that transform how organizations operate and grow.
-              </p>
+              {companyData?.descriptionParagraphs?.length > 0 ? (
+                companyData.descriptionParagraphs.map((paragraph, index) => (
+                  <p key={index}>{parseStyledText(paragraph)}</p>
+                ))
+              ) : (
+                <>
+                  <p>
+                    At <strong className="text-app-text font-black">Vedhunt InfoTech</strong>, we believe technology isn't just about code — it's about creating meaningful impact.
+                  </p>
+                  <p>
+                    We are a <strong className="text-primary font-bold">next-generation IT, Digital Marketing, and Automation solutions company</strong> helping businesses streamline operations, boost digital presence, and accelerate growth through intelligent, ethical, and scalable solutions.
+                  </p>
+                  <p>
+                    Founded with a vision to <strong className="text-app-text font-black">bridge the gap between technology and business success</strong>, Vedhunt InfoTech has evolved into a trusted partner for startups, SMEs, and enterprises across multiple industries.
+                  </p>
+                  <p>
+                    Our team of innovators, strategists, and engineers work together to design and deliver end-to-end digital solutions that transform how organizations operate and grow.
+                  </p>
+                </>
+              )}
             </motion.div>
 
             {/* Checklist items (First image details) */}
@@ -466,9 +517,9 @@ export default function About() {
                   <ShieldCheck className="w-4.5 h-4.5 stroke-[2.5]" />
                 </div>
                 <div className="space-y-0.5">
-                  <h4 className="text-xs md:text-sm font-extrabold text-app-text font-heading group-hover:text-primary transition-colors duration-300">Certified Company</h4>
+                  <h4 className="text-xs md:text-sm font-extrabold text-app-text font-heading group-hover:text-primary transition-colors duration-300">{companyData?.checklistItem1?.title || 'Certified Company'}</h4>
                   <p className="text-[10px] md:text-xs text-app-text-muted leading-relaxed">
-                    Industry-certified security compliance & standard-driven procedures.
+                    {companyData?.checklistItem1?.description || 'Industry-certified security compliance & standard-driven procedures.'}
                   </p>
                 </div>
               </div>
@@ -477,9 +528,9 @@ export default function About() {
                   <AwardIcon className="w-4.5 h-4.5 stroke-[2.5]" />
                 </div>
                 <div className="space-y-0.5">
-                  <h4 className="text-xs md:text-sm font-extrabold text-app-text font-heading group-hover:text-primary transition-colors duration-300">Award Ceremony</h4>
+                  <h4 className="text-xs md:text-sm font-extrabold text-app-text font-heading group-hover:text-primary transition-colors duration-300">{companyData?.checklistItem2?.title || 'Award Ceremony'}</h4>
                   <p className="text-[10px] md:text-xs text-app-text-muted leading-relaxed">
-                    Recognized for excellence in automation & performance-driven marketing.
+                    {companyData?.checklistItem2?.description || 'Recognized for excellence in automation & performance-driven marketing.'}
                   </p>
                 </div>
               </div>
@@ -492,8 +543,8 @@ export default function About() {
             >
 
               <div className="text-right space-y-0.5">
-                <h5 className="text-xs md:text-sm font-extrabold text-app-text font-heading">Rakesh Kumar</h5>
-                <p className="text-[10px] md:text-xs text-app-text-muted">Chairman & Founder Tech, Vedhunt</p>
+                <h5 className="text-xs md:text-sm font-extrabold text-app-text font-heading">{companyData?.signature?.name || 'Rakesh Kumar'}</h5>
+                <p className="text-[10px] md:text-xs text-app-text-muted">{companyData?.signature?.role || 'Chairman & Founder Tech, Vedhunt'}</p>
               </div>
             </motion.div>
 

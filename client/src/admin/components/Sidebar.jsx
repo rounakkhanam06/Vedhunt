@@ -48,6 +48,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
         { name: 'Blogs & Videos', path: '/admin/cms/content' },
         { name: 'Testimonials', path: '/admin/testimonials' },
         { name: 'Our Presence', path: '/admin/presence' },
+        { name: 'About Page', path: '/admin/about' },
       ]
     },
     { name: 'Financials & Invoicing', path: '/admin/finance', icon: Wallet },

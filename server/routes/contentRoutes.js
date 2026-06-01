@@ -12,6 +12,8 @@ const validate = require('../middleware/validate');
 const { serviceCreateSchema, serviceUpdateSchema } = require('../validators/serviceValidator');
 const servicesHeroController = require('../controllers/servicesHeroController');
 const presenceController = require('../controllers/presenceController');
+const aboutHeroController = require('../controllers/aboutHeroController');
+const aboutCompanyController = require('../controllers/aboutCompanyController');
 
 const router = express.Router();
 
@@ -56,6 +58,10 @@ router.get('/navbar', navbarController.getNavbarLinksPublic);
 router.get('/services', serviceController.getServicesPublic);
 router.get('/services-hero', servicesHeroController.getServicesHero);
 
+// --- About Routes ---
+router.get('/about-hero', aboutHeroController.getAboutHero);
+router.get('/about-company', aboutCompanyController.getAboutCompany);
+
 // --- Admin routes (Below this uses Auth Middleware) ---
 router.use('/admin', authMiddleware, roleMiddleware('SUPER_ADMIN', 'EDITOR'));
 router.get('/admin/navbar', navbarController.getNavbarLinksAdmin); // paginated with search
@@ -68,6 +74,10 @@ router.get('/admin/services', serviceController.getServicesAdmin);
 router.post('/admin/services', validate(serviceCreateSchema), serviceController.createService);
 router.put('/admin/services/:id', validate(serviceUpdateSchema), serviceController.updateService);
 router.delete('/admin/services/:id', serviceController.deleteService);
+
+// Admin About Routes
+router.put('/admin/about-hero', aboutHeroController.updateAboutHero);
+router.put('/admin/about-company', aboutCompanyController.updateAboutCompany);
 
 // --- Presence Routes ---
 router.get('/presence', presenceController.getPresencePublic);

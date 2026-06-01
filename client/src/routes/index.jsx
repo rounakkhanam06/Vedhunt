@@ -41,6 +41,7 @@ const TestimonialManager = lazy(() => import('../admin/pages/TestimonialManager'
 const PricingManager = lazy(() => import('../admin/pages/PricingManager'));
 const HomePricingManager = lazy(() => import('../admin/pages/HomePricingManager'));
 const PresenceManager = lazy(() => import('../admin/pages/PresenceManager'));
+const AboutManager = lazy(() => import('../admin/pages/AboutManager'));
 
 // High-fidelity, smooth loading fallback component to display during chunk fetching
 const withSuspense = (Component) => (
@@ -212,6 +213,10 @@ export const router = createBrowserRouter([
           {
             path: 'presence',
             element: withSuspense(PresenceManager)
+          },
+          {
+            path: 'about',
+            element: withSuspense(AboutManager)
           },
           {
             path: '',

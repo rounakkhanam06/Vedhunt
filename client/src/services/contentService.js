@@ -12,6 +12,27 @@ export const contentService = {
     return response.data;
   },
 
+  // About Hero
+  getAboutHero: async () => {
+    const response = await api.get('/content/about-hero');
+    return response.data;
+  },
+
+  updateAboutHero: async (data) => {
+    const response = await api.put('/content/admin/about-hero', data);
+    return response.data;
+  },
+
+  getAboutCompany: async () => {
+    const response = await api.get('/content/about-company');
+    return response.data;
+  },
+
+  updateAboutCompany: async (data) => {
+    const response = await api.put('/content/admin/about-company', data);
+    return response.data;
+  },
+
   // Services Hero
   getServicesHero: async () => {
     const response = await api.get('/content/services-hero');
