@@ -80,7 +80,7 @@ export default function Navbar() {
         <div className={`w-full flex justify-between items-center pointer-events-auto transition-all duration-500 px-4 py-0 sm:py-0 rounded-full shadow-xl ${
           isScrolled 
             ? 'bg-white/90 dark:bg-[#0B0B14]/90 backdrop-blur-xl border border-slate-200/50 dark:border-white/10' 
-            : 'md:bg-transparent md:border-transparent md:shadow-none bg-white/70 dark:bg-[#1A1A2E]/30 backdrop-blur-md border border-slate-200/50 dark:border-primary/10'
+            : 'lg:bg-transparent lg:border-transparent lg:shadow-none bg-white/70 dark:bg-[#1A1A2E]/30 backdrop-blur-md border border-slate-200/50 dark:border-primary/10'
         }`}>
           
           {/* Top Left: Logo Section */}
@@ -95,7 +95,7 @@ export default function Navbar() {
           </div>
 
           {/* Centered Pill Navigation */}
-          <div className="absolute left-1/2 -translate-x-1/2 hidden md:block">
+          <div className="absolute left-1/2 -translate-x-1/2 hidden lg:block">
             <nav 
               className={`flex items-center justify-center gap-1 h-7 px-1.5 rounded-full border shadow-2xl transition-all duration-500 ${
                 isScrolled 
@@ -183,7 +183,7 @@ export default function Navbar() {
           </div>
 
           {/* Top Right: CTA Section */}
-          <div className="hidden md:flex items-center gap-4">
+          <div className="hidden lg:flex items-center gap-4">
             <ThemeToggle />
             <Link
               to="/get-quote"
@@ -195,7 +195,7 @@ export default function Navbar() {
           </div>
 
           {/* Mobile Navigation Trigger */}
-          <div className="md:hidden flex items-center gap-3">
+          <div className="lg:hidden flex items-center gap-3">
             <ThemeToggle />
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
@@ -215,7 +215,7 @@ export default function Navbar() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: -20 }}
               transition={{ duration: 0.2 }}
-              className="md:hidden mt-4 w-full max-h-[80vh] overflow-y-auto bg-white/95 dark:bg-[#1A1A2E]/95 backdrop-blur-2xl border border-app-border/50 dark:border-white/10 rounded-3xl shadow-2xl pointer-events-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+              className="lg:hidden mt-4 w-full max-h-[80vh] overflow-y-auto bg-white/95 dark:bg-[#1A1A2E]/95 backdrop-blur-2xl border border-app-border/50 dark:border-white/10 rounded-3xl shadow-2xl pointer-events-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
             >
               <div className="p-3 space-y-1.5">
                 {navLinks.map((link) => {

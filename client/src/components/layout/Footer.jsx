@@ -301,9 +301,9 @@ export default function Footer() {
             
             <div className="flex items-center gap-6">
               <div className="flex flex-wrap justify-center gap-4 text-app-text-muted text-[11px] sm:text-xs">
-                <Link to="/get-quote" className="hover:text-primary transition-colors">Privacy Policy</Link>
+                <Link to="/privacy-policy" className="hover:text-primary transition-colors">Privacy Policy</Link>
                 <span>•</span>
-                <Link to="/get-quote" className="hover:text-primary transition-colors">Terms of Service</Link>
+                <Link to="/terms-and-conditions" className="hover:text-primary transition-colors">Terms of Service</Link>
               </div>
 
               {/* Beautiful Rounded Scroll-to-Top Card */}

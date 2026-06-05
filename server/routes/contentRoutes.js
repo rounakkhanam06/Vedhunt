@@ -18,6 +18,8 @@ const aboutVideoController = require('../controllers/aboutVideoController');
 const aboutWhatWeDoController = require('../controllers/aboutWhatWeDoController');
 const aboutVisionMissionController = require('../controllers/aboutVisionMissionController');
 const aboutOurEdgeController = require('../controllers/aboutOurEdgeController');
+const careerHeroController = require('../controllers/careerHeroController');
+const lifeAtVedhuntController = require('../controllers/lifeAtVedhuntController');
 
 const router = express.Router();
 
@@ -62,6 +64,12 @@ router.get('/navbar', navbarController.getNavbarLinksPublic);
 router.get('/services', serviceController.getServicesPublic);
 router.get('/services-hero', servicesHeroController.getServicesHero);
 
+// --- Career Hero Route ---
+router.get('/career-hero', careerHeroController.getCareerHero);
+
+// --- Life at Vedhunt Route ---
+router.get('/life-at-vedhunt', lifeAtVedhuntController.getPublic);
+
 // --- About Routes ---
 router.get('/about-hero', aboutHeroController.getAboutHero);
 router.get('/about-company', aboutCompanyController.getAboutCompany);
@@ -90,6 +98,16 @@ router.put('/admin/about-video', aboutVideoController.updateAboutVideo);
 router.put('/admin/about-what-we-do', aboutWhatWeDoController.updateAboutWhatWeDo);
 router.put('/admin/about-vision-mission', aboutVisionMissionController.updateAboutVisionMission);
 router.put('/admin/about-our-edge', aboutOurEdgeController.updateAboutOurEdge);
+
+// Admin Career Hero Route
+router.put('/admin/career-hero', careerHeroController.updateCareerHero);
+
+// Admin Life at Vedhunt Routes
+router.get('/admin/life-at-vedhunt', lifeAtVedhuntController.getAdmin);
+router.put('/admin/life-at-vedhunt/header', lifeAtVedhuntController.updateHeader);
+router.post('/admin/life-at-vedhunt/cards', lifeAtVedhuntController.createCard);
+router.put('/admin/life-at-vedhunt/cards/:id', lifeAtVedhuntController.updateCard);
+router.delete('/admin/life-at-vedhunt/cards/:id', lifeAtVedhuntController.deleteCard);
 
 // --- Presence Routes ---
 router.get('/presence', presenceController.getPresencePublic);

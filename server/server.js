@@ -23,8 +23,12 @@ const pricingRoutes = require('./routes/pricingRoutes');
 const homePricingCardRoutes = require('./routes/homePricingCardRoutes');
 const { seedPortfolioData, seedPortfolioMetrics, seedPortfolioCTA } = require('./controllers/portfolioController');
 const { seedHomePricingCards } = require('./controllers/homePricingCardController');
+const { seedFaqData } = require('./controllers/faqController');
 const { seedBlogsAndSettings } = require('./controllers/blogSeeder');
 const blogRoutes = require('./routes/blogRoutes');
+const jobRoutes = require('./routes/jobRoutes');
+const applicationRoutes = require('./routes/applicationRoutes');
+const faqRoutes = require('./routes/faqRoutes');
 const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
@@ -47,6 +51,9 @@ if (process.env.NODE_ENV === 'production') {
 app.use(express.json()); // Body parser
 app.use(cookieParser()); // Cookie parser
 
+// Serve public directory for local uploads
+app.use(express.static(path.join(__dirname, 'public')));
+
 // Request Logging
 const morganFormat = process.env.NODE_ENV === 'production' ? 'combined' : 'dev';
 app.use(
@@ -66,6 +73,9 @@ app.use('/api/portfolio', portfolioRoutes);
 app.use('/api/pricing', pricingRoutes);
 app.use('/api/home-pricing', homePricingCardRoutes);
 app.use('/api/blogs', blogRoutes);
+app.use('/api/jobs', jobRoutes);
+app.use('/api/applications', applicationRoutes);
+app.use('/api/faq', faqRoutes);
 
 // Root route for API status
 app.get('/', (req, res) => {
@@ -99,6 +109,7 @@ mongoose
     await seedPortfolioCTA();
     await seedHomePricingCards();
     await seedBlogsAndSettings();
+    await seedFaqData();
 
     app.listen(PORT, () => {
       logger.info(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);

@@ -52,10 +52,10 @@ const PhoneCarousel3D = ({ items }) => {
             className="space-y-5"
           >
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20">
-               <span className="text-primary text-[10px] font-black uppercase tracking-widest">{activeItem.metric}</span>
+               <span className="text-primary text-[10px] font-bold uppercase tracking-widest">{activeItem.metric}</span>
             </div>
             
-            <h3 className="text-3xl sm:text-4xl lg:text-5xl font-black text-app-text leading-tight font-heading">
+            <h3 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-app-text leading-tight font-heading">
               {activeItem.title}
             </h3>
             
@@ -66,7 +66,7 @@ const PhoneCarousel3D = ({ items }) => {
             <div className="pt-4 flex flex-wrap gap-4 justify-center lg:justify-start">
               <Link
                 to="/get-quote"
-                className="inline-flex items-center gap-2 px-6 py-3.5 bg-primary hover:bg-primary-hover text-black font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5"
+                className="inline-flex items-center gap-2 px-6 py-3.5 bg-primary hover:bg-primary-hover text-black font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5"
               >
                 <span>Request Similar App</span>
                 <ArrowRight className="w-4 h-4" />
@@ -76,7 +76,7 @@ const PhoneCarousel3D = ({ items }) => {
                   href={activeItem.appLink}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-6 py-3.5 bg-app-card hover:bg-[#222] border border-app-border hover:border-primary/50 text-app-text font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-sm hover:shadow-md hover:-translate-y-0.5"
+                  className="inline-flex items-center gap-2 px-6 py-3.5 bg-app-card hover:bg-[#222] border border-app-border hover:border-primary/50 text-app-text font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-sm hover:shadow-md hover:-translate-y-0.5"
                 >
                   <span>Visit App</span>
                   <ArrowRight className="w-4 h-4" />
@@ -326,7 +326,7 @@ export default function ServiceDetails() {
                     <span>/</span>
                     <Link to="/services" className="hover:text-primary transition-colors">Services</Link>
                     <span>/</span>
-                    <span className="text-app-text font-black">{title}</span>
+                    <span className="text-app-text font-bold">{title}</span>
                   </nav>
                 </div>
 
@@ -342,12 +342,12 @@ export default function ServiceDetails() {
                   >
                     <motion.div variants={fadeUp} className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20">
                       <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                      <span className="text-primary text-[9px] font-black uppercase tracking-widest">{subtitle}</span>
+                      <span className="text-primary text-[9px] font-bold uppercase tracking-widest">{subtitle}</span>
                     </motion.div>
 
                     <motion.h1 
                       variants={fadeUp} 
-                      className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black font-heading text-app-text leading-tight tracking-tight"
+                      className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold font-heading text-app-text leading-tight tracking-tight"
                     >
                       {title}
                     </motion.h1>
@@ -362,14 +362,14 @@ export default function ServiceDetails() {
                     <motion.div variants={fadeUp} className="pt-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 w-full sm:w-auto">
                       <Link
                         to="/get-quote"
-                        className="w-full sm:w-auto text-center px-6 py-3.5 sm:py-2.5 bg-primary hover:bg-primary-hover text-black font-black text-[11px] sm:text-xs uppercase tracking-wider rounded-xl hover:shadow-[0_0_25px_rgba(232,71,10,0.4)] transition-all duration-300 transform hover:-translate-y-0.5 cursor-pointer"
+                        className="w-full sm:w-auto text-center px-6 py-3.5 sm:py-2.5 bg-primary hover:bg-primary-hover text-black font-bold text-[11px] sm:text-xs uppercase tracking-wider rounded-xl hover:shadow-[0_0_25px_rgba(232,71,10,0.4)] transition-all duration-300 transform hover:-translate-y-0.5 cursor-pointer"
                       >
                         Get Free Quote
                       </Link>
                       
                       <a
                         href="#overview"
-                        className="w-full sm:w-auto text-center px-5 py-3.5 sm:py-2.5 bg-app-card hover:bg-app-card/80 border border-app-border text-app-text font-black text-[11px] sm:text-xs uppercase tracking-wider rounded-xl transition-all duration-300 transform hover:-translate-y-0.5"
+                        className="w-full sm:w-auto text-center px-5 py-3.5 sm:py-2.5 bg-app-card hover:bg-app-card/80 border border-app-border text-app-text font-bold text-[11px] sm:text-xs uppercase tracking-wider rounded-xl transition-all duration-300 transform hover:-translate-y-0.5"
                       >
                         Explore Service
                       </a>
@@ -417,7 +417,7 @@ export default function ServiceDetails() {
                         {idx === 3 && <Headphones className="w-5 h-5" />}
                       </div>
                       <div className="space-y-1 sm:space-y-0.5 text-center sm:text-left px-2 sm:px-0">
-                        <h4 className="text-[11px] sm:text-xs font-black text-app-text tracking-wide uppercase leading-snug group-hover:text-primary transition-colors duration-300">{hl.text}</h4>
+                        <h4 className="text-[11px] sm:text-xs font-bold text-app-text tracking-wide uppercase leading-snug group-hover:text-primary transition-colors duration-300">{hl.text}</h4>
                         <p className="text-[10px] sm:text-[10px] text-app-text-muted font-medium leading-relaxed sm:leading-none">{hl.desc}</p>
                       </div>
                     </div>
@@ -438,11 +438,11 @@ export default function ServiceDetails() {
               <div className="max-w-3xl mx-auto px-4 text-center space-y-6">
                 <div className="inline-flex items-center gap-1.5 justify-center">
                   <span className="h-0.5 w-6 bg-primary rounded-full" />
-                  <h2 className="text-xs font-black uppercase text-primary tracking-[0.25em]">Service Overview</h2>
+                  <h2 className="text-xs font-bold uppercase text-primary tracking-[0.25em]">Service Overview</h2>
                   <span className="h-0.5 w-6 bg-primary rounded-full" />
                 </div>
                 
-                <h3 className="text-lg sm:text-xl md:text-2xl font-black text-app-text tracking-tight font-heading">
+                <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-app-text tracking-tight font-heading">
                   Why {title} Matters for Your Business Strategy
                 </h3>
                 
@@ -465,8 +465,8 @@ export default function ServiceDetails() {
                   variants={scrollReveal}
                   className="text-center max-w-2xl mx-auto mb-12 sm:mb-16"
                 >
-                  <h2 className="text-xs font-black uppercase text-primary tracking-[0.25em] mb-2">Our Capabilities</h2>
-                  <h3 className="text-lg sm:text-xl md:text-2xl font-black text-app-text tracking-tight font-heading">
+                  <h2 className="text-xs font-bold uppercase text-primary tracking-[0.25em] mb-2">Our Capabilities</h2>
+                  <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-app-text tracking-tight font-heading">
                     Comprehensive Sub-Services Matrix
                   </h3>
                   <p className="text-app-text-muted text-[11px] sm:text-xs font-medium mt-2">
@@ -494,7 +494,7 @@ export default function ServiceDetails() {
                           <IconComp className="w-5 h-5 transition-transform duration-300 group-hover:scale-110" />
                         </div>
                         
-                        <h4 className="text-sm sm:text-base font-black text-app-text mb-2 group-hover:text-primary transition-colors">
+                        <h4 className="text-sm sm:text-base font-bold text-app-text mb-2 group-hover:text-primary transition-colors">
                           {sub.title}
                         </h4>
                         
@@ -520,8 +520,8 @@ export default function ServiceDetails() {
                   variants={scrollReveal}
                   className="text-center max-w-2xl mx-auto mb-16"
                 >
-                  <h2 className="text-xs font-black uppercase text-primary tracking-[0.25em] mb-2">Our Workflow</h2>
-                  <h3 className="text-lg sm:text-xl md:text-2xl font-black text-app-text tracking-tight font-heading">
+                  <h2 className="text-xs font-bold uppercase text-primary tracking-[0.25em] mb-2">Our Workflow</h2>
+                  <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-app-text tracking-tight font-heading">
                     The Development & Execution Journey
                   </h3>
                   <p className="text-app-text-muted text-[11px] sm:text-xs font-medium mt-2">
@@ -571,14 +571,14 @@ export default function ServiceDetails() {
                       >
                         
                         {/* Step Number Circle */}
-                        <div className="w-14 h-14 shrink-0 rounded-full bg-app-bg border border-app-border flex items-center justify-center text-primary font-black text-sm shadow-sm group-hover:border-primary group-hover:shadow-md transition-all duration-300 relative z-10">
+                        <div className="w-14 h-14 shrink-0 rounded-full bg-app-bg border border-app-border flex items-center justify-center text-primary font-bold text-sm shadow-sm group-hover:border-primary group-hover:shadow-md transition-all duration-300 relative z-10">
                           <span className="relative z-10">{step.step}</span>
                           <div className="absolute inset-0.5 rounded-full bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                         </div>
 
                         {/* Title & Description */}
                         <div className="space-y-1.5 pt-2 lg:pt-0">
-                          <h4 className="text-[13px] sm:text-sm font-black text-app-text uppercase tracking-wide group-hover:text-primary transition-colors">
+                          <h4 className="text-[13px] sm:text-sm font-bold text-app-text uppercase tracking-wide group-hover:text-primary transition-colors">
                             {step.title}
                           </h4>
                           <p className="text-[11px] sm:text-[12px] text-app-text-muted leading-relaxed font-medium">
@@ -605,8 +605,8 @@ export default function ServiceDetails() {
                   variants={scrollReveal}
                   className="text-center max-w-2xl mx-auto mb-10"
                 >
-                  <h2 className="text-xs font-black uppercase text-primary tracking-[0.25em] mb-2">Pricing Models</h2>
-                  <h3 className="text-lg sm:text-xl md:text-2xl font-black text-app-text tracking-tight font-heading">
+                  <h2 className="text-xs font-bold uppercase text-primary tracking-[0.25em] mb-2">Pricing Models</h2>
+                  <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-app-text tracking-tight font-heading">
                     Transparent, Value-Optimized Packages
                   </h3>
                   <p className="text-app-text-muted text-[11px] sm:text-xs font-medium mt-2">
@@ -617,7 +617,7 @@ export default function ServiceDetails() {
                   <div className="mt-8 inline-flex items-center p-1 rounded-xl bg-app-card border border-app-border">
                     <button
                       onClick={() => setBillingCycle('primary')}
-                      className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all duration-300 ${
+                      className={`px-4 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all duration-300 ${
                         billingCycle === 'primary' 
                           ? 'bg-primary text-black shadow-sm' 
                           : 'text-app-text-muted hover:text-app-text'
@@ -627,7 +627,7 @@ export default function ServiceDetails() {
                     </button>
                     <button
                       onClick={() => setBillingCycle('secondary')}
-                      className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all duration-300 ${
+                      className={`px-4 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all duration-300 ${
                         billingCycle === 'secondary' 
                           ? 'bg-primary text-black shadow-sm' 
                           : 'text-app-text-muted hover:text-app-text'
@@ -692,7 +692,7 @@ export default function ServiceDetails() {
 
                         {/* Float Badge for Growth Plan */}
                         {plan.highlight && (
-                          <div className="absolute top-0 right-8 -translate-y-1/2 bg-primary text-black font-black uppercase text-[8px] tracking-widest px-4 py-1 rounded-full shadow-md z-10">
+                          <div className="absolute top-0 right-8 -translate-y-1/2 bg-primary text-black font-bold uppercase text-[8px] tracking-widest px-4 py-1 rounded-full shadow-md z-10">
                             Most Popular
                           </div>
                         )}
@@ -700,7 +700,7 @@ export default function ServiceDetails() {
                         <div className="space-y-4 relative z-10">
                           {/* Title Segment */}
                           <div className="space-y-0.5">
-                            <h4 className="text-lg sm:text-xl font-black text-app-text tracking-tight leading-tight uppercase font-heading group-hover:text-primary transition-colors duration-300">{plan.title}</h4>
+                            <h4 className="text-lg sm:text-xl font-bold text-app-text tracking-tight leading-tight uppercase font-heading group-hover:text-primary transition-colors duration-300">{plan.title}</h4>
                             <span className="font-signature text-lg md:text-xl text-app-text-muted font-normal tracking-wide block leading-none pt-0">
                               {plan.title === 'Starter' && 'Perfect for local brands.'}
                               {plan.title === 'Growth' && 'Best value for scaling.'}
@@ -710,12 +710,12 @@ export default function ServiceDetails() {
 
                           {/* Dynamic Price Display */}
                           <div className="py-2 border-y border-app-border">
-                            <span className="text-xl sm:text-2xl font-black text-app-text font-heading">{price}</span>
+                            <span className="text-xl sm:text-2xl font-bold text-app-text font-heading">{price}</span>
                           </div>
 
                           {/* Features Checklist */}
                           <div className="space-y-2.5 text-left pb-4">
-                            <p className="text-[9px] font-black text-app-text-muted uppercase tracking-widest">Key Deliverables</p>
+                            <p className="text-[9px] font-bold text-app-text-muted uppercase tracking-widest">Key Deliverables</p>
                             <ul className="space-y-2">
                               {plan.features.map((feature, fIdx) => (
                                 <li key={fIdx} className="flex items-start gap-2">
@@ -737,7 +737,7 @@ export default function ServiceDetails() {
                         <div className="pt-2 mt-auto relative z-10">
                           <Link
                             to="/get-quote"
-                            className="inline-flex items-center justify-center gap-2 w-full py-2.5 rounded-full bg-[#E8470A] hover:bg-[#D63D08] text-white font-extrabold text-[10px] uppercase tracking-widest transition-all duration-300 shadow-[0_6px_15px_rgba(232,71,10,0.25)] hover:shadow-[0_10px_22px_rgba(232,71,10,0.4)] hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
+                            className="inline-flex items-center justify-center gap-2 w-full py-2.5 rounded-full bg-[#E8470A] hover:bg-[#D63D08] text-white font-bold text-[10px] uppercase tracking-widest transition-all duration-300 shadow-[0_6px_15px_rgba(232,71,10,0.25)] hover:shadow-[0_10px_22px_rgba(232,71,10,0.4)] hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
                           >
                             <span>Get Started</span>
                             <ArrowRight className="w-3.5 h-3.5 stroke-[3]" />
@@ -763,8 +763,8 @@ export default function ServiceDetails() {
                   variants={scrollReveal}
                   className="text-center max-w-2xl mx-auto mb-12 sm:mb-16"
                 >
-                  <h2 className="text-xs font-black uppercase text-primary tracking-[0.25em] mb-2">Our Results</h2>
-                  <h3 className="text-lg sm:text-xl md:text-2xl font-black text-app-text tracking-tight font-heading">
+                  <h2 className="text-xs font-bold uppercase text-primary tracking-[0.25em] mb-2">Our Results</h2>
+                  <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-app-text tracking-tight font-heading">
                     Real-World Proof & Case Studies
                   </h3>
                   <p className="text-app-text-muted text-[11px] sm:text-xs font-medium mt-2">
@@ -817,10 +817,10 @@ export default function ServiceDetails() {
                         {/* Content */}
                         <div className="p-5 space-y-3 z-10 relative bg-app-card">
                           <div className="inline-block bg-primary/10 border border-primary/20 rounded-md px-2.5 py-0.5">
-                            <span className="text-primary text-[10px] font-black uppercase tracking-wider">{port.metric}</span>
+                            <span className="text-primary text-[10px] font-bold uppercase tracking-wider">{port.metric}</span>
                           </div>
                           
-                          <h4 className="text-sm sm:text-base font-black text-app-text group-hover:text-primary transition-colors">
+                          <h4 className="text-sm sm:text-base font-bold text-app-text group-hover:text-primary transition-colors">
                             {port.title}
                           </h4>
                           
@@ -847,8 +847,8 @@ export default function ServiceDetails() {
                   variants={scrollReveal}
                   className="text-center max-w-2xl mx-auto mb-12"
                 >
-                  <h2 className="text-xs font-black uppercase text-primary tracking-[0.25em] mb-2">Answering Queries</h2>
-                  <h3 className="text-lg sm:text-xl md:text-2xl font-black text-app-text tracking-tight font-heading">
+                  <h2 className="text-xs font-bold uppercase text-primary tracking-[0.25em] mb-2">Answering Queries</h2>
+                  <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-app-text tracking-tight font-heading">
                     Frequently Asked Questions
                   </h3>
                   <p className="text-app-text-muted text-[11px] sm:text-xs font-medium mt-2">
@@ -878,7 +878,7 @@ export default function ServiceDetails() {
                           onClick={() => setActiveFaq(isOpen ? null : idx)}
                           className="w-full py-4 px-5 text-left flex items-center justify-between gap-4 font-bold text-xs sm:text-sm text-app-text hover:text-primary transition-colors"
                         >
-                          <span className="font-black leading-snug">{faq.q}</span>
+                          <span className="font-bold leading-snug">{faq.q}</span>
                           <ChevronDown className={`w-4 h-4 text-app-text-muted/65 transition-transform duration-300 ${isOpen ? 'rotate-180 text-primary' : ''}`} />
                         </button>
 
@@ -1013,7 +1013,7 @@ export default function ServiceDetails() {
                       }}
                       className="space-y-0.5"
                     >
-                      <h4 className="text-xs sm:text-sm font-black text-app-text uppercase tracking-wide group-hover:text-primary transition-colors duration-300">
+                      <h4 className="text-xs sm:text-sm font-bold text-app-text uppercase tracking-wide group-hover:text-primary transition-colors duration-300">
                         {testimonial.author}
                       </h4>
                       <p className="text-[10px] text-app-text-muted font-bold uppercase tracking-widest">
@@ -1054,7 +1054,7 @@ export default function ServiceDetails() {
 
                   <div className="relative z-10 max-w-2xl mx-auto space-y-6 sm:space-y-8">
                     {/* Centered Heading */}
-                    <h3 className="text-xl sm:text-2xl md:text-3xl font-black font-heading text-app-text tracking-tight leading-tight">
+                    <h3 className="text-xl sm:text-2xl md:text-3xl font-bold font-heading text-app-text tracking-tight leading-tight">
                       Ready to Grow Your <span className="text-primary">Business Operations?</span>
                     </h3>
                     
@@ -1067,7 +1067,7 @@ export default function ServiceDetails() {
                     <div className="pt-2 flex flex-col sm:flex-row gap-4 items-center justify-center">
                       <Link
                         to="/get-quote"
-                        className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-3 bg-primary hover:bg-primary-hover text-black font-black text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-primary/25 hover:shadow-primary/45 transition-all duration-300 transform hover:-translate-y-0.5 cursor-pointer"
+                        className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-3 bg-primary hover:bg-primary-hover text-black font-bold text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-primary/25 hover:shadow-primary/45 transition-all duration-300 transform hover:-translate-y-0.5 cursor-pointer"
                       >
                         <span>Get Free Quote Now</span>
                         <ArrowRight className="w-4 h-4" />
@@ -1075,7 +1075,7 @@ export default function ServiceDetails() {
 
                       <Link
                         to="/portfolio"
-                        className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-3 bg-app-card hover:bg-app-border/50 text-app-text border border-app-border hover:border-primary/30 font-black text-xs uppercase tracking-wider rounded-xl transition-all duration-300 transform hover:-translate-y-0.5 cursor-pointer"
+                        className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-3 bg-app-card hover:bg-app-border/50 text-app-text border border-app-border hover:border-primary/30 font-bold text-xs uppercase tracking-wider rounded-xl transition-all duration-300 transform hover:-translate-y-0.5 cursor-pointer"
                       >
                         <span>Explore Portfolio</span>
                         <ArrowRight className="w-4 h-4 transition-transform" />
@@ -1098,11 +1098,11 @@ export default function ServiceDetails() {
                 >
                   <div className="space-y-0.5 hidden xs:block">
                     <p className="text-[9px] font-bold text-app-text-muted/65 uppercase tracking-widest">Selected Service</p>
-                    <p className="text-xs font-black text-app-text uppercase truncate max-w-[150px] sm:max-w-[200px]">{title}</p>
+                    <p className="text-xs font-bold text-app-text uppercase truncate max-w-[150px] sm:max-w-[200px]">{title}</p>
                   </div>
                   <Link
                     to="/get-quote"
-                    className="w-full xs:w-auto px-4 py-2 bg-primary hover:bg-primary-hover text-black font-black text-[10px] uppercase tracking-wider rounded-xl transition-all duration-300 text-center flex items-center justify-center gap-1 cursor-pointer"
+                    className="w-full xs:w-auto px-4 py-2 bg-primary hover:bg-primary-hover text-black font-bold text-[10px] uppercase tracking-wider rounded-xl transition-all duration-300 text-center flex items-center justify-center gap-1 cursor-pointer"
                   >
                     <span>Get Quote</span>
                     <ArrowRight className="w-3 h-3" />

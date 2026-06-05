@@ -13,51 +13,67 @@ import {
   Search,
   ChevronDown
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
+import api from '../services/api';
 import careerHeroImg from '../assets/services/career-new-hero.png';
 
-const OPEN_POSITIONS = [
-  {
-    id: 'react-architect',
-    title: 'Senior React & Next.js Architect',
-    department: 'Engineering',
-    location: 'Remote / Navi Mumbai',
-    type: 'Full Time',
-    experience: '4+ Years',
-    desc: 'Lead the architecture and development of scalable, high-performance web applications using React 19, Next.js, and modern state management ecosystems.'
-  },
-  {
-    id: 'ui-ux-lead',
-    title: 'UI/UX Designer & Design System Lead',
-    department: 'Creative Design',
-    location: 'Navi Mumbai',
-    type: 'Full Time',
-    experience: '3+ Years',
-    desc: 'Craft premium, high-converting visual layouts, micro-interactions, and maintain comprehensive design systems in Figma for enterprise clients.'
-  },
-  {
-    id: 'growth-marketer',
-    title: 'Senior Growth Marketer & PPC Specialist',
-    department: 'Marketing',
-    location: 'Remote / Navi Mumbai',
-    type: 'Full Time',
-    experience: '3+ Years',
-    desc: 'Scale client acquisition pipelines by managing high-budget Google Ads, Meta PPC, and LinkedIn ad campaigns with a focus on maximizing ROAS.'
-  },
-  {
-    id: 'python-bi-engineer',
-    title: 'Python Automation & Power BI Engineer',
-    department: 'Data & BI',
-    location: 'Navi Mumbai',
-    type: 'Full Time',
-    experience: '2+ Years',
-    desc: 'Build automated data extraction pipelines (ETL) and design advanced, interactive Power BI executive dashboards for international finance clients.'
-  }
-];
-
 export default function Career() {
-  const [isSubmitSuccess, setIsSubmitSuccess] = useState(false);
-  const [submittedData, setSubmittedData] = useState(null);
+  const navigate = useNavigate();
+  const [jobs, setJobs] = useState([]);
+  const [isLoadingJobs, setIsLoadingJobs] = useState(true);
+  const [heroData, setHeroData] = useState(null);
+  const [isLoadingHero, setIsLoadingHero] = useState(true);
+  const [lifeAtVedhuntData, setLifeAtVedhuntData] = useState(null);
+  const [isLoadingCulture, setIsLoadingCulture] = useState(true);
   const [fileName, setFileName] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  useEffect(() => {
+    fetchJobs();
+    fetchHeroData();
+    fetchLifeAtVedhunt();
+  }, []);
+
+  const fetchLifeAtVedhunt = async () => {
+    try {
+      setIsLoadingCulture(true);
+      const res = await api.get('/content/life-at-vedhunt');
+      if (res.data?.success && res.data?.data) {
+        setLifeAtVedhuntData(res.data.data);
+      }
+    } catch (error) {
+      console.error('Failed to load life at vedhunt content', error);
+    } finally {
+      setIsLoadingCulture(false);
+    }
+  };
+
+  const fetchHeroData = async () => {
+    try {
+      setIsLoadingHero(true);
+      const res = await api.get('/content/career-hero');
+      if (res.data?.success && res.data?.data) {
+        setHeroData(res.data.data);
+      }
+    } catch (error) {
+      console.error('Failed to load career hero content', error);
+    } finally {
+      setIsLoadingHero(false);
+    }
+  };
+
+  const fetchJobs = async () => {
+    try {
+      setIsLoadingJobs(true);
+      const res = await api.get('/jobs?status=Published');
+      setJobs(res.data || []);
+    } catch (error) {
+      console.error('Failed to load jobs', error);
+    } finally {
+      setIsLoadingJobs(false);
+    }
+  };
 
   const {
     register,
@@ -85,17 +101,82 @@ export default function Career() {
   const selectedPosition = watch('position');
   const selectedJob = selectedPosition === 'general' ? null : selectedPosition;
 
-  const onSubmitForm = (data) => {
-    const jobTitle = selectedJob ? OPEN_POSITIONS.find(p => p.id === selectedJob)?.title : 'General Application';
-    setSubmittedData({ ...data, jobTitle });
-    setIsSubmitSuccess(true);
-    reset();
-    setFileName('');
+  const onSubmitForm = async (data) => {
+    const jobInfo = selectedJob ? jobs.find(p => p._id === selectedJob) : null;
+    const jobTitle = jobInfo ? jobInfo.title : 'General Application';
+    
+    // Create FormData for multipart submission
+    const formData = new FormData();
+    if (jobInfo) formData.append('jobId', jobInfo._id);
+    formData.append('fullName', data.fullName);
+    formData.append('email', data.email);
+    formData.append('phone', data.phone);
+    formData.append('experienceYears', data.experience);
+    if (data.currentCTC) formData.append('currentCTC', data.currentCTC);
+    if (data.expectedCTC) formData.append('expectedCTC', data.expectedCTC);
+    if (data.noticePeriod) formData.append('noticePeriod', data.noticePeriod);
+    if (data.linkedinUrl) formData.append('linkedinUrl', data.linkedinUrl);
+    if (data.portfolioUrl) formData.append('portfolioUrl', data.portfolioUrl);
+    if (data.message) formData.append('coverLetter', data.message);
+    
+    const fileInput = document.getElementById('resume-upload');
+    if (fileInput && fileInput.files[0]) {
+      formData.append('resume', fileInput.files[0]);
+    } else {
+      toast.error("Resume is required");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await api.post('/applications', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      reset();
+      setFileName('');
+      setFileError('');
+      if (fileInput) fileInput.value = '';
+      
+      // Redirect to success page
+      navigate('/career/success', { state: { fullName: data.fullName, jobTitle } });
+    } catch (error) {
+      const apiErrors = error.response?.data?.errors;
+      if (apiErrors && apiErrors.length > 0) {
+        apiErrors.forEach(e => toast.error(`${e.field}: ${e.message}`));
+      } else {
+        toast.error(error.response?.data?.message || 'Failed to submit application');
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const onInvalid = (errors) => {
+    Object.values(errors).forEach(error => {
+      toast.error(error.message);
+    });
   };
 
   const handleFileUpload = (e) => {
     if (e.target.files && e.target.files[0]) {
-      setFileName(e.target.files[0].name);
+      const file = e.target.files[0];
+      const validTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+      
+      if (!validTypes.includes(file.type)) {
+        toast.error('Invalid file type. Only PDF and DOC/DOCX are allowed.');
+        e.target.value = '';
+        setFileName('');
+        return;
+      }
+      
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error('File size exceeds 5MB limit.');
+        e.target.value = '';
+        setFileName('');
+        return;
+      }
+      
+      setFileName(file.name);
     }
   };
 
@@ -125,22 +206,31 @@ export default function Career() {
           
           {/* Left Content */}
           <div className="flex-1 space-y-4 lg:space-y-6 z-10 w-full max-w-xl text-center lg:text-left pt-0">
-            <motion.h1 
-              initial={{ opacity: 0, x: -30 }}
-              animate={{ opacity: 1, x: 0 }}
-              className="text-4xl lg:text-5xl font-medium font-heading text-app-text leading-snug"
-            >
-              Join the <span className="text-primary font-semibold">Vedhunt Team</span>
-            </motion.h1>
+            {isLoadingHero ? (
+              <div className="animate-pulse space-y-4">
+                <div className="h-12 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
+                <div className="h-20 bg-gray-200 dark:bg-gray-700 rounded w-full"></div>
+              </div>
+            ) : (
+              <>
+                <motion.h1 
+                  initial={{ opacity: 0, x: -30 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  className="text-4xl lg:text-5xl font-medium font-heading text-app-text leading-snug"
+                >
+                  {heroData?.headingTop || 'Join the'} <span className="text-primary font-semibold">{heroData?.headingHighlight || 'Vedhunt Team'}</span>
+                </motion.h1>
 
-            <motion.p 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              className="text-app-text-muted text-sm max-w-md mx-auto lg:mx-0 leading-relaxed"
-            >
-              Build elite, high-performance digital products with a team of passionate engineers, creative designers, and strategic marketers.
-            </motion.p>
+                <motion.p 
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2 }}
+                  className="text-app-text-muted text-sm max-w-md mx-auto lg:mx-0 leading-relaxed"
+                >
+                  {heroData?.description || 'Build elite, high-performance digital products with a team of passionate engineers, creative designers, and strategic marketers.'}
+                </motion.p>
+              </>
+            )}
 
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -169,7 +259,7 @@ export default function Career() {
             >
               <h3 className="text-[11px] uppercase tracking-wider font-semibold text-app-text-muted mb-2.5">Why Work With Us</h3>
               <div className="flex flex-wrap gap-2 justify-center lg:justify-start">
-                {['Growth Opportunities', 'Flexible Work', 'Learning Culture', 'Competitive Pay', 'Team Culture'].map((benefit, i) => (
+                {(heroData?.benefits?.length > 0 ? heroData.benefits : ['Growth Opportunities', 'Flexible Work', 'Learning Culture', 'Competitive Pay', 'Team Culture']).map((benefit, i) => (
                   <span key={i} className="px-2 py-1 bg-app-card hover:bg-primary/10 border border-app-border/50 hover:border-primary/30 rounded text-[10px] font-medium text-app-text-muted hover:text-app-text transition-colors cursor-default flex items-center gap-1.5">
                     <CheckCircle2 className="w-3 h-3 text-primary" />
                     {benefit}
@@ -210,12 +300,22 @@ export default function Career() {
             </div>
 
             <div className="space-y-4">
-              {OPEN_POSITIONS.map((job) => (
+              {isLoadingJobs ? (
+                <div className="text-center py-12">
+                  <div className="w-8 h-8 rounded-full border-2 border-primary/20 border-t-primary animate-spin mx-auto" />
+                  <p className="text-sm text-app-text-muted mt-4">Loading open positions...</p>
+                </div>
+              ) : jobs.length === 0 ? (
+                <div className="text-center py-12 bg-app-card rounded-xl border border-app-border">
+                  <p className="text-app-text-muted">No open positions right now. Check back later!</p>
+                </div>
+              ) : (
+                jobs.map((job) => (
                 <motion.div
-                  key={job.id}
+                  key={job._id}
                   whileHover={{ scale: 1.01 }}
                   onClick={() => {
-                    setValue('position', job.id);
+                    setValue('position', job._id);
                     setTimeout(() => {
                       const formEl = document.getElementById('application-form');
                       if (formEl) {
@@ -224,12 +324,12 @@ export default function Career() {
                     }, 50);
                   }}
                   className={`p-6 rounded-2xl border transition-all duration-300 cursor-pointer relative overflow-hidden group flex flex-col justify-between ${
-                    selectedJob === job.id
+                    selectedJob === job._id
                       ? 'bg-white dark:bg-app-card border-primary shadow-[0_10px_30px_rgba(232,71,10,0.15)]'
                       : 'bg-white dark:bg-app-card border-slate-100 dark:border-app-border hover:border-primary/30 shadow-sm dark:shadow-none hover:shadow-lg dark:hover:shadow-none'
                   }`}
                 >
-                  {selectedJob === job.id && (
+                  {selectedJob === job._id && (
                     <div className="absolute top-0 left-0 w-1.5 h-full bg-primary" />
                   )}
 
@@ -247,7 +347,7 @@ export default function Career() {
                       </span>
                     </div>
 
-                    <p className="text-xs text-slate-600 dark:text-app-text-muted leading-relaxed">{job.desc}</p>
+                    <p className="text-xs text-slate-600 dark:text-app-text-muted leading-relaxed whitespace-pre-line line-clamp-3">{job.description}</p>
 
                     <div className="flex flex-wrap items-center gap-4 text-[11px] text-slate-500 dark:text-app-text-muted/80 pt-2 border-t border-slate-100 dark:border-app-border/50">
                       <div className="flex items-center gap-1.5">
@@ -265,7 +365,7 @@ export default function Career() {
                     Apply Now <ArrowRight className="w-3.5 h-3.5" />
                   </button>
                 </motion.div>
-              ))}
+              )))}
             </div>
           </motion.div>
 
@@ -297,13 +397,12 @@ export default function Career() {
               </div>
 
               <AnimatePresence mode="wait">
-                {!isSubmitSuccess ? (
                   <motion.form
                     key="career-apply-form"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    onSubmit={handleSubmit(onSubmitForm)}
+                    onSubmit={handleSubmit(onSubmitForm, onInvalid)}
                     className="space-y-6"
                   >
                     {/* Position Applying For */}
@@ -319,18 +418,12 @@ export default function Career() {
                           {...register('position', { required: 'Please select a position' })}
                         >
                           <option value="general" className="bg-app-bg text-app-text">General Application</option>
-                          {OPEN_POSITIONS.map(job => (
-                            <option key={job.id} value={job.id} className="bg-app-bg text-app-text">{job.title}</option>
+                          {jobs.map(job => (
+                            <option key={job._id} value={job._id} className="bg-app-bg text-app-text">{job.title}</option>
                           ))}
                         </select>
                         <ChevronDown className="absolute right-0 top-1/2 -translate-y-1/2 w-4 h-4 text-app-text-muted pointer-events-none" />
                       </div>
-                      {errors.position && (
-                        <div className="flex items-center gap-1 text-[11px] text-red-500 mt-1 animate-pulse">
-                          <AlertCircle className="w-3.5 h-3.5" />
-                          <span>{errors.position.message}</span>
-                        </div>
-                      )}
                     </div>
                     {/* Full Name */}
                     <div className="space-y-1.5 text-left relative group">
@@ -343,14 +436,13 @@ export default function Career() {
                         className={`w-full bg-transparent border-b-2 py-2 text-black dark:text-white focus:outline-none focus:border-primary transition-colors text-sm font-medium placeholder:text-gray-500 ${
                           errors.fullName ? 'border-red-500/50 focus:border-red-500' : 'border-black/20 dark:border-white/20'
                         }`}
-                        {...register('fullName', { required: 'Full name is required' })}
+                        {...register('fullName', { 
+                          required: 'Full name is required',
+                          minLength: { value: 2, message: 'Minimum 2 characters required' },
+                          maxLength: { value: 100, message: 'Maximum 100 characters allowed' },
+                          pattern: { value: /^[a-zA-Z\s]+$/, message: 'Only letters and spaces allowed' }
+                        })}
                       />
-                      {errors.fullName && (
-                        <div className="flex items-center gap-1 text-[11px] text-red-500 mt-1 animate-pulse">
-                          <AlertCircle className="w-3.5 h-3.5" />
-                          <span>{errors.fullName.message}</span>
-                        </div>
-                      )}
                     </div>
 
                     {/* Email Address */}
@@ -372,12 +464,6 @@ export default function Career() {
                           }
                         })}
                       />
-                      {errors.email && (
-                        <div className="flex items-center gap-1 text-[11px] text-red-500 mt-1 animate-pulse">
-                          <AlertCircle className="w-3.5 h-3.5" />
-                          <span>{errors.email.message}</span>
-                        </div>
-                      )}
                     </div>
 
                     {/* Phone Number */}
@@ -391,14 +477,14 @@ export default function Career() {
                         className={`w-full bg-transparent border-b-2 py-2 text-black dark:text-white focus:outline-none focus:border-primary transition-colors text-sm font-medium placeholder:text-gray-500 ${
                           errors.phone ? 'border-red-500/50 focus:border-red-500' : 'border-black/20 dark:border-white/20'
                         }`}
-                        {...register('phone', { required: 'Phone number is required' })}
+                        {...register('phone', { 
+                          required: 'Phone number is required',
+                          pattern: {
+                            value: /^\+?[0-9\s-]{10,15}$/,
+                            message: 'Please enter a valid 10-15 digit phone number'
+                          }
+                        })}
                       />
-                      {errors.phone && (
-                        <div className="flex items-center gap-1 text-[11px] text-red-500 mt-1 animate-pulse">
-                          <AlertCircle className="w-3.5 h-3.5" />
-                          <span>{errors.phone.message}</span>
-                        </div>
-                      )}
                     </div>
 
                     {/* Years of Experience */}
@@ -412,14 +498,13 @@ export default function Career() {
                         className={`w-full bg-transparent border-b-2 py-2 text-black dark:text-white focus:outline-none focus:border-primary transition-colors text-sm font-medium placeholder:text-gray-500 ${
                           errors.experience ? 'border-red-500/50 focus:border-red-500' : 'border-black/20 dark:border-white/20'
                         }`}
-                        {...register('experience', { required: 'Experience is required' })}
+                        {...register('experience', { 
+                          required: 'Experience is required',
+                          pattern: { value: /^\d+$/, message: 'Please enter a valid number' },
+                          min: { value: 0, message: 'Cannot be negative' },
+                          max: { value: 50, message: 'Cannot exceed 50 years' }
+                        })}
                       />
-                      {errors.experience && (
-                        <div className="flex items-center gap-1 text-[11px] text-red-500 mt-1 animate-pulse">
-                          <AlertCircle className="w-3.5 h-3.5" />
-                          <span>{errors.experience.message}</span>
-                        </div>
-                      )}
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -432,7 +517,9 @@ export default function Career() {
                           type="text"
                           placeholder="e.g. 12 LPA"
                           className="w-full bg-transparent border-b-2 py-2 text-black dark:text-white focus:outline-none focus:border-primary transition-colors text-sm font-medium placeholder:text-gray-500 border-black/20 dark:border-white/20"
-                          {...register('currentCTC')}
+                          {...register('currentCTC', {
+                            pattern: { value: /^\d+(\.\d+)?$/, message: 'Must be a valid number' }
+                          })}
                         />
                       </div>
 
@@ -445,7 +532,9 @@ export default function Career() {
                           type="text"
                           placeholder="e.g. 15 LPA"
                           className="w-full bg-transparent border-b-2 py-2 text-black dark:text-white focus:outline-none focus:border-primary transition-colors text-sm font-medium placeholder:text-gray-500 border-black/20 dark:border-white/20"
-                          {...register('expectedCTC')}
+                          {...register('expectedCTC', {
+                            pattern: { value: /^\d+(\.\d+)?$/, message: 'Must be a valid number' }
+                          })}
                         />
                       </div>
                     </div>
@@ -459,7 +548,9 @@ export default function Career() {
                         type="text"
                         placeholder="e.g. 30 days, Immediate"
                         className="w-full bg-transparent border-b-2 py-2 text-black dark:text-white focus:outline-none focus:border-primary transition-colors text-sm font-medium placeholder:text-gray-500 border-black/20 dark:border-white/20"
-                        {...register('noticePeriod')}
+                        {...register('noticePeriod', {
+                          maxLength: { value: 50, message: 'Maximum 50 characters allowed' }
+                        })}
                       />
                     </div>
 
@@ -472,7 +563,9 @@ export default function Career() {
                         type="url"
                         placeholder="https://linkedin.com/in/username"
                         className="w-full bg-transparent border-b-2 py-2 text-black dark:text-white focus:outline-none focus:border-primary transition-colors text-sm font-medium placeholder:text-gray-500 border-black/20 dark:border-white/20"
-                        {...register('linkedinUrl')}
+                        {...register('linkedinUrl', {
+                          pattern: { value: /^https?:\/\/.*/, message: 'Must be a valid URL starting with http/https' }
+                        })}
                       />
                     </div>
 
@@ -485,7 +578,9 @@ export default function Career() {
                         type="url"
                         placeholder="https://yourportfolio.com"
                         className="w-full bg-transparent border-b-2 py-2 text-black dark:text-white focus:outline-none focus:border-primary transition-colors text-sm font-medium placeholder:text-gray-500 border-black/20 dark:border-white/20"
-                        {...register('portfolioUrl')}
+                        {...register('portfolioUrl', {
+                          pattern: { value: /^https?:\/\/.*/, message: 'Must be a valid URL starting with http/https' }
+                        })}
                       />
                     </div>
 
@@ -497,6 +592,7 @@ export default function Career() {
                       
                       <div className="relative border-2 border-dashed border-app-border hover:border-primary/50 bg-app-bg/50 rounded-2xl p-6 text-center transition-all group cursor-pointer">
                         <input
+                          id="resume-upload"
                           type="file"
                           accept=".pdf,.doc,.docx"
                           onChange={handleFileUpload}
@@ -530,48 +626,22 @@ export default function Career() {
                         rows="2"
                         placeholder="Briefly explain why you're a great fit for this role..."
                         className="w-full bg-transparent border-b-2 py-2 text-black dark:text-white focus:outline-none focus:border-primary transition-all resize-none text-sm font-medium placeholder:text-gray-500 border-black/20 dark:border-white/20"
-                        {...register('message')}
+                        {...register('message', {
+                          maxLength: { value: 1000, message: 'Maximum 1000 characters allowed' }
+                        })}
                       />
                     </div>
 
                     {/* Action Button */}
                     <button
                       type="submit"
-                      className="w-full py-3 bg-primary hover:bg-primary-hover text-black font-extrabold text-xs uppercase tracking-widest rounded-full transition-all duration-300 shadow-[0_10px_25px_rgba(232,71,10,0.22)] hover:shadow-[0_12px_35px_rgba(232,71,10,0.45)] hover:-translate-y-0.5 flex items-center justify-center gap-2 cursor-pointer"
+                      disabled={isSubmitting}
+                      className="w-full py-3 bg-primary hover:bg-primary-hover text-black font-extrabold text-xs uppercase tracking-widest rounded-full transition-all duration-300 shadow-[0_10px_25px_rgba(232,71,10,0.22)] hover:shadow-[0_12px_35px_rgba(232,71,10,0.45)] hover:-translate-y-0.5 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-70"
                     >
-                      <span>Submit Application</span>
+                      <span>{isSubmitting ? 'Submitting...' : 'Submit Application'}</span>
                       <ArrowRight className="w-4 h-4" />
                     </button>
-
                   </motion.form>
-                ) : (
-                  /* Success Screen */
-                  <motion.div
-                    key="career-success-box"
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="text-center space-y-6 py-8"
-                  >
-                    <div className="w-16 h-16 rounded-full bg-primary/10 border border-primary/20 text-primary flex items-center justify-center mx-auto shadow-[0_0_35px_rgba(232,71,10,0.25)]">
-                      <CheckCircle2 className="w-9 h-9 animate-bounce" />
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <h3 className="text-xl font-bold font-heading text-app-text">Application Received!</h3>
-                      <p className="text-xs text-app-text-muted leading-relaxed">
-                        Thank you for applying, <strong className="text-app-text">{submittedData?.fullName}</strong>. Our engineering & HR leads will review your profile for the <strong className="text-primary">{submittedData?.jobTitle}</strong> position and get back to you within 48 hours.
-                      </p>
-                    </div>
-
-                    <button
-                      onClick={() => setIsSubmitSuccess(false)}
-                      className="px-6 py-2.5 bg-primary/10 hover:bg-primary/20 border border-primary/30 text-primary hover:text-white rounded-full text-xs font-extrabold uppercase tracking-widest transition-all mx-auto flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <span>Apply for Another Role</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </button>
-                  </motion.div>
-                )}
               </AnimatePresence>
 
             </div>
@@ -583,94 +653,55 @@ export default function Career() {
         <div className="mt-20 pt-16 border-t border-app-border/30">
           <div className="text-center mb-12">
             <h2 className="text-3xl md:text-4xl font-bold font-heading text-app-text mb-4">
-              Life at <span className="text-primary">Vedhunt</span>
+              {lifeAtVedhuntData?.header?.heading || 'Life at'} <span className="text-primary">{lifeAtVedhuntData?.header?.highlightText || 'Vedhunt'}</span>
             </h2>
             <p className="text-app-text-muted text-sm md:text-base max-w-2xl mx-auto leading-relaxed">
-              We believe in working hard, innovating continuously, and having fun along the way. Discover our vibrant culture, modern workspaces, and the incredible people driving our vision.
+              {lifeAtVedhuntData?.header?.description || 'We believe in working hard, innovating continuously, and having fun along the way. Discover our vibrant culture, modern workspaces, and the incredible people driving our vision.'}
             </p>
           </div>
 
-          <motion.div 
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: "-50px" }}
-            variants={{
-              hidden: { opacity: 0 },
-              visible: {
-                opacity: 1,
-                transition: { staggerChildren: 0.15 }
-              }
-            }}
-            className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-6 auto-rows-[180px] lg:auto-rows-[200px]"
-          >
-            {/* Card 1 (Top Left) - 1x */}
+          {isLoadingCulture ? (
+            <div className="flex justify-center py-12">
+              <div className="w-8 h-8 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
+            </div>
+          ) : (
             <motion.div 
-              variants={{ hidden: { opacity: 0, y: 30 }, visible: { opacity: 1, y: 0 } }}
-              className="col-span-1 rounded-3xl overflow-hidden relative group cursor-pointer shadow-[0_10px_30px_rgba(0,0,0,0.4)]"
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true, margin: "-50px" }}
+              variants={{
+                hidden: { opacity: 0 },
+                visible: {
+                  opacity: 1,
+                  transition: { staggerChildren: 0.15 }
+                }
+              }}
+              className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-6 auto-rows-[180px] lg:auto-rows-[200px]"
             >
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent z-10 pointer-events-none" />
-              <img 
-                src="https://images.unsplash.com/photo-1573164713988-8665fc963095?auto=format&fit=crop&q=80&w=600" 
-                alt="Modern Workspace" 
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-              />
-              <div className="absolute bottom-6 left-6 z-20">
-                <span className="px-3 py-1 bg-white/90 text-black text-[10px] font-bold rounded uppercase tracking-wider mb-2 inline-block shadow-lg">Workspace</span>
-                <h3 className="text-white text-lg font-bold font-heading">Modern Tools</h3>
-              </div>
+              {lifeAtVedhuntData?.cards?.map((card, idx) => (
+                <motion.div 
+                  key={card.title + idx}
+                  variants={{ hidden: { opacity: 0, y: 30 }, visible: { opacity: 1, y: 0 } }}
+                  className={`${card.span === '2x' ? 'md:col-span-2' : 'col-span-1'} rounded-3xl overflow-hidden relative group cursor-pointer shadow-[0_10px_30px_rgba(0,0,0,0.4)]`}
+                >
+                  <div className={`absolute inset-0 bg-gradient-to-t from-black/80 ${card.span === '2x' ? 'via-black/20' : 'via-transparent'} to-transparent ${card.span === '2x' ? 'group-hover:via-black/10 transition-colors duration-500' : ''} z-10 pointer-events-none`} />
+                  <img 
+                    src={card.image} 
+                    alt={card.title} 
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                  />
+                  <div className="absolute bottom-6 left-6 z-20">
+                    <span className={`px-3 py-1 ${card.span === '2x' ? 'bg-primary text-black text-xs' : 'bg-white/90 text-black text-[10px]'} font-bold rounded uppercase tracking-wider mb-2 inline-block shadow-lg`}>
+                      {card.tag}
+                    </span>
+                    <h3 className={`text-white ${card.span === '2x' ? 'text-2xl' : 'text-lg'} font-bold font-heading`}>
+                      {card.title}
+                    </h3>
+                  </div>
+                </motion.div>
+              ))}
             </motion.div>
-
-            {/* Card 2 (Top Right) - 2x */}
-            <motion.div 
-              variants={{ hidden: { opacity: 0, y: 30 }, visible: { opacity: 1, y: 0 } }}
-              className="md:col-span-2 rounded-3xl overflow-hidden relative group cursor-pointer shadow-[0_10px_30px_rgba(0,0,0,0.4)]"
-            >
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent group-hover:via-black/10 transition-colors duration-500 z-10 pointer-events-none" />
-              <img 
-                src="https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&q=80&w=1200" 
-                alt="Team Collaboration" 
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-              />
-              <div className="absolute bottom-6 left-6 z-20">
-                <span className="px-3 py-1 bg-primary text-black text-xs font-bold rounded uppercase tracking-wider mb-2 inline-block shadow-lg">Our Team</span>
-                <h3 className="text-white text-2xl font-bold font-heading">Collaborating on the future</h3>
-              </div>
-            </motion.div>
-
-            {/* Card 3 (Bottom Left) - 2x */}
-            <motion.div 
-              variants={{ hidden: { opacity: 0, y: 30 }, visible: { opacity: 1, y: 0 } }}
-              className="md:col-span-2 rounded-3xl overflow-hidden relative group cursor-pointer shadow-[0_10px_30px_rgba(0,0,0,0.4)]"
-            >
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent z-10 pointer-events-none" />
-              <img 
-                src="https://images.unsplash.com/photo-1542744173-8e7e53415bb0?auto=format&fit=crop&q=80&w=1200" 
-                alt="Culture" 
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-              />
-              <div className="absolute bottom-6 left-6 z-20">
-                <span className="px-3 py-1 bg-white/90 text-black text-[10px] font-bold rounded uppercase tracking-wider mb-2 inline-block shadow-lg">Culture</span>
-                <h3 className="text-white text-2xl font-bold font-heading">Continuous Learning</h3>
-              </div>
-            </motion.div>
-
-            {/* Card 4 (Bottom Right) - 1x */}
-            <motion.div 
-              variants={{ hidden: { opacity: 0, y: 30 }, visible: { opacity: 1, y: 0 } }}
-              className="col-span-1 rounded-3xl overflow-hidden relative group cursor-pointer shadow-[0_10px_30px_rgba(0,0,0,0.4)]"
-            >
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent z-10 pointer-events-none" />
-              <img 
-                src="https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&q=80&w=600" 
-                alt="Growth" 
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-              />
-              <div className="absolute bottom-6 left-6 z-20">
-                <span className="px-3 py-1 bg-primary text-black text-[10px] font-bold rounded uppercase tracking-wider mb-2 inline-block shadow-lg">Growth</span>
-                <h3 className="text-white text-lg font-bold font-heading">Join Us</h3>
-              </div>
-            </motion.div>
-          </motion.div>
+          )}
         </div>
 
       </div>

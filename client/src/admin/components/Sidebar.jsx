@@ -3,7 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, Users, ChevronDown, ChevronRight, Activity, 
   Briefcase, FileText, Wallet, ShieldCheck, Settings, LogOut, X,
-  Image as ImageIcon, Tag
+  Image as ImageIcon, Tag, UserPlus
 } from 'lucide-react';
 import { useAdminStore } from '../../store/useAdminStore';
 import darkLogo from '../../assets/DarkthemeLogo.png';
@@ -12,7 +12,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
   const { logout, admin } = useAdminStore();
   const navigate = useNavigate();
   const location = useLocation();
-  const [openDropdowns, setOpenDropdowns] = useState({ leads: true, cms: false, pricing: false });
+  const [openDropdowns, setOpenDropdowns] = useState({ leads: true, cms: false, pricing: false, careers: false });
 
   const handleLogout = async () => {
     await logout();
@@ -49,6 +49,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
         { name: 'Testimonials', path: '/admin/testimonials' },
         { name: 'Our Presence', path: '/admin/presence' },
         { name: 'About Page', path: '/admin/about' },
+        { name: 'FAQ Page', path: '/admin/faq' },
       ]
     },
     { name: 'Financials & Invoicing', path: '/admin/finance', icon: Wallet },
@@ -59,6 +60,17 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
       subItems: [
         { name: 'Home Pricing Cards', path: '/admin/home-pricing' },
         { name: 'Pricing Plan', path: '/admin/pricing' },
+      ]
+    },
+    { 
+      name: 'Careers CMS', 
+      icon: UserPlus,
+      dropdownKey: 'careers',
+      subItems: [
+        { name: 'Career Hero', path: '/admin/career-hero' },
+        { name: 'Life at Vedhunt', path: '/admin/life-at-vedhunt' },
+        { name: 'Job Manager', path: '/admin/jobs' },
+        { name: 'Applications', path: '/admin/applications' },
       ]
     },
     { name: 'Team Management', path: '/admin/team', icon: ShieldCheck },

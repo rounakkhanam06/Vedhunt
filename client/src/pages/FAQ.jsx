@@ -1,50 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { ChevronDown, MapPin, Mail, Phone, ArrowRight } from 'lucide-react';
+import { ChevronDown, MapPin, Mail, Phone, ArrowRight, Loader2 } from 'lucide-react';
 import faqImage from '../assets/footer-illustration/undraw_mobile-assistant_iifm.svg';
-
-const faqsSection1 = [
-  {
-    question: "How long does it take to create an article?",
-    answer: "Far far away, behind the word mountains, far from the countries Vokalia and Consonantia, there live the blind texts. Separated they live in Bookmarksgrove right at the coast."
-  },
-  {
-    question: "How much does it cost for a consultation on SEO?",
-    answer: "Our SEO consultation costs depend on the scope of your project. We offer customized packages to fit your business needs. Contact us for a detailed quote."
-  },
-  {
-    question: "What payment methods are available?",
-    answer: "We accept all major credit cards, bank transfers, and standard online payment gateways. Flexible payment plans are also available for larger projects."
-  }
-];
-
-const faqsSection2 = [
-  {
-    question: "How long does it take to create an article?",
-    answer: "Far far away, behind the word mountains, far from the countries Vokalia and Consonantia, there live the blind texts. Separated they live in Bookmarksgrove right at the coast."
-  },
-  {
-    question: "How much does it cost for a consultation on SEO?",
-    answer: "Our SEO consultation costs depend on the scope of your project. We offer customized packages to fit your business needs."
-  },
-  {
-    question: "What payment methods are available?",
-    answer: "We accept all major credit cards, bank transfers, and standard online payment gateways."
-  },
-  {
-    question: "Do you offer ongoing support after project completion?",
-    answer: "Yes, we provide ongoing maintenance and support packages to ensure your digital assets continue to perform optimally."
-  },
-  {
-    question: "Can you help redesign an existing website?",
-    answer: "Absolutely. We specialize in revamping outdated websites with modern design, improved UX/UI, and better performance metrics."
-  },
-  {
-    question: "What industries do you specialize in?",
-    answer: "We work across various industries including healthcare, e-commerce, real estate, education, and enterprise SaaS solutions."
-  }
-];
+import { faqService } from '../services/faqService';
 
 const AccordionItem = ({ question, answer, isOpen, onClick }) => {
   return (
@@ -68,7 +27,7 @@ const AccordionItem = ({ question, answer, isOpen, onClick }) => {
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.3, ease: "easeInOut" }}
           >
-            <div className="px-6 py-5 text-app-text-muted text-sm leading-relaxed border-t border-app-border bg-app-bg dark:bg-app-card/50">
+            <div className="px-6 py-5 text-app-text-muted text-sm leading-relaxed border-t border-app-border bg-app-bg dark:bg-app-card/50 whitespace-pre-wrap">
               {answer}
             </div>
           </motion.div>
@@ -81,17 +40,57 @@ const AccordionItem = ({ question, answer, isOpen, onClick }) => {
 export default function FAQ() {
   const [openIndex1, setOpenIndex1] = useState(0);
   const [openIndex2, setOpenIndex2] = useState(0);
+  const [content, setContent] = useState(null);
+  const [frequentFaqs, setFrequentFaqs] = useState([]);
+  const [regularFaqs, setRegularFaqs] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchFaqData = async () => {
+      try {
+        const [contentRes, faqsRes] = await Promise.all([
+          faqService.getFaqContent(),
+          faqService.getFaqs()
+        ]);
+        
+        setContent(contentRes.data || {});
+        
+        const allFaqs = faqsRes.data || [];
+        setFrequentFaqs(allFaqs.filter(f => f.category === 'frequent'));
+        setRegularFaqs(allFaqs.filter(f => f.category === 'regular'));
+      } catch (error) {
+        console.error('Error fetching FAQ data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchFaqData();
+  }, []);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-app-bg pt-20 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  // Fallbacks if content is somehow missing
+  const heroTitleParts = content?.heroTitle ? content.heroTitle.split(' ') : ['How', 'can', 'we', 'help', 'you?'];
+  const lastTwoWords = heroTitleParts.slice(-2).join(' ');
+  const firstWords = heroTitleParts.slice(0, -2).join(' ');
 
   return (
     <div className="min-h-screen bg-app-bg pt-20">
       {/* Header Section */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 lg:pt-20 pb-8 lg:pb-16">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 lg:pt-12 pb-8 lg:pb-16">
         <div className="flex flex-col-reverse lg:flex-row items-center gap-12 lg:gap-24">
           <div className="flex-1 text-center lg:text-left">
             <motion.div 
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="inline-flex items-center justify-center lg:justify-start gap-2 text-sm font-medium text-app-text-muted mb-6"
+              className="inline-flex items-center justify-center lg:justify-start gap-2 text-sm font-medium text-app-text-muted mb-4"
             >
               <Link to="/" className="hover:text-primary transition-colors">Home</Link>
               <span>/</span>
@@ -101,17 +100,17 @@ export default function FAQ() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
-              className="text-4xl md:text-5xl lg:text-6xl font-black font-heading text-app-text mb-6 leading-tight"
+              className="text-4xl md:text-5xl lg:text-6xl font-black font-heading text-app-text mb-4 leading-tight"
             >
-              How can we <br className="hidden lg:block" /><span className="text-primary">help you?</span>
+              {firstWords} <br className="hidden lg:block" /><span className="text-primary">{lastTwoWords}</span>
             </motion.h1>
             <motion.p
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
-              className="text-app-text-muted text-lg max-w-xl mx-auto lg:mx-0"
+              className="text-app-text-muted text-lg max-w-xl mx-auto lg:mx-0 whitespace-pre-wrap"
             >
-              Find answers to common questions about our services, processes, and how we can help your business thrive.
+              {content?.heroSubtitle || "Find answers to common questions about our services, processes, and how we can help your business thrive."}
             </motion.p>
           </div>
           
@@ -139,18 +138,18 @@ export default function FAQ() {
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                className="text-3xl md:text-4xl font-black font-heading text-app-text mb-6 leading-tight"
+                className="text-3xl md:text-4xl font-black font-heading text-app-text mb-6 leading-tight whitespace-pre-wrap"
               >
-                Frequently Asked <br/> Questions
+                {content?.section1Title || "Frequently Asked\nQuestions"}
               </motion.h2>
               <motion.p 
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: 0.1 }}
-                className="text-app-text-muted mb-8 leading-relaxed"
+                className="text-app-text-muted mb-8 leading-relaxed whitespace-pre-wrap"
               >
-                Find answers to common questions about our services, processes, and how we can help your business thrive in the digital landscape.
+                {content?.section1Subtitle || "Find answers to common questions about our services, processes, and how we can help your business thrive in the digital landscape."}
               </motion.p>
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
@@ -169,9 +168,9 @@ export default function FAQ() {
             </div>
             
             <div className="lg:w-2/3 w-full">
-              {faqsSection1.map((faq, index) => (
+              {frequentFaqs.map((faq, index) => (
                 <AccordionItem 
-                  key={index}
+                  key={faq._id}
                   question={faq.question}
                   answer={faq.answer}
                   isOpen={openIndex1 === index}
@@ -195,16 +194,16 @@ export default function FAQ() {
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              className="text-3xl md:text-4xl font-black font-heading text-app-text"
+              className="text-3xl md:text-4xl font-black font-heading text-app-text whitespace-pre-wrap"
             >
-              Regular Questions
+              {content?.section2Title || "Regular Questions"}
             </motion.h2>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
-            {faqsSection2.map((faq, index) => (
+            {regularFaqs.map((faq, index) => (
               <AccordionItem 
-                key={index}
+                key={faq._id}
                 question={faq.question}
                 answer={faq.answer}
                 isOpen={openIndex2 === index}
@@ -224,18 +223,18 @@ export default function FAQ() {
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                className="text-3xl md:text-4xl font-black font-heading text-app-text mb-6"
+                className="text-3xl md:text-4xl font-black font-heading text-app-text mb-6 whitespace-pre-wrap"
               >
-                Ask Us Anything
+                {content?.contactTitle || "Ask Us Anything"}
               </motion.h2>
               <motion.p 
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: 0.1 }}
-                className="text-app-text-muted mb-10 leading-relaxed"
+                className="text-app-text-muted mb-10 leading-relaxed whitespace-pre-wrap"
               >
-                Have a specific question or a custom project in mind? Drop us a message and our team will get back to you promptly with the information you need.
+                {content?.contactSubtitle || "Have a specific question or a custom project in mind? Drop us a message and our team will get back to you promptly with the information you need."}
               </motion.p>
               
               <motion.div 
@@ -250,8 +249,8 @@ export default function FAQ() {
                     <MapPin className="w-5 h-5 text-primary" />
                   </div>
                   <div>
-                    <p className="text-app-text font-medium">123, Tech Hub Road, Mumbai</p>
-                    <p className="text-sm text-app-text-muted">Maharashtra, India</p>
+                    <p className="text-app-text font-medium">{content?.contactAddress || "123, Tech Hub Road, Mumbai"}</p>
+                    <p className="text-sm text-app-text-muted">{content?.contactAddressSub || "Maharashtra, India"}</p>
                   </div>
                 </div>
                 
@@ -260,8 +259,8 @@ export default function FAQ() {
                     <Mail className="w-5 h-5 text-primary" />
                   </div>
                   <div>
-                    <p className="text-app-text font-medium">info@vedhunt.in</p>
-                    <p className="text-sm text-app-text-muted">Online Support</p>
+                    <p className="text-app-text font-medium">{content?.contactEmail || "info@vedhunt.in"}</p>
+                    <p className="text-sm text-app-text-muted">{content?.contactEmailSub || "Online Support"}</p>
                   </div>
                 </div>
                 
@@ -270,8 +269,8 @@ export default function FAQ() {
                     <Phone className="w-5 h-5 text-primary" />
                   </div>
                   <div>
-                    <p className="text-app-text font-medium">+91 86524 10289</p>
-                    <p className="text-sm text-app-text-muted">Mon-Fri 9am-6pm</p>
+                    <p className="text-app-text font-medium">{content?.contactPhone || "+91 86524 10289"}</p>
+                    <p className="text-sm text-app-text-muted">{content?.contactPhoneSub || "Mon-Fri 9am-6pm"}</p>
                   </div>
                 </div>
               </motion.div>

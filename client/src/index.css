@@ -1,13 +1,44 @@
 @import "tailwindcss";
 
 :root {
-  --app-bg: #FFFFFF;
-  --app-card: #DADDE2;
-  --app-text: #111111;
-  --app-text-muted: #5F6368;
-  --app-border: #EAEAEA;
+  /* New Design System Variables - Light Theme */
+  --bg-primary: #FFFFFF;
+  --bg-secondary: #F8FAFC;
+  --bg-surface: #F1F5F9;
+  --bg-card: #FFFFFF;
+  
+  --text-primary: #111111;
+  --text-secondary: #1F2937;
+  --text-muted: #374151;
+  --text-disabled: #6B7280;
+  
+  --form-label: #1F2937;
+  --form-input-text: #111111;
+  --form-placeholder: #6B7280;
+  --form-input-bg: #FFFFFF;
+  --form-input-border: #D1D5DB;
+  --form-focus-border: #FF5A1F;
+  
+  --btn-primary-bg: #FF5A1F;
+  --btn-primary-text: #FFFFFF;
+  --btn-primary-hover: #FF7A47;
+  --btn-primary-active: #E64A19;
+  
+  --border-default: #E5E7EB;
+  
+  --status-success: #16A34A;
+  --status-warning: #D97706;
+  --status-error: #DC2626;
+  --status-info: #2563EB;
+
+  /* Legacy Backward Compatibility */
+  --app-bg: var(--bg-primary);
+  --app-card: var(--bg-card);
+  --app-text: var(--text-primary);
+  --app-text-muted: var(--text-muted);
+  --app-border: var(--border-default);
   --app-glass-bg: rgba(243, 244, 246, 0.9);
-  --app-glass-border: #EAEAEA;
+  --app-glass-border: var(--border-default);
   --app-soft-orange: #FFF2EB;
   --gradient-start: #1A1A2E;
   --scrollbar-track: #F1F5F9;
@@ -16,13 +47,44 @@
 }
 
 .dark {
-  --app-bg: #0B0B14;
-  --app-card: #1A1A2E;
-  --app-text: #FFFFFF;
-  --app-text-muted: #9CA3AF;
-  --app-border: rgba(255, 255, 255, 0.08);
+  /* New Design System Variables - Dark Theme */
+  --bg-primary: #0B0D12;
+  --bg-secondary: #111827;
+  --bg-surface: #161B26;
+  --bg-card: #1A1F2B;
+  
+  --text-primary: #FFFFFF;
+  --text-secondary: #D1D5DB;
+  --text-muted: #9CA3AF;
+  --text-disabled: #6B7280;
+  
+  --form-label: #FFF4EF;
+  --form-input-text: #FFFFFF;
+  --form-placeholder: #9CA3AF;
+  --form-input-bg: rgba(255,255,255,0.04);
+  --form-input-border: rgba(255,255,255,0.12);
+  --form-focus-border: #FF5A1F;
+  
+  --btn-primary-bg: #FF5A1F;
+  --btn-primary-text: #FFFFFF;
+  --btn-primary-hover: #FF7A47;
+  --btn-primary-active: #E64A19;
+  
+  --border-default: rgba(255,255,255,0.12);
+  
+  --status-success: #22C55E;
+  --status-warning: #F59E0B;
+  --status-error: #EF4444;
+  --status-info: #60A5FA;
+
+  /* Legacy Backward Compatibility */
+  --app-bg: var(--bg-primary);
+  --app-card: var(--bg-card);
+  --app-text: var(--text-primary);
+  --app-text-muted: var(--text-muted);
+  --app-border: var(--border-default);
   --app-glass-bg: rgba(26, 26, 46, 0.6);
-  --app-glass-border: rgba(255, 255, 255, 0.06);
+  --app-glass-border: var(--border-default);
   --gradient-start: #FFFFFF;
   --scrollbar-track: #0B0B14;
   --scrollbar-thumb: #1A1A2E;
@@ -56,6 +118,7 @@
   --color-on-primary-container: #848282;
   --color-admin-glass: #16161A;
 
+  /* Legacy Backward Compatibility */
   --color-app-bg: var(--app-bg);
   --color-app-card: var(--app-card);
   --color-app-text: var(--app-text);
@@ -63,6 +126,36 @@
   --color-app-border: var(--app-border);
   --color-app-glass: var(--app-glass-bg);
   --color-app-glass-border: var(--app-glass-border);
+
+  /* New Design System Tokens mapped to Tailwind classes */
+  --color-bg-primary: var(--bg-primary);
+  --color-bg-secondary: var(--bg-secondary);
+  --color-bg-surface: var(--bg-surface);
+  --color-bg-card: var(--bg-card);
+  
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-text-disabled: var(--text-disabled);
+  
+  --color-form-label: var(--form-label);
+  --color-form-input-text: var(--form-input-text);
+  --color-form-placeholder: var(--form-placeholder);
+  --color-form-input-bg: var(--form-input-bg);
+  --color-form-input-border: var(--form-input-border);
+  --color-form-focus-border: var(--form-focus-border);
+  
+  --color-btn-primary-bg: var(--btn-primary-bg);
+  --color-btn-primary-text: var(--btn-primary-text);
+  --color-btn-primary-hover: var(--btn-primary-hover);
+  --color-btn-primary-active: var(--btn-primary-active);
+  
+  --color-border-default: var(--border-default);
+  
+  --color-status-success: var(--status-success);
+  --color-status-warning: var(--status-warning);
+  --color-status-error: var(--status-error);
+  --color-status-info: var(--status-info);
 
   --font-sans: 'Inter', 'Poppins', sans-serif;
   --font-heading: 'Outfit', 'Inter', sans-serif;
@@ -94,14 +187,14 @@
 @layer base {
   html {
     scroll-behavior: smooth !important;
-    background-color: var(--app-bg);
+    background-color: var(--bg-primary);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
   body {
-    background-color: var(--app-bg);
-    color: var(--app-text-muted);
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
     font-family: 'Inter', 'Poppins', sans-serif;
     overflow-x: hidden;
   }

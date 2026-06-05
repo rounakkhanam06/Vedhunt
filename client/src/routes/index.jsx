@@ -10,6 +10,7 @@ const Portfolio = lazy(() => import('../pages/Portfolio'));
 const GetQuote = lazy(() => import('../pages/GetQuote'));
 const Pricing = lazy(() => import('../pages/Pricing'));
 const Career = lazy(() => import('../pages/Career'));
+const CareerSuccess = lazy(() => import('../pages/CareerSuccess'));
 const Blog = lazy(() => import('../pages/Blog'));
 const BlogDetail = lazy(() => import('../pages/BlogDetail'));
 const ServiceDetails = lazy(() => import('../pages/ServiceDetails'));
@@ -41,9 +42,14 @@ const TestimonialManager = lazy(() => import('../admin/pages/TestimonialManager'
 const PricingManager = lazy(() => import('../admin/pages/PricingManager'));
 const HomePricingManager = lazy(() => import('../admin/pages/HomePricingManager'));
 const PresenceManager = lazy(() => import('../admin/pages/PresenceManager'));
+const CareerHeroManager = lazy(() => import('../admin/pages/CareerHeroManager'));
+const LifeAtVedhuntManager = lazy(() => import('../admin/pages/LifeAtVedhuntManager'));
 const AboutManager = lazy(() => import('../admin/pages/AboutManager'));
 const BlogManager = lazy(() => import('../admin/pages/BlogManager'));
 const CreateEditBlog = lazy(() => import('../admin/pages/CreateEditBlog'));
+const JobManager = lazy(() => import('../admin/pages/JobManager'));
+const ApplicationManager = lazy(() => import('../admin/pages/ApplicationManager'));
+const FAQManager = lazy(() => import('../admin/pages/FAQManager'));
 
 // High-fidelity, smooth loading fallback component to display during chunk fetching
 const withSuspense = (Component) => (
@@ -90,6 +96,10 @@ export const router = createBrowserRouter([
       {
         path: 'career',
         element: withSuspense(Career)
+      },
+      {
+        path: 'career/success',
+        element: withSuspense(CareerSuccess)
       },
       {
         path: 'blog',
@@ -231,6 +241,26 @@ export const router = createBrowserRouter([
           {
             path: 'blogs/edit/:slug',
             element: withSuspense(CreateEditBlog)
+          },
+          {
+            path: 'jobs',
+            element: withSuspense(JobManager)
+          },
+          {
+            path: 'career-hero',
+            element: withSuspense(CareerHeroManager)
+          },
+          {
+            path: 'life-at-vedhunt',
+            element: withSuspense(LifeAtVedhuntManager)
+          },
+          {
+            path: 'applications',
+            element: withSuspense(ApplicationManager)
+          },
+          {
+            path: 'faq',
+            element: withSuspense(FAQManager)
           },
           {
             path: '',

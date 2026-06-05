@@ -117,7 +117,7 @@ export default function PortfolioPreview() {
                     <div className="flip-card-inner shadow-lg rounded-2xl group-hover:[transform:rotateY(180deg)] transition-transform duration-700 [transform-style:preserve-3d]">
                       
                       {/* FRONT SIDE FACE */}
-                      <div className="absolute inset-0 [backface-visibility:hidden] [-webkit-backface-visibility:hidden] rounded-2xl border border-app-border/60 bg-white dark:bg-app-card/50 flex flex-col justify-between overflow-hidden shadow-lg transition-colors duration-300">
+                      <div className="absolute inset-0 [backface-visibility:hidden] [-webkit-backface-visibility:hidden] rounded-2xl border border-app-border/60 bg-white dark:bg-app-card flex flex-col justify-between overflow-hidden shadow-lg transition-colors duration-300">
                         <SpotlightHover size={150} />
 
                         <div className="flex flex-col h-full justify-between relative z-10">
@@ -190,18 +190,18 @@ export default function PortfolioPreview() {
                             </p>
                           </div>
 
-                          <p className="text-[10px] text-black dark:text-app-text-muted leading-relaxed font-normal line-clamp-3">
+                          <p className="text-[10px] text-black dark:text-white/90 leading-relaxed font-normal line-clamp-3">
                             {project.description}
                           </p>
 
                           {project.tags && (
                             <div className="space-y-1 pt-1">
-                              <span className="text-[8px] font-normal uppercase tracking-widest text-black dark:text-white/40 block">Tech Stack</span>
+                              <span className="text-[8px] font-normal uppercase tracking-widest text-black dark:text-white/70 block">Tech Stack</span>
                               <div className="flex flex-wrap gap-1">
                                 {project.tags.slice(0, 3).map(tag => (
                                   <span 
                                     key={tag} 
-                                    className="text-[8px] font-normal text-black dark:text-app-text-muted bg-slate-100 dark:bg-[#151515] border border-app-border/40 px-1.5 py-0.5 rounded"
+                                    className="text-[8px] font-normal text-black dark:text-white/90 bg-slate-100 dark:bg-[#151515] border border-app-border/40 px-1.5 py-0.5 rounded"
                                   >
                                     {tag}
                                   </span>

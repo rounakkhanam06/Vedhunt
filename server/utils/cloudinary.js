@@ -31,9 +31,10 @@ const upload = multer({
   },
 });
 
-const deleteFromCloudinary = async (publicId) => {
+const deleteFromCloudinary = async (publicId, isRaw = false) => {
   try {
-    const result = await cloudinary.uploader.destroy(publicId);
+    const options = isRaw ? { resource_type: 'raw' } : {};
+    const result = await cloudinary.uploader.destroy(publicId, options);
     logger.info(`Cloudinary delete: ${publicId} → ${result.result}`);
     return result;
   } catch (err) {
@@ -42,4 +43,29 @@ const deleteFromCloudinary = async (publicId) => {
   }
 };
 
-module.exports = { cloudinary, upload, deleteFromCloudinary };
+const resumeStorage = new CloudinaryStorage({
+  cloudinary,
+  params: {
+    folder: 'vedhunt-resumes',
+    resource_type: 'raw',
+  },
+});
+
+const uploadResume = multer({
+  storage: resumeStorage,
+  limits: { fileSize: 2 * 1024 * 1024 }, // 2MB limit
+  fileFilter: (_req, file, cb) => {
+    const allowed = [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    ];
+    if (allowed.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only PDF, DOC, and DOCX files are allowed'), false);
+    }
+  },
+});
+
+module.exports = { cloudinary, upload, uploadResume, deleteFromCloudinary };

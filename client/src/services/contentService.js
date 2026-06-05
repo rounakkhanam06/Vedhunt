@@ -267,5 +267,16 @@ export const contentService = {
   deletePresenceLocation: async (id) => {
     const response = await api.delete(`/content/admin/presence/location/${id}`);
     return response.data;
+  },
+
+  // Career Hero
+  getCareerHero: async () => {
+    const response = await api.get('/content/career-hero');
+    return response.data;
+  },
+  
+  updateCareerHero: async (data) => {
+    const response = await api.put('/content/admin/career-hero', data);
+    return response.data;
   }
 };
