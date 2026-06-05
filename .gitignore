@@ -49,3 +49,6 @@ Desktop.ini
 # Serverless Webpack directories
 .webpack/
 .serverless/
+branch_structure.json
+temp_auto_push.bat
+temp_interactive_push.bat

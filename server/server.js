@@ -102,7 +102,7 @@ mongoose
   .connect(process.env.MONGODB_URI)
   .then(async () => {
     logger.info('Connected to MongoDB');
-    
+
     // Seed data
     await seedPortfolioData();
     await seedPortfolioMetrics();
