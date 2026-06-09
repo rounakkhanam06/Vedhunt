@@ -1,8 +1,6 @@
 const logger = require('./logger');
 const { Resend } = require('resend');
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-
 /**
  * Send an email using Resend API.
  * @param {Object} options - Email options.
@@ -12,6 +10,12 @@ const resend = new Resend(process.env.RESEND_API_KEY);
  */
 const sendEmail = async (options) => {
   try {
+    if (!process.env.RESEND_API_KEY) {
+      logger.error('RESEND_API_KEY is missing in environment variables');
+      throw new Error('Email could not be sent due to missing API key');
+    }
+    
+    const resend = new Resend(process.env.RESEND_API_KEY);
     const { data, error } = await resend.emails.send({
       from: process.env.EMAIL_FROM || 'noreply@vedhunt.in',
       to: options.email,
