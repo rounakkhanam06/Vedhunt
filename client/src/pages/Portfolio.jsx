@@ -94,6 +94,12 @@ export default function Portfolio() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [metrics, setMetrics] = useState([]);
+  const [heroData, setHeroData] = useState({
+    subtitle: 'Success Showcases',
+    headingRegular: 'Proven Engineering Standards',
+    headingHighlight: '& Strategic Growth',
+    description: 'Explore our real-world portfolio of partnerships across India. From full-scale corporate web architectures and automated bookkeeping tools, to organic SEO domination and high-converting marketing pipelines.'
+  });
   const [ctaData, setCtaData] = useState({
     tagText: "Let's Collaborate",
     tagIcon: 'Sparkles',
@@ -114,9 +120,21 @@ export default function Portfolio() {
   }, [activeFilter, page]);
 
   useEffect(() => {
+    fetchHeroData();
     fetchMetrics();
     fetchCTAData();
   }, []);
+
+  const fetchHeroData = async () => {
+    try {
+      const res = await api.get('/portfolio/hero');
+      if (res.data.success && res.data.data) {
+        setHeroData(res.data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching portfolio hero data:', error);
+    }
+  };
 
   const fetchCTAData = async () => {
     try {
@@ -217,19 +235,19 @@ export default function Portfolio() {
           {/* Subtitle Accent */}
           <motion.div variants={scrollFadeUp} className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-primary/10 border border-primary/20 text-primary text-[10px] font-extrabold uppercase tracking-widest rounded-md">
             <Sparkles className="w-3 h-3" />
-            <span>Success Showcases</span>
+            <span>{heroData.subtitle}</span>
           </motion.div>
 
           {/* Heading with Cryptographic Encryption Typing Reveal */}
           <h1 className="text-3xl md:text-4xl font-black font-heading text-app-text leading-tight tracking-tight flex flex-col gap-0.5">
             <EncryptedText 
-              text="Proven Engineering Standards" 
+              text={heroData.headingRegular} 
               revealedClassName="text-app-text"
               encryptedClassName="text-primary/50 font-mono"
               revealDelayMs={20}
             />
             <EncryptedText 
-              text="& Strategic Growth" 
+              text={heroData.headingHighlight} 
               revealedClassName="text-primary text-gradient-orange"
               encryptedClassName="text-primary/50 font-mono"
               revealDelayMs={10}
@@ -241,7 +259,7 @@ export default function Portfolio() {
             variants={scrollFadeUp}
             className="text-sm sm:text-base text-app-text-muted leading-relaxed max-w-xl mx-auto font-medium"
           >
-            Explore our real-world portfolio of partnerships across India. From full-scale corporate web architectures and automated bookkeeping tools, to organic SEO domination and high-converting marketing pipelines.
+            {heroData.description}
           </motion.p>
         </motion.div>
 

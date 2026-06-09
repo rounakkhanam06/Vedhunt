@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Star, ChevronLeft, ChevronRight, Quote, MessageSquarePlus } from 'lucide-react';
 import axios from 'axios';
 import ReviewModal from './ReviewModal';
+import { getCountryFlag } from '../../utils/getCountryFlag';
 
 export default function Testimonials() {
   const [index, setIndex] = useState(0);
@@ -102,7 +103,7 @@ export default function Testimonials() {
                       {t.author}
                     </h3>
                     <div className="flex items-center gap-2 mt-0.5">
-                      <span className="text-base md:text-lg">{t.countryFlag}</span>
+                      <span className="text-base md:text-lg">{getCountryFlag(t.country)}</span>
                       <span className="text-xs md:text-sm font-medium text-slate-600 dark:text-zinc-400">
                         {t.country}
                       </span>

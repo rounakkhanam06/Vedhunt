@@ -37,6 +37,16 @@ const HomePricingCardSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
+  showOnHome: {
+    type: Boolean,
+    default: false,
+  },
+  slug: {
+    type: String,
+    unique: true,
+    sparse: true,
+    trim: true,
+  },
   tiers: {
     starter: {
       type: TierSchema,

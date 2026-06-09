@@ -2,6 +2,7 @@ const Application = require('../models/Application');
 const Job = require('../models/Job');
 const { deleteFromCloudinary } = require('../utils/cloudinary');
 const { applicationSchema } = require('../validators/applicationValidator');
+const sendEmail = require('../utils/sendEmail');
 
 // Submit a new application (Public)
 exports.createApplication = async (req, res) => {
@@ -79,15 +80,27 @@ exports.createApplication = async (req, res) => {
 
     const savedApplication = await newApplication.save();
 
-    // Log for Email as per user's preference to keep it simple right now
-    console.log("EMAIL TO HR:", {
-      applicationId: savedApplication._id,
-      jobId,
-      fullName,
-      email,
-      phone,
-      resumeLink: resumeUrl
-    });
+    // Send email to HR
+    try {
+      const hrEmail = process.env.HR_EMAIL || 'hr@vedhunt.in';
+      const emailContent = `
+        <h3>New Job Application Received</h3>
+        <p><strong>Name:</strong> ${fullName}</p>
+        <p><strong>Email:</strong> ${email}</p>
+        <p><strong>Phone:</strong> ${phone}</p>
+        <p><strong>Job ID:</strong> ${jobId}</p>
+        <p><strong>Resume Link:</strong> <a href="${resumeUrl}">View Resume</a></p>
+      `;
+
+      await sendEmail({
+        email: hrEmail,
+        subject: `New Application: ${fullName}`,
+        html: emailContent
+      });
+    } catch (emailError) {
+      console.error("Failed to send HR notification email:", emailError);
+      // We don't want to fail the application submission if email fails
+    }
 
 
 

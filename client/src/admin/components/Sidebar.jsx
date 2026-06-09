@@ -3,7 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, Users, ChevronDown, ChevronRight, Activity, 
   Briefcase, FileText, Wallet, ShieldCheck, Settings, LogOut, X,
-  Image as ImageIcon, Tag, UserPlus
+  Image as ImageIcon, Tag, UserPlus, Scale
 } from 'lucide-react';
 import { useAdminStore } from '../../store/useAdminStore';
 import darkLogo from '../../assets/DarkthemeLogo.png';
@@ -12,7 +12,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
   const { logout, admin } = useAdminStore();
   const navigate = useNavigate();
   const location = useLocation();
-  const [openDropdowns, setOpenDropdowns] = useState({ leads: true, cms: false, pricing: false, careers: false });
+  const [openDropdowns, setOpenDropdowns] = useState({ leads: true, cms: false, pricing: false, careers: false, legal: false, servicesManagement: false });
 
   const handleLogout = async () => {
     await logout();
@@ -25,17 +25,17 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
 
   const navItems = [
     { name: 'Overview', path: '/admin/dashboard', icon: LayoutDashboard },
+    { name: 'Lead Manager (Ads)', path: '/admin/leads', icon: Users },
     { 
-      name: 'Lead Manager', 
-      icon: Users,
-      dropdownKey: 'leads',
+      name: 'Services Management', 
+      icon: Briefcase,
+      dropdownKey: 'servicesManagement',
       subItems: [
-        { name: 'Organic Leads', path: '/admin/leads/organic' },
-        { name: 'Ad Leads (/lp/)', path: '/admin/leads/ads' },
+        { name: 'Main Services Page', path: '/admin/services' },
+        { name: 'Service Subpages', path: '/admin/service-pages' },
       ]
     },
-    { name: 'Campaign Performance', path: '/admin/campaigns', icon: Activity },
-    { name: 'Service & Projects', path: '/admin/projects', icon: Briefcase },
+    { name: 'Portfolio Items', path: '/admin/portfolio', icon: ImageIcon },
     { 
       name: 'Content Manager (CMS)', 
       icon: FileText,
@@ -43,8 +43,6 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
       subItems: [
         { name: 'Manage Landing Page', path: '/admin/landing-page' },
         { name: 'Navbar Links', path: '/admin/navbar' },
-        { name: 'Services', path: '/admin/services' },
-        { name: 'Portfolio Items', path: '/admin/portfolio' },
         { name: 'Blogs', path: '/admin/blogs' },
         { name: 'Testimonials', path: '/admin/testimonials' },
         { name: 'Our Presence', path: '/admin/presence' },
@@ -52,7 +50,18 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
         { name: 'FAQ Page', path: '/admin/faq' },
       ]
     },
-    { name: 'Financials & Invoicing', path: '/admin/finance', icon: Wallet },
+    { 
+      name: 'Legal & Compliance', 
+      icon: Scale,
+      dropdownKey: 'legal',
+      subItems: [
+        { name: 'Privacy Policy', path: '/admin/privacy-policy' },
+        { name: 'Terms & Conditions', path: '/admin/terms-and-conditions' },
+        { name: 'Cookie Policy', path: '/admin/cookie-policy' },
+        { name: 'Data Processing Agreement', path: '/admin/data-processing-agreement' },
+        { name: 'Refund & Billing Policy', path: '/admin/refund-policy' },
+      ]
+    },
     { 
       name: 'Pricing Management', 
       icon: Tag,

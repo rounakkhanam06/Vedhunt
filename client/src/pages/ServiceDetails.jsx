@@ -18,8 +18,110 @@ import {
   TrendingUp,
   Headphones
 } from 'lucide-react';
+import * as LucideIcons from 'lucide-react';
 import { SERVICES } from '../constants';
 import { SERVICE_DETAILS_DATA } from '../constants/serviceDetailsData';
+import api from '../services/api';
+import { getCountryFlag } from '../utils/getCountryFlag';
+
+const TestimonialCarousel = ({ items }) => {
+  const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    if (!items || items.length === 0) return;
+    const timer = setInterval(() => {
+      setIndex((prev) => (prev + 1) % items.length);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [items]);
+
+  const next = () => setIndex((i) => (i + 1) % items.length);
+  const prev = () => setIndex((i) => (i - 1 + items.length) % items.length);
+
+  const t = items[index];
+  if (!t) return null;
+
+  return (
+    <div className="relative w-full overflow-hidden py-4">
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={index}
+          initial={{ opacity: 0, x: 50, scale: 0.95 }}
+          animate={{ opacity: 1, x: 0, scale: 1 }}
+          exit={{ opacity: 0, x: -50, scale: 0.95 }}
+          transition={{ duration: 0.4, ease: "easeOut" }}
+          className="bg-brand-lightOrange dark:bg-primary/5 border border-app-border rounded-3xl p-6 sm:p-10 relative flex flex-col md:flex-row items-center gap-6 sm:gap-8 shadow-sm hover:shadow-xl hover:shadow-primary/5 hover:border-primary/30 transition-all duration-300"
+        >
+          <div className="absolute top-4 right-6 pointer-events-none">
+            <Quote className="w-16 h-16 text-primary opacity-20" />
+          </div>
+
+          <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden border border-app-border flex-shrink-0 bg-app-bg shadow-sm relative">
+            <img 
+              src={t.avatar} 
+              alt={t.author} 
+              className="w-full h-full object-cover"
+            />
+          </div>
+
+          <div className="space-y-4 text-center md:text-left flex-grow relative z-10">
+            <div className="flex justify-center md:justify-start gap-1">
+              {[1,2,3,4,5].map((star) => (
+                <Star key={star} className="w-3.5 h-3.5 fill-primary text-primary drop-shadow-[0_0_4px_rgba(232,71,10,0.3)]" />
+              ))}
+            </div>
+
+            <p className="text-xs sm:text-sm text-app-text font-medium leading-relaxed italic line-clamp-4 min-h-[4rem]">
+              "{t.feedback || t.quote}"
+            </p>
+
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
+              <div className="space-y-0.5">
+                <h4 className="text-xs sm:text-sm font-bold text-app-text uppercase tracking-wide">
+                  {t.author}
+                </h4>
+                <p className="text-[10px] text-app-text-muted font-bold uppercase tracking-widest flex items-center gap-1 justify-center md:justify-start">
+                  {t.role}
+                  {t.country && (
+                    <span className="ml-1 inline-flex items-center gap-1 text-app-text-muted/80">
+                      • {getCountryFlag(t.country)} {t.country}
+                    </span>
+                  )}
+                </p>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      </AnimatePresence>
+
+      <div className="mt-8 flex items-center justify-center gap-6">
+        <button 
+          onClick={prev} 
+          className="w-10 h-10 rounded-full bg-app-card border border-app-border flex items-center justify-center text-app-text hover:bg-primary hover:text-black hover:border-primary transition-all shadow-md"
+        >
+          <LucideIcons.ChevronLeft className="w-5 h-5 -ml-0.5" />
+        </button>
+        <div className="flex gap-2 flex-wrap justify-center">
+          {items.map((_, i) => (
+            <button
+              key={i}
+              onClick={() => setIndex(i)}
+              className={`w-2 h-2 rounded-full transition-all duration-500 ${
+                i === index ? 'w-8 bg-primary opacity-80' : 'bg-app-text-muted/30 hover:bg-app-text-muted/50'
+              }`}
+            />
+          ))}
+        </div>
+        <button 
+          onClick={next} 
+          className="w-10 h-10 rounded-full bg-app-card border border-app-border flex items-center justify-center text-app-text hover:bg-primary hover:text-black hover:border-primary transition-all shadow-md"
+        >
+          <LucideIcons.ChevronRight className="w-5 h-5 -mr-0.5" />
+        </button>
+      </div>
+    </div>
+  );
+};
 
 const PhoneCarousel3D = ({ items }) => {
   const [activeIndex, setActiveIndex] = useState(1);
@@ -173,24 +275,46 @@ export default function ServiceDetails() {
 
   // Sync route slug & content details
   useEffect(() => {
-    setLoading(true);
-    const foundMain = SERVICES.find(s => s.slug === slug);
-    const foundDetails = SERVICE_DETAILS_DATA[slug];
+    let isMounted = true;
+    
+    const fetchServiceDetails = async () => {
+      setLoading(true);
+      const foundMain = SERVICES.find(s => s.slug === slug);
+      
+      if (!foundMain) {
+        navigate('/services');
+        return;
+      }
 
-    if (foundMain && foundDetails) {
-      setServiceMain(foundMain);
-      setServiceDetails(foundDetails);
-      window.scrollTo({ top: 0, behavior: 'instant' });
-      
-      // Simulate premium skeleton loader
-      const timer = setTimeout(() => {
-        setLoading(false);
-      }, 750);
-      
-      return () => clearTimeout(timer);
-    } else {
-      navigate('/services');
-    }
+      try {
+        const response = await api.get(`/service-pages/${slug}`);
+        if (isMounted) {
+          setServiceMain(foundMain);
+          setServiceDetails(response.data);
+          window.scrollTo({ top: 0, behavior: 'instant' });
+          setLoading(false);
+        }
+      } catch (error) {
+        console.error('Failed to fetch service details from API, using fallback:', error);
+        if (isMounted) {
+          const foundDetails = SERVICE_DETAILS_DATA[slug];
+          if (foundDetails) {
+            setServiceMain(foundMain);
+            setServiceDetails(foundDetails);
+            window.scrollTo({ top: 0, behavior: 'instant' });
+          } else {
+            navigate('/services');
+          }
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchServiceDetails();
+
+    return () => {
+      isMounted = false;
+    };
   }, [slug, navigate]);
 
   // Handle sticky CTA visibility on scroll
@@ -219,8 +343,13 @@ export default function ServiceDetails() {
     pricing,
     portfolio,
     faqs,
-    testimonial
+    testimonial,
+    testimonials
   } = serviceDetails;
+
+  const validTestimonials = testimonials && testimonials.length > 0 
+    ? testimonials 
+    : (testimonial && testimonial.author ? [testimonial] : []);
 
   // Animation constants - Professional & sleek durations
   const fadeUp = {
@@ -482,7 +611,14 @@ export default function ServiceDetails() {
                   className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
                 >
                   {subServices.map((sub, idx) => {
-                    const IconComp = sub.icon || Globe;
+                    // Try to resolve string icon from LucideIcons, or if it's already a component fallback, or default to Globe
+                    let IconComp = LucideIcons.Globe;
+                    if (typeof sub.icon === 'string' && LucideIcons[sub.icon]) {
+                      IconComp = LucideIcons[sub.icon];
+                    } else if (typeof sub.icon === 'object' || typeof sub.icon === 'function') {
+                      IconComp = sub.icon;
+                    }
+
                     return (
                       <motion.div
                         key={idx}
@@ -906,126 +1042,135 @@ export default function ServiceDetails() {
             </section>
 
             {/* 9. Client Testimonial Section */}
-            <section className="py-10 sm:py-14 border-b border-app-border/40">
-              <div className="max-w-4xl mx-auto px-4">
-                
-                <motion.div 
-                  initial="hidden"
-                  whileInView="visible"
-                  viewport={{ once: true, amount: 0.2 }}
-                  variants={{
-                    hidden: { opacity: 0, y: 40, scale: 0.95 },
-                    visible: { 
-                      opacity: 1, 
-                      y: 0, 
-                      scale: 1, 
-                      transition: { 
-                        duration: 0.8, 
-                        ease: [0.16, 1, 0.3, 1],
-                        staggerChildren: 0.15,
-                        delayChildren: 0.1
-                      } 
-                    }
-                  }}
-                  whileHover={{ 
-                    y: -6, 
-                    scale: 1.01,
-                    transition: { duration: 0.3, ease: "easeOut" }
-                  }}
-                  className="bg-brand-lightOrange dark:bg-primary/5 border border-app-border rounded-3xl p-6 sm:p-10 relative overflow-hidden flex flex-col md:flex-row items-center gap-6 sm:gap-8 shadow-sm hover:shadow-xl hover:shadow-primary/5 hover:border-primary/30 transition-all duration-300 cursor-default group"
-                >
-                  
-                  {/* Decorative Icon */}
-                  <motion.div
-                    variants={{
-                      hidden: { opacity: 0, scale: 0.6, rotate: 15, x: 20 },
-                      visible: { opacity: 0.1, scale: 1, rotate: 0, x: 0, transition: { duration: 1, ease: "easeOut" } }
-                    }}
-                    className="absolute top-4 right-6 pointer-events-none"
-                  >
-                    <Quote className="w-16 h-16 text-primary" />
-                  </motion.div>
-
-                  {/* Profile Image */}
-                  <motion.div 
-                    variants={{
-                      hidden: { opacity: 0, scale: 0.5, rotate: -15 },
-                      visible: { 
-                        opacity: 1, 
-                        scale: 1, 
-                        rotate: 0,
-                        transition: { type: "spring", stiffness: 100, damping: 15 } 
-                      }
-                    }}
-                    className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden border border-app-border flex-shrink-0 bg-app-bg shadow-sm relative group-hover:border-primary/40 transition-colors duration-300"
-                  >
-                    <img 
-                      src={testimonial.avatar} 
-                      alt={testimonial.author} 
-                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-primary/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                  </motion.div>
-
-                  {/* Testimonial feedback */}
-                  <div className="space-y-4 text-center md:text-left flex-grow relative z-10">
-                    
-                    {/* Stars */}
+            {validTestimonials.length > 0 && (
+              <section className="py-10 sm:py-14 border-b border-app-border/40">
+                <div className="max-w-4xl mx-auto px-4">
+                  {validTestimonials.length > 1 ? (
+                    <TestimonialCarousel items={validTestimonials} />
+                  ) : (
                     <motion.div 
+                      initial="hidden"
+                      whileInView="visible"
+                      viewport={{ once: true, amount: 0.2 }}
                       variants={{
-                        hidden: {},
-                        visible: { transition: { staggerChildren: 0.08 } }
+                        hidden: { opacity: 0, y: 40, scale: 0.95 },
+                        visible: { 
+                          opacity: 1, 
+                          y: 0, 
+                          scale: 1, 
+                          transition: { 
+                            duration: 0.8, 
+                            ease: [0.16, 1, 0.3, 1],
+                            staggerChildren: 0.15,
+                            delayChildren: 0.1
+                          } 
+                        }
                       }}
-                      className="flex justify-center md:justify-start gap-1"
+                      whileHover={{ 
+                        y: -6, 
+                        scale: 1.01,
+                        transition: { duration: 0.3, ease: "easeOut" }
+                      }}
+                      className="bg-brand-lightOrange dark:bg-primary/5 border border-app-border rounded-3xl p-6 sm:p-10 relative overflow-hidden flex flex-col md:flex-row items-center gap-6 sm:gap-8 shadow-sm hover:shadow-xl hover:shadow-primary/5 hover:border-primary/30 transition-all duration-300 cursor-default group"
                     >
-                      {[1,2,3,4,5].map((star) => (
-                        <motion.div
-                          key={star}
+                      
+                      {/* Decorative Icon */}
+                      <motion.div
+                        variants={{
+                          hidden: { opacity: 0, scale: 0.6, rotate: 15, x: 20 },
+                          visible: { opacity: 0.1, scale: 1, rotate: 0, x: 0, transition: { duration: 1, ease: "easeOut" } }
+                        }}
+                        className="absolute top-4 right-6 pointer-events-none"
+                      >
+                        <Quote className="w-16 h-16 text-primary" />
+                      </motion.div>
+
+                      {/* Profile Image */}
+                      <motion.div 
+                        variants={{
+                          hidden: { opacity: 0, scale: 0.5, rotate: -15 },
+                          visible: { 
+                            opacity: 1, 
+                            scale: 1, 
+                            rotate: 0,
+                            transition: { type: "spring", stiffness: 100, damping: 15 } 
+                          }
+                        }}
+                        className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden border border-app-border flex-shrink-0 bg-app-bg shadow-sm relative group-hover:border-primary/40 transition-colors duration-300"
+                      >
+                        <img 
+                          src={validTestimonials[0].avatar} 
+                          alt={validTestimonials[0].author} 
+                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-primary/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                      </motion.div>
+
+                      {/* Testimonial feedback */}
+                      <div className="space-y-4 text-center md:text-left flex-grow relative z-10">
+                        
+                        {/* Stars */}
+                        <motion.div 
                           variants={{
-                            hidden: { opacity: 0, scale: 0.3, rotate: -35 },
-                            visible: { 
-                              opacity: 1, 
-                              scale: 1, 
-                              rotate: 0,
-                              transition: { type: "spring", stiffness: 150, damping: 10 } 
-                            }
+                            hidden: {},
+                            visible: { transition: { staggerChildren: 0.08 } }
                           }}
+                          className="flex justify-center md:justify-start gap-1"
                         >
-                          <Star className="w-3.5 h-3.5 fill-primary text-primary drop-shadow-[0_0_4px_rgba(232,71,10,0.3)]" />
+                          {[1,2,3,4,5].map((star) => (
+                            <motion.div
+                              key={star}
+                              variants={{
+                                hidden: { opacity: 0, scale: 0.3, rotate: -35 },
+                                visible: { 
+                                  opacity: 1, 
+                                  scale: 1, 
+                                  rotate: 0,
+                                  transition: { type: "spring", stiffness: 150, damping: 10 } 
+                                }
+                              }}
+                            >
+                              <Star className="w-3.5 h-3.5 fill-primary text-primary drop-shadow-[0_0_4px_rgba(232,71,10,0.3)]" />
+                            </motion.div>
+                          ))}
                         </motion.div>
-                      ))}
+
+                        <motion.p 
+                          variants={{
+                            hidden: { opacity: 0, y: 15 },
+                            visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: "easeOut" } }
+                          }}
+                          className="text-xs sm:text-sm text-app-text font-medium leading-relaxed italic"
+                        >
+                          "{validTestimonials[0].feedback || validTestimonials[0].quote}"
+                        </motion.p>
+
+                        <motion.div
+                          variants={{
+                            hidden: { opacity: 0, y: 15 },
+                            visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: "easeOut" } }
+                          }}
+                          className="space-y-0.5"
+                        >
+                          <h4 className="text-xs sm:text-sm font-bold text-app-text uppercase tracking-wide group-hover:text-primary transition-colors duration-300">
+                            {validTestimonials[0].author}
+                          </h4>
+                          <p className="text-[10px] text-app-text-muted font-bold uppercase tracking-widest flex items-center justify-center md:justify-start gap-1">
+                            {validTestimonials[0].role}
+                            {validTestimonials[0].country && (
+                              <span className="ml-1 inline-flex items-center gap-1 text-app-text-muted/80">
+                                • {getCountryFlag(validTestimonials[0].country)} {validTestimonials[0].country}
+                              </span>
+                            )}
+                          </p>
+                        </motion.div>
+
+                      </div>
                     </motion.div>
-
-                    <motion.p 
-                      variants={{
-                        hidden: { opacity: 0, y: 15 },
-                        visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: "easeOut" } }
-                      }}
-                      className="text-xs sm:text-sm text-app-text font-medium leading-relaxed italic"
-                    >
-                      "{testimonial.feedback}"
-                    </motion.p>
-
-                    <motion.div
-                      variants={{
-                        hidden: { opacity: 0, y: 15 },
-                        visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: "easeOut" } }
-                      }}
-                      className="space-y-0.5"
-                    >
-                      <h4 className="text-xs sm:text-sm font-bold text-app-text uppercase tracking-wide group-hover:text-primary transition-colors duration-300">
-                        {testimonial.author}
-                      </h4>
-                      <p className="text-[10px] text-app-text-muted font-bold uppercase tracking-widest">
-                        {testimonial.role}
-                      </p>
-                    </motion.div>
-
-                  </div>
-                </motion.div>
-
-              </div>
-            </section>
+                  )}
+                </div>
+              </section>
+            )}
 
             {/* 10. Final Call To Action (Cosmic Dark Space horizon layout) */}
             <section className="py-16 sm:py-24 bg-app-bg px-4 sm:px-6 lg:px-8 border-t border-app-border/40">

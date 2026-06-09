@@ -17,7 +17,8 @@ export default function TestimonialManager() {
     quote: '',
     country: 'India',
     countryFlag: '🇮🇳',
-    avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=150&h=150&fit=crop'
+    avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=150&h=150&fit=crop',
+    showOnPages: ['home']
   };
 
   const [formData, setFormData] = useState(initialFormState);
@@ -135,6 +136,7 @@ export default function TestimonialManager() {
       country: testimonial.country || '',
       countryFlag: testimonial.countryFlag || '',
       avatar: testimonial.avatar || initialFormState.avatar,
+      showOnPages: testimonial.showOnPages || ['home'],
     });
     setIsModalOpen(true);
   };
@@ -373,6 +375,36 @@ export default function TestimonialManager() {
                   className={`w-full bg-black/50 border ${wordCount > WORD_LIMIT ? 'border-red-500' : 'border-white/10'} rounded-lg px-3 py-2 text-white focus:outline-none focus:border-primary resize-none`}
                   placeholder="Share your experience working with us..."
                 />
+              </div>
+
+              <div className="mb-4">
+                <label className="text-sm font-medium text-gray-300 block mb-2">Show on Pages</label>
+                <div className="grid grid-cols-2 gap-2 bg-black/50 p-3 rounded-lg border border-white/10">
+                  {[
+                    { id: 'home', label: 'Home Page (Main)' },
+                    { id: 'app-development', label: 'App Dev (Landing Page)' },
+                    { id: 'social-media', label: 'Social Media (Landing Page)' },
+                    { id: 'performance-marketing', label: 'Perf. Marketing (Landing Page)' },
+                    { id: 'accounting', label: 'Accounting (Landing Page)' },
+                    { id: 'mis-reporting', label: 'MIS Reporting (Landing Page)' }
+                  ].map(page => (
+                    <label key={page.id} className="flex items-center gap-2 cursor-pointer text-sm text-gray-300 hover:text-white transition-colors">
+                      <input 
+                        type="checkbox" 
+                        className="accent-primary"
+                        checked={formData.showOnPages.includes(page.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setFormData({ ...formData, showOnPages: [...formData.showOnPages, page.id] });
+                          } else {
+                            setFormData({ ...formData, showOnPages: formData.showOnPages.filter(id => id !== page.id) });
+                          }
+                        }}
+                      />
+                      {page.label}
+                    </label>
+                  ))}
+                </div>
               </div>
 
               <div className="flex justify-end gap-3 pt-4 border-t border-white/10">

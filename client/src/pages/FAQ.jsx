@@ -44,6 +44,9 @@ export default function FAQ() {
   const [frequentFaqs, setFrequentFaqs] = useState([]);
   const [regularFaqs, setRegularFaqs] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [formData, setFormData] = useState({ firstName: '', lastName: '', email: '', message: '' });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitMessage, setSubmitMessage] = useState('');
 
   useEffect(() => {
     const fetchFaqData = async () => {
@@ -293,12 +296,40 @@ export default function FAQ() {
                   </div>
                 </div>
                 
-                <form className="space-y-6 relative z-10" onSubmit={(e) => e.preventDefault()}>
+                <form className="space-y-6 relative z-10" onSubmit={async (e) => {
+                  e.preventDefault();
+                  setIsSubmitting(true);
+                  setSubmitMessage('');
+                  
+                  try {
+                    const response = await fetch('http://localhost:5000/api/contact', {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify(formData),
+                    });
+                    
+                    const data = await response.json();
+                    if (data.success) {
+                      setSubmitMessage('Message sent successfully!');
+                      setFormData({ firstName: '', lastName: '', email: '', message: '' });
+                    } else {
+                      setSubmitMessage(data.message || 'Failed to send message');
+                    }
+                  } catch (error) {
+                    setSubmitMessage('Error sending message. Please try again.');
+                  } finally {
+                    setIsSubmitting(false);
+                  }
+                }}>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                     <div>
                       <input 
                         type="text" 
                         placeholder="First Name" 
+                        value={formData.firstName}
+                        onChange={(e) => setFormData({...formData, firstName: e.target.value})}
                         className="w-full bg-white dark:bg-slate-900 px-5 py-4 rounded-xl text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary transition-all border border-transparent dark:border-slate-800"
                         required
                       />
@@ -307,6 +338,8 @@ export default function FAQ() {
                       <input 
                         type="text" 
                         placeholder="Last Name" 
+                        value={formData.lastName}
+                        onChange={(e) => setFormData({...formData, lastName: e.target.value})}
                         className="w-full bg-white dark:bg-slate-900 px-5 py-4 rounded-xl text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary transition-all border border-transparent dark:border-slate-800"
                         required
                       />
@@ -317,6 +350,8 @@ export default function FAQ() {
                     <input 
                       type="email" 
                       placeholder="Email" 
+                      value={formData.email}
+                      onChange={(e) => setFormData({...formData, email: e.target.value})}
                       className="w-full bg-white dark:bg-slate-900 px-5 py-4 rounded-xl text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary transition-all border border-transparent dark:border-slate-800"
                       required
                     />
@@ -326,17 +361,33 @@ export default function FAQ() {
                     <textarea 
                       placeholder="Message" 
                       rows="4"
+                      value={formData.message}
+                      onChange={(e) => setFormData({...formData, message: e.target.value})}
                       className="w-full bg-white dark:bg-slate-900 px-5 py-4 rounded-xl text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary transition-all resize-none border border-transparent dark:border-slate-800"
                       required
                     ></textarea>
                   </div>
                   
+                  {submitMessage && (
+                    <div className={`p-4 rounded-xl ${submitMessage.includes('success') ? 'bg-green-500/10 text-green-500 border border-green-500/20' : 'bg-red-500/10 text-red-500 border border-red-500/20'}`}>
+                      {submitMessage}
+                    </div>
+                  )}
+
                   <div className="flex justify-end">
                     <button 
                       type="submit"
-                      className="px-8 py-3.5 bg-primary text-black font-bold rounded-xl hover:bg-primary-hover hover:shadow-[0_0_20px_rgba(255,107,0,0.4)] transition-all duration-300"
+                      disabled={isSubmitting}
+                      className="px-8 py-3.5 bg-primary text-black font-bold rounded-xl hover:bg-primary-hover hover:shadow-[0_0_20px_rgba(255,107,0,0.4)] transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                     >
-                      Send Message
+                      {isSubmitting ? (
+                        <>
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                          Sending...
+                        </>
+                      ) : (
+                        'Send Message'
+                      )}
                     </button>
                   </div>
                 </form>

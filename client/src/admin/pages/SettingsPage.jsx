@@ -1,12 +1,189 @@
-import { useState } from 'react';
-import { User, Plug, BarChart2, Database, Save, Mail, Lock, Smartphone, DownloadCloud, AlertCircle } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { User, Plug, BarChart2, Database, Save, Mail, Lock, Smartphone, DownloadCloud, AlertCircle, Phone, MapPin, Share2 } from 'lucide-react';
 import { useAdminStore } from '../../store/useAdminStore';
+import { settingsService } from '../../services/settingsService';
+import toast from 'react-hot-toast';
 
 const SettingsPage = () => {
   const { admin } = useAdminStore();
-  const [activeTab, setActiveTab] = useState('integrations');
+  const [activeTab, setActiveTab] = useState('contact');
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const [contactData, setContactData] = useState({
+    phone: '',
+    phoneDisplay: '',
+    email: '',
+    whatsappNumber: '',
+    whatsappMessage: '',
+    hours: '',
+    address: '',
+    cin: '',
+    registration: '',
+    copyright: '',
+    socialLinks: []
+  });
+
+  const defaultCampaignData = {
+    facebookPixel: { id: '', enabled: false },
+    googleAnalytics: { id: '', enabled: false },
+    googleTagManager: { id: '', enabled: false },
+    googleAds: { id: '', enabled: false, conversionLabel: '' },
+    linkedInInsight: { id: '', enabled: false },
+    audit: { updatedBy: '', updatedAt: '' }
+  };
+  const [campaignData, setCampaignData] = useState(defaultCampaignData);
+  const [campaignErrors, setCampaignErrors] = useState({});
+
+  const fetchContactData = async () => {
+    try {
+      setLoading(true);
+      const res = await settingsService.getContactInfo();
+      if (res.data) {
+        setContactData((prev) => ({
+          ...prev,
+          ...res.data,
+          socialLinks: Array.isArray(res.data.socialLinks) ? res.data.socialLinks : []
+        }));
+      }
+    } catch (error) {
+      toast.error('Failed to load contact info');
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchCampaignData = async () => {
+    try {
+      setLoading(true);
+      const res = await settingsService.getCampaignSettings();
+      if (res.data) {
+        setCampaignData(res.data);
+      }
+    } catch (error) {
+      toast.error('Failed to load campaign settings');
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'contact') fetchContactData();
+    if (activeTab === 'campaigns') fetchCampaignData();
+  }, [activeTab]);
+
+  const handleContactChange = (e) => {
+    const { name, value } = e.target;
+    setContactData((prev) => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleSocialLinkChange = (index, field, value) => {
+    setContactData((prev) => {
+      const newLinks = [...prev.socialLinks];
+      newLinks[index] = { ...newLinks[index], [field]: value };
+      return { ...prev, socialLinks: newLinks };
+    });
+  };
+
+  const addSocialLink = () => {
+    setContactData((prev) => ({
+      ...prev,
+      socialLinks: [
+        ...prev.socialLinks,
+        { id: Date.now().toString(), platform: '', url: '' }
+      ]
+    }));
+  };
+
+  const removeSocialLink = (index) => {
+    if (!window.confirm('Are you sure you want to remove this social link?')) return;
+    setContactData((prev) => {
+      const newLinks = [...prev.socialLinks];
+      newLinks.splice(index, 1);
+      return { ...prev, socialLinks: newLinks };
+    });
+    toast.success('Removed from list. Please click "Save Changes" below to apply.');
+  };
+
+  const handleSaveContact = async () => {
+    try {
+      setSaving(true);
+      await settingsService.updateContactInfo(contactData);
+      toast.success('Contact info saved successfully!');
+    } catch (error) {
+      toast.error('Failed to save contact info');
+      console.error(error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCampaignChange = (platform, field, value) => {
+    setCampaignData(prev => ({
+      ...prev,
+      [platform]: {
+        ...prev[platform],
+        [field]: value
+      }
+    }));
+    // Clear error when user types
+    if (campaignErrors[platform]) {
+      setCampaignErrors(prev => ({ ...prev, [platform]: null }));
+    }
+  };
+
+  const handleSaveCampaigns = async () => {
+    // Validate before save
+    const validators = {
+      facebookPixel: /^\d+$/,
+      googleAnalytics: /^G-[A-Z0-9]+$/,
+      googleTagManager: /^GTM-[A-Z0-9]+$/,
+      googleAds: /^AW-\d+$/,
+      linkedInInsight: /^\d+$/
+    };
+    
+    let hasError = false;
+    let newErrors = {};
+
+    Object.keys(validators).forEach(platform => {
+      if (campaignData[platform]?.enabled && campaignData[platform]?.id) {
+        if (!validators[platform].test(campaignData[platform].id)) {
+          newErrors[platform] = `Invalid format for ${platform} ID.`;
+          hasError = true;
+        }
+      }
+    });
+
+    if (hasError) {
+      setCampaignErrors(newErrors);
+      toast.error('Please fix the validation errors before saving.');
+      return;
+    }
+
+    try {
+      setSaving(true);
+      const res = await settingsService.updateCampaignSettings(campaignData);
+      setCampaignData(res.data);
+      toast.success('Campaign settings saved successfully!');
+    } catch (error) {
+      if (error.response && error.response.status === 400) {
+        toast.error('Validation failed on server.');
+      } else {
+        toast.error('Failed to save campaign settings.');
+      }
+      console.error(error);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const tabs = [
+    { id: 'contact', label: 'Contact Info', icon: Phone },
     { id: 'integrations', label: 'Integrations', icon: Plug },
     { id: 'campaigns', label: 'Campaign Control', icon: BarChart2 },
     { id: 'backups', label: 'Backups', icon: Database },
@@ -48,6 +225,107 @@ const SettingsPage = () => {
       {/* Content Area */}
       <div className="flex-1 p-8 overflow-y-auto custom-scrollbar relative pb-24">
         
+        {/* Contact Tab */}
+        {activeTab === 'contact' && (
+          <div className="max-w-3xl animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <h3 className="text-2xl font-bold text-white mb-2">Contact & Global Info</h3>
+            <p className="text-gray-400 text-sm mb-8">Manage the contact details displayed across the website.</p>
+
+            {loading ? (
+              <div className="text-gray-400">Loading...</div>
+            ) : (
+              <div className="space-y-8">
+                <div>
+                  <h4 className="text-sm font-semibold text-[#FF6B00] uppercase tracking-widest mb-4 flex items-center gap-4">
+                    <span>Basic Details</span>
+                    <div className="h-[1px] flex-1 bg-gradient-to-r from-[#FF6B00]/30 to-transparent"></div>
+                  </h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className={labelClasses}>Email Address</label>
+                      <input type="email" name="email" value={contactData.email} onChange={handleContactChange} className={inputClasses} />
+                    </div>
+                    <div>
+                      <label className={labelClasses}>Working Hours</label>
+                      <input type="text" name="hours" value={contactData.hours} onChange={handleContactChange} placeholder="e.g. Mon – Fri: 8:00am – 7:00pm" className={inputClasses} />
+                    </div>
+                    <div>
+                      <label className={labelClasses}>Phone Number (Link)</label>
+                      <input type="text" name="phone" value={contactData.phone} onChange={handleContactChange} placeholder="+91 86524 10289" className={inputClasses} />
+                    </div>
+                    <div>
+                      <label className={labelClasses}>Phone Number (Display)</label>
+                      <input type="text" name="phoneDisplay" value={contactData.phoneDisplay} onChange={handleContactChange} placeholder="+91 86524 10289" className={inputClasses} />
+                    </div>
+                    <div>
+                      <label className={labelClasses}>WhatsApp Number</label>
+                      <input type="text" name="whatsappNumber" value={contactData.whatsappNumber} onChange={handleContactChange} placeholder="e.g. 917049380550 (with country code)" className={inputClasses} />
+                    </div>
+                    <div className="col-span-2">
+                      <label className={labelClasses}>WhatsApp Default Message</label>
+                      <input type="text" name="whatsappMessage" value={contactData.whatsappMessage} onChange={handleContactChange} placeholder="Hi! I want to know more about your services." className={inputClasses} />
+                    </div>
+                    <div className="col-span-2">
+                      <label className={labelClasses}>Address</label>
+                      <input type="text" name="address" value={contactData.address} onChange={handleContactChange} className={inputClasses} />
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="text-sm font-semibold text-[#FF6B00] uppercase tracking-widest mb-4 flex items-center gap-4">
+                    <span>Legal & Copyright</span>
+                    <div className="h-[1px] flex-1 bg-gradient-to-r from-[#FF6B00]/30 to-transparent"></div>
+                  </h4>
+                  <div className="grid grid-cols-1 gap-4">
+                    <div>
+                      <label className={labelClasses}>Copyright Text</label>
+                      <input type="text" name="copyright" value={contactData.copyright} onChange={handleContactChange} className={inputClasses} />
+                    </div>
+                    <div>
+                      <label className={labelClasses}>Registration Details</label>
+                      <input type="text" name="registration" value={contactData.registration} onChange={handleContactChange} className={inputClasses} />
+                    </div>
+                    <div>
+                      <label className={labelClasses}>CIN</label>
+                      <input type="text" name="cin" value={contactData.cin} onChange={handleContactChange} className={inputClasses} />
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="text-sm font-semibold text-[#FF6B00] uppercase tracking-widest mb-4 flex items-center gap-4">
+                    <span>Social Media Links</span>
+                    <div className="h-[1px] flex-1 bg-gradient-to-r from-[#FF6B00]/30 to-transparent"></div>
+                  </h4>
+                  <div className="space-y-4">
+                    {contactData.socialLinks.map((link, index) => (
+                      <div key={link.id || index} className="flex gap-4 items-start">
+                        <div className="flex-1">
+                          <label className={labelClasses}>Platform Name</label>
+                          <input type="text" value={link.platform} onChange={(e) => handleSocialLinkChange(index, 'platform', e.target.value)} placeholder="e.g. Facebook, Twitter" className={inputClasses} />
+                        </div>
+                        <div className="flex-[2]">
+                          <label className={labelClasses}>URL</label>
+                          <input type="text" value={link.url} onChange={(e) => handleSocialLinkChange(index, 'url', e.target.value)} placeholder="https://..." className={inputClasses} />
+                        </div>
+                        <div className="pt-7">
+                          <button onClick={() => removeSocialLink(index)} className="p-2 bg-red-500/10 text-red-500 hover:bg-red-500/20 rounded-lg transition-colors text-xs font-semibold uppercase tracking-wider">
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                    <button onClick={addSocialLink} className="px-4 py-2 mt-2 bg-[#121215] border border-[#2D2D33] text-white hover:text-[#FF6B00] hover:border-[#FF6B00] rounded-lg transition-all text-sm font-medium">
+                      + Add Social Link
+                    </button>
+                  </div>
+                </div>
+
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Integrations Tab */}
         {activeTab === 'integrations' && (
@@ -115,26 +393,153 @@ const SettingsPage = () => {
         {activeTab === 'campaigns' && (
           <div className="max-w-3xl animate-in fade-in slide-in-from-bottom-4 duration-500">
             <h3 className="text-2xl font-bold text-white mb-2">Campaign Control</h3>
-            <p className="text-gray-400 text-sm mb-8">Manage global settings for your ad campaigns and landing pages.</p>
+            <p className="text-gray-400 text-sm mb-4">Manage global tracking pixels and conversion labels across all platforms.</p>
             
-            <div className="bg-[#121215] border border-[#2D2D33] p-6 rounded-xl flex items-start gap-4">
-              <AlertCircle className="text-[#FFB800] mt-1 shrink-0" size={20} />
-              <div>
-                <h5 className="text-white font-medium mb-1">Global Tracking Pixels</h5>
-                <p className="text-sm text-gray-400 mb-4">These pixels will be injected into all `/lp/` routes automatically.</p>
-                
-                <div className="space-y-4">
-                  <div>
-                    <label className={labelClasses}>Facebook/Meta Pixel ID</label>
-                    <input type="text" placeholder="e.g. 123456789012345" className={inputClasses} />
-                  </div>
-                  <div>
-                    <label className={labelClasses}>Google Analytics Measurement ID</label>
-                    <input type="text" placeholder="e.g. G-XXXXXXX" className={inputClasses} />
-                  </div>
+            {campaignData.audit && campaignData.audit.updatedAt && (
+              <div className="bg-[#121215] border border-[#2D2D33] p-4 rounded-xl mb-8 flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-[#FF6B00]/10 flex items-center justify-center">
+                  <User size={16} className="text-[#FF6B00]" />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-300">Last updated by <span className="font-semibold text-white">{campaignData.audit.updatedBy}</span></p>
+                  <p className="text-xs text-gray-500">{new Date(campaignData.audit.updatedAt).toLocaleString()}</p>
                 </div>
               </div>
-            </div>
+            )}
+
+            {loading ? (
+              <div className="text-gray-400">Loading...</div>
+            ) : (
+              <div className="space-y-6">
+                
+                {/* Facebook Pixel */}
+                <div className="bg-[#121215] border border-[#2D2D33] p-6 rounded-xl">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-[#1877F2]/10 flex items-center justify-center">
+                        <Share2 size={20} className="text-[#1877F2]" />
+                      </div>
+                      <div>
+                        <h4 className="text-white font-semibold">Meta (Facebook) Pixel</h4>
+                        <p className="text-xs text-gray-400">Track standard PageView and Lead events.</p>
+                      </div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input type="checkbox" className="sr-only peer" checked={campaignData.facebookPixel?.enabled} onChange={(e) => handleCampaignChange('facebookPixel', 'enabled', e.target.checked)} />
+                      <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#FF6B00]"></div>
+                    </label>
+                  </div>
+                  <div className={`transition-all duration-300 ${campaignData.facebookPixel?.enabled ? 'opacity-100 h-auto' : 'opacity-50 pointer-events-none'}`}>
+                    <label className={labelClasses}>Pixel ID</label>
+                    <input type="text" placeholder="e.g. 123456789012345" value={campaignData.facebookPixel?.id} onChange={(e) => handleCampaignChange('facebookPixel', 'id', e.target.value)} className={`${inputClasses} ${campaignErrors.facebookPixel ? 'border-red-500' : ''}`} />
+                    {campaignErrors.facebookPixel && <p className="text-red-500 text-xs mt-1">{campaignErrors.facebookPixel}</p>}
+                  </div>
+                </div>
+
+                {/* Google Analytics */}
+                <div className="bg-[#121215] border border-[#2D2D33] p-6 rounded-xl">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-[#F9AB00]/10 flex items-center justify-center">
+                        <BarChart2 size={20} className="text-[#F9AB00]" />
+                      </div>
+                      <div>
+                        <h4 className="text-white font-semibold">Google Analytics 4</h4>
+                        <p className="text-xs text-gray-400">Track website traffic and user behavior.</p>
+                      </div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input type="checkbox" className="sr-only peer" checked={campaignData.googleAnalytics?.enabled} onChange={(e) => handleCampaignChange('googleAnalytics', 'enabled', e.target.checked)} />
+                      <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#FF6B00]"></div>
+                    </label>
+                  </div>
+                  <div className={`transition-all duration-300 ${campaignData.googleAnalytics?.enabled ? 'opacity-100 h-auto' : 'opacity-50 pointer-events-none'}`}>
+                    <label className={labelClasses}>Measurement ID</label>
+                    <input type="text" placeholder="e.g. G-XXXXXXX" value={campaignData.googleAnalytics?.id} onChange={(e) => handleCampaignChange('googleAnalytics', 'id', e.target.value)} className={`${inputClasses} ${campaignErrors.googleAnalytics ? 'border-red-500' : ''}`} />
+                    {campaignErrors.googleAnalytics && <p className="text-red-500 text-xs mt-1">{campaignErrors.googleAnalytics}</p>}
+                  </div>
+                </div>
+
+                {/* Google Tag Manager */}
+                <div className="bg-[#121215] border border-[#2D2D33] p-6 rounded-xl">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-[#4285F4]/10 flex items-center justify-center">
+                        <Plug size={20} className="text-[#4285F4]" />
+                      </div>
+                      <div>
+                        <h4 className="text-white font-semibold">Google Tag Manager</h4>
+                        <p className="text-xs text-gray-400">Manage all tags centrally via GTM.</p>
+                      </div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input type="checkbox" className="sr-only peer" checked={campaignData.googleTagManager?.enabled} onChange={(e) => handleCampaignChange('googleTagManager', 'enabled', e.target.checked)} />
+                      <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#FF6B00]"></div>
+                    </label>
+                  </div>
+                  <div className={`transition-all duration-300 ${campaignData.googleTagManager?.enabled ? 'opacity-100 h-auto' : 'opacity-50 pointer-events-none'}`}>
+                    <label className={labelClasses}>Container ID</label>
+                    <input type="text" placeholder="e.g. GTM-XXXXXXX" value={campaignData.googleTagManager?.id} onChange={(e) => handleCampaignChange('googleTagManager', 'id', e.target.value)} className={`${inputClasses} ${campaignErrors.googleTagManager ? 'border-red-500' : ''}`} />
+                    {campaignErrors.googleTagManager && <p className="text-red-500 text-xs mt-1">{campaignErrors.googleTagManager}</p>}
+                  </div>
+                </div>
+
+                {/* Google Ads */}
+                <div className="bg-[#121215] border border-[#2D2D33] p-6 rounded-xl">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-[#34A853]/10 flex items-center justify-center">
+                        <Database size={20} className="text-[#34A853]" />
+                      </div>
+                      <div>
+                        <h4 className="text-white font-semibold">Google Ads Tracking</h4>
+                        <p className="text-xs text-gray-400">Track specific lead conversions directly in Google Ads.</p>
+                      </div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input type="checkbox" className="sr-only peer" checked={campaignData.googleAds?.enabled} onChange={(e) => handleCampaignChange('googleAds', 'enabled', e.target.checked)} />
+                      <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#FF6B00]"></div>
+                    </label>
+                  </div>
+                  <div className={`transition-all duration-300 ${campaignData.googleAds?.enabled ? 'opacity-100 h-auto' : 'opacity-50 pointer-events-none'} space-y-4`}>
+                    <div>
+                      <label className={labelClasses}>Conversion ID</label>
+                      <input type="text" placeholder="e.g. AW-123456789" value={campaignData.googleAds?.id} onChange={(e) => handleCampaignChange('googleAds', 'id', e.target.value)} className={`${inputClasses} ${campaignErrors.googleAds ? 'border-red-500' : ''}`} />
+                      {campaignErrors.googleAds && <p className="text-red-500 text-xs mt-1">{campaignErrors.googleAds}</p>}
+                    </div>
+                    <div>
+                      <label className={labelClasses}>Conversion Label (Lead Event)</label>
+                      <input type="text" placeholder="e.g. abcdEFGHijklMNOP" value={campaignData.googleAds?.conversionLabel} onChange={(e) => handleCampaignChange('googleAds', 'conversionLabel', e.target.value)} className={inputClasses} />
+                    </div>
+                  </div>
+                </div>
+
+                {/* LinkedIn Insight */}
+                <div className="bg-[#121215] border border-[#2D2D33] p-6 rounded-xl">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-[#0077B5]/10 flex items-center justify-center">
+                        <Share2 size={20} className="text-[#0077B5]" />
+                      </div>
+                      <div>
+                        <h4 className="text-white font-semibold">LinkedIn Insight Tag</h4>
+                        <p className="text-xs text-gray-400">Track professional demographics and B2B conversions.</p>
+                      </div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input type="checkbox" className="sr-only peer" checked={campaignData.linkedInInsight?.enabled} onChange={(e) => handleCampaignChange('linkedInInsight', 'enabled', e.target.checked)} />
+                      <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#FF6B00]"></div>
+                    </label>
+                  </div>
+                  <div className={`transition-all duration-300 ${campaignData.linkedInInsight?.enabled ? 'opacity-100 h-auto' : 'opacity-50 pointer-events-none'}`}>
+                    <label className={labelClasses}>Partner ID</label>
+                    <input type="text" placeholder="e.g. 1234567" value={campaignData.linkedInInsight?.id} onChange={(e) => handleCampaignChange('linkedInInsight', 'id', e.target.value)} className={`${inputClasses} ${campaignErrors.linkedInInsight ? 'border-red-500' : ''}`} />
+                    {campaignErrors.linkedInInsight && <p className="text-red-500 text-xs mt-1">{campaignErrors.linkedInInsight}</p>}
+                  </div>
+                </div>
+
+              </div>
+            )}
           </div>
         )}
 
@@ -162,9 +567,16 @@ const SettingsPage = () => {
 
       {/* Sticky Floating Action Button */}
       <div className="absolute bottom-6 right-6 z-10">
-        <button className="flex items-center gap-2 bg-[#FF6B00] hover:bg-[#EA580C] text-white px-6 py-3 rounded-full font-bold shadow-[0_4px_20px_rgba(255,107,0,0.4)] transition-all hover:scale-105 active:scale-95">
+        <button 
+          onClick={() => {
+            if (activeTab === 'contact') handleSaveContact();
+            if (activeTab === 'campaigns') handleSaveCampaigns();
+          }}
+          disabled={saving}
+          className={`flex items-center gap-2 bg-[#FF6B00] hover:bg-[#EA580C] text-white px-6 py-3 rounded-full font-bold shadow-[0_4px_20px_rgba(255,107,0,0.4)] transition-all ${saving ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105 active:scale-95'}`}
+        >
           <Save size={18} />
-          Save Changes
+          {saving ? 'Saving...' : 'Save Changes'}
         </button>
       </div>
 

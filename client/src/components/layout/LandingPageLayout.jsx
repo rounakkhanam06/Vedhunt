@@ -3,21 +3,27 @@ import { Phone } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import ScrollToTop from '../common/ScrollToTop';
 import { useTheme } from '../../context/ThemeContext';
+import { useContactInfo } from '../../context/ContactInfoContext';
 import lightLogo from '../../assets/logo_Square.jpg__1_-removebg-preview.png';
 import darkLogo from '../../assets/DarkthemeLogo.png';
 import WhatsAppWidget from '../common/WhatsAppWidget';
+import { initTracking } from '../../utils/tracking';
 
 export default function LandingPageLayout() {
   const { theme } = useTheme();
+  const { contactInfo } = useContactInfo();
   const [isScrolled, setIsScrolled] = useState(false);
 
   useEffect(() => {
+    initTracking();
+    
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 20);
     };
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
 
   return (
     <div className="min-h-screen bg-app-bg text-app-text flex flex-col relative overflow-x-hidden">
@@ -28,14 +34,14 @@ export default function LandingPageLayout() {
         <img 
           src={theme === 'dark' ? darkLogo : lightLogo} 
           alt="Vedhunt Logo" 
-          className={`object-contain transition-all duration-300 ${isScrolled ? 'h-6 md:h-8' : 'h-8 md:h-10'}`}
+          className={`object-contain transition-all duration-300 ${isScrolled ? 'h-8 md:h-10' : 'h-12 md:h-16'}`}
         />
         <a 
-          href="tel:+917049380550" 
+          href={`tel:${contactInfo.phone}`} 
           className="flex items-center gap-2 px-4 py-2 bg-primary/10 hover:bg-primary/20 text-primary rounded-full transition-colors text-sm font-bold"
         >
           <Phone className="w-4 h-4" />
-          <span className="hidden sm:inline">+91 70493 80550</span>
+          <span className="hidden sm:inline">{contactInfo.phoneDisplay}</span>
         </a>
       </header>
 
@@ -50,7 +56,7 @@ export default function LandingPageLayout() {
           <img 
             src={theme === 'dark' ? darkLogo : lightLogo} 
             alt="Vedhunt Logo" 
-            className="h-8 opacity-50 grayscale"
+            className="h-12 md:h-16 opacity-50 grayscale"
           />
           <p className="text-xs text-app-text-muted">
             &copy; {new Date().getFullYear()} Vedhunt. All rights reserved.

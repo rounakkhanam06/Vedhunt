@@ -21,7 +21,7 @@ const testimonialRoutes = require('./routes/testimonialRoutes');
 const portfolioRoutes = require('./routes/portfolioRoutes');
 const pricingRoutes = require('./routes/pricingRoutes');
 const homePricingCardRoutes = require('./routes/homePricingCardRoutes');
-const { seedPortfolioData, seedPortfolioMetrics, seedPortfolioCTA } = require('./controllers/portfolioController');
+const { seedPortfolioData, seedPortfolioMetrics, seedPortfolioCTA, seedPortfolioHero } = require('./controllers/portfolioController');
 const { seedHomePricingCards } = require('./controllers/homePricingCardController');
 const { seedFaqData } = require('./controllers/faqController');
 const { seedBlogsAndSettings } = require('./controllers/blogSeeder');
@@ -29,6 +29,11 @@ const blogRoutes = require('./routes/blogRoutes');
 const jobRoutes = require('./routes/jobRoutes');
 const applicationRoutes = require('./routes/applicationRoutes');
 const faqRoutes = require('./routes/faqRoutes');
+const settingsRoutes = require('./routes/settingsRoutes');
+const servicePageRoutes = require('./routes/servicePageRoutes');
+const contactRoutes = require('./routes/contactRoutes');
+const leadRoutes = require('./routes/leadRoutes');
+const { seedServicePages } = require('./controllers/servicePageSeeder');
 const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
@@ -48,7 +53,7 @@ app.use(
 if (process.env.NODE_ENV === 'production') {
   app.use(globalLimiter); // Apply global rate limiting
 }
-app.use(express.json()); // Body parser
+app.use(express.json({ limit: '10mb' })); // Body parser with increased limit for rich text
 app.use(cookieParser()); // Cookie parser
 
 // Serve public directory for local uploads
@@ -76,6 +81,10 @@ app.use('/api/blogs', blogRoutes);
 app.use('/api/jobs', jobRoutes);
 app.use('/api/applications', applicationRoutes);
 app.use('/api/faq', faqRoutes);
+app.use('/api/service-pages', servicePageRoutes);
+app.use('/api/contact', contactRoutes);
+app.use('/api/leads', leadRoutes);
+app.use('/api', settingsRoutes);
 
 // Root route for API status
 app.get('/', (req, res) => {
@@ -107,9 +116,11 @@ mongoose
     await seedPortfolioData();
     await seedPortfolioMetrics();
     await seedPortfolioCTA();
+    await seedPortfolioHero();
     await seedHomePricingCards();
     await seedBlogsAndSettings();
     await seedFaqData();
+    await seedServicePages();
 
     app.listen(PORT, () => {
       logger.info(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);

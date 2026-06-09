@@ -1,10 +1,15 @@
+import { useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 import Navbar from './Navbar';
 import Footer from './Footer';
 import ScrollToTop from '../common/ScrollToTop';
 import WhatsAppWidget from '../common/WhatsAppWidget';
+import { initTracking } from '../../utils/tracking';
 
 export default function MainLayout() {
+  useEffect(() => {
+    initTracking();
+  }, []);
 
   return (
     <div className="min-h-screen bg-app-bg text-app-text-muted flex flex-col relative overflow-x-hidden">

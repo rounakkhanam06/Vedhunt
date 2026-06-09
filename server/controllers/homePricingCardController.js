@@ -1,15 +1,42 @@
 const HomePricingCard = require('../models/HomePricingCard');
 const logger = require('../utils/logger');
+const slugify = require('slugify');
 
 // @desc    Get all home pricing cards
 // @route   GET /api/home-pricing
 // @access  Public
 exports.getHomePricingCards = async (req, res, next) => {
   try {
-    const cards = await HomePricingCard.find().lean();
+    const filter = {};
+    if (req.query.showOnHome === 'true') {
+      filter.showOnHome = true;
+    }
+    if (req.query.slug) {
+      filter.slug = req.query.slug;
+    }
+
+    const cards = await HomePricingCard.find(filter).lean();
     res.status(200).json({ success: true, count: cards.length, data: cards });
   } catch (error) {
     logger.error('Error fetching home pricing cards', error);
+    next(error);
+  }
+};
+
+// @desc    Create a home pricing card
+// @route   POST /api/home-pricing
+// @access  Private (Admin)
+exports.createHomePricingCard = async (req, res, next) => {
+  try {
+    const data = { ...req.body };
+    if (!data.slug && data.title) {
+      data.slug = slugify(data.title, { lower: true, strict: true });
+    }
+
+    const card = await HomePricingCard.create(data);
+    res.status(201).json({ success: true, data: card });
+  } catch (error) {
+    logger.error('Error creating home pricing card', error);
     next(error);
   }
 };
@@ -19,7 +46,12 @@ exports.getHomePricingCards = async (req, res, next) => {
 // @access  Private (Admin)
 exports.updateHomePricingCard = async (req, res, next) => {
   try {
-    const card = await HomePricingCard.findByIdAndUpdate(req.params.id, req.body, {
+    const data = { ...req.body };
+    if (!data.slug && data.title) {
+      data.slug = slugify(data.title, { lower: true, strict: true });
+    }
+
+    const card = await HomePricingCard.findByIdAndUpdate(req.params.id, data, {
       new: true,
       runValidators: true,
     });
@@ -35,6 +67,24 @@ exports.updateHomePricingCard = async (req, res, next) => {
   }
 };
 
+// @desc    Delete a home pricing card
+// @route   DELETE /api/home-pricing/:id
+// @access  Private (Admin)
+exports.deleteHomePricingCard = async (req, res, next) => {
+  try {
+    const card = await HomePricingCard.findByIdAndDelete(req.params.id);
+
+    if (!card) {
+      return res.status(404).json({ success: false, message: 'Pricing card not found' });
+    }
+
+    res.status(200).json({ success: true, data: {} });
+  } catch (error) {
+    logger.error('Error deleting home pricing card', error);
+    next(error);
+  }
+};
+
 // @desc    Seed home pricing cards if empty
 exports.seedHomePricingCards = async () => {
   try {
@@ -44,6 +94,8 @@ exports.seedHomePricingCards = async () => {
       const initialCards = [
         {
           title: "Website Development",
+          slug: "website-development",
+          showOnHome: true,
           icon: "Laptop",
           description: "High-performance web applications & corporate sites.",
           color: "from-blue-500/20",
@@ -83,6 +135,8 @@ exports.seedHomePricingCards = async () => {
         },
         {
           title: "Social Media Management",
+          slug: "social-media",
+          showOnHome: true,
           icon: "Share2",
           description: "Viral content strategies & brand authority building.",
           color: "from-primary/20",
@@ -122,6 +176,8 @@ exports.seedHomePricingCards = async () => {
         },
         {
           title: "Performance Marketing",
+          slug: "performance-marketing",
+          showOnHome: true,
           icon: "TrendingUp",
           description: "KPI-driven paid ad campaigns for maximum ROI.",
           color: "from-purple-500/20",

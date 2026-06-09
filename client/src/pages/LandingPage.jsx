@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams, Navigate } from 'react-router-dom';
+import { useParams, Navigate, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { motion } from 'framer-motion';
 import { 
@@ -18,6 +18,7 @@ import {
   FileText
 } from 'lucide-react';
 import { LANDING_PAGES_CONFIG } from '../constants/landingPages';
+import api from '../services/api';
 
 export default function LandingPage() {
   const { slug } = useParams();
@@ -25,6 +26,46 @@ export default function LandingPage() {
   
   const [isSubmitSuccess, setIsSubmitSuccess] = useState(false);
   const { register, handleSubmit, formState: { errors }, reset } = useForm();
+  const navigate = useNavigate();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  const [pricingData, setPricingData] = useState(null);
+  const [loadingPricing, setLoadingPricing] = useState(true);
+
+  const [testimonials, setTestimonials] = useState([]);
+  const [loadingTestimonials, setLoadingTestimonials] = useState(true);
+
+  useEffect(() => {
+    const fetchPricing = async () => {
+      try {
+        const response = await api.get(`/home-pricing?slug=${slug}`);
+        if (response.data.success && response.data.data.length > 0) {
+          setPricingData(response.data.data[0]);
+        }
+      } catch (error) {
+        console.error('Error fetching pricing:', error);
+      } finally {
+        setLoadingPricing(false);
+      }
+    };
+    fetchPricing();
+  }, [slug]);
+
+  useEffect(() => {
+    const fetchTestimonials = async () => {
+      try {
+        const response = await api.get(`/testimonials/approved?page=${slug}`);
+        if (response.data.success) {
+          setTestimonials(response.data.data);
+        }
+      } catch (error) {
+        console.error('Error fetching testimonials:', error);
+      } finally {
+        setLoadingTestimonials(false);
+      }
+    };
+    fetchTestimonials();
+  }, [slug]);
 
   // Inject noindex meta tag
   useEffect(() => {
@@ -48,14 +89,43 @@ export default function LandingPage() {
     return <Navigate to="/404" replace />;
   }
 
-  const onSubmitForm = (data) => {
-    console.log("Mock Form Submitted to Excel Backend: ", data);
-    // User requested front-end only right now, so we just mock the success state
-    setIsSubmitSuccess(true);
-    reset();
-    setTimeout(() => {
-      setIsSubmitSuccess(false);
-    }, 5000);
+  const onSubmitForm = async (data) => {
+    setIsSubmitting(true);
+    try {
+      const payload = {
+        fullName: data.name,
+        phone: data.phone,
+        email: data.email,
+        service: data.service,
+        businessName: data.businessName,
+        message: data.message,
+        consent: data.consent,
+        source: window.location.href
+      };
+      
+      const res = await api.post('/leads', payload);
+      if (res.data.success) {
+        setIsSubmitSuccess(true);
+        reset();
+        
+        // Trigger tracking
+        if (window.trackConversion) {
+          window.trackConversion({
+            value: 0,
+            currency: 'INR',
+            service: data.service,
+            source: 'Landing Page Form'
+          });
+        }
+        
+        navigate('/thank-you');
+      }
+    } catch (error) {
+      console.error('Error submitting form:', error);
+      alert('Failed to submit form. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -166,67 +236,104 @@ export default function LandingPage() {
       </section>
 
       {/* 5. Pricing Summary */}
-      <section className="py-20 px-4 max-w-5xl mx-auto text-center">
-        <h2 className="text-3xl font-black font-heading text-app-text mb-12">Flexible Plans for Every Stage</h2>
-        <div className="grid md:grid-cols-3 gap-6">
-          {['Starter', 'Growth', 'Enterprise'].map((tier, idx) => (
-            <div key={idx} className={`p-8 rounded-2xl border ${idx === 1 ? 'border-primary bg-primary/5 relative' : 'border-app-border bg-app-card'}`}>
-              {idx === 1 && (
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-primary text-black text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full">
-                  Most Popular
+      {pricingData ? (
+        <section className="py-20 px-4 max-w-5xl mx-auto text-center">
+          <h2 className="text-3xl font-black font-heading text-app-text mb-12">Flexible Plans for Every Stage</h2>
+          <div className="grid md:grid-cols-3 gap-6">
+            {['starter', 'growth', 'enterprise'].map((tierKey, idx) => {
+              const tier = pricingData.tiers[tierKey];
+              const isPopular = idx === 1; // Assuming growth is popular, or we can use pricingData.popular
+              return (
+                <div key={tierKey} className={`p-8 rounded-2xl border flex flex-col ${isPopular ? 'border-primary bg-primary/5 relative' : 'border-app-border bg-app-card'}`}>
+                  {isPopular && (
+                    <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-primary text-black text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full">
+                      Most Popular
+                    </div>
+                  )}
+                  <h4 className="text-xl font-bold text-app-text mb-2 capitalize">{tierKey}</h4>
+                  <div className="mb-6">
+                    <span className="text-3xl font-black text-app-text">{tier.price}</span>
+                    <span className="text-app-text-muted text-sm">{tier.period}</span>
+                  </div>
+                  
+                  <ul className="text-left space-y-3 mb-8 flex-grow">
+                    {tier.features.map((feature, i) => (
+                      <li key={i} className="flex items-start gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                        <span className="text-sm text-app-text-muted leading-tight">{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
+
+                  <button 
+                    onClick={() => document.getElementById('lp-form').scrollIntoView({ behavior: 'smooth' })}
+                    className={`w-full py-3 rounded-full text-xs font-bold uppercase tracking-widest transition-colors ${isPopular ? 'bg-primary text-black hover:bg-primary-hover shadow-lg shadow-primary/20' : 'bg-app-bg text-app-text border border-app-border hover:border-primary/50'}`}
+                  >
+                    Get Quote
+                  </button>
                 </div>
-              )}
-              <h4 className="text-xl font-bold text-app-text mb-2">{tier}</h4>
-              <p className="text-xs text-app-text-muted mb-6">Perfect for scaling businesses.</p>
-              <button 
-                onClick={() => document.getElementById('lp-form').scrollIntoView({ behavior: 'smooth' })}
-                className={`w-full py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-colors ${idx === 1 ? 'bg-primary text-black hover:bg-primary-hover' : 'bg-app-bg text-app-text border border-app-border hover:border-primary/50'}`}
-              >
-                Get Quote
-              </button>
-            </div>
-          ))}
-        </div>
-      </section>
+              );
+            })}
+          </div>
+        </section>
+      ) : !loadingPricing ? (
+        <section className="py-20 px-4 max-w-5xl mx-auto text-center">
+          <h2 className="text-3xl font-black font-heading text-app-text mb-12">Flexible Plans for Every Stage</h2>
+          <div className="grid md:grid-cols-3 gap-6">
+            {['Starter', 'Growth', 'Enterprise'].map((tier, idx) => (
+              <div key={idx} className={`p-8 rounded-2xl border ${idx === 1 ? 'border-primary bg-primary/5 relative' : 'border-app-border bg-app-card'}`}>
+                {idx === 1 && (
+                  <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-primary text-black text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full">
+                    Most Popular
+                  </div>
+                )}
+                <h4 className="text-xl font-bold text-app-text mb-2">{tier}</h4>
+                <p className="text-xs text-app-text-muted mb-6">Perfect for scaling businesses.</p>
+                <button 
+                  onClick={() => document.getElementById('lp-form').scrollIntoView({ behavior: 'smooth' })}
+                  className={`w-full py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-colors ${idx === 1 ? 'bg-primary text-black hover:bg-primary-hover' : 'bg-app-bg text-app-text border border-app-border hover:border-primary/50'}`}
+                >
+                  Get Quote
+                </button>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       {/* 6. Social Proof */}
-      <section className="py-20 bg-app-card px-4 border-y border-app-border">
-        <div className="max-w-4xl mx-auto">
-          <h2 className="text-3xl font-black font-heading text-app-text text-center mb-12">What Our Clients Say</h2>
-          <div className="grid md:grid-cols-2 gap-8">
-            <div className="p-8 rounded-2xl bg-app-bg border border-app-border relative">
-              <div className="flex gap-1 text-primary mb-4">
-                {[1,2,3,4,5].map(i => <Star key={i} className="w-4 h-4 fill-current" />)}
-              </div>
-              <p className="text-sm text-app-text-muted italic mb-6">
-                "Vedhunt completely transformed our digital presence. Within 3 months, our inbound leads doubled, and the quality of the new website is unmatched."
-              </p>
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-primary/20" />
-                <div>
-                  <h5 className="text-sm font-bold text-app-text">Rahul Desai</h5>
-                  <p className="text-[10px] text-app-text-muted uppercase">CEO, TechNova</p>
+      {!loadingTestimonials && testimonials.length > 0 && (
+        <section className="py-20 bg-app-card px-4 border-y border-app-border">
+          <div className="max-w-4xl mx-auto">
+            <h2 className="text-3xl font-black font-heading text-app-text text-center mb-12">What Our Clients Say</h2>
+            <div className="grid md:grid-cols-2 gap-8">
+              {testimonials.map((t) => (
+                <div key={t._id} className="p-8 rounded-2xl bg-app-bg border border-app-border relative">
+                  <div className="flex gap-1 text-primary mb-4">
+                    {[1, 2, 3, 4, 5].map(i => <Star key={i} className="w-4 h-4 fill-current" />)}
+                  </div>
+                  <p className="text-sm text-app-text-muted italic mb-6">
+                    "{t.quote}"
+                  </p>
+                  <div className="flex items-center gap-3">
+                    {t.avatar ? (
+                      <img src={t.avatar} alt={t.author} className="w-10 h-10 rounded-full object-cover border border-app-border" />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold">
+                        {t.author.charAt(0)}
+                      </div>
+                    )}
+                    <div>
+                      <h5 className="text-sm font-bold text-app-text">{t.author}</h5>
+                      <p className="text-[10px] text-app-text-muted uppercase tracking-wider">{t.role}</p>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
-            <div className="p-8 rounded-2xl bg-app-bg border border-app-border relative">
-              <div className="flex gap-1 text-primary mb-4">
-                {[1,2,3,4,5].map(i => <Star key={i} className="w-4 h-4 fill-current" />)}
-              </div>
-              <p className="text-sm text-app-text-muted italic mb-6">
-                "Their attention to detail and data-driven approach to marketing helped us lower our customer acquisition cost by 40%. Highly recommended."
-              </p>
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-primary/20" />
-                <div>
-                  <h5 className="text-sm font-bold text-app-text">Priya Sharma</h5>
-                  <p className="text-[10px] text-app-text-muted uppercase">Founder, Bloom Retail</p>
-                </div>
-              </div>
+              ))}
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* 7. Lead Capture Form */}
       <section id="lp-form" className="py-24 px-4 max-w-3xl mx-auto relative">
@@ -251,86 +358,121 @@ export default function LandingPage() {
             <form onSubmit={handleSubmit(onSubmitForm)} className="space-y-6 text-left">
               <div className="grid md:grid-cols-2 gap-6">
                 <div className="space-y-1.5 relative group">
-                  <label className="text-[10px] font-extrabold text-app-text-muted/70 uppercase tracking-widest block">
+                  <label className="text-[10px] font-extrabold text-app-text-muted uppercase tracking-widest block">
                     Full Name <span className="text-primary">*</span>
                   </label>
                   <div className="relative">
-                    <User className="absolute left-0 top-1/2 -translate-y-1/2 w-4 h-4 text-app-text-muted/50 group-focus-within:text-primary transition-colors" />
+                    <User className="absolute left-0 top-1/2 -translate-y-1/2 w-4 h-4 text-app-text-muted group-focus-within:text-primary transition-colors" />
                     <input 
                       type="text" 
                       placeholder="e.g. Rahul Sharma"
-                      className="w-full bg-transparent border-b-2 py-2 pl-7 text-app-text focus:outline-none focus:border-primary transition-colors text-sm font-bold placeholder:text-app-text-muted/20 border-app-border/70"
+                      className="w-full bg-transparent border-b-2 py-2 pl-7 text-app-text focus:outline-none focus:border-primary transition-colors text-sm font-bold placeholder:text-app-text-muted/50 border-app-border"
                       {...register('name', { required: true })}
                     />
                   </div>
                 </div>
                 <div className="space-y-1.5 relative group">
-                  <label className="text-[10px] font-extrabold text-app-text-muted/70 uppercase tracking-widest block">
+                  <label className="text-[10px] font-extrabold text-app-text-muted uppercase tracking-widest block">
                     Phone Number <span className="text-primary">*</span>
                   </label>
-                  <div className="relative">
-                    <Phone className="absolute left-0 top-1/2 -translate-y-1/2 w-4 h-4 text-app-text-muted/50 group-focus-within:text-primary transition-colors" />
+                  <div className="relative flex items-center border-b-2 border-app-border focus-within:border-primary transition-colors">
+                    <div className="flex items-center gap-1 pl-2 text-sm text-app-text-muted pr-2 border-r border-app-border">
+                      <span className="text-lg leading-none">🇮🇳</span>
+                      <span className="font-bold">+91</span>
+                    </div>
                     <input 
                       type="tel" 
-                      placeholder="e.g. +91 98765 43210"
-                      className="w-full bg-transparent border-b-2 py-2 pl-7 text-app-text focus:outline-none focus:border-primary transition-colors text-sm font-bold placeholder:text-app-text-muted/20 border-app-border/70"
-                      {...register('phone', { required: true })}
+                      placeholder="98765 43210"
+                      className="w-full bg-transparent py-2 pl-3 text-app-text focus:outline-none text-sm font-bold placeholder:text-app-text-muted/50"
+                      {...register('phone', { required: true, pattern: /^[0-9]{10}$/ })}
+                    />
+                  </div>
+                  {errors.phone && <span className="text-[10px] text-red-500">Please enter a valid 10-digit number</span>}
+                </div>
+              </div>
+              
+              <div className="grid md:grid-cols-2 gap-6">
+                <div className="space-y-1.5 relative group">
+                  <label className="text-[10px] font-extrabold text-app-text-muted uppercase tracking-widest block">
+                    Email Address <span className="text-primary">*</span>
+                  </label>
+                  <div className="relative">
+                    <Mail className="absolute left-0 top-1/2 -translate-y-1/2 w-4 h-4 text-app-text-muted group-focus-within:text-primary transition-colors" />
+                    <input 
+                      type="email" 
+                      placeholder="e.g. rahul@example.com"
+                      className="w-full bg-transparent border-b-2 py-2 pl-7 text-app-text focus:outline-none focus:border-primary transition-colors text-sm font-bold placeholder:text-app-text-muted/50 border-app-border"
+                      {...register('email', { required: true })}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5 relative group">
+                  <label className="text-[10px] font-extrabold text-app-text-muted uppercase tracking-widest block">
+                    Business Name (Optional)
+                  </label>
+                  <div className="relative">
+                    <Briefcase className="absolute left-0 top-1/2 -translate-y-1/2 w-4 h-4 text-app-text-muted group-focus-within:text-primary transition-colors" />
+                    <input 
+                      type="text" 
+                      placeholder="e.g. TechNova Solutions"
+                      className="w-full bg-transparent border-b-2 py-2 pl-7 text-app-text focus:outline-none focus:border-primary transition-colors text-sm font-bold placeholder:text-app-text-muted/50 border-app-border"
+                      {...register('businessName')}
                     />
                   </div>
                 </div>
               </div>
-              
-              <div className="space-y-1.5 relative group">
-                <label className="text-[10px] font-extrabold text-app-text-muted/70 uppercase tracking-widest block">
-                  Email Address <span className="text-primary">*</span>
-                </label>
-                <div className="relative">
-                  <Mail className="absolute left-0 top-1/2 -translate-y-1/2 w-4 h-4 text-app-text-muted/50 group-focus-within:text-primary transition-colors" />
-                  <input 
-                    type="email" 
-                    placeholder="e.g. rahul@example.com"
-                    className="w-full bg-transparent border-b-2 py-2 pl-7 text-app-text focus:outline-none focus:border-primary transition-colors text-sm font-bold placeholder:text-app-text-muted/20 border-app-border/70"
-                    {...register('email', { required: true })}
-                  />
-                </div>
-              </div>
 
               <div className="space-y-1.5 relative group">
-                <label className="text-[10px] font-extrabold text-app-text-muted/70 uppercase tracking-widest block">
+                <label className="text-[10px] font-extrabold text-app-text-muted uppercase tracking-widest block">
                   Service Needed
                 </label>
                 <div className="relative">
-                  <Briefcase className="absolute left-0 top-1/2 -translate-y-1/2 w-4 h-4 text-app-text-muted/50 group-focus-within:text-primary transition-colors" />
+                  <Briefcase className="absolute left-0 top-1/2 -translate-y-1/2 w-4 h-4 text-app-text-muted group-focus-within:text-primary transition-colors" />
                   <input 
                     type="text" 
                     defaultValue={pageData.title.split(' ')[0] + " Service"}
-                    className="w-full bg-transparent border-b-2 py-2 pl-7 text-app-text focus:outline-none focus:border-primary transition-colors text-sm font-bold placeholder:text-app-text-muted/20 border-app-border/70"
+                    className="w-full bg-transparent border-b-2 py-2 pl-7 text-app-text focus:outline-none focus:border-primary transition-colors text-sm font-bold placeholder:text-app-text-muted/50 border-app-border"
                     {...register('service')}
                   />
                 </div>
               </div>
 
               <div className="space-y-1.5 relative group">
-                <label className="text-[10px] font-extrabold text-app-text-muted/70 uppercase tracking-widest block">
+                <label className="text-[10px] font-extrabold text-app-text-muted uppercase tracking-widest block">
                   Message (Optional)
                 </label>
                 <div className="relative">
-                  <FileText className="absolute left-0 top-3 w-4 h-4 text-app-text-muted/50 group-focus-within:text-primary transition-colors" />
+                  <FileText className="absolute left-0 top-3 w-4 h-4 text-app-text-muted group-focus-within:text-primary transition-colors" />
                   <textarea 
                     rows="2"
                     placeholder="Briefly explain what you're looking for..."
-                    className="w-full bg-transparent border-b-2 py-2 pl-7 text-app-text focus:outline-none focus:border-primary transition-all resize-none text-sm font-bold placeholder:text-app-text-muted/20 border-app-border/70"
+                    className="w-full bg-transparent border-b-2 py-2 pl-7 text-app-text focus:outline-none focus:border-primary transition-all resize-none text-sm font-bold placeholder:text-app-text-muted/50 border-app-border"
                     {...register('message')}
                   />
                 </div>
               </div>
 
+              <div className="flex items-start gap-2 mt-4">
+                <input 
+                  type="checkbox" 
+                  id="consent" 
+                  className="mt-1 accent-primary"
+                  {...register('consent', { required: true })}
+                />
+                <label htmlFor="consent" className="text-xs text-app-text-muted">
+                  I agree to be contacted by Vedhunt InfoTech regarding my inquiry.
+                </label>
+              </div>
+              {errors.consent && <span className="text-[10px] text-red-500">You must agree to be contacted.</span>}
+
               <button 
                 type="submit"
-                className="w-full py-3 bg-primary hover:bg-primary-hover text-black font-extrabold text-xs uppercase tracking-widest rounded-full transition-all duration-300 shadow-[0_10px_25px_rgba(232,71,10,0.22)] hover:shadow-[0_12px_35px_rgba(232,71,10,0.45)] hover:-translate-y-0.5 mt-8 flex items-center justify-center gap-2"
+                disabled={isSubmitting}
+                className="w-full py-3 bg-primary hover:bg-primary-hover text-black font-extrabold text-xs uppercase tracking-widest rounded-full transition-all duration-300 shadow-[0_10px_25px_rgba(232,71,10,0.22)] hover:shadow-[0_12px_35px_rgba(232,71,10,0.45)] hover:-translate-y-0.5 mt-8 flex items-center justify-center gap-2 disabled:opacity-70 disabled:hover:-translate-y-0"
               >
-                <span>{pageData.primaryCta}</span>
-                <ArrowRight className="w-4 h-4" />
+                <span>{isSubmitting ? 'Submitting...' : pageData.primaryCta}</span>
+                {!isSubmitting && <ArrowRight className="w-4 h-4" />}
               </button>
             </form>
           )}

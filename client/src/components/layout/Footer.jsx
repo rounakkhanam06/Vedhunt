@@ -1,7 +1,8 @@
 import { Link } from 'react-router-dom';
-import { Phone, Mail, ArrowRight, MapPin, ArrowUpRight } from 'lucide-react';
-import { CONTACT_INFO, SERVICES } from '../../constants';
+import { Phone, Mail, ArrowRight, MapPin, ArrowUpRight, Link as LinkIcon } from 'lucide-react';
+import { SERVICES } from '../../constants';
 import { useTheme } from '../../context/ThemeContext';
+import { useContactInfo } from '../../context/ContactInfoContext';
 import lightLogo from '../../assets/logo_Square.jpg__1_-removebg-preview.png';
 import darkLogo from '../../assets/DarkthemeLogo.png';
 
@@ -37,6 +38,7 @@ const YoutubeIcon = (props) => (
 
 export default function Footer() {
   const { theme } = useTheme();
+  const { contactInfo } = useContactInfo();
   return (
     <footer className="relative text-app-text-muted mt-6 sm:mt-12 font-sans theme-transition">
       {/* Wave Divider with light orange glow at the top of the footer */}
@@ -99,12 +101,12 @@ export default function Footer() {
           <div className="grid grid-cols-2 lg:grid-cols-5 gap-x-4 gap-y-6 lg:gap-6 pb-4 sm:pb-6 border-b border-app-border">
             
             {/* Column 1: Branding & Profile */}
-            <div className="space-y-2 col-span-2 lg:col-span-1">
-              <Link to="/" className="flex items-center gap-2 group relative z-10">
+            <div className="col-span-1 md:col-span-2">
+              <Link to="/" className="inline-block mb-6">
                 <img
                   src={theme === 'dark' ? darkLogo : lightLogo}
-                  alt="Vedhunt Infotech"
-                  className="h-[55px] sm:h-[65px] w-auto object-contain transition-all duration-300"
+                  alt="Vedhunt Logo"
+                  className="h-16 md:h-20 w-auto object-contain transition-transform duration-300 hover:scale-105"
                 />
               </Link>
               <p className="text-xs sm:text-sm text-app-text-muted leading-relaxed max-w-sm">
@@ -112,7 +114,7 @@ export default function Footer() {
               </p>
               <div className="flex items-start gap-2.5 text-xs sm:text-sm text-app-text">
                 <MapPin className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-                <span>Mumbai, Maharashtra, India</span>
+                <span>{contactInfo.address}</span>
               </div>
             </div>
 
@@ -214,13 +216,13 @@ export default function Footer() {
                 Contact Info
               </h4>
               <div className="space-y-2 text-xs sm:text-sm">
-                <a href={`tel:${CONTACT_INFO.phone}`} className="flex items-center gap-2.5 text-app-text hover:text-primary transition-colors group">
+                <a href={`tel:${contactInfo.phone}`} className="flex items-center gap-2.5 text-app-text hover:text-primary transition-colors group">
                   <Phone className="w-3.5 h-3.5 text-primary group-hover:scale-110 transition-transform" />
-                  <span>{CONTACT_INFO.phoneDisplay}</span>
+                  <span>{contactInfo.phoneDisplay}</span>
                 </a>
-                <a href={`mailto:${CONTACT_INFO.email}`} className="flex items-center gap-2.5 text-app-text hover:text-primary transition-colors group">
+                <a href={`mailto:${contactInfo.email}`} className="flex items-center gap-2.5 text-app-text hover:text-primary transition-colors group">
                   <Mail className="w-3.5 h-3.5 text-primary group-hover:scale-110 transition-transform" />
-                  <span>{CONTACT_INFO.email}</span>
+                  <span>{contactInfo.email}</span>
                 </a>
               </div>
 
@@ -237,23 +239,30 @@ export default function Footer() {
               </div>
 
               {/* High-fidelity custom Social Icons */}
-              <div className="flex items-center gap-3 pt-0.5">
-                {[
-                  { icon: FacebookIcon, link: 'https://www.facebook.com/Vedhunt6' },
-                  { icon: InstagramIcon, link: 'https://www.instagram.com/vedhunt/' },
-                  { icon: LinkedinIcon, link: 'https://www.linkedin.com/company/vedhunt-infotech' },
-                  { icon: YoutubeIcon, link: 'https://www.youtube.com/@vedhuntinfotech1326' }
-                ].map((social, idx) => (
-                  <a
-                    key={idx}
-                    href={social.link}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-8 h-8 rounded-lg bg-app-bg border border-app-border hover:border-primary/40 text-app-text-muted hover:text-primary hover:bg-primary/5 transition-all duration-300 flex items-center justify-center group"
-                  >
-                    <social.icon className="w-3.5 h-3.5 transition-transform group-hover:scale-110" />
-                  </a>
-                ))}
+              <div className="flex flex-wrap items-center gap-3 pt-0.5">
+                {(Array.isArray(contactInfo.socialLinks) ? contactInfo.socialLinks : [])
+                  .filter(social => social.url)
+                  .map((social, idx) => {
+                    const platform = social.platform.toLowerCase();
+                    let Icon = LinkIcon;
+                    if (platform.includes('facebook')) Icon = FacebookIcon;
+                    else if (platform.includes('instagram')) Icon = InstagramIcon;
+                    else if (platform.includes('linkedin')) Icon = LinkedinIcon;
+                    else if (platform.includes('youtube')) Icon = YoutubeIcon;
+
+                    return (
+                      <a
+                        key={social.id || idx}
+                        href={social.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-8 h-8 rounded-lg bg-app-bg border border-app-border hover:border-primary/40 text-app-text-muted hover:text-primary hover:bg-primary/5 transition-all duration-300 flex items-center justify-center group"
+                        title={social.platform}
+                      >
+                        <Icon className="w-3.5 h-3.5 transition-transform group-hover:scale-110" />
+                      </a>
+                    );
+                })}
               </div>
             </div>
 
@@ -292,10 +301,10 @@ export default function Footer() {
           <div className="pt-4 flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-app-text-muted">
             <div className="text-center md:text-left space-y-0.5 max-w-xl">
               <p className="text-app-text-muted/80 text-[11px] sm:text-xs">
-                {CONTACT_INFO.copyright}
+                {contactInfo.copyright}
               </p>
               <p className="text-app-text-muted/60 text-[9px] sm:text-[10px]">
-                {CONTACT_INFO.registration}
+                {contactInfo.registration}
               </p>
             </div>
             

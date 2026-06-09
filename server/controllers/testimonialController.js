@@ -35,7 +35,25 @@ exports.createTestimonial = async (req, res, next) => {
 // @access  Public
 exports.getApprovedTestimonials = async (req, res, next) => {
   try {
-    const testimonials = await Testimonial.find({ status: 'approved' }).sort({ createdAt: -1 });
+    const { page } = req.query;
+    let query = { status: 'approved' };
+    
+    if (page) {
+      // Find testimonials that explicitly include this page slug OR include 'home' (as fallback)
+      query.showOnPages = { $in: [page, 'home'] };
+    }
+    
+    let testimonials = await Testimonial.find(query).sort({ createdAt: -1 });
+
+    if (page && page !== 'home') {
+      // If we found specific testimonials for this page, use only them.
+      // Otherwise, the ones matching 'home' will act as the fallback.
+      const specificTestimonials = testimonials.filter(t => t.showOnPages && t.showOnPages.includes(page));
+      if (specificTestimonials.length > 0) {
+        testimonials = specificTestimonials;
+      }
+    }
+
     res.status(200).json({
       success: true,
       data: testimonials,
@@ -96,7 +114,7 @@ exports.updateTestimonialStatus = async (req, res, next) => {
 // @access  Private/Admin
 exports.createAdminTestimonial = async (req, res, next) => {
   try {
-    const { author, role, quote, country, countryFlag, avatar } = req.body;
+    const { author, role, quote, country, countryFlag, avatar, showOnPages } = req.body;
     
     const testimonialData = {
       author,
@@ -106,6 +124,7 @@ exports.createAdminTestimonial = async (req, res, next) => {
       countryFlag: countryFlag || '🇮🇳',
       status: 'approved',
       source: 'system',
+      showOnPages: showOnPages || ['home'],
     };
 
     if (avatar) {
@@ -129,7 +148,7 @@ exports.createAdminTestimonial = async (req, res, next) => {
 // @access  Private/Admin
 exports.updateTestimonial = async (req, res, next) => {
   try {
-    const { author, role, quote, country, countryFlag, avatar } = req.body;
+    const { author, role, quote, country, countryFlag, avatar, showOnPages } = req.body;
     
     const testimonialData = {
       author,
@@ -138,6 +157,10 @@ exports.updateTestimonial = async (req, res, next) => {
       country,
       countryFlag,
     };
+
+    if (showOnPages) {
+      testimonialData.showOnPages = showOnPages;
+    }
 
     if (avatar) {
       testimonialData.avatar = avatar;

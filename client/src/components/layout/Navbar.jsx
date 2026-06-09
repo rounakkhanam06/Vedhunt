@@ -6,11 +6,13 @@ import { NAV_LINKS as DEFAULT_NAV_LINKS, SERVICES } from '../../constants';
 import { contentService } from '../../services/contentService';
 import ThemeToggle from '../common/ThemeToggle';
 import { useTheme } from '../../context/ThemeContext';
+import { useContactInfo } from '../../context/ContactInfoContext';
 import lightLogo from '../../assets/logo_Square.jpg__1_-removebg-preview.png';
 import darkLogo from '../../assets/DarkthemeLogo.png';
 
 export default function Navbar() {
   const { theme } = useTheme();
+  const { contactInfo } = useContactInfo();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isServicesExpanded, setIsServicesExpanded] = useState(false);
@@ -60,15 +62,15 @@ export default function Navbar() {
       <div className="w-full bg-app-bg border-b border-app-border text-app-text-muted py-2 px-4 md:px-8 z-50 relative hidden sm:block">
         <div className="max-w-6xl mx-auto flex justify-between items-center text-[11px] font-medium tracking-wide">
           <div className="flex gap-6">
-            <span className="flex items-center gap-1.5 hover:text-primary transition-colors cursor-pointer">
-              <Phone className="w-3.5 h-3.5" /> +91 98765 43210
-            </span>
-            <span className="flex items-center gap-1.5 hover:text-primary transition-colors cursor-pointer">
-              <Mail className="w-3.5 h-3.5" /> info@vedhunt.in
-            </span>
+            <a href={`tel:${contactInfo.phone}`} className="flex items-center gap-1.5 hover:text-primary transition-colors cursor-pointer">
+              <Phone className="w-3.5 h-3.5" /> {contactInfo.phoneDisplay}
+            </a>
+            <a href={`mailto:${contactInfo.email}`} className="flex items-center gap-1.5 hover:text-primary transition-colors cursor-pointer">
+              <Mail className="w-3.5 h-3.5" /> {contactInfo.email}
+            </a>
           </div>
           <div className="flex items-center gap-1.5">
-            <Clock className="w-3.5 h-3.5" /> Mon – Fri: 8:00am – 7:00pm
+            <Clock className="w-3.5 h-3.5" /> {contactInfo.hours}
           </div>
         </div>
       </div>
@@ -89,7 +91,7 @@ export default function Navbar() {
               <img
                 src={theme === 'dark' || (location.pathname === '/' && !isScrolled) ? darkLogo : lightLogo}
                 alt="Vedhunt Logo"
-                className="h-16 sm:h-20 md:h-24 w-auto object-contain transition-transform duration-300 group-hover:scale-105 my-[-10px] sm:my-[-16px] md:my-[-24px]"
+                className="h-20 sm:h-24 md:h-28 w-auto object-contain transition-transform duration-300 group-hover:scale-105 my-[-14px] sm:my-[-20px] md:my-[-28px]"
               />
             </Link>
           </div>

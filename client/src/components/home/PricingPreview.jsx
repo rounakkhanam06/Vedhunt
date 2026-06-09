@@ -21,7 +21,7 @@ export default function PricingPreview() {
   useEffect(() => {
     const fetchPricing = async () => {
       try {
-        const response = await api.get('/home-pricing');
+        const response = await api.get('/home-pricing?showOnHome=true');
         const data = response.data;
         if (data.success) {
           setPricingCards(data.data);

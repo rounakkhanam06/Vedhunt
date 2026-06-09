@@ -22,6 +22,7 @@ const RefundPolicy = lazy(() => import('../pages/RefundPolicy'));
 const CookiePolicy = lazy(() => import('../pages/CookiePolicy'));
 const DPA = lazy(() => import('../pages/DPA'));
 const FAQ = lazy(() => import('../pages/FAQ'));
+const ThankYou = lazy(() => import('../pages/ThankYou'));
 
 // Admin Pages
 const AdminLayout = lazy(() => import('../admin/AdminLayout'));
@@ -36,6 +37,7 @@ const ForgotPassword = lazy(() => import('../admin/pages/ForgotPassword'));
 const ResetPassword = lazy(() => import('../admin/pages/ResetPassword'));
 const NavbarManager = lazy(() => import('../admin/pages/NavbarManager'));
 const ServiceManager = lazy(() => import('../admin/pages/ServiceManager'));
+const ServicePagesManager = lazy(() => import('../admin/pages/ServicePagesManager'));
 const PortfolioManager = lazy(() => import('../admin/pages/PortfolioManager'));
 const LandingPageManager = lazy(() => import('../admin/pages/LandingPageManager'));
 const TestimonialManager = lazy(() => import('../admin/pages/TestimonialManager'));
@@ -50,6 +52,12 @@ const CreateEditBlog = lazy(() => import('../admin/pages/CreateEditBlog'));
 const JobManager = lazy(() => import('../admin/pages/JobManager'));
 const ApplicationManager = lazy(() => import('../admin/pages/ApplicationManager'));
 const FAQManager = lazy(() => import('../admin/pages/FAQManager'));
+const PrivacyPolicyManager = lazy(() => import('../admin/pages/PrivacyPolicyManager'));
+const TermsConditionsManager = lazy(() => import('../admin/pages/TermsConditionsManager'));
+const CookiePolicyManager = lazy(() => import('../admin/pages/CookiePolicyManager'));
+const DPAManager = lazy(() => import('../admin/pages/DPAManager'));
+const RefundPolicyManager = lazy(() => import('../admin/pages/RefundPolicyManager'));
+const LeadsManager = lazy(() => import('../admin/pages/LeadsManager'));
 
 // High-fidelity, smooth loading fallback component to display during chunk fetching
 const withSuspense = (Component) => (
@@ -142,6 +150,10 @@ export const router = createBrowserRouter([
         element: withSuspense(FAQ)
       },
       {
+        path: 'thank-you',
+        element: withSuspense(ThankYou)
+      },
+      {
         path: '*',
         element: withSuspense(NotFound)
       }
@@ -193,6 +205,10 @@ export const router = createBrowserRouter([
           {
             path: 'services',
             element: withSuspense(ServiceManager)
+          },
+          {
+            path: 'service-pages',
+            element: withSuspense(ServicePagesManager)
           },
           {
             path: 'settings',
@@ -261,6 +277,30 @@ export const router = createBrowserRouter([
           {
             path: 'faq',
             element: withSuspense(FAQManager)
+          },
+          {
+            path: 'privacy-policy',
+            element: withSuspense(PrivacyPolicyManager)
+          },
+          {
+            path: 'terms-and-conditions',
+            element: withSuspense(TermsConditionsManager)
+          },
+          {
+            path: 'cookie-policy',
+            element: withSuspense(CookiePolicyManager)
+          },
+          {
+            path: 'data-processing-agreement',
+            element: withSuspense(DPAManager)
+          },
+          {
+            path: 'refund-policy',
+            element: withSuspense(RefundPolicyManager)
+          },
+          {
+            path: 'leads',
+            element: withSuspense(LeadsManager)
           },
           {
             path: '',

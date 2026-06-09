@@ -4,6 +4,7 @@ import { Loader, Edit2, Trash2, Plus, Image as ImageIcon, Laptop, Database, Shar
 import toast from 'react-hot-toast';
 import PortfolioMetricsManager from './PortfolioMetricsManager';
 import PortfolioCTAManager from './PortfolioCTAManager';
+import PortfolioHeroManager from './PortfolioHeroManager';
 
 export default function PortfolioManager() {
   const [portfolios, setPortfolios] = useState([]);
@@ -428,6 +429,16 @@ export default function PortfolioManager() {
                 Portfolio Metrics
               </button>
               <button
+                onClick={() => setActiveTab('hero')}
+                className={`whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium transition-colors ${
+                  activeTab === 'hero'
+                    ? 'border-[#FF6B00] text-[#FF6B00]'
+                    : 'border-transparent text-gray-400 hover:border-gray-300 hover:text-gray-300'
+                }`}
+              >
+                Hero Section
+              </button>
+              <button
                 onClick={() => setActiveTab('cta')}
                 className={`whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium transition-colors ${
                   activeTab === 'cta'
@@ -502,6 +513,8 @@ export default function PortfolioManager() {
             </>
           ) : activeTab === 'metrics' ? (
             <PortfolioMetricsManager isNested={true} />
+          ) : activeTab === 'hero' ? (
+            <PortfolioHeroManager isNested={true} />
           ) : (
             <PortfolioCTAManager isNested={true} />
           )}

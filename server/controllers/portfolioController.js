@@ -1,6 +1,7 @@
 const Portfolio = require('../models/Portfolio');
 const PortfolioMetric = require('../models/PortfolioMetric');
 const PortfolioCTA = require('../models/PortfolioCTA');
+const PortfolioHero = require('../models/PortfolioHero');
 
 // @desc    Get all portfolio items with pagination, filtering, and sorting
 // @route   GET /api/portfolio
@@ -423,6 +424,62 @@ const seedPortfolioCTA = async () => {
   }
 };
 
+// @desc    Get the portfolio Hero section data
+// @route   GET /api/portfolio/hero
+// @access  Public
+const getPortfolioHero = async (req, res) => {
+  try {
+    let hero = await PortfolioHero.findOne();
+    if (!hero) {
+      await seedPortfolioHero();
+      hero = await PortfolioHero.findOne();
+    }
+    res.status(200).json({ success: true, data: hero });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Update the portfolio Hero section data
+// @route   PUT /api/portfolio/admin/hero
+// @access  Private/Admin
+const updatePortfolioHero = async (req, res) => {
+  try {
+    let hero = await PortfolioHero.findOne();
+    if (!hero) {
+      hero = await PortfolioHero.create({ ...req.body, updatedBy: req.user._id });
+    } else {
+      hero = await PortfolioHero.findOneAndUpdate(
+        {},
+        { ...req.body, updatedBy: req.user._id },
+        { new: true, runValidators: true }
+      );
+    }
+    res.status(200).json({ success: true, data: hero });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+// Seed function for portfolio Hero
+const seedPortfolioHero = async () => {
+  try {
+    const count = await PortfolioHero.countDocuments();
+    if (count === 0) {
+      console.log('Seeding initial portfolio Hero data...');
+      await PortfolioHero.create({
+        subtitle: 'Success Showcases',
+        headingRegular: 'Proven Engineering Standards',
+        headingHighlight: '& Strategic Growth',
+        description: 'Explore our real-world portfolio of partnerships across India. From full-scale corporate web architectures and automated bookkeeping tools, to organic SEO domination and high-converting marketing pipelines.'
+      });
+      console.log('Portfolio Hero data seeded successfully!');
+    }
+  } catch (error) {
+    console.error('Error seeding portfolio Hero data:', error);
+  }
+};
+
 module.exports = {
   getPortfolioItems,
   getAllAdminPortfolioItems,
@@ -439,5 +496,8 @@ module.exports = {
   seedPortfolioMetrics,
   getPortfolioCTA,
   updatePortfolioCTA,
-  seedPortfolioCTA
+  seedPortfolioCTA,
+  getPortfolioHero,
+  updatePortfolioHero,
+  seedPortfolioHero
 };

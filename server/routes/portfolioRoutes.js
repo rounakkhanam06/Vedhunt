@@ -13,7 +13,9 @@ const {
   updatePortfolioMetric,
   deletePortfolioMetric,
   getPortfolioCTA,
-  updatePortfolioCTA
+  updatePortfolioCTA,
+  getPortfolioHero,
+  updatePortfolioHero
 } = require('../controllers/portfolioController');
 const protect = require('../middleware/authMiddleware');
 
@@ -29,6 +31,10 @@ router.route('/metrics')
 // Public CTA route
 router.route('/cta')
   .get(getPortfolioCTA);
+
+// Public Hero route
+router.route('/hero')
+  .get(getPortfolioHero);
 
 // Protected Admin Portfolio routes
 router.route('/admin')
@@ -46,6 +52,10 @@ router.route('/admin/metrics/:id')
 // Protected Admin CTA routes
 router.route('/admin/cta')
   .put(protect, updatePortfolioCTA);
+
+// Protected Admin Hero routes
+router.route('/admin/hero')
+  .put(protect, updatePortfolioHero);
 
 // Detail Portfolio routes
 router.route('/:id')

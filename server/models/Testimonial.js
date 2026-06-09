@@ -40,6 +40,10 @@ const testimonialSchema = new mongoose.Schema(
       enum: ['client', 'system'],
       default: 'client', // 'client' for public submissions, 'system' for admin/hardcoded
     },
+    showOnPages: {
+      type: [String],
+      default: ['home'], // e.g. 'home', 'app-development', 'social-media'
+    },
   },
   { timestamps: true }
 );

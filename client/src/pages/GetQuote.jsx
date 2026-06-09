@@ -15,9 +15,11 @@ import {
   Target,
   FileSpreadsheet,
   Calculator,
-  Check
+  Check,
+  Link as LinkIcon,
+  ChevronDown
 } from 'lucide-react';
-import { CONTACT_INFO } from '../constants';
+import { useContactInfo } from '../context/ContactInfoContext';
 
 // Inline premium custom SVG brand icons
 const FacebookIcon = (props) => (
@@ -145,6 +147,7 @@ const serviceFormConfig = {
 };
 
 export default function GetQuote() {
+  const { contactInfo } = useContactInfo();
   const [step, setStep] = useState(1);
   const [isSubmitSuccess, setIsSubmitSuccess] = useState(false);
   const [submittedData, setSubmittedData] = useState(null);
@@ -184,6 +187,18 @@ export default function GetQuote() {
     const finalData = { ...data, ...checkboxState };
     setSubmittedData(finalData);
     setIsSubmitSuccess(true);
+    
+    // Trigger tracking
+    if (window.trackConversion) {
+      window.trackConversion({
+        value: 0,
+        currency: 'INR',
+        service: finalData.service,
+        timeline: finalData.timeline,
+        source: finalData.source || 'GetQuote Form'
+      });
+    }
+
     reset();
     setCheckboxState({});
     setStep(1);
@@ -288,15 +303,18 @@ export default function GetQuote() {
                 <label className="text-[10px] font-extrabold text-app-text-muted/70 uppercase tracking-widest block">
                   {dd.label}
                 </label>
-                <select
-                  className={`w-full bg-transparent border-b-2 py-2.5 text-app-text focus:outline-none focus:border-primary transition-colors text-sm font-bold appearance-none ${
-                    errors[dd.name] ? 'border-red-500/50' : 'border-app-border/70'
-                  }`}
-                  {...register(dd.name, { required: dd.label.includes('*') ? 'This field is required' : false })}
-                >
-                  <option value="" className="bg-app-bg text-app-text-muted">Select {dd.label.replace('*', '').trim()}</option>
-                  {dd.options.map(opt => <option key={opt} value={opt} className="bg-app-bg text-app-text">{opt}</option>)}
-                </select>
+                <div className="relative">
+                  <select
+                    className={`w-full bg-transparent border-b-2 py-2.5 text-app-text focus:outline-none focus:border-primary transition-colors text-sm font-bold appearance-none pr-8 ${
+                      errors[dd.name] ? 'border-red-500/50' : 'border-app-border/70'
+                    }`}
+                    {...register(dd.name, { required: dd.label.includes('*') ? 'This field is required' : false })}
+                  >
+                    <option value="" className="bg-app-bg text-app-text-muted">Select {dd.label.replace('*', '').trim()}</option>
+                    {dd.options.map(opt => <option key={opt} value={opt} className="bg-app-bg text-app-text">{opt}</option>)}
+                  </select>
+                  <ChevronDown className="absolute right-0 top-1/2 -translate-y-1/2 w-4 h-4 text-app-text-muted pointer-events-none" />
+                </div>
                 {errors[dd.name] && <span className="text-[10px] text-red-500">{errors[dd.name].message}</span>}
               </div>
             ))}
@@ -521,35 +539,41 @@ export default function GetQuote() {
                             <label className="text-[10px] font-extrabold text-app-text-muted/70 uppercase tracking-widest block">
                               City
                             </label>
-                            <select
-                              className="w-full bg-transparent border-b-2 py-1.5 text-app-text focus:outline-none focus:border-primary transition-colors text-sm font-bold border-app-border/70 appearance-none"
-                              {...register('city')}
-                            >
-                              <option value="" className="bg-app-bg">Select city</option>
-                              <option value="Mumbai" className="bg-app-bg">Mumbai</option>
-                              <option value="Delhi" className="bg-app-bg">Delhi</option>
-                              <option value="Bangalore" className="bg-app-bg">Bangalore</option>
-                              <option value="Hyderabad" className="bg-app-bg">Hyderabad</option>
-                              <option value="Pune" className="bg-app-bg">Pune</option>
-                              <option value="Other" className="bg-app-bg">Other</option>
-                            </select>
+                            <div className="relative">
+                              <select
+                                className="w-full bg-transparent border-b-2 py-1.5 text-app-text focus:outline-none focus:border-primary transition-colors text-sm font-bold border-app-border/70 appearance-none pr-8"
+                                {...register('city')}
+                              >
+                                <option value="" className="bg-app-bg">Select city</option>
+                                <option value="Mumbai" className="bg-app-bg">Mumbai</option>
+                                <option value="Delhi" className="bg-app-bg">Delhi</option>
+                                <option value="Bangalore" className="bg-app-bg">Bangalore</option>
+                                <option value="Hyderabad" className="bg-app-bg">Hyderabad</option>
+                                <option value="Pune" className="bg-app-bg">Pune</option>
+                                <option value="Other" className="bg-app-bg">Other</option>
+                              </select>
+                              <ChevronDown className="absolute right-0 top-1/2 -translate-y-1/2 w-4 h-4 text-app-text-muted pointer-events-none" />
+                            </div>
                           </div>
 
                           <div className="space-y-1 text-left relative group">
                             <label className="text-[10px] font-extrabold text-app-text-muted/70 uppercase tracking-widest block">
                               How did you find us?
                             </label>
-                            <select
-                              className="w-full bg-transparent border-b-2 py-1.5 text-app-text focus:outline-none focus:border-primary transition-colors text-sm font-bold border-app-border/70 appearance-none"
-                              {...register('source')}
-                            >
-                              <option value="" className="bg-app-bg">Select source</option>
-                              <option value="Google Search" className="bg-app-bg">Google Search</option>
-                              <option value="Social Media" className="bg-app-bg">Social Media</option>
-                              <option value="Referral" className="bg-app-bg">Referral</option>
-                              <option value="Advertisement" className="bg-app-bg">Advertisement</option>
-                              <option value="Other" className="bg-app-bg">Other</option>
-                            </select>
+                            <div className="relative">
+                              <select
+                                className="w-full bg-transparent border-b-2 py-1.5 text-app-text focus:outline-none focus:border-primary transition-colors text-sm font-bold border-app-border/70 appearance-none pr-8"
+                                {...register('source')}
+                              >
+                                <option value="" className="bg-app-bg">Select source</option>
+                                <option value="Google Search" className="bg-app-bg">Google Search</option>
+                                <option value="Social Media" className="bg-app-bg">Social Media</option>
+                                <option value="Referral" className="bg-app-bg">Referral</option>
+                                <option value="Advertisement" className="bg-app-bg">Advertisement</option>
+                                <option value="Other" className="bg-app-bg">Other</option>
+                              </select>
+                              <ChevronDown className="absolute right-0 top-1/2 -translate-y-1/2 w-4 h-4 text-app-text-muted pointer-events-none" />
+                            </div>
                           </div>
                         </div>
 
@@ -805,10 +829,8 @@ export default function GetQuote() {
                     <MapPin className="w-4.5 h-4.5" />
                   </div>
                   <div>
-                    <p className="text-xs font-bold font-sans text-zinc-800 dark:text-zinc-200 leading-relaxed">
-                      Sector-11, Kopar Khairane,<br />
-                      Navi Mumbai, Maharashtra,<br />
-                      India - 400709
+                    <p className="text-xs font-bold font-sans text-zinc-800 dark:text-zinc-200 leading-relaxed whitespace-pre-wrap">
+                      {contactInfo.address}
                     </p>
                   </div>
                 </div>
@@ -818,8 +840,8 @@ export default function GetQuote() {
                     <Smartphone className="w-4.5 h-4.5" />
                   </div>
                   <div>
-                    <a href={`tel:${CONTACT_INFO.phone}`} className="text-sm font-black text-zinc-950 dark:text-white hover:text-primary transition-colors font-sans">
-                      {CONTACT_INFO.phoneDisplay}
+                    <a href={`tel:${contactInfo.phone}`} className="text-sm font-black text-zinc-950 dark:text-white hover:text-primary transition-colors font-sans">
+                      {contactInfo.phoneDisplay}
                     </a>
                   </div>
                 </div>
@@ -829,27 +851,37 @@ export default function GetQuote() {
                     <Mail className="w-4.5 h-4.5" />
                   </div>
                   <div>
-                    <a href={`mailto:${CONTACT_INFO.email}`} className="text-sm font-black text-zinc-950 dark:text-white hover:text-primary transition-colors font-sans">
-                      {CONTACT_INFO.email}
+                    <a href={`mailto:${contactInfo.email}`} className="text-sm font-black text-zinc-950 dark:text-white hover:text-primary transition-colors font-sans">
+                      {contactInfo.email}
                     </a>
                   </div>
                 </div>
               </div>
 
-              <div className="flex items-center gap-3.5 mt-10">
-                {[
-                  { icon: FacebookIcon, href: 'https://www.facebook.com/Vedhunt6' },
-                  { icon: InstagramIcon, href: 'https://www.instagram.com/vedhunt/' },
-                  { icon: LinkedinIcon, href: 'https://www.linkedin.com/company/vedhunt-infotech' },
-                  { icon: YoutubeIcon, href: 'https://www.youtube.com/@vedhuntinfotech1326' }
-                ].map((social, idx) => (
-                  <a 
-                    key={idx} href={social.href} target="_blank" rel="noopener noreferrer"
-                    className={`w-10 h-10 rounded-full bg-zinc-100 hover:bg-primary border border-zinc-200 hover:border-primary text-zinc-700 hover:text-black flex items-center justify-center shadow-md transition-all duration-300 hover:-translate-y-1 dark:bg-zinc-900 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-primary dark:hover:text-black ${idx === 0 ? 'ml-3.5' : ''}`}
-                  >
-                    <social.icon className="w-4 h-4" />
-                  </a>
-                ))}
+              <div className="flex flex-wrap items-center gap-3.5 mt-10">
+                {(Array.isArray(contactInfo.socialLinks) ? contactInfo.socialLinks : [])
+                  .filter(social => social.url)
+                  .map((social, idx) => {
+                    const platform = social.platform.toLowerCase();
+                    let Icon = LinkIcon;
+                    if (platform.includes('facebook')) Icon = FacebookIcon;
+                    else if (platform.includes('instagram')) Icon = InstagramIcon;
+                    else if (platform.includes('linkedin')) Icon = LinkedinIcon;
+                    else if (platform.includes('youtube')) Icon = YoutubeIcon;
+
+                    return (
+                      <a 
+                        key={social.id || idx} 
+                        href={social.url} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        title={social.platform}
+                        className={`w-10 h-10 rounded-full bg-zinc-100 hover:bg-primary border border-zinc-200 hover:border-primary text-zinc-700 hover:text-black flex items-center justify-center shadow-md transition-all duration-300 hover:-translate-y-1 dark:bg-zinc-900 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-primary dark:hover:text-black ${idx === 0 ? 'ml-3.5' : ''}`}
+                      >
+                        <Icon className="w-4 h-4" />
+                      </a>
+                    );
+                })}
               </div>
             </motion.div>
           </div>

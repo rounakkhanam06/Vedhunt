@@ -1,8 +1,11 @@
 import { motion } from 'framer-motion';
+import { useContactInfo } from '../../context/ContactInfoContext';
 
 export default function WhatsAppWidget() {
-  const phoneNumber = '917049380550';
-  const defaultMessage = 'Hi Vedhunt InfoTech! I want to know more about your services.';
+  const { contactInfo } = useContactInfo();
+  
+  const phoneNumber = contactInfo?.whatsappNumber || '917049380550';
+  const defaultMessage = contactInfo?.whatsappMessage || 'Hi Vedhunt InfoTech! I want to know more about your services.';
   const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(defaultMessage)}`;
 
   return (

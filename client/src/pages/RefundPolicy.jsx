@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, ChevronDown } from 'lucide-react';
 import refundImage from '../assets/footer-illustration/undraw_absorbed_h2rt.svg';
+import { settingsService } from '../services/settingsService';
 
 const AccordionItem = ({ title, content, isOpen, onClick }) => {
   return (
@@ -24,9 +25,10 @@ const AccordionItem = ({ title, content, isOpen, onClick }) => {
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.3 }}
           >
-            <div className="px-6 pb-6 pt-0 text-sm text-slate-600 dark:text-app-text-muted leading-relaxed">
-              {content}
-            </div>
+            <div 
+              className="px-6 pb-6 pt-0 text-sm prose prose-slate dark:prose-invert max-w-none prose-p:text-slate-600 dark:prose-p:text-app-text-muted prose-li:text-slate-600 dark:prose-li:text-app-text-muted leading-relaxed quill-content-override"
+              dangerouslySetInnerHTML={{ __html: content }}
+            />
           </motion.div>
         )}
       </AnimatePresence>
@@ -36,31 +38,37 @@ const AccordionItem = ({ title, content, isOpen, onClick }) => {
 
 export default function RefundPolicy() {
   const [openAccordion, setOpenAccordion] = useState(0);
+  const [data, setData] = useState(null);
+  const [contactInfo, setContactInfo] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  const billingTerms = [
-    {
-      title: "1. Quotation & Agreement",
-      content: "Every project or engagement is initiated after a written quotation, proposal, or agreement is mutually approved. The scope of work, timeline, and payment schedule are clearly defined before commencement."
-    },
-    {
-      title: "2. Advance Payment",
-      content: "Projects typically begin with an advance payment (as mentioned in the quotation or agreement). The advance is considered a confirmation of engagement and allocation of dedicated resources."
-    },
-    {
-      title: "3. Milestone-Based Billing",
-      content: "Depending on the project type, billing may occur at key milestones, deliverable completion, or on a monthly retainer basis. All invoices are shared electronically, inclusive of applicable taxes (GST or others)."
-    },
-    {
-      title: "4. Accepted Payment Methods",
-      content: (
-        <ul className="space-y-2">
-          <li className="flex items-center gap-2"><span className="text-primary">•</span> Bank Transfer (NEFT / RTGS / IMPS)</li>
-          <li className="flex items-center gap-2"><span className="text-primary">•</span> UPI / Payment Gateway</li>
-          <li className="flex items-center gap-2"><span className="text-primary">•</span> International Wire Transfer (for overseas clients)</li>
-        </ul>
-      )
-    }
-  ];
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [policyRes, contactRes] = await Promise.all([
+          settingsService.getRefundPolicy(),
+          settingsService.getContactInfo()
+        ]);
+        setData(policyRes.data);
+        setContactInfo(contactRes.data);
+      } catch (error) {
+        console.error("Error fetching data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
+
+  if (loading || !data) {
+    return (
+      <div className="min-h-screen bg-app-bg flex items-center justify-center">
+        <div className="w-10 h-10 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
+      </div>
+    );
+  }
+
+  const { hero, scope, billingTerms, noRefund, cancellation } = data;
 
   return (
     <div className="min-h-screen bg-app-bg text-app-text pb-24">
@@ -84,21 +92,18 @@ export default function RefundPolicy() {
                 Back
               </Link>
               <h1 className="text-4xl md:text-5xl font-black font-heading mb-4">
-                Refund & Billing Policy
+                {hero?.heading || 'Refund & Billing Policy'}
               </h1>
               <p className="text-slate-500 dark:text-slate-400 font-medium">
-                Last Updated: May 2026
+                Last Updated: {hero?.lastUpdated || 'May 2026'}
               </p>
               <p className="mt-4 text-lg text-slate-600 dark:text-app-text-muted">
-                Payments, Refunds & Service Terms at Vedhunt
+                {hero?.subtitle || 'Payments, Refunds & Service Terms at Vedhunt'}
               </p>
               <div className="mt-6 space-y-4 text-slate-600 dark:text-app-text-muted leading-relaxed">
-                <p>
-                  At Vedhunt InfoTech, we are committed to delivering high-quality, customized solutions that add measurable value to our clients' businesses. Our services are intellectual and time-based, meaning they involve professional expertise, research, planning, and effort invested from the moment a project begins.
-                </p>
-                <p>
-                  For this reason, our billing and refund policy is designed to maintain fairness, transparency, and mutual respect between Vedhunt InfoTech and our clients.
-                </p>
+                {hero?.paragraphs?.map((p, idx) => (
+                  <p key={idx}>{p}</p>
+                ))}
               </div>
             </motion.div>
 
@@ -132,18 +137,11 @@ export default function RefundPolicy() {
         <section>
           <h2 className="text-2xl font-bold font-heading text-app-text mb-6 flex items-center gap-3">
             <span className="w-3 h-3 rounded-full bg-primary inline-block flex-shrink-0"></span>
-            1. Scope
+            {scope?.title || '1. Scope'}
           </h2>
-          <p className="mb-6">This policy applies to all professional services offered by Vedhunt InfoTech, including:</p>
+          <p className="mb-6">{scope?.intro}</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {[
-              'Website & App Development',
-              'Digital Marketing & Social Media Management',
-              'Automation (SQL / Power BI / Python)',
-              'MIS & Reporting Services',
-              'Accounting & Financial Services',
-              'Data Analytics, AI, and Consulting Projects'
-            ].map((item, i) => (
+            {scope?.items?.map((item, i) => (
               <div key={i} className="flex items-start bg-white dark:bg-app-card px-5 py-4 rounded-xl border border-slate-100 dark:border-app-border shadow-sm">
                 <span className="text-primary mr-3 mt-0.5 font-bold">•</span>
                 <span>{item}</span>
@@ -156,10 +154,10 @@ export default function RefundPolicy() {
         <section>
           <h2 className="text-2xl font-bold font-heading text-app-text mb-6 flex items-center gap-3">
             <span className="w-3 h-3 rounded-full bg-primary inline-block flex-shrink-0"></span>
-            2. Billing Terms
+            {billingTerms?.title || '2. Billing Terms'}
           </h2>
           <div className="space-y-4">
-            {billingTerms.map((term, index) => (
+            {billingTerms?.items?.map((term, index) => (
               <AccordionItem 
                 key={index}
                 title={term.title}
@@ -175,18 +173,13 @@ export default function RefundPolicy() {
         <section>
           <h2 className="text-2xl font-bold font-heading text-app-text mb-4 flex items-center gap-3">
             <span className="w-3 h-3 rounded-full bg-primary inline-block flex-shrink-0"></span>
-            3. No Refund Policy
+            {noRefund?.title || '3. No Refund Policy'}
           </h2>
-          <p className="font-bold text-app-text mb-4 text-xl">Vedhunt InfoTech follows a strict No Refund Policy for all its professional services.</p>
-          <p className="mb-4">This is because our services involve significant intellectual effort, skilled manpower, and time investments that begin immediately upon project initiation.</p>
-          <p className="mb-6 font-semibold text-app-text">We do not offer refunds for:</p>
+          <p className="font-bold text-app-text mb-4 text-xl">{noRefund?.subtitle}</p>
+          <p className="mb-4">{noRefund?.intro1}</p>
+          <p className="mb-6 font-semibold text-app-text">{noRefund?.intro2}</p>
           <ul className="space-y-4 mb-10">
-            {[
-              'Projects where any stage of design, development, or setup has commenced.',
-              'Completed milestones, approved deliverables, or ongoing work-in-progress.',
-              'Retainer, subscription, or maintenance plans once service has started.',
-              'Third-party costs (e.g., domain, hosting, ad spend, software licenses, API integrations).'
-            ].map((item, i) => (
+            {noRefund?.noRefundItems?.map((item, i) => (
               <li key={i} className="flex items-start bg-white dark:bg-app-card px-5 py-4 rounded-xl border border-slate-100 dark:border-app-border shadow-sm">
                 <span className="text-red-400 mr-3 mt-0.5 font-bold">✗</span>
                 <span>{item}</span>
@@ -196,13 +189,9 @@ export default function RefundPolicy() {
           
           <div className="bg-primary/10 p-6 sm:p-8 rounded-2xl border border-primary/20 relative overflow-hidden shadow-sm">
             <div className="absolute top-0 right-0 w-32 h-32 bg-primary/20 rounded-full blur-3xl -mr-16 -mt-16"></div>
-            <h3 className="font-bold text-app-text text-xl mb-5 relative z-10">Our Commitment</h3>
+            <h3 className="font-bold text-app-text text-xl mb-5 relative z-10">{noRefund?.commitment?.title || 'Our Commitment'}</h3>
             <ul className="space-y-4 relative z-10">
-              {[
-                'Every project is executed with clear communication and transparency.',
-                'In case of any dissatisfaction, Vedhunt will work collaboratively to review, revise, or realign deliverables within the agreed scope.',
-                'If a delay or issue arises due to our side, we will rectify or adjust timelines — instead of processing refunds — ensuring that our clients always receive complete value for their investment.'
-              ].map((item, i) => (
+              {noRefund?.commitment?.items?.map((item, i) => (
                 <li key={i} className="flex items-start gap-3 text-sm">
                   <span className="text-primary mt-0.5 font-bold">✓</span>
                   <span>{item}</span>
@@ -211,7 +200,7 @@ export default function RefundPolicy() {
             </ul>
             <div className="mt-6 pt-6 border-t border-primary/20 relative z-10">
               <p className="font-bold text-primary flex items-center gap-2">
-                <span className="text-2xl">💬</span> Our priority is long-term client satisfaction, not one-time transactions.
+                <span className="text-2xl">💬</span> {noRefund?.commitment?.footer}
               </p>
             </div>
           </div>
@@ -221,15 +210,11 @@ export default function RefundPolicy() {
         <section>
           <h2 className="text-2xl font-bold font-heading text-app-text mb-6 flex items-center gap-3">
             <span className="w-3 h-3 rounded-full bg-primary inline-block flex-shrink-0"></span>
-            4. Project Cancellation
+            {cancellation?.title || '4. Project Cancellation'}
           </h2>
-          <p className="mb-6">Clients may request cancellation by written notice (email to info@vedhunt.in). In such cases:</p>
+          <p className="mb-6">{cancellation?.intro}</p>
           <ul className="space-y-4">
-            {[
-              'Work completed up to the date of cancellation will be billed in full.',
-              'Advance payments already received are non-refundable, as resources and time are already allocated.',
-              'If any external vendor costs have been incurred (e.g., ads, hosting, tools), these will also be chargeable.'
-            ].map((item, i) => (
+            {cancellation?.items?.map((item, i) => (
               <li key={i} className="flex items-start bg-white dark:bg-app-card px-5 py-4 rounded-xl border border-slate-100 dark:border-app-border shadow-sm">
                 <span className="text-primary mr-3 mt-0.5 font-bold">•</span>
                 <span>{item}</span>
@@ -246,7 +231,9 @@ export default function RefundPolicy() {
               <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">@</div>
               <div>
                 <p className="text-sm text-slate-500 dark:text-slate-400">Email Address</p>
-                <a href="mailto:info@vedhunt.in" className="text-app-text font-semibold hover:text-primary transition-colors">info@vedhunt.in</a>
+                <a href={`mailto:${contactInfo?.email || 'info@vedhunt.in'}`} className="text-app-text font-semibold hover:text-primary transition-colors">
+                  {contactInfo?.email || 'info@vedhunt.in'}
+                </a>
               </div>
             </div>
             <div className="w-full h-px bg-slate-100 dark:bg-app-border"></div>
@@ -254,7 +241,9 @@ export default function RefundPolicy() {
               <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">#</div>
               <div>
                 <p className="text-sm text-slate-500 dark:text-slate-400">Phone Number</p>
-                <p className="text-app-text font-semibold">+91 86524 10289</p>
+                <a href={`tel:${contactInfo?.phone || '+91 86524 10289'}`} className="text-app-text font-semibold hover:text-primary transition-colors">
+                  {contactInfo?.phoneDisplay || contactInfo?.phone || '+91 86524 10289'}
+                </a>
               </div>
             </div>
             <div className="w-full h-px bg-slate-100 dark:bg-app-border"></div>
@@ -262,12 +251,34 @@ export default function RefundPolicy() {
               <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">📍</div>
               <div>
                 <p className="text-sm text-slate-500 dark:text-slate-400">Address</p>
-                <p className="text-app-text font-semibold">Vedhunt InfoTech, Pune, Maharashtra, India</p>
+                <p className="text-app-text font-semibold">
+                  {contactInfo?.address || 'Vedhunt InfoTech, Pune, Maharashtra, India'}
+                </p>
               </div>
             </div>
           </div>
         </section>
       </motion.div>
+
+      {/* CSS Override for pasted rich-text inline styles in accordion */}
+      <style dangerouslySetInnerHTML={{__html: `
+        .quill-content-override * {
+          background-color: transparent !important;
+          white-space: normal !important;
+          word-wrap: break-word !important;
+        }
+        .quill-content-override p, 
+        .quill-content-override span, 
+        .quill-content-override h1, 
+        .quill-content-override h2, 
+        .quill-content-override h3, 
+        .quill-content-override h4, 
+        .quill-content-override h5, 
+        .quill-content-override h6, 
+        .quill-content-override li {
+          color: inherit !important;
+        }
+      `}} />
     </div>
   );
 }

@@ -1,77 +1,43 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown, ShieldCheck } from 'lucide-react';
 import dpaHeroImage from '../assets/footer-illustration/undraw_security-on_3ykb.svg';
-
-const dpaSections = [
-  {
-    title: "1. Purpose",
-    content: "The purpose of this DPA is to ensure that any personal or sensitive data processed by Vedhunt InfoTech on behalf of the Client is handled in compliance with applicable data protection laws, including but not limited to the Information Technology Act, 2000, GDPR, and other international regulations."
-  },
-  {
-    title: "2. Scope of Processing",
-    content: "Vedhunt InfoTech may process data solely for the following business purposes:\n• Website & App development services\n• Automation, Analytics, and Reporting (SQL, Power BI, Python, BI tools)\n• Digital Marketing and Lead Management (Google, Meta, LinkedIn, etc.)\n• Accounting & Financial MIS Automation\n• Healthcare and Insurance Vendor Analytics (non-clinical data)\n• Any additional service explicitly defined in the client’s project scope\n\nVedhunt shall not process or use the Client’s data for any purpose other than what is contractually agreed."
-  },
-  {
-    title: "3. Roles and Responsibilities",
-    content: "3.1 Client (Data Controller)\nThe Client determines:\n• The categories of data processed.\n• The lawful basis for processing.\n• Instructions provided to Vedhunt InfoTech.\n\nThe Client ensures data shared is obtained lawfully and does not violate any third-party rights.\n\n3.2 Vedhunt InfoTech (Data Processor)\nVedhunt agrees to:\n• Process data only on documented instructions from the Client.\n• Implement technical and organizational measures to protect data.\n• Ensure confidentiality of all personnel with access to data.\n• Not engage any sub-processor without written consent.\n• Assist the Client in ensuring compliance with applicable laws."
-  },
-  {
-    title: "4. Categories of Data Processed",
-    content: "Depending on the service, Vedhunt may process:\n• Contact details (name, email, phone, company info)\n• Project data and reports\n• Transaction or performance data\n• System or log data (e.g., Power BI logs, SQL transactions)\n• Non-clinical healthcare data (member IDs, claim reference IDs — anonymized)\n\nSensitive Personal Data (if applicable): In limited cases (e.g., healthcare vendors), only pseudonymized or masked data is used, ensuring no direct identifiers are accessible."
-  },
-  {
-    title: "5. Sub-Processors",
-    content: "Vedhunt may use third-party service providers (e.g., AWS, Azure, Google Cloud, Microsoft Power BI, Sendinblue, or Zoho) to perform specific functions.\n\nVedhunt ensures that:\n• Sub-processors are bound by written contracts ensuring equivalent data protection.\n• Clients are informed and may object to specific sub-processors.\n\nData transfers comply with international standards (Standard Contractual Clauses or similar)."
-  },
-  {
-    title: "6. Data Security",
-    content: "Vedhunt InfoTech implements reasonable security practices under Indian IT Rules and industry-standard measures, including:\n• SSL/TLS encryption for all transmissions\n• Encrypted storage for client files and databases\n• Role-based access control (RBAC)\n• Regular security audits and firewall protection\n• Daily backups and disaster recovery systems\n• 2FA and VPN-based access for internal operations\n\nIf a data breach occurs, Vedhunt will promptly notify the Client (within 72 hours) with full details and corrective actions."
-  },
-  {
-    title: "7. Confidentiality",
-    content: "• All data, project information, and deliverables are treated as confidential.\n• Employees, contractors, and partners are bound by NDAs.\n• Confidentiality obligations remain effective even after contract termination."
-  },
-  {
-    title: "8. Data Retention and Deletion",
-    content: "Vedhunt retains client data only as long as necessary for the project or as required by law.\n\nUpon completion or termination of the engagement:\n• All personal data will be securely deleted, anonymized, or returned to the Client.\n• Backup copies will be purged within 30 to 60 days unless required for legal compliance."
-  },
-  {
-    title: "9. Data Subject Rights",
-    content: "Vedhunt assists the Client in fulfilling requests from data subjects, including:\n• Access, correction, or deletion of their personal data.\n• Restriction or objection to processing.\n• Data portability (where applicable).\n\nVedhunt shall not respond directly to such requests without prior approval from the Client."
-  },
-  {
-    title: "10. International Data Transfers",
-    content: "If data is transferred outside India (e.g., hosting or cloud services), Vedhunt ensures:\n• The transfer complies with applicable legal safeguards.\n• Only GDPR-compliant cloud providers (e.g., AWS, Azure, GCP) are used.\n• Data remains encrypted during and after transfer."
-  },
-  {
-    title: "11. Audit and Compliance",
-    content: "• Vedhunt will make available all information necessary to demonstrate compliance.\n• The Client may, upon reasonable notice, audit Vedhunt’s data handling procedures (once per year).\n• Vedhunt will cooperate fully and correct any non-compliance promptly."
-  },
-  {
-    title: "12. Data Breach Notification",
-    content: "In the event of an actual or suspected breach:\n1. Vedhunt will notify the Client within 72 hours.\n2. The notice will include: Nature and scope of the breach, Data affected, Steps taken to mitigate risks.\n3. Vedhunt will work closely with the Client to contain and remediate the issue."
-  },
-  {
-    title: "13. Liability",
-    content: "Vedhunt InfoTech’s total liability arising out of data processing shall not exceed the total amount paid by the Client under the service contract during the 6-month period preceding the claim, unless caused by gross negligence or willful misconduct."
-  },
-  {
-    title: "14. Term and Termination",
-    content: "This DPA remains in effect:\n• For as long as Vedhunt processes data on behalf of the Client; or\n• Until the termination of all service agreements.\n\nUpon termination:\n• Vedhunt will delete or return all client data (as per Section 8).\n• Any surviving confidentiality and security obligations remain binding."
-  },
-  {
-    title: "15. Governing Law and Jurisdiction",
-    content: "This Agreement shall be governed by and construed under the laws of India. All disputes shall be subject to the exclusive jurisdiction of the courts in Pune, Maharashtra, India."
-  }
-];
+import { settingsService } from '../services/settingsService';
 
 export default function DPA() {
   const [openSection, setOpenSection] = useState(0); // First section open by default
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const res = await settingsService.getDPA();
+        setData(res.data);
+      } catch (error) {
+        console.error("Error fetching DPA:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
 
   const toggleSection = (index) => {
     setOpenSection(openSection === index ? null : index);
   };
+
+  if (loading || !data) {
+    return (
+      <div className="min-h-screen bg-app-bg flex items-center justify-center">
+        <div className="w-10 h-10 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
+      </div>
+    );
+  }
+
+  const hero = data?.hero || {};
+  const policySections = data?.policyData || [];
+  const acceptance = data?.acceptance || {};
 
   return (
     <div className="min-h-screen bg-app-bg pt-24 pb-24">
@@ -87,13 +53,13 @@ export default function DPA() {
             >
               <div className="inline-flex items-center space-x-2 bg-primary/10 text-primary px-4 py-2 rounded-full mb-6">
                 <ShieldCheck size={20} />
-                <span className="font-bold text-sm">GDPR & IT Act Compliant</span>
+                <span className="font-bold text-sm">{hero.badgeText || 'GDPR & IT Act Compliant'}</span>
               </div>
               <h1 className="text-4xl md:text-5xl lg:text-6xl font-black font-heading text-app-text leading-tight mb-6">
-                Data Processing <span className="text-primary">Agreement</span>
+                {hero.heading || 'Data Processing'} <span className="text-primary">{hero.subheading || 'Agreement'}</span>
               </h1>
               <p className="text-lg text-slate-600 dark:text-app-text-muted mb-8 leading-relaxed">
-                This Data Processing Agreement (“Agreement” or “DPA”) forms an integral part of the Service Agreement, Statement of Work (SOW), or Master Services Agreement executed between Vedhunt InfoTech and our Clients.
+                {hero.description}
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
                 <a href="mailto:info@vedhunt.in" className="btn-primary flex justify-center text-center">
@@ -132,9 +98,9 @@ export default function DPA() {
           </div>
 
           <div className="space-y-4">
-            {dpaSections.map((section, index) => (
+            {policySections.map((section, index) => (
               <div 
-                key={index} 
+                key={section.id || index} 
                 className="border border-slate-200 dark:border-app-border rounded-xl overflow-hidden bg-slate-50/50 dark:bg-black/20"
               >
                 <button
@@ -161,13 +127,10 @@ export default function DPA() {
                       exit={{ height: 0, opacity: 0 }}
                       transition={{ duration: 0.3 }}
                     >
-                      <div className="p-5 pt-0 text-slate-600 dark:text-app-text-muted leading-relaxed border-t border-slate-100 dark:border-app-border mt-2">
-                        {section.content.split('\n').map((paragraph, pIndex) => (
-                          <p key={pIndex} className="mb-2 last:mb-0">
-                            {paragraph}
-                          </p>
-                        ))}
-                      </div>
+                      <div 
+                        className="p-5 pt-0 prose prose-slate dark:prose-invert max-w-none prose-p:text-slate-600 dark:prose-p:text-app-text-muted prose-li:text-slate-600 dark:prose-li:text-app-text-muted leading-relaxed border-t border-slate-100 dark:border-app-border mt-2 quill-content-override"
+                        dangerouslySetInnerHTML={{ __html: section.content }}
+                      />
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -176,16 +139,38 @@ export default function DPA() {
           </div>
 
           <div className="mt-12 p-6 bg-primary/10 rounded-2xl border border-primary/20">
-            <h3 className="text-lg font-bold font-heading text-app-text mb-3">Agreement Acceptance</h3>
+            <h3 className="text-lg font-bold font-heading text-app-text mb-3">
+              {acceptance.title || 'Agreement Acceptance'}
+            </h3>
             <p className="text-slate-600 dark:text-app-text-muted mb-4">
-              By signing a Service Agreement or engaging Vedhunt InfoTech’s services, the Client acknowledges that they have reviewed and accepted this Data Processing Agreement. This DPA forms part of the binding contractual relationship between Vedhunt and the Client.
+              {acceptance.description}
             </p>
             <p className="font-semibold text-primary">
-              Vedhunt InfoTech is committed to protecting the integrity, confidentiality, and security of all client data — ensuring full compliance with Indian and international data protection laws.
+              {acceptance.highlight}
             </p>
           </div>
         </motion.div>
       </section>
+
+      {/* CSS Override for pasted rich-text inline styles */}
+      <style dangerouslySetInnerHTML={{__html: `
+        .quill-content-override * {
+          background-color: transparent !important;
+          white-space: normal !important;
+          word-wrap: break-word !important;
+        }
+        .quill-content-override p, 
+        .quill-content-override span, 
+        .quill-content-override h1, 
+        .quill-content-override h2, 
+        .quill-content-override h3, 
+        .quill-content-override h4, 
+        .quill-content-override h5, 
+        .quill-content-override h6, 
+        .quill-content-override li {
+          color: inherit !important;
+        }
+      `}} />
     </div>
   );
 }
