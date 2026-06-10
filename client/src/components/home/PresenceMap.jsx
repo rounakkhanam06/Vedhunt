@@ -1,37 +1,24 @@
-import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { MapPin } from 'lucide-react';
-import { contentService } from '../../services/contentService';
+import { usePresence } from '../../hooks/usePublicContent';
+
+const DEFAULT_LOCATIONS = [
+  { _id: '1', name: 'Kolkata', top: '48%', left: '70%', delay: 0 },
+  { _id: '2', name: 'Mumbai', top: '65%', left: '28%', delay: 0.2 },
+  { _id: '3', name: 'Indore', top: '52%', left: '36%', delay: 0.4 },
+];
+
+const DEFAULT_HEADER = {
+  titlePrefix: 'Our',
+  highlightedWord: 'Presence',
+  description: 'From thriving startup ecosystems to rapidly growing business hubs, our network spans across the nation—helping us deliver innovation, collaboration, and technology without boundaries.'
+};
 
 export default function PresenceMap() {
-  const [header, setHeader] = useState({
-    titlePrefix: 'Our',
-    highlightedWord: 'Presence',
-    description: 'From thriving startup ecosystems to rapidly growing business hubs, our network spans across the nation—helping us deliver innovation, collaboration, and technology without boundaries.'
-  });
-  
-  const [locations, setLocations] = useState([
-    { _id: '1', name: 'Kolkata', top: '48%', left: '70%', delay: 0 },
-    { _id: '2', name: 'Mumbai', top: '65%', left: '28%', delay: 0.2 },
-    { _id: '3', name: 'Indore', top: '52%', left: '36%', delay: 0.4 },
-  ]);
+  const { data: presenceData } = usePresence();
 
-  useEffect(() => {
-    const fetchPresence = async () => {
-      try {
-        const data = await contentService.getPresencePublic();
-        if (data.header) {
-          setHeader(data.header);
-        }
-        if (data.locations && data.locations.length > 0) {
-          setLocations(data.locations);
-        }
-      } catch (error) {
-        console.error('Failed to load presence data', error);
-      }
-    };
-    fetchPresence();
-  }, []);
+  const header   = presenceData?.header    || DEFAULT_HEADER;
+  const locations = (presenceData?.locations?.length > 0 ? presenceData.locations : DEFAULT_LOCATIONS);
 
   return (
     <section className="py-24 relative overflow-hidden bg-app-bg text-app-text">

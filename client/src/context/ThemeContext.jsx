@@ -3,6 +3,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 const ThemeContext = createContext();
 
 export function ThemeProvider({ children }) {
+  const [forceDark, setForceDark] = useState(false);
   const [theme, setTheme] = useState(() => {
     if (typeof window !== 'undefined') {
       const savedTheme = localStorage.getItem('theme');
@@ -17,16 +18,18 @@ export function ThemeProvider({ children }) {
 
   useEffect(() => {
     const root = window.document.documentElement;
+    const activeTheme = forceDark ? 'dark' : theme;
     
     // Inject the global temporary transition helper for ultra smooth transition animation
     root.classList.add('theme-transition');
     
-    if (theme === 'dark') {
+    if (activeTheme === 'dark') {
       root.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
+      // Only persist to localStorage if it's the actual user theme preference, not a forced override
+      if (!forceDark) localStorage.setItem('theme', 'dark');
     } else {
       root.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
+      if (!forceDark) localStorage.setItem('theme', 'light');
     }
 
     // Safely remove the global overrides class after transition completion (350ms)
@@ -35,14 +38,14 @@ export function ThemeProvider({ children }) {
     }, 350);
 
     return () => clearTimeout(timeout);
-  }, [theme]);
+  }, [theme, forceDark]);
 
   const toggleTheme = () => {
     setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
   };
 
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme }}>
+    <ThemeContext.Provider value={{ theme, toggleTheme, forceDark, setForceDark }}>
       {children}
     </ThemeContext.Provider>
   );

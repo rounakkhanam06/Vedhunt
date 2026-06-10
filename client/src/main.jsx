@@ -10,6 +10,8 @@ const queryClient = new QueryClient({
     queries: {
       refetchOnWindowFocus: false,
       retry: 1,
+      staleTime: 2 * 60 * 1000,  // Data stays fresh for 2 minutes — eliminates redundant API refetches
+      gcTime: 10 * 60 * 1000,    // Keep unused cache alive for 10 minutes for instant back-navigation
     },
   },
 })
@@ -18,7 +20,7 @@ createRoot(document.getElementById('root')).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <App />
-      <ReactQueryDevtools initialIsOpen={false} />
+      {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}
     </QueryClientProvider>
   </StrictMode>,
 )

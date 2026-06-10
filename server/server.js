@@ -36,6 +36,15 @@ const leadRoutes = require('./routes/leadRoutes');
 const { seedServicePages } = require('./controllers/servicePageSeeder');
 const errorHandler = require('./middleware/errorHandler');
 
+// Cache middleware for public read-only GET endpoints
+// Allows browsers + CDN to cache responses for 2 minutes (s-maxage 4 min for CDN)
+const publicCache = (req, res, next) => {
+  if (req.method === 'GET') {
+    res.set('Cache-Control', 'public, max-age=120, s-maxage=240, stale-while-revalidate=60');
+  }
+  next();
+};
+
 const app = express();
 
 // Security & Global Middleware
@@ -70,21 +79,21 @@ app.use(
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/upload', uploadRoutes);
-app.use('/api/hero', heroRoutes); // Legacy route, keeping for backwards compatibility
-app.use('/api/team', teamRoutes);
-app.use('/api/content', contentRoutes);
-app.use('/api/testimonials', testimonialRoutes);
-app.use('/api/portfolio', portfolioRoutes);
-app.use('/api/pricing', pricingRoutes);
-app.use('/api/home-pricing', homePricingCardRoutes);
-app.use('/api/blogs', blogRoutes);
-app.use('/api/jobs', jobRoutes);
-app.use('/api/applications', applicationRoutes);
-app.use('/api/faq', faqRoutes);
-app.use('/api/service-pages', servicePageRoutes);
-app.use('/api/contact', contactRoutes);
-app.use('/api/leads', leadRoutes);
-app.use('/api', settingsRoutes);
+app.use('/api/hero', publicCache, heroRoutes); // Legacy route, keeping for backwards compatibility
+app.use('/api/team', publicCache, teamRoutes);
+app.use('/api/content', publicCache, contentRoutes);
+app.use('/api/testimonials', publicCache, testimonialRoutes);
+app.use('/api/portfolio', publicCache, portfolioRoutes);
+app.use('/api/pricing', publicCache, pricingRoutes);
+app.use('/api/home-pricing', publicCache, homePricingCardRoutes);
+app.use('/api/blogs', publicCache, blogRoutes);
+app.use('/api/jobs', publicCache, jobRoutes);
+app.use('/api/applications', applicationRoutes); // write route — no cache
+app.use('/api/faq', publicCache, faqRoutes);
+app.use('/api/service-pages', publicCache, servicePageRoutes);
+app.use('/api/contact', contactRoutes);   // write route — no cache
+app.use('/api/leads', leadRoutes);         // write route — no cache
+app.use('/api', publicCache, settingsRoutes);
 
 // Root route for API status
 app.get('/', (req, res) => {

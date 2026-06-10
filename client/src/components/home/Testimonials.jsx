@@ -1,29 +1,16 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Star, ChevronLeft, ChevronRight, Quote, MessageSquarePlus } from 'lucide-react';
-import axios from 'axios';
 import ReviewModal from './ReviewModal';
 import { getCountryFlag } from '../../utils/getCountryFlag';
+import { useTestimonials } from '../../hooks/usePublicContent';
 
 export default function Testimonials() {
   const [index, setIndex] = useState(0);
-  const [testimonials, setTestimonials] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  useEffect(() => {
-    const fetchDynamic = async () => {
-      try {
-        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-        const res = await axios.get(`${apiUrl}/testimonials/approved`);
-        if (res.data && res.data.data) {
-          setTestimonials(res.data.data);
-        }
-      } catch (err) {
-        console.error('Failed to load testimonials', err);
-      }
-    };
-    fetchDynamic();
-  }, []);
+  // React Query — cached 5 min; replaces bare axios which had no caching
+  const { data: testimonials = [] } = useTestimonials();
 
   // Auto-advance carousel every 5 seconds
   useEffect(() => {

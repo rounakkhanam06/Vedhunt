@@ -59,6 +59,9 @@ const DPAManager = lazy(() => import('../admin/pages/DPAManager'));
 const RefundPolicyManager = lazy(() => import('../admin/pages/RefundPolicyManager'));
 const LeadsManager = lazy(() => import('../admin/pages/LeadsManager'));
 
+import AdminThemeGuard from '../admin/components/AdminThemeGuard';
+import { Outlet } from 'react-router-dom';
+
 // High-fidelity, smooth loading fallback component to display during chunk fetching
 const withSuspense = (Component) => (
   <Suspense 
@@ -70,6 +73,13 @@ const withSuspense = (Component) => (
   >
     <Component />
   </Suspense>
+);
+
+// Wraps all admin routes to force dark mode and isolate them from user panel theme toggles
+const AdminRoot = () => (
+  <AdminThemeGuard>
+    <Outlet />
+  </AdminThemeGuard>
 );
 
 export const router = createBrowserRouter([
@@ -171,21 +181,25 @@ export const router = createBrowserRouter([
     ]
   },
   {
-    path: '/admin/login',
-    element: withSuspense(Login)
-  },
-  {
-    path: '/admin/forgot-password',
-    element: withSuspense(ForgotPassword)
-  },
-  {
-    path: '/admin/reset-password/:token',
-    element: withSuspense(ResetPassword)
-  },
-  {
     path: '/admin',
-    element: withSuspense(PrivateRoute),
+    element: <AdminRoot />,
     children: [
+      {
+        path: 'login',
+        element: withSuspense(Login)
+      },
+      {
+        path: 'forgot-password',
+        element: withSuspense(ForgotPassword)
+      },
+      {
+        path: 'reset-password/:token',
+        element: withSuspense(ResetPassword)
+      },
+      {
+        path: '',
+        element: withSuspense(PrivateRoute),
+        children: [
       {
         path: '',
         element: withSuspense(AdminLayout),
@@ -308,6 +322,8 @@ export const router = createBrowserRouter([
           }
         ]
       }
+    ]
+  }
     ]
   }
 ]);

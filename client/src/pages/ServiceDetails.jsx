@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -16,13 +16,45 @@ import {
   DollarSign,
   Zap,
   TrendingUp,
-  Headphones
+  Headphones,
+  Globe,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
-import * as LucideIcons from 'lucide-react';
 import { SERVICES } from '../constants';
 import { SERVICE_DETAILS_DATA } from '../constants/serviceDetailsData';
 import api from '../services/api';
 import { getCountryFlag } from '../utils/getCountryFlag';
+
+// Module-level Lucide cache — loaded once, reused across renders
+// Avoids `import * as LucideIcons` which inflates chunk size at parse time
+const _lucide = { mod: null };
+const getLucideIcon = (nameOrComp) => {
+  if (!nameOrComp) return Globe;
+  if (typeof nameOrComp === 'function') return nameOrComp; // already a component
+  return _lucide.mod?.[nameOrComp] || HelpCircle;
+};
+
+// Animation constants hoisted outside component — prevents recreation on every render
+const fadeUp = {
+  hidden: { opacity: 0, y: 15 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] } }
+};
+const stagger = {
+  visible: { transition: { staggerChildren: 0.08 } }
+};
+const scrollReveal = {
+  hidden: { opacity: 0, y: 35 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.8, ease: [0.16, 1, 0.3, 1] } }
+};
+const staggerContainer = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.12, delayChildren: 0.05 } }
+};
+const cardReveal = {
+  hidden: { opacity: 0, y: 25 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1] } }
+};
 
 const TestimonialCarousel = ({ items }) => {
   const [index, setIndex] = useState(0);
@@ -273,6 +305,13 @@ export default function ServiceDetails() {
   const [activeFaq, setActiveFaq] = useState(null);
   const [showStickyCta, setShowStickyCta] = useState(false);
 
+  // Preload Lucide icons module into cache once on mount
+  useEffect(() => {
+    if (!_lucide.mod) {
+      import('lucide-react').then(m => { _lucide.mod = m; });
+    }
+  }, []);
+
   // Sync route slug & content details
   useEffect(() => {
     let isMounted = true;
@@ -317,16 +356,12 @@ export default function ServiceDetails() {
     };
   }, [slug, navigate]);
 
-  // Handle sticky CTA visibility on scroll
+  // Handle sticky CTA visibility on scroll — passive:true prevents blocking main thread
   useEffect(() => {
     const handleScroll = () => {
-      if (window.scrollY > 550) {
-        setShowStickyCta(true);
-      } else {
-        setShowStickyCta(false);
-      }
+      setShowStickyCta(window.scrollY > 550);
     };
-    window.addEventListener('scroll', handleScroll);
+    window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
@@ -351,49 +386,7 @@ export default function ServiceDetails() {
     ? testimonials 
     : (testimonial && testimonial.author ? [testimonial] : []);
 
-  // Animation constants - Professional & sleek durations
-  const fadeUp = {
-    hidden: { opacity: 0, y: 15 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] } }
-  };
-
-  const stagger = {
-    visible: { transition: { staggerChildren: 0.08 } }
-  };
-
-  const scrollReveal = {
-    hidden: { opacity: 0, y: 35 },
-    visible: { 
-      opacity: 1, 
-      y: 0, 
-      transition: { 
-        duration: 0.8, 
-        ease: [0.16, 1, 0.3, 1] 
-      } 
-    }
-  };
-
-  const staggerContainer = {
-    hidden: {},
-    visible: {
-      transition: {
-        staggerChildren: 0.12,
-        delayChildren: 0.05
-      }
-    }
-  };
-
-  const cardReveal = {
-    hidden: { opacity: 0, y: 25 },
-    visible: { 
-      opacity: 1, 
-      y: 0, 
-      transition: { 
-        duration: 0.6, 
-        ease: [0.16, 1, 0.3, 1] 
-      } 
-    }
-  };
+  // Animation variants are defined at module level above — no re-creation per render
 
   return (
     <div className="bg-app-bg text-app-text min-h-screen relative overflow-hidden font-sans selection:bg-primary/20 selection:text-primary">
@@ -611,14 +604,8 @@ export default function ServiceDetails() {
                   className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
                 >
                   {subServices.map((sub, idx) => {
-                    // Try to resolve string icon from LucideIcons, or if it's already a component fallback, or default to Globe
-                    let IconComp = LucideIcons.Globe;
-                    if (typeof sub.icon === 'string' && LucideIcons[sub.icon]) {
-                      IconComp = LucideIcons[sub.icon];
-                    } else if (typeof sub.icon === 'object' || typeof sub.icon === 'function') {
-                      IconComp = sub.icon;
-                    }
-
+                    // Resolve icon via module-level cache (no wildcard import needed)
+                    const IconComp = getLucideIcon(sub.icon);
                     return (
                       <motion.div
                         key={idx}

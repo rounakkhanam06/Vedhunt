@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { Check, ArrowRight, Laptop, Share2, TrendingUp } from 'lucide-react';
-import api from '../../services/api';
+import { useHomePricing } from '../../hooks/usePublicContent';
 
 const iconMap = {
   Laptop,
@@ -11,29 +11,11 @@ const iconMap = {
 };
 
 export default function PricingPreview() {
-  const [pricingCards, setPricingCards] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { data: pricingCards = [], isLoading: loading } = useHomePricing();
   const [hoveredIndex, setHoveredIndex] = useState(null);
   // Track active tab for each card index (default all to 'starter')
   const [activeTabs, setActiveTabs] = useState({ 0: 'starter', 1: 'starter', 2: 'starter' });
   const scrollContainerRef = useRef(null);
-
-  useEffect(() => {
-    const fetchPricing = async () => {
-      try {
-        const response = await api.get('/home-pricing?showOnHome=true');
-        const data = response.data;
-        if (data.success) {
-          setPricingCards(data.data);
-        }
-      } catch (error) {
-        console.error('Error fetching home pricing cards:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchPricing();
-  }, []);
 
   useEffect(() => {
     const container = scrollContainerRef.current;

@@ -1,46 +1,68 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import * as LucideIcons from 'lucide-react';
+import { useWhyChooseUs } from '../../hooks/usePublicContent';
+
+// Dynamically resolve Lucide icons by name without pulling the entire library.
+// This avoids the `import * as LucideIcons` wildcard that inflates chunk size.
+const resolveIcon = (name) => {
+  try {
+    // eslint-disable-next-line no-eval -- safe: name comes from trusted DB string
+    return require(`lucide-react`)[name] || require('lucide-react').HelpCircle;
+  } catch {
+    return null;
+  }
+};
+
+let _lucideModule = null;
+const getLucideIcon = (name) => {
+  if (!_lucideModule) {
+    // Import is cached after first call — no repeated dynamic imports
+    import('lucide-react').then(m => { _lucideModule = m; });
+    return null;
+  }
+  return _lucideModule[name] || _lucideModule.HelpCircle;
+};
 
 /**
  * WhyChooseUs - Updated with dynamic data fetching from DB.
  */
 export default function WhyChooseUs() {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [isMobile, setIsMobile] = useState(false);
-  const [features, setFeatures] = useState([]);
-  const [header, setHeader] = useState({
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 640);
+  const [lucideIcons, setLucideIcons] = useState(null);
+
+  // Load Lucide icons once, cache in state
+  useEffect(() => {
+    import('lucide-react').then(m => setLucideIcons(m));
+  }, []);
+
+  const resolveIcon = useCallback((name) => {
+    if (!lucideIcons) return null;
+    return lucideIcons[name] || lucideIcons.HelpCircle;
+  }, [lucideIcons]);
+
+  // React Query — cached for 5 minutes, no re-fetch on re-mount
+  const { data: whyData } = useWhyChooseUs();
+
+  const features = useMemo(() => whyData?.cards || [], [whyData]);
+  const header = useMemo(() => whyData?.header || {
     tagline: 'Why Vedhunt',
     heading: 'Engineering Success with',
     highlightText: 'Precision'
-  });
-  const [isLoading, setIsLoading] = useState(true);
+  }, [whyData]);
 
-  // Fetch Data
+  // Debounced resize listener — prevents 60fps state updates on window resize
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const { contentService } = await import('../../services/contentService');
-        const res = await contentService.getWhyChooseUsPublic();
-        if (res.data) {
-          if (res.data.header) setHeader(res.data.header);
-          if (res.data.cards) setFeatures(res.data.cards);
-        }
-      } catch (error) {
-        console.error("Failed to load Why Choose Us data:", error);
-      } finally {
-        setIsLoading(false);
-      }
+    let timer;
+    const handleResize = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => setIsMobile(window.innerWidth < 640), 150);
     };
-    fetchData();
-  }, []);
-
-  // Detect Mobile View
-  useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 640);
-    handleResize(); // initial check
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    window.addEventListener('resize', handleResize, { passive: true });
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('resize', handleResize);
+    };
   }, []);
 
   // Auto-play interval for mobile slider
@@ -90,8 +112,7 @@ export default function WhyChooseUs() {
 
   // Reusable card content component to avoid duplication
   const CardContent = ({ feature }) => {
-    // Dynamically resolve icon from string
-    const Icon = LucideIcons[feature.icon] || LucideIcons.HelpCircle;
+    const Icon = resolveIcon(feature.icon) || (() => null);
     
     return (
       <>

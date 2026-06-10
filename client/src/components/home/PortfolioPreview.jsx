@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { Laptop, Database, Share2, ExternalLink, ChevronRight, Sparkles, Loader } from 'lucide-react';
 import { SpotlightHover } from '../ui/spotlight-hover';
 import { OptimizedLazyImage } from '../ui/lazy-image';
-import api from '../../services/api';
+import { useFeaturedPortfolio } from '../../hooks/usePublicContent';
 
 const ICON_MAP = {
   Laptop: Laptop,
@@ -20,23 +20,7 @@ const staggerContainer = {
 };
 
 export default function PortfolioPreview() {
-  const [projects, setProjects] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchFeatured = async () => {
-      try {
-        setLoading(true);
-        const res = await api.get('/portfolio?featured=true&limit=4');
-        setProjects(res.data.data || []);
-      } catch (err) {
-        console.error('Error fetching featured projects:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchFeatured();
-  }, []);
+  const { data: projects = [], isLoading: loading } = useFeaturedPortfolio();
 
   return (
     <section className="pt-4 pb-12 px-4 bg-app-bg relative overflow-hidden">

@@ -1,10 +1,12 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { motion, useInView } from 'framer-motion';
-import * as LucideIcons from 'lucide-react';
-import { contentService } from '../../services/contentService';
+import { useStatsCounter } from '../../hooks/usePublicContent';
 
-// Fallback icon if the one provided is invalid
-const FallbackIcon = LucideIcons.HelpCircle;
+// Lazy-load lucide-react once and cache — avoids the `import *` bundle inflation
+const lucideRef = { current: null };
+const getLucideIcon = (name) => lucideRef.current?.[name] || lucideRef.current?.HelpCircle || (() => null);
+
+
 
 const Counter = ({ value, suffix = "" }) => {
   const [count, setCount] = useState(0);
@@ -44,37 +46,31 @@ const Counter = ({ value, suffix = "" }) => {
 };
 
 export default function StatsCounter() {
-  const [stats, setStats] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [iconsLoaded, setIconsLoaded] = useState(false);
 
-  // Fallback initial data so it looks exactly the same during load/errors
-  const defaultStats = [
-    { value: 50, suffix: "+", label: "Clients Served", icon: "Users" },
-    { value: 8, suffix: "+", label: "Services", icon: "Layers" },
-    { value: 100, suffix: "%", label: "Transparency", icon: "ShieldCheck" },
-    { value: 3, suffix: "+", label: "Years' Experience", icon: "Clock" }
-  ];
-
+  // Load Lucide module once, cache in module-level ref
   useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const response = await contentService.getStatsCounterPublic();
-        if (response?.data?.length > 0) {
-          setStats(response.data);
-        } else {
-          setStats(defaultStats);
-        }
-      } catch (error) {
-        console.error("Failed to fetch stats:", error);
-        setStats(defaultStats);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchStats();
+    if (!lucideRef.current) {
+      import('lucide-react').then(m => {
+        lucideRef.current = m;
+        setIconsLoaded(true);
+      });
+    } else {
+      setIconsLoaded(true);
+    }
   }, []);
 
-  const displayStats = stats.length > 0 ? stats : defaultStats;
+  // React Query — cached for 5 minutes
+  const { data: fetchedStats = [], isLoading } = useStatsCounter();
+
+  const defaultStats = useMemo(() => [
+    { value: 50, suffix: '+', label: 'Clients Served', icon: 'Users' },
+    { value: 8,  suffix: '+', label: 'Services',       icon: 'Layers' },
+    { value: 100,suffix: '%', label: 'Transparency',   icon: 'ShieldCheck' },
+    { value: 3,  suffix: '+', label: "Years' Experience", icon: 'Clock' },
+  ], []);
+
+  const displayStats = fetchedStats.length > 0 ? fetchedStats : defaultStats;
 
   return (
     <section className="py-8 px-4 relative z-10">
@@ -84,7 +80,7 @@ export default function StatsCounter() {
       <div className="max-w-6xl mx-auto relative z-10">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           {displayStats.map((stat, index) => {
-            const IconComponent = LucideIcons[stat.icon] || FallbackIcon;
+          const IconComponent = getLucideIcon(stat.icon);
             return (
               <motion.div 
                 key={stat._id || index}

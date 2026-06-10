@@ -24,6 +24,10 @@ export default defineConfig({
       output: {
         manualChunks(id) {
           if (id.includes('node_modules')) {
+            // Admin-only rich text editor — isolated so it never loads on public pages
+            if (id.includes('react-quill') || id.includes('quill')) {
+              return 'vendor-admin-editor';
+            }
             if (id.includes('framer-motion')) {
               return 'vendor-framer-motion';
             }
@@ -32,6 +36,13 @@ export default defineConfig({
             }
             if (id.includes('@splinetool')) {
               return 'vendor-spline';
+            }
+            // React Query in its own chunk — small and frequently updated
+            if (id.includes('@tanstack')) {
+              return 'vendor-react-query';
+            }
+            if (id.includes('react-router')) {
+              return 'vendor-router';
             }
             if (id.includes('react') || id.includes('scheduler')) {
               return 'vendor-react-core';

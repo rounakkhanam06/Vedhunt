@@ -797,9 +797,8 @@ export default function About() {
                 <motion.div 
                   key={bidx} 
                   variants={scrollFadeUp}
-                  className={`relative glass-panel bg-app-card backdrop-blur-md border border-app-border rounded-2xl p-4 md:p-5 shadow-lg hover:border-primary/30 transition-all duration-300 hover:shadow-2xl hover:z-50 w-full max-w-[480px] lg:[margin-left:var(--desk-ml)] ${zIndexClass} group`}
+                  className={`relative glass-panel bg-app-card backdrop-blur-md border border-app-border rounded-2xl p-4 md:p-5 shadow-lg hover:border-primary/30 transition-all duration-300 hover:shadow-2xl hover:z-50 w-full max-w-[480px] lg:[margin-left:var(--desk-ml)] ${bidx > 0 ? 'mt-4 lg:-mt-5' : ''} ${zIndexClass} group`}
                   style={{ 
-                    marginTop: bidx > 0 ? '-20px' : '0px',
                     '--desk-ml': `${deskMl}rem`
                   }}
                 >

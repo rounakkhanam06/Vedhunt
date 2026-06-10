@@ -5,6 +5,7 @@ export const useHero = () => {
   return useQuery({
     queryKey: ['hero'],
     queryFn: heroService.getHero,
+    staleTime: 2 * 60 * 1000, // 2 minutes — hero data rarely changes
   });
 };
 

@@ -7,6 +7,7 @@ import { useContactInfo } from '../../context/ContactInfoContext';
 import lightLogo from '../../assets/logo_Square.jpg__1_-removebg-preview.png';
 import darkLogo from '../../assets/DarkthemeLogo.png';
 import WhatsAppWidget from '../common/WhatsAppWidget';
+import CookieConsent from '../common/CookieConsent';
 import { initTracking } from '../../utils/tracking';
 
 export default function LandingPageLayout() {
@@ -70,6 +71,9 @@ export default function LandingPageLayout() {
 
       {/* Floating WhatsApp Widget */}
       <WhatsAppWidget />
+
+      {/* Cookie Consent Banner */}
+      <CookieConsent />
     </div>
   );
 }

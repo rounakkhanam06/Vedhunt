@@ -4,6 +4,7 @@ import Navbar from './Navbar';
 import Footer from './Footer';
 import ScrollToTop from '../common/ScrollToTop';
 import WhatsAppWidget from '../common/WhatsAppWidget';
+import CookieConsent from '../common/CookieConsent';
 import { initTracking } from '../../utils/tracking';
 
 export default function MainLayout() {
@@ -31,6 +32,9 @@ export default function MainLayout() {
 
       {/* Floating WhatsApp Widget */}
       <WhatsAppWidget />
+
+      {/* Cookie Consent Banner */}
+      <CookieConsent />
     </div>
   );
 }

@@ -323,7 +323,7 @@ export default function Portfolio() {
               
               return (
                 <motion.div
-                  key={project.id}
+                  key={project._id || project.id}
                   initial={{ opacity: 0, scale: 0.96, y: 20 }}
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.96, y: 15 }}

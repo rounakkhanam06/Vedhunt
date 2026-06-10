@@ -1,8 +1,5 @@
-import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { contentService } from '../../services/contentService';
-import ServiceCard from '../services/ServiceCard';
 
 // Image Assets
 import webDevImg from '../../assets/web_dev.webp';
@@ -11,6 +8,10 @@ import marketingImg from '../../assets/marketing.webp';
 import digitalMarketingImg from '../../assets/digital_marketing.webp';
 import accountingImg from '../../assets/accounting.webp';
 import automationImg from '../../assets/automation.webp';
+
+import { useHomeServices, useHomeServicesSection } from '../../hooks/usePublicContent';
+import ServiceCard from '../services/ServiceCard';
+
 
 const serviceImages = {
   'web-dev': webDevImg,
@@ -22,34 +23,16 @@ const serviceImages = {
 };
 
 export default function ServicesPreview() {
-  const [services, setServices] = useState([]);
-  const [headerData, setHeaderData] = useState({
+  const { data: services = [], isLoading: servicesLoading } = useHomeServices();
+  const { data: headerDataRaw, isLoading: headerLoading } = useHomeServicesSection();
+  const isLoading = servicesLoading || headerLoading;
+
+  const headerData = headerDataRaw || {
     tagline: 'Our Expertise',
     heading: 'Services That Fit',
     highlightText: 'Your Business',
     description: 'From digital transformation to financial clarity, we provide end-to-end technical solutions designed to scale your operations and maximize ROI.'
-  });
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [servicesRes, headerRes] = await Promise.all([
-          contentService.getServicesPublic('home'),
-          contentService.getHomeServicesSection()
-        ]);
-        setServices((servicesRes.data || []).slice(0, 6));
-        if (headerRes.data) {
-          setHeaderData(headerRes.data);
-        }
-      } catch (error) {
-        console.error("Failed to fetch data", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchData();
-  }, []);
+  };
 
   const staggerContainer = {
     hidden: {},
