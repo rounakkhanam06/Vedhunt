@@ -3,12 +3,14 @@ import { motion } from 'framer-motion';
 import { Plus, Edit2, Trash2, Search, Link as LinkIcon, Loader2 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../../services/api';
+import BlogCategoryManager from './BlogCategoryManager';
 
 const BlogManager = () => {
   const [blogs, setBlogs] = useState([]);
   const [heroData, setHeroData] = useState({ title: '', description: '', tags: [] });
   const [loading, setLoading] = useState(true);
   const [heroSaving, setHeroSaving] = useState(false);
+  const [activeTab, setActiveTab] = useState('blogs'); // 'blogs' or 'categories'
   const navigate = useNavigate();
 
   const [deleteTargetSlug, setDeleteTargetSlug] = useState(null);
@@ -83,14 +85,42 @@ const BlogManager = () => {
   return (
     <div className="p-6 lg:p-8 max-w-7xl mx-auto space-y-8">
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-heading font-bold text-on-surface">Manage Blogs</h1>
+        <h1 className="text-3xl font-heading font-bold text-on-surface">Manage Blogs & Categories</h1>
         <Link to="/admin/blogs/create" className="bg-primary text-black font-bold px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-primary-hover transition-colors">
           <Plus size={20} />
           Create Blog
         </Link>
       </div>
 
-      <div className="bg-surface-container-low border border-outline-variant rounded-xl p-6">
+      {/* Tabs */}
+      <div className="flex space-x-4 border-b border-outline-variant mb-6">
+        <button
+          onClick={() => setActiveTab('blogs')}
+          className={`py-2 px-4 font-bold border-b-2 transition-colors ${
+            activeTab === 'blogs' 
+              ? 'border-primary text-primary' 
+              : 'border-transparent text-on-surface-variant hover:text-on-surface'
+          }`}
+        >
+          Blogs
+        </button>
+        <button
+          onClick={() => setActiveTab('categories')}
+          className={`py-2 px-4 font-bold border-b-2 transition-colors ${
+            activeTab === 'categories' 
+              ? 'border-primary text-primary' 
+              : 'border-transparent text-on-surface-variant hover:text-on-surface'
+          }`}
+        >
+          Categories
+        </button>
+      </div>
+
+      {activeTab === 'categories' ? (
+        <BlogCategoryManager />
+      ) : (
+        <>
+          <div className="bg-surface-container-low border border-outline-variant rounded-xl p-6">
         <h2 className="text-xl font-bold mb-4">Blog Hero Settings</h2>
         <form onSubmit={handleSaveHero} className="space-y-4">
           <div>
@@ -218,6 +248,8 @@ const BlogManager = () => {
             </div>
           </motion.div>
         </div>
+      )}
+        </>
       )}
     </div>
   );

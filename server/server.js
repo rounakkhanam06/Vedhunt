@@ -26,6 +26,7 @@ const { seedHomePricingCards } = require('./controllers/homePricingCardControlle
 const { seedFaqData } = require('./controllers/faqController');
 const { seedBlogsAndSettings } = require('./controllers/blogSeeder');
 const blogRoutes = require('./routes/blogRoutes');
+const blogCategoryRoutes = require('./routes/blogCategoryRoutes');
 const jobRoutes = require('./routes/jobRoutes');
 const applicationRoutes = require('./routes/applicationRoutes');
 const faqRoutes = require('./routes/faqRoutes');
@@ -33,6 +34,7 @@ const settingsRoutes = require('./routes/settingsRoutes');
 const servicePageRoutes = require('./routes/servicePageRoutes');
 const contactRoutes = require('./routes/contactRoutes');
 const leadRoutes = require('./routes/leadRoutes');
+const webhookRoutes = require('./routes/webhookRoutes');
 const { seedServicePages } = require('./controllers/servicePageSeeder');
 const errorHandler = require('./middleware/errorHandler');
 
@@ -62,6 +64,11 @@ app.use(
 if (process.env.NODE_ENV === 'production') {
   app.use(globalLimiter); // Apply global rate limiting
 }
+
+// Webhooks must be registered BEFORE global express.json() 
+// because FB webhook needs the raw body to verify HMAC signatures
+app.use('/api/leads/webhook', webhookRoutes);
+
 app.use(express.json({ limit: '10mb' })); // Body parser with increased limit for rich text
 app.use(cookieParser()); // Cookie parser
 
@@ -86,6 +93,7 @@ app.use('/api/testimonials', publicCache, testimonialRoutes);
 app.use('/api/portfolio', publicCache, portfolioRoutes);
 app.use('/api/pricing', publicCache, pricingRoutes);
 app.use('/api/home-pricing', publicCache, homePricingCardRoutes);
+app.use('/api/blog-categories', publicCache, blogCategoryRoutes);
 app.use('/api/blogs', publicCache, blogRoutes);
 app.use('/api/jobs', publicCache, jobRoutes);
 app.use('/api/applications', applicationRoutes); // write route — no cache

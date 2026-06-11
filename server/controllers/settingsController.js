@@ -685,6 +685,60 @@ exports.updateRefundPolicy = async (req, res) => {
   }
 };
 
+// Fallback default info for Facebook Settings
+const DEFAULT_FACEBOOK_SETTINGS = {
+  pixelId: '',
+  isWebhookActive: true
+};
+
+/**
+ * @desc    Get Facebook Integration Settings
+ * @route   GET /api/settings/facebook
+ * @access  Public
+ */
+exports.getFacebookSettings = async (req, res) => {
+  try {
+    let settings = await Settings.findOne({ key: 'facebookIntegration' });
+    if (!settings) {
+      settings = await Settings.create({
+        key: 'facebookIntegration',
+        value: DEFAULT_FACEBOOK_SETTINGS,
+      });
+    }
+    res.json(settings.value);
+  } catch (error) {
+    console.error('Error fetching Facebook Settings:', error);
+    res.status(500).json({ message: 'Server error while fetching Facebook Settings' });
+  }
+};
+
+/**
+ * @desc    Update Facebook Integration Settings
+ * @route   PUT /api/admin/settings/facebook
+ * @access  Private (Super Admin / Editor)
+ */
+exports.updateFacebookSettings = async (req, res) => {
+  try {
+    const updatedData = req.body;
+    let settings = await Settings.findOne({ key: 'facebookIntegration' });
+    
+    if (settings) {
+      settings.value = updatedData;
+      await settings.save();
+    } else {
+      settings = await Settings.create({
+        key: 'facebookIntegration',
+        value: updatedData,
+      });
+    }
+    
+    res.json(settings.value);
+  } catch (error) {
+    console.error('Error updating Facebook Settings:', error);
+    res.status(500).json({ message: 'Server error while updating Facebook Settings' });
+  }
+};
+
 const DEFAULT_CAMPAIGN_SETTINGS = {
   facebookPixel: { id: '', enabled: false },
   googleAnalytics: { id: '', enabled: false },

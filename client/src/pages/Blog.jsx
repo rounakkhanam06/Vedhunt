@@ -8,6 +8,7 @@ const Blog = () => {
   const [activeCategory, setActiveCategory] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
   
+  const [categories, setCategories] = useState([]);
   const [allBlogs, setAllBlogs] = useState([]);
   const [heroData, setHeroData] = useState({
     title: 'The Blog',
@@ -19,9 +20,10 @@ const Blog = () => {
   useEffect(() => {
     const fetchAllData = async () => {
       try {
-        const [heroRes, blogsRes] = await Promise.all([
+        const [heroRes, blogsRes, catRes] = await Promise.all([
           api.get('/blogs/hero'),
-          api.get('/blogs')
+          api.get('/blogs'),
+          api.get('/blog-categories?activeOnly=true')
         ]);
         
         const heroResult = heroRes.data;
@@ -33,6 +35,11 @@ const Blog = () => {
         if (blogsResult.success) {
           setAllBlogs(blogsResult.data);
         }
+
+        const catResult = catRes.data;
+        if (catResult?.success) {
+          setCategories(catResult.data.map(c => c.name));
+        }
       } catch (error) {
         console.error("Error fetching data:", error);
       } finally {
@@ -42,10 +49,10 @@ const Blog = () => {
     fetchAllData();
   }, []);
 
-  // Dynamically extract and format categories from fetched blogs
-  const dynamicCategories = ['All', ...new Set(allBlogs.map(post => {
-    return post.category.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ');
-  }))];
+  // Dynamically extract and format categories from fetched categories
+  const dynamicCategories = ['All', ...categories.map(cat => {
+    return cat.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ');
+  })];
 
   const filteredPosts = allBlogs.filter(post => {
     const formattedPostCategory = post.category.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ');

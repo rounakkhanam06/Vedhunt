@@ -7,7 +7,7 @@ const logger = require('../utils/logger');
 // @access  Public
 exports.createLead = async (req, res, next) => {
   try {
-    const { fullName, phone, email, service, businessName, message, source, consent } = req.body;
+    const { fullName, phone, email, service, businessName, message, source, consent, city, platform, utmSource, utmMedium, utmCampaign, utmContent, utmTerm } = req.body;
 
     if (!fullName || !phone || !email || !source) {
       return res.status(400).json({ success: false, message: 'Please provide all required fields' });
@@ -26,7 +26,14 @@ exports.createLead = async (req, res, next) => {
       businessName,
       message,
       source,
-      consent
+      consent,
+      city,
+      platform: platform || 'Website',
+      utmSource,
+      utmMedium,
+      utmCampaign,
+      utmContent,
+      utmTerm
     });
 
     // Send email to HR/Admin
@@ -81,6 +88,11 @@ exports.getLeads = async (req, res, next) => {
       query.status = req.query.status;
     }
 
+    // Filter by platform
+    if (req.query.platform && req.query.platform !== 'All') {
+      query.platform = req.query.platform;
+    }
+
     // Search by text (using $text index or regex if $text doesn't cover partial well)
     // Note: MongoDB $text search is word-based. For partial matching (e.g. typing part of an email), 
     // regex is often more intuitive for admin panels, though less scalable than raw $text.
@@ -115,14 +127,28 @@ exports.getLeads = async (req, res, next) => {
   }
 };
 
-// @desc    Update lead status
+// @desc    Update lead
 // @route   PUT /api/leads/:id
 // @access  Private (Admin)
-exports.updateLeadStatus = async (req, res, next) => {
+exports.updateLead = async (req, res, next) => {
   try {
+    const allowedUpdates = [
+      'status', 'bd', 'city', 'callStartTime', 'callEndTime', 'callDuration', 
+      'callDate', 'connected', 'notConnectedReason', 'interestLevel', 
+      'notConvertedReason', 'remark', 'nextFollowUpDate', 'leadAgeAtCall', 'touchNumber',
+      'fullName', 'email', 'phone', 'businessName', 'service'
+    ];
+
+    const updates = {};
+    for (const key of Object.keys(req.body)) {
+      if (allowedUpdates.includes(key)) {
+        updates[key] = req.body[key];
+      }
+    }
+
     const lead = await Lead.findByIdAndUpdate(
       req.params.id,
-      { status: req.body.status },
+      updates,
       { new: true, runValidators: true }
     );
 
@@ -132,7 +158,7 @@ exports.updateLeadStatus = async (req, res, next) => {
 
     res.status(200).json({ success: true, data: lead });
   } catch (error) {
-    logger.error('Error updating lead status:', error);
+    logger.error('Error updating lead:', error);
     next(error);
   }
 };

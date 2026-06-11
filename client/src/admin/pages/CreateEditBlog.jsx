@@ -31,12 +31,25 @@ const CreateEditBlog = () => {
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
   const [uploadingThumbnail, setUploadingThumbnail] = useState(false);
+  const [categories, setCategories] = useState([]);
 
   useEffect(() => {
+    fetchCategories();
     if (isEdit) {
       fetchBlog();
     }
   }, [slug]);
+
+  const fetchCategories = async () => {
+    try {
+      const res = await api.get('/blog-categories?activeOnly=true');
+      if (res.data?.success) {
+        setCategories(res.data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+    }
+  };
 
   const fetchBlog = async () => {
     try {
@@ -328,13 +341,17 @@ const CreateEditBlog = () => {
 
             <div>
               <label className="block text-sm font-medium mb-1 text-on-surface-variant">Category</label>
-              <input 
-                type="text" 
+              <select 
                 value={formData.category} 
                 onChange={e => setFormData({...formData, category: e.target.value})}
-                className="w-full bg-surface border border-outline-variant rounded-lg px-4 py-2 text-on-surface focus:outline-none focus:border-primary"
+                className="w-full bg-surface border border-outline-variant rounded-lg px-4 py-2 text-on-surface focus:outline-none focus:border-primary uppercase"
                 required
-              />
+              >
+                <option value="" disabled>Select a category</option>
+                {categories.map(cat => (
+                  <option key={cat._id} value={cat.name}>{cat.name}</option>
+                ))}
+              </select>
             </div>
 
             <div>

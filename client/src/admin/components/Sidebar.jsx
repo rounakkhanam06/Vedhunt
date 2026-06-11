@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { 
-  LayoutDashboard, Users, ChevronDown, ChevronRight, Activity, 
+import {
+  LayoutDashboard, Users, ChevronDown, ChevronRight, Activity,
   Briefcase, FileText, Wallet, ShieldCheck, Settings, LogOut, X,
-  Image as ImageIcon, Tag, UserPlus, Scale
+  Image as ImageIcon, Tag, UserPlus, Scale, Share2
 } from 'lucide-react';
 import { useAdminStore } from '../../store/useAdminStore';
 import darkLogo from '../../assets/DarkthemeLogo.png';
@@ -12,7 +12,10 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
   const { logout, admin } = useAdminStore();
   const navigate = useNavigate();
   const location = useLocation();
-  const [openDropdowns, setOpenDropdowns] = useState({ leads: true, cms: false, pricing: false, careers: false, legal: false, servicesManagement: false });
+  const [openDropdowns, setOpenDropdowns] = useState({
+    leads: true, 
+    cms: false, pricing: false, careers: false, legal: false, servicesManagement: false
+  });
 
   const handleLogout = async () => {
     await logout();
@@ -26,8 +29,8 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
   const navItems = [
     { name: 'Overview', path: '/admin/dashboard', icon: LayoutDashboard },
     { name: 'Lead Manager (Ads)', path: '/admin/leads', icon: Users },
-    { 
-      name: 'Services Management', 
+    {
+      name: 'Services Management',
       icon: Briefcase,
       dropdownKey: 'servicesManagement',
       subItems: [
@@ -36,8 +39,8 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
       ]
     },
     { name: 'Portfolio Items', path: '/admin/portfolio', icon: ImageIcon },
-    { 
-      name: 'Content Manager (CMS)', 
+    {
+      name: 'Content Manager (CMS)',
       icon: FileText,
       dropdownKey: 'cms',
       subItems: [
@@ -50,8 +53,8 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
         { name: 'FAQ Page', path: '/admin/faq' },
       ]
     },
-    { 
-      name: 'Legal & Compliance', 
+    {
+      name: 'Legal & Compliance',
       icon: Scale,
       dropdownKey: 'legal',
       subItems: [
@@ -62,8 +65,8 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
         { name: 'Refund & Billing Policy', path: '/admin/refund-policy' },
       ]
     },
-    { 
-      name: 'Pricing Management', 
+    {
+      name: 'Pricing Management',
       icon: Tag,
       dropdownKey: 'pricing',
       subItems: [
@@ -71,8 +74,8 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
         { name: 'Pricing Plan', path: '/admin/pricing' },
       ]
     },
-    { 
-      name: 'Careers CMS', 
+    {
+      name: 'Careers CMS',
       icon: UserPlus,
       dropdownKey: 'careers',
       subItems: [
@@ -83,6 +86,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
       ]
     },
     { name: 'Team Management', path: '/admin/team', icon: ShieldCheck },
+    { name: 'Facebook Integration', path: '/admin/facebook-integration', icon: Share2 },
     { name: 'Settings', path: '/admin/settings', icon: Settings },
   ];
 
@@ -90,7 +94,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     <>
       {/* Mobile overlay */}
       {isOpen && (
-        <div 
+        <div
           className="fixed inset-0 z-40 bg-black/50 lg:hidden"
           onClick={() => setIsOpen(false)}
         />
@@ -114,11 +118,11 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
         <nav className="flex-1 space-y-2 pr-2 mt-4 pb-4">
           {navItems.map((item) => {
             const Icon = item.icon;
-            
+
             if (item.subItems) {
               const isAnySubActive = item.subItems.some(sub => location.pathname === sub.path);
               const isOpen = openDropdowns[item.dropdownKey] || isAnySubActive;
-              
+
               return (
                 <div key={item.name} className="space-y-1">
                   <button
@@ -126,7 +130,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                     className={`
                       w-full flex items-center justify-between gap-4 px-4 py-2 rounded-lg text-sm transition-all duration-200 cursor-pointer
                       ${isOpen
-                        ? 'text-on-surface bg-surface-variant/30' 
+                        ? 'text-on-surface bg-surface-variant/30'
                         : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-variant/50'
                       }
                     `}
@@ -137,7 +141,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                     </div>
                     {isOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                   </button>
-                  
+
                   <div className={`ml-9 overflow-hidden transition-all duration-300 ease-in-out ${isOpen ? 'max-h-96 opacity-100 mt-1' : 'max-h-0 opacity-0 mt-0'}`}>
                     <div className="space-y-1">
                       {item.subItems.map((subItem) => {
@@ -148,8 +152,8 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                             to={subItem.path}
                             className={`
                               block px-4 py-2 rounded-lg text-sm transition-all duration-200
-                              ${isSubActive 
-                                ? 'bg-secondary-container/10 text-secondary font-bold shadow-[0_0_10px_rgba(255,107,0,0.15)] active:scale-[0.98]' 
+                              ${isSubActive
+                                ? 'bg-secondary-container/10 text-secondary font-bold shadow-[0_0_10px_rgba(255,107,0,0.15)] active:scale-[0.98]'
                                 : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-variant/30'
                               }
                             `}
@@ -171,8 +175,8 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                 to={item.path}
                 className={`
                   flex items-center gap-4 px-4 py-2 rounded-lg text-sm transition-all duration-200
-                  ${isActive 
-                    ? 'bg-secondary-container/10 text-secondary font-bold shadow-[0_0_10px_rgba(255,107,0,0.15)] active:scale-[0.98]' 
+                  ${isActive
+                    ? 'bg-secondary-container/10 text-secondary font-bold shadow-[0_0_10px_rgba(255,107,0,0.15)] active:scale-[0.98]'
                     : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-variant/50'
                   }
                 `}

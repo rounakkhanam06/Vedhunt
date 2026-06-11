@@ -92,6 +92,7 @@ export default function LandingPage() {
   const onSubmitForm = async (data) => {
     setIsSubmitting(true);
     try {
+      const urlParams = new URLSearchParams(window.location.search);
       const payload = {
         fullName: data.name,
         phone: data.phone,
@@ -100,7 +101,13 @@ export default function LandingPage() {
         businessName: data.businessName,
         message: data.message,
         consent: data.consent,
-        source: window.location.href
+        source: window.location.href,
+        platform: 'Website',
+        utmSource: urlParams.get('utm_source') || '',
+        utmMedium: urlParams.get('utm_medium') || '',
+        utmCampaign: urlParams.get('utm_campaign') || '',
+        utmContent: urlParams.get('utm_content') || '',
+        utmTerm: urlParams.get('utm_term') || ''
       };
       
       const res = await api.post('/leads', payload);
@@ -115,6 +122,14 @@ export default function LandingPage() {
             currency: 'INR',
             service: data.service,
             source: 'Landing Page Form'
+          });
+        }
+        
+        if (window.fbq) {
+          window.fbq('track', 'Lead', {
+            content_name: data.service,
+            currency: 'INR',
+            value: 0
           });
         }
         

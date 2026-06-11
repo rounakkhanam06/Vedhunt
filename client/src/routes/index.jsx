@@ -48,6 +48,7 @@ const CareerHeroManager = lazy(() => import('../admin/pages/CareerHeroManager'))
 const LifeAtVedhuntManager = lazy(() => import('../admin/pages/LifeAtVedhuntManager'));
 const AboutManager = lazy(() => import('../admin/pages/AboutManager'));
 const BlogManager = lazy(() => import('../admin/pages/BlogManager'));
+const BlogCategoryManager = lazy(() => import('../admin/pages/BlogCategoryManager'));
 const CreateEditBlog = lazy(() => import('../admin/pages/CreateEditBlog'));
 const JobManager = lazy(() => import('../admin/pages/JobManager'));
 const ApplicationManager = lazy(() => import('../admin/pages/ApplicationManager'));
@@ -58,6 +59,7 @@ const CookiePolicyManager = lazy(() => import('../admin/pages/CookiePolicyManage
 const DPAManager = lazy(() => import('../admin/pages/DPAManager'));
 const RefundPolicyManager = lazy(() => import('../admin/pages/RefundPolicyManager'));
 const LeadsManager = lazy(() => import('../admin/pages/LeadsManager'));
+const FacebookIntegrationManager = lazy(() => import('../admin/pages/FacebookIntegrationManager'));
 
 import AdminThemeGuard from '../admin/components/AdminThemeGuard';
 import { Outlet } from 'react-router-dom';
@@ -315,6 +317,10 @@ export const router = createBrowserRouter([
           {
             path: 'leads',
             element: withSuspense(LeadsManager)
+          },
+          {
+            path: 'facebook-integration',
+            element: withSuspense(FacebookIntegrationManager)
           },
           {
             path: '',

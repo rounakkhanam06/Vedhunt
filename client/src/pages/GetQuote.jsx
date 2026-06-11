@@ -20,6 +20,7 @@ import {
   ChevronDown
 } from 'lucide-react';
 import { useContactInfo } from '../context/ContactInfoContext';
+import api from '../services/api';
 
 // Inline premium custom SVG brand icons
 const FacebookIcon = (props) => (
@@ -182,26 +183,61 @@ export default function GetQuote() {
 
   const selectedService = watch('service');
 
-  const onSubmitForm = (data) => {
-    // Combine react-hook-form data with our custom checkbox states
-    const finalData = { ...data, ...checkboxState };
-    setSubmittedData(finalData);
-    setIsSubmitSuccess(true);
-    
-    // Trigger tracking
-    if (window.trackConversion) {
-      window.trackConversion({
-        value: 0,
-        currency: 'INR',
-        service: finalData.service,
-        timeline: finalData.timeline,
-        source: finalData.source || 'GetQuote Form'
-      });
-    }
+  const onSubmitForm = async (data) => {
+    try {
+      // Combine react-hook-form data with our custom checkbox states
+      const finalData = { ...data, ...checkboxState };
+      const urlParams = new URLSearchParams(window.location.search);
+      
+      const payload = {
+        fullName: `${finalData.firstName} ${finalData.lastName || ''}`.trim(),
+        phone: finalData.phone,
+        email: finalData.email,
+        service: servicesOptions.find(s => s.id === finalData.service)?.label || finalData.service,
+        businessName: finalData.company,
+        message: finalData.projectIdea,
+        consent: true,
+        source: finalData.source || window.location.href,
+        city: finalData.city,
+        platform: 'Website',
+        utmSource: urlParams.get('utm_source') || '',
+        utmMedium: urlParams.get('utm_medium') || '',
+        utmCampaign: urlParams.get('utm_campaign') || '',
+        utmContent: urlParams.get('utm_content') || '',
+        utmTerm: urlParams.get('utm_term') || ''
+      };
 
-    reset();
-    setCheckboxState({});
-    setStep(1);
+      await api.post('/leads', payload);
+
+      setSubmittedData(finalData);
+      setIsSubmitSuccess(true);
+      
+      // Trigger tracking
+      if (window.trackConversion) {
+        window.trackConversion({
+          value: 0,
+          currency: 'INR',
+          service: finalData.service,
+          timeline: finalData.timeline,
+          source: finalData.source || 'GetQuote Form'
+        });
+      }
+      
+      if (window.fbq) {
+        window.fbq('track', 'Lead', {
+          content_name: payload.service,
+          currency: 'INR',
+          value: 0
+        });
+      }
+
+      reset();
+      setCheckboxState({});
+      setStep(1);
+    } catch (error) {
+      console.error('Error submitting quote request:', error);
+      alert('Failed to submit request. Please try again later.');
+    }
   };
 
   const nextStep = async () => {
