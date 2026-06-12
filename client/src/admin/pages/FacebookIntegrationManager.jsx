@@ -111,17 +111,6 @@ export default function FacebookIntegrationManager() {
             </div>
           </div>
 
-          <div className="space-y-3">
-            <h3 className="font-bold text-app-text text-sm">Server Secrets Required</h3>
-            <p className="text-xs text-app-text-muted">These values must be securely added to your server's <code className="bg-app-bg px-1 rounded">.env</code> file. They cannot be edited here for security reasons.</p>
-            
-            <ul className="text-sm text-app-text space-y-2 list-disc pl-5">
-              <li><strong>FB_APP_SECRET:</strong> App Secret from your FB App Dashboard</li>
-              <li><strong>FB_VERIFY_TOKEN:</strong> The secret token you enter when subscribing the webhook</li>
-              <li><strong>FB_PAGE_ACCESS_TOKEN:</strong> A long-lived Page Access Token generated via Graph API Explorer</li>
-            </ul>
-          </div>
-
           <div className="pt-4 border-t border-app-border">
             <a 
               href="https://developers.facebook.com/docs/graph-api/webhooks/getting-started" 

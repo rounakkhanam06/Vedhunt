@@ -70,6 +70,17 @@ router.put(
   settingsController.updateRefundPolicy
 );
 
+// Public route to get Facebook Settings
+router.get('/settings/facebook', settingsController.getFacebookSettings);
+
+// Admin route to update Facebook Settings
+router.put(
+  '/admin/settings/facebook',
+  authMiddleware,
+  roleMiddleware('SUPER_ADMIN', 'EDITOR'),
+  settingsController.updateFacebookSettings
+);
+
 // Public route to get Campaign Settings
 router.get('/settings/campaigns', settingsController.getCampaignSettings);
 
