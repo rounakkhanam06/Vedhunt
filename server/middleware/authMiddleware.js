@@ -16,11 +16,24 @@ const authMiddleware = async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = await Admin.findById(decoded.id).select('-password');
+    req.user = await Admin.findById(decoded.id)
+      .select('-password')
+      .populate('roles');
     
     if (!req.user || !req.user.isActive) {
       return res.status(401).json({ success: false, message: 'Not authorized, user not active or found' });
     }
+
+    // Flatten permissions from all roles and attach to user
+    const permissionsSet = new Set();
+    if (req.user.roles && req.user.roles.length > 0) {
+      req.user.roles.forEach(role => {
+        if (role.permissions && Array.isArray(role.permissions)) {
+          role.permissions.forEach(perm => permissionsSet.add(perm));
+        }
+      });
+    }
+    req.user.permissions = Array.from(permissionsSet);
 
     next();
   } catch (error) {

@@ -16,6 +16,7 @@ const authRoutes = require('./routes/auth');
 const uploadRoutes = require('./routes/upload');
 const heroRoutes = require('./routes/hero');
 const teamRoutes = require('./routes/team');
+const rbacRoutes = require('./routes/rbac');
 const contentRoutes = require('./routes/contentRoutes');
 const testimonialRoutes = require('./routes/testimonialRoutes');
 const portfolioRoutes = require('./routes/portfolioRoutes');
@@ -88,6 +89,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/hero', publicCache, heroRoutes); // Legacy route, keeping for backwards compatibility
 app.use('/api/team', publicCache, teamRoutes);
+app.use('/api/rbac', rbacRoutes);
 app.use('/api/content', publicCache, contentRoutes);
 app.use('/api/testimonials', publicCache, testimonialRoutes);
 app.use('/api/portfolio', publicCache, portfolioRoutes);

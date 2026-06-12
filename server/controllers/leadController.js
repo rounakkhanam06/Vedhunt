@@ -132,12 +132,19 @@ exports.getLeads = async (req, res, next) => {
 // @access  Private (Admin)
 exports.updateLead = async (req, res, next) => {
   try {
-    const allowedUpdates = [
+    let allowedUpdates = [
       'status', 'bd', 'city', 'callStartTime', 'callEndTime', 'callDuration', 
       'callDate', 'connected', 'notConnectedReason', 'interestLevel', 
       'notConvertedReason', 'remark', 'nextFollowUpDate', 'leadAgeAtCall', 'touchNumber',
       'fullName', 'email', 'phone', 'businessName', 'service'
     ];
+
+    // Field-level access control: Only Super Admins can edit core fields
+    const isSuperAdmin = req.user.permissions && req.user.permissions.includes('*');
+    if (!isSuperAdmin) {
+      const protectedFields = ['fullName', 'email', 'phone', 'city', 'businessName', 'platform'];
+      allowedUpdates = allowedUpdates.filter(field => !protectedFields.includes(field));
+    }
 
     const updates = {};
     for (const key of Object.keys(req.body)) {

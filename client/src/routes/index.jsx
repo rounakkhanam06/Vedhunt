@@ -61,7 +61,10 @@ const RefundPolicyManager = lazy(() => import('../admin/pages/RefundPolicyManage
 const LeadsManager = lazy(() => import('../admin/pages/LeadsManager'));
 const FacebookIntegrationManager = lazy(() => import('../admin/pages/FacebookIntegrationManager'));
 
+const RoleManager = lazy(() => import('../admin/pages/RoleManager'));
+
 import AdminThemeGuard from '../admin/components/AdminThemeGuard';
+import ProtectedRoute from '../admin/components/ProtectedRoute';
 import { Outlet } from 'react-router-dom';
 
 // High-fidelity, smooth loading fallback component to display during chunk fetching
@@ -75,6 +78,12 @@ const withSuspense = (Component) => (
   >
     <Component />
   </Suspense>
+);
+
+const withPermission = (Component, requiredPermission) => (
+  <ProtectedRoute requiredPermission={requiredPermission}>
+    {withSuspense(Component)}
+  </ProtectedRoute>
 );
 
 // Wraps all admin routes to force dark mode and isolate them from user panel theme toggles
@@ -212,23 +221,23 @@ export const router = createBrowserRouter([
           },
           {
             path: 'landing-page',
-            element: withSuspense(LandingPageManager)
+            element: withPermission(LandingPageManager, 'cms.manage')
           },
           {
             path: 'navbar',
-            element: withSuspense(NavbarManager)
+            element: withPermission(NavbarManager, 'cms.manage')
           },
           {
             path: 'services',
-            element: withSuspense(ServiceManager)
+            element: withPermission(ServiceManager, 'services.manage')
           },
           {
             path: 'service-pages',
-            element: withSuspense(ServicePagesManager)
+            element: withPermission(ServicePagesManager, 'services.manage')
           },
           {
             path: 'settings',
-            element: withSuspense(SettingsPage)
+            element: withPermission(SettingsPage, 'settings.manage')
           },
           {
             path: 'profile',
@@ -236,15 +245,19 @@ export const router = createBrowserRouter([
           },
           {
             path: 'team',
-            element: withSuspense(TeamManagement)
+            element: withPermission(TeamManagement, 'team.manage')
+          },
+          {
+            path: 'roles',
+            element: withPermission(RoleManager, 'roles.manage')
           },
           {
             path: 'portfolio',
-            element: withSuspense(PortfolioManager)
+            element: withPermission(PortfolioManager, 'portfolio.manage')
           },
           {
             path: 'testimonials',
-            element: withSuspense(TestimonialManager)
+            element: withPermission(TestimonialManager, 'cms.manage')
           },
           {
             path: 'pricing',

@@ -32,11 +32,11 @@ const ProfilePage = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className={labelClasses}>First Name</label>
-              <input type="text" placeholder="Admin" className={inputClasses} defaultValue="Admin" />
+              <input type="text" placeholder="Admin" className={inputClasses} defaultValue={admin?.firstName || "Admin"} />
             </div>
             <div>
               <label className={labelClasses}>Last Name</label>
-              <input type="text" placeholder="User" className={inputClasses} defaultValue="User" />
+              <input type="text" placeholder="User" className={inputClasses} defaultValue={admin?.lastName || "User"} />
             </div>
             <div>
               <label className={labelClasses}>Email Address</label>
@@ -48,7 +48,7 @@ const ProfilePage = () => {
             <div>
               <label className={labelClasses}>Role Level</label>
               <div className="w-full bg-[#16161A] border border-[#2D2D33] rounded-lg px-4 py-2 text-[#FF6B00] font-semibold text-sm select-none cursor-not-allowed flex items-center h-[42px]">
-                Role: {admin?.role === 'SUPER_ADMIN' ? 'Super Admin' : 'Editor'}
+                Role: {admin?.roles?.length > 0 ? admin.roles.map(r => r.name).join(', ') : 'No Role Assigned'}
               </div>
             </div>
           </div>

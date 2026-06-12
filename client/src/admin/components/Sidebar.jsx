@@ -6,10 +6,12 @@ import {
   Image as ImageIcon, Tag, UserPlus, Scale, Share2
 } from 'lucide-react';
 import { useAdminStore } from '../../store/useAdminStore';
+import { usePermissions } from '../hooks/usePermissions';
 import darkLogo from '../../assets/DarkthemeLogo.png';
 
 const Sidebar = ({ isOpen, setIsOpen }) => {
   const { logout, admin } = useAdminStore();
+  const { can } = usePermissions();
   const navigate = useNavigate();
   const location = useLocation();
   const [openDropdowns, setOpenDropdowns] = useState({
@@ -17,7 +19,10 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     cms: false, pricing: false, careers: false, legal: false, servicesManagement: false
   });
 
-  const handleLogout = async () => {
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+
+  const confirmLogout = async () => {
+    setShowLogoutModal(false);
     await logout();
     navigate('/admin/login');
   };
@@ -27,22 +32,24 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
   };
 
   const navItems = [
-    { name: 'Overview', path: '/admin/dashboard', icon: LayoutDashboard },
-    { name: 'Lead Manager (Ads)', path: '/admin/leads', icon: Users },
+    { name: 'Overview', path: '/admin/dashboard', icon: LayoutDashboard }, // no specific perm required
+    { name: 'Lead Manager (Ads)', path: '/admin/leads', icon: Users, requiredPermission: 'leads.view' },
     {
       name: 'Services Management',
       icon: Briefcase,
       dropdownKey: 'servicesManagement',
+      requiredPermission: 'services.manage',
       subItems: [
         { name: 'Main Services Page', path: '/admin/services' },
         { name: 'Service Subpages', path: '/admin/service-pages' },
       ]
     },
-    { name: 'Portfolio Items', path: '/admin/portfolio', icon: ImageIcon },
+    { name: 'Portfolio Items', path: '/admin/portfolio', icon: ImageIcon, requiredPermission: 'portfolio.manage' },
     {
       name: 'Content Manager (CMS)',
       icon: FileText,
       dropdownKey: 'cms',
+      requiredPermission: 'cms.manage',
       subItems: [
         { name: 'Manage Landing Page', path: '/admin/landing-page' },
         { name: 'Navbar Links', path: '/admin/navbar' },
@@ -57,6 +64,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
       name: 'Legal & Compliance',
       icon: Scale,
       dropdownKey: 'legal',
+      requiredPermission: 'legal.manage',
       subItems: [
         { name: 'Privacy Policy', path: '/admin/privacy-policy' },
         { name: 'Terms & Conditions', path: '/admin/terms-and-conditions' },
@@ -69,6 +77,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
       name: 'Pricing Management',
       icon: Tag,
       dropdownKey: 'pricing',
+      requiredPermission: 'pricing.manage',
       subItems: [
         { name: 'Home Pricing Cards', path: '/admin/home-pricing' },
         { name: 'Pricing Plan', path: '/admin/pricing' },
@@ -78,6 +87,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
       name: 'Careers CMS',
       icon: UserPlus,
       dropdownKey: 'careers',
+      requiredPermission: 'careers.manage',
       subItems: [
         { name: 'Career Hero', path: '/admin/career-hero' },
         { name: 'Life at Vedhunt', path: '/admin/life-at-vedhunt' },
@@ -85,9 +95,10 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
         { name: 'Applications', path: '/admin/applications' },
       ]
     },
-    { name: 'Team Management', path: '/admin/team', icon: ShieldCheck },
-    { name: 'Facebook Integration', path: '/admin/facebook-integration', icon: Share2 },
-    { name: 'Settings', path: '/admin/settings', icon: Settings },
+    { name: 'Team Management', path: '/admin/team', icon: ShieldCheck, requiredPermission: 'team.manage' },
+    { name: 'Role Management', path: '/admin/roles', icon: ShieldCheck, requiredPermission: 'roles.manage' },
+    { name: 'Facebook Integration', path: '/admin/facebook-integration', icon: Share2, requiredPermission: 'settings.manage' },
+    { name: 'Settings', path: '/admin/settings', icon: Settings, requiredPermission: 'settings.manage' },
   ];
 
   return (
@@ -105,10 +116,9 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
         fixed inset-y-0 left-0 z-50 w-[280px] bg-surface-container-low border-r border-outline-variant flex flex-col p-6 transition-transform duration-300 ease-in-out overflow-y-auto
         ${isOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
-        <div className="mb-10 flex justify-between items-start shrink-0">
-          <div className="flex items-center gap-2 mt-1">
-            <img src={darkLogo} alt="Vedhunt Logo" className="h-16 w-auto object-contain max-w-[180px]" />
-            <span className="bg-secondary text-black text-[10px] font-bold px-1.5 py-0.5 rounded-sm uppercase tracking-wider">Admin</span>
+        <div className="mb-12 flex justify-between items-start shrink-0 pl-1">
+          <div className="relative flex items-start">
+            <img src={darkLogo} alt="Vedhunt Logo" className="h-12 md:h-14 w-auto object-contain scale-[1.6] origin-left" />
           </div>
           <button onClick={() => setIsOpen(false)} className="text-on-surface-variant hover:text-on-surface lg:hidden" title="Close Sidebar">
             <X size={24} />
@@ -117,6 +127,11 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
 
         <nav className="flex-1 space-y-2 pr-2 mt-4 pb-4">
           {navItems.map((item) => {
+            // Check permission for rendering this item
+            if (item.requiredPermission && !can(item.requiredPermission)) {
+              return null;
+            }
+
             const Icon = item.icon;
 
             if (item.subItems) {
@@ -145,6 +160,10 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                   <div className={`ml-9 overflow-hidden transition-all duration-300 ease-in-out ${isOpen ? 'max-h-96 opacity-100 mt-1' : 'max-h-0 opacity-0 mt-0'}`}>
                     <div className="space-y-1">
                       {item.subItems.map((subItem) => {
+                        // Sub items could also have requiredPermission if needed in future
+                        if (subItem.requiredPermission && !can(subItem.requiredPermission)) {
+                          return null;
+                        }
                         const isSubActive = location.pathname === subItem.path;
                         return (
                           <Link
@@ -188,18 +207,20 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
           })}
         </nav>
 
-        <div className="mt-6 flex items-center justify-between p-4 bg-surface-variant/30 rounded-xl shrink-0 mt-auto">
+        <div className="mt-6 flex items-center justify-between p-4 bg-surface-variant/30 hover:bg-surface-variant/50 rounded-xl shrink-0 mt-auto cursor-pointer transition-colors">
           <div className="flex items-center gap-4 overflow-hidden">
             <div className="w-10 h-10 rounded-full bg-admin-primary/20 flex items-center justify-center text-admin-primary font-bold">
               {admin?.email?.charAt(0).toUpperCase()}
             </div>
             <div className="overflow-hidden">
               <p className="text-sm font-bold text-on-surface truncate">{admin?.email}</p>
-              <p className="text-[10px] uppercase tracking-widest text-on-primary-container truncate">{admin?.role}</p>
+              <p className="text-[10px] uppercase tracking-widest text-on-primary-container truncate">
+                {admin?.roles?.map(r => r.name).join(', ') || admin?.role || 'User'}
+              </p>
             </div>
           </div>
           <button
-            onClick={handleLogout}
+            onClick={() => setShowLogoutModal(true)}
             className="text-on-surface-variant hover:text-error transition-colors p-2"
             title="Logout"
           >
@@ -207,6 +228,36 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
           </button>
         </div>
       </aside>
+
+      {/* Logout Confirmation Modal */}
+      {showLogoutModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-[#1A1A1A] border border-[#2D2D33] rounded-xl w-full max-w-sm overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="p-6 text-center">
+              <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center mx-auto mb-4 text-red-500">
+                <LogOut size={32} />
+              </div>
+              <h3 className="text-xl font-bold text-white mb-2">Confirm Logout</h3>
+              <p className="text-gray-400 text-sm">Are you sure you want to log out of your admin account?</p>
+            </div>
+            
+            <div className="p-6 border-t border-[#2D2D33] flex gap-3 bg-[#1A1A1A]">
+              <button 
+                onClick={() => setShowLogoutModal(false)}
+                className="flex-1 px-4 py-2.5 rounded-lg border border-[#2D2D33] text-gray-300 hover:bg-[#2D2D33] hover:text-white transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={confirmLogout}
+                className="flex-1 px-4 py-2.5 rounded-lg bg-red-500 hover:bg-red-600 text-white font-semibold transition-colors cursor-pointer"
+              >
+                Log Out
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };

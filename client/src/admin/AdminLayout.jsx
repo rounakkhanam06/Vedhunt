@@ -67,11 +67,7 @@ const AdminLayout = () => {
               </button>
             </div>
 
-            <div className="h-8 w-[1px] bg-outline-variant hidden sm:block"></div>
-            <div className="hidden sm:flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-[#00FF94] animate-pulse"></div>
-              <span className="text-[10px] tracking-widest font-medium text-[#00FF94]">SYSTEM ONLINE</span>
-            </div>
+
           </div>
         </header>
         

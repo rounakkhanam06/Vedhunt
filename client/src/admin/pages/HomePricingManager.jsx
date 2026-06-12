@@ -162,7 +162,7 @@ export default function HomePricingManager() {
             <div>
               <h2 className="text-2xl font-bold text-white">{editingId ? 'Edit Pricing Card' : 'Add New Pricing Card'}</h2>
             </div>
-            <button onClick={() => setIsModalOpen(false)} className="px-5 py-2 border border-white/10 rounded-lg text-gray-300 hover:text-white hover:bg-white/5 transition-colors">
+            <button onClick={() => setIsModalOpen(false)} className="px-5 py-2 border border-white/10 rounded-lg text-gray-300 hover:text-white hover:bg-white/5 transition-colors cursor-pointer">
               Cancel
             </button>
           </div>
@@ -228,7 +228,7 @@ export default function HomePricingManager() {
                           newTiers[tierName].features.push('');
                           setForm({ ...form, tiers: newTiers });
                         }}
-                        className="text-xs flex items-center gap-1 text-primary hover:text-primary/80 transition-colors"
+                        className="text-xs flex items-center gap-1 text-primary hover:text-primary/80 transition-colors cursor-pointer"
                       >
                         <Plus size={14} /> Add Feature
                       </button>
@@ -255,7 +255,7 @@ export default function HomePricingManager() {
                               newTiers[tierName].features.splice(idx, 1);
                               setForm({ ...form, tiers: newTiers });
                             }}
-                            className="p-2.5 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors border border-transparent hover:border-red-500/20"
+                            className="p-2.5 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors border border-transparent hover:border-red-500/20 cursor-pointer"
                             title="Remove feature"
                           >
                             <Trash2 size={18} />
@@ -272,7 +272,7 @@ export default function HomePricingManager() {
             ))}
             
             <div className="flex justify-end pt-6 border-t border-white/10 sticky bottom-0 bg-[#1a1a1a] py-4">
-              <button type="submit" disabled={isSaving} className="flex items-center gap-2 px-8 py-2.5 bg-primary text-black font-semibold rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50">
+              <button type="submit" disabled={isSaving} className="flex items-center gap-2 px-8 py-2.5 bg-primary text-black font-semibold rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 cursor-pointer">
                 {isSaving ? <Loader className="w-5 h-5 animate-spin" /> : 'Save Changes'}
               </button>
             </div>
@@ -289,7 +289,7 @@ export default function HomePricingManager() {
             </div>
             <button
               onClick={openAdd}
-              className="flex items-center gap-2 px-4 py-2 bg-primary text-black font-semibold rounded-lg hover:bg-primary/90 transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-primary text-black font-semibold rounded-lg hover:bg-primary/90 transition-colors cursor-pointer"
             >
               <PlusCircle size={18} /> Add New Card
             </button>
@@ -334,10 +334,10 @@ export default function HomePricingManager() {
                   </div>
                 </div>
                 <div className="flex items-center justify-between pt-4 border-t border-white/10 mt-auto">
-                  <button onClick={() => handleDelete(item._id)} className="p-2 text-red-400 hover:bg-red-500/10 rounded transition-colors flex gap-2 items-center text-sm font-medium" title="Delete">
+                  <button onClick={() => handleDelete(item._id)} className="p-2 text-red-400 hover:bg-red-500/10 rounded transition-colors flex gap-2 items-center text-sm font-medium cursor-pointer" title="Delete">
                     <Trash2 size={16} /> Delete
                   </button>
-                  <button onClick={() => openEdit(item)} className="p-2 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 rounded transition-colors flex gap-2 items-center text-sm font-medium" title="Edit">
+                  <button onClick={() => openEdit(item)} className="p-2 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 rounded transition-colors flex gap-2 items-center text-sm font-medium cursor-pointer" title="Edit">
                     <Edit2 size={16} /> Edit Details
                   </button>
                 </div>

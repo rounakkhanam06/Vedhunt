@@ -4,6 +4,16 @@ const crypto = require('crypto');
 
 const adminSchema = new mongoose.Schema(
   {
+    firstName: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    lastName: {
+      type: String,
+      required: true,
+      trim: true,
+    },
     email: {
       type: String,
       required: true,
@@ -16,10 +26,12 @@ const adminSchema = new mongoose.Schema(
       required: true,
       minlength: 6,
     },
-    role: {
+    roles: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Role',
+    }],
+    refreshToken: {
       type: String,
-      enum: ['SUPER_ADMIN', 'EDITOR'],
-      default: 'EDITOR',
     },
     isActive: {
       type: Boolean,

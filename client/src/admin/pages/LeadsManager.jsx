@@ -3,8 +3,12 @@ import api from '../../services/api';
 import { motion } from 'framer-motion';
 import { Mail, Phone, Clock, Globe, Briefcase, FileText, CheckCircle2, Search, Filter, ChevronDown, ChevronLeft, ChevronRight, Eye, X, Play, Square, Save } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { usePermissions } from '../hooks/usePermissions';
 
 export default function LeadsManager() {
+  const { can } = usePermissions();
+  const isSuperAdmin = can('*');
+  
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedLead, setSelectedLead] = useState(null);
@@ -232,37 +236,53 @@ export default function LeadsManager() {
                           {lead.leadId || '-'}
                         </td>
                         <td className="px-3 py-2 align-middle font-medium text-app-text min-w-[150px]">
-                          <input 
-                            type="text" 
-                            defaultValue={lead.fullName} 
-                            onBlur={(e) => { if(e.target.value !== lead.fullName) handleFieldChange(lead._id, 'fullName', e.target.value) }}
-                            className="bg-transparent border border-transparent hover:border-app-border focus:border-primary px-2 py-1 rounded w-full focus:outline-none"
-                          />
+                          {isSuperAdmin ? (
+                            <input 
+                              type="text" 
+                              defaultValue={lead.fullName} 
+                              onBlur={(e) => { if(e.target.value !== lead.fullName) handleFieldChange(lead._id, 'fullName', e.target.value) }}
+                              className="bg-transparent border border-transparent hover:border-app-border focus:border-primary px-2 py-1 rounded w-full focus:outline-none"
+                            />
+                          ) : (
+                            <span className="px-2 py-1">{lead.fullName || '-'}</span>
+                          )}
                         </td>
                         <td className="px-3 py-2 align-middle min-w-[120px]">
-                          <input 
-                            type="text" 
-                            defaultValue={lead.phone} 
-                            onBlur={(e) => { if(e.target.value !== lead.phone) handleFieldChange(lead._id, 'phone', e.target.value) }}
-                            className="bg-transparent border border-transparent hover:border-app-border focus:border-primary px-2 py-1 rounded w-full focus:outline-none"
-                          />
+                          {isSuperAdmin ? (
+                            <input 
+                              type="text" 
+                              defaultValue={lead.phone} 
+                              onBlur={(e) => { if(e.target.value !== lead.phone) handleFieldChange(lead._id, 'phone', e.target.value) }}
+                              className="bg-transparent border border-transparent hover:border-app-border focus:border-primary px-2 py-1 rounded w-full focus:outline-none"
+                            />
+                          ) : (
+                            <span className="px-2 py-1">{lead.phone || '-'}</span>
+                          )}
                         </td>
                         <td className="px-3 py-2 align-middle min-w-[180px]">
-                          <input 
-                            type="email" 
-                            defaultValue={lead.email} 
-                            onBlur={(e) => { if(e.target.value !== lead.email) handleFieldChange(lead._id, 'email', e.target.value) }}
-                            className="bg-transparent border border-transparent hover:border-app-border focus:border-primary px-2 py-1 rounded w-full focus:outline-none text-app-text-muted"
-                          />
+                          {isSuperAdmin ? (
+                            <input 
+                              type="email" 
+                              defaultValue={lead.email} 
+                              onBlur={(e) => { if(e.target.value !== lead.email) handleFieldChange(lead._id, 'email', e.target.value) }}
+                              className="bg-transparent border border-transparent hover:border-app-border focus:border-primary px-2 py-1 rounded w-full focus:outline-none text-app-text-muted"
+                            />
+                          ) : (
+                            <span className="px-2 py-1 text-app-text-muted">{lead.email || '-'}</span>
+                          )}
                         </td>
                         <td className="px-3 py-2 align-middle min-w-[120px]">
-                          <input 
-                            type="text" 
-                            defaultValue={lead.city || ''} 
-                            placeholder="Add city..."
-                            onBlur={(e) => { if(e.target.value !== lead.city) handleFieldChange(lead._id, 'city', e.target.value) }}
-                            className="bg-transparent border border-transparent hover:border-app-border focus:border-primary px-2 py-1 rounded w-full focus:outline-none"
-                          />
+                          {isSuperAdmin ? (
+                            <input 
+                              type="text" 
+                              defaultValue={lead.city || ''} 
+                              placeholder="Add city..."
+                              onBlur={(e) => { if(e.target.value !== lead.city) handleFieldChange(lead._id, 'city', e.target.value) }}
+                              className="bg-transparent border border-transparent hover:border-app-border focus:border-primary px-2 py-1 rounded w-full focus:outline-none"
+                            />
+                          ) : (
+                            <span className="px-2 py-1">{lead.city || '-'}</span>
+                          )}
                         </td>
                         <td className="px-3 py-2 align-middle min-w-[120px]">
                           <div className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
@@ -278,13 +298,17 @@ export default function LeadsManager() {
                           {lead.utmCampaign || lead.adCampaignId || '-'}
                         </td>
                         <td className="px-3 py-2 align-middle min-w-[150px]">
-                          <input 
-                            type="text" 
-                            defaultValue={lead.businessName || ''} 
-                            placeholder="Add business..."
-                            onBlur={(e) => { if(e.target.value !== lead.businessName) handleFieldChange(lead._id, 'businessName', e.target.value) }}
-                            className="bg-transparent border border-transparent hover:border-app-border focus:border-primary px-2 py-1 rounded w-full focus:outline-none"
-                          />
+                          {isSuperAdmin ? (
+                            <input 
+                              type="text" 
+                              defaultValue={lead.businessName || ''} 
+                              placeholder="Add business..."
+                              onBlur={(e) => { if(e.target.value !== lead.businessName) handleFieldChange(lead._id, 'businessName', e.target.value) }}
+                              className="bg-transparent border border-transparent hover:border-app-border focus:border-primary px-2 py-1 rounded w-full focus:outline-none"
+                            />
+                          ) : (
+                            <span className="px-2 py-1">{lead.businessName || '-'}</span>
+                          )}
                         </td>
                         <td className="px-3 py-2 align-middle text-app-text-muted truncate max-w-[150px]">
                            {lead.source}
@@ -414,13 +438,16 @@ export default function LeadsManager() {
                           />
                         </td>
                         <td className="px-3 py-2 align-middle text-right whitespace-nowrap sticky right-0 bg-app-card group-hover:bg-surface-variant border-l border-app-border z-10">
-
-                          <button 
-                            onClick={() => deleteLead(lead._id)}
-                            className="text-xs text-red-500 hover:text-red-400 transition-colors font-medium px-2 py-1 ml-2"
-                          >
-                            Delete
-                          </button>
+                          {isSuperAdmin ? (
+                            <button 
+                              onClick={() => deleteLead(lead._id)}
+                              className="text-xs text-red-500 hover:text-red-400 transition-colors font-medium px-2 py-1 ml-2 cursor-pointer"
+                            >
+                              Delete
+                            </button>
+                          ) : (
+                            <span className="text-xs text-gray-500 italic px-2 py-1">Locked</span>
+                          )}
                         </td>
                       </motion.tr>
                     ))}
@@ -615,15 +642,17 @@ export default function LeadsManager() {
               )}
             </div>
             <div className="p-4 border-t border-app-border flex justify-end gap-3 bg-app-card sticky bottom-0 z-10">
-              <button 
-                onClick={() => {
-                  deleteLead(selectedLead._id);
-                  setSelectedLead(null);
-                }}
-                className="px-4 py-2 text-sm font-medium text-red-500 bg-red-500/10 hover:bg-red-500/20 rounded-lg transition-colors"
-              >
-                Delete Lead
-              </button>
+              {isSuperAdmin && (
+                <button 
+                  onClick={() => {
+                    deleteLead(selectedLead._id);
+                    setSelectedLead(null);
+                  }}
+                  className="px-4 py-2 text-sm font-medium text-red-500 bg-red-500/10 hover:bg-red-500/20 rounded-lg transition-colors cursor-pointer"
+                >
+                  Delete Lead
+                </button>
+              )}
               <button 
                 onClick={() => setSelectedLead(null)}
                 className="px-4 py-2 text-sm font-medium text-app-text bg-app-bg border border-app-border hover:bg-surface-variant rounded-lg transition-colors"

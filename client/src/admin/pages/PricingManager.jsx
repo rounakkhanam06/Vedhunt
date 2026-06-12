@@ -242,7 +242,7 @@ export default function PricingManager() {
                 {editingId ? 'Edit Category' : 'Add New Category'}
               </h2>
             </div>
-            <button onClick={() => setIsCategoryModalOpen(false)} className="px-5 py-2 border border-white/10 rounded-lg text-gray-300 hover:text-white hover:bg-white/5 transition-colors">
+            <button onClick={() => setIsCategoryModalOpen(false)} className="px-5 py-2 border border-white/10 rounded-lg text-gray-300 hover:text-white hover:bg-white/5 transition-colors cursor-pointer">
               Back
             </button>
           </div>
@@ -289,7 +289,7 @@ export default function PricingManager() {
             </div>
             
             <div className="flex justify-end pt-6 border-t border-white/10">
-              <button type="submit" disabled={isSaving} className="flex items-center gap-2 px-8 py-2.5 bg-primary text-black font-semibold rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50">
+              <button type="submit" disabled={isSaving} className="flex items-center gap-2 px-8 py-2.5 bg-primary text-black font-semibold rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 cursor-pointer">
                 {isSaving ? <Loader className="w-5 h-5 animate-spin" /> : 'Save Category'}
               </button>
             </div>
@@ -305,7 +305,7 @@ export default function PricingManager() {
                 {editingId ? 'Edit Plan' : 'Add New Plan'}
               </h2>
             </div>
-            <button onClick={() => setIsPlanModalOpen(false)} className="px-5 py-2 border border-white/10 rounded-lg text-gray-300 hover:text-white hover:bg-white/5 transition-colors">
+            <button onClick={() => setIsPlanModalOpen(false)} className="px-5 py-2 border border-white/10 rounded-lg text-gray-300 hover:text-white hover:bg-white/5 transition-colors cursor-pointer">
               Back
             </button>
           </div>
@@ -411,7 +411,7 @@ export default function PricingManager() {
             </div>
 
             <div className="flex justify-end pt-6 border-t border-white/10">
-              <button type="submit" disabled={isSaving} className="flex items-center gap-2 px-8 py-2.5 bg-primary text-black font-semibold rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50">
+              <button type="submit" disabled={isSaving} className="flex items-center gap-2 px-8 py-2.5 bg-primary text-black font-semibold rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 cursor-pointer">
                 {isSaving ? <Loader className="w-5 h-5 animate-spin" /> : 'Save Plan'}
               </button>
             </div>
@@ -443,7 +443,7 @@ export default function PricingManager() {
           {activeTab === 'plans' && (
             <div>
               <div className="flex justify-end mb-6">
-                <button onClick={openAddPlan} className="flex items-center gap-2 px-4 py-2 bg-primary text-black font-medium rounded-lg hover:bg-primary/90 transition-colors">
+                <button onClick={openAddPlan} className="flex items-center gap-2 px-4 py-2 bg-primary text-black font-medium rounded-lg hover:bg-primary/90 transition-colors cursor-pointer">
                   <Plus className="w-4 h-4" /> Add Plan
                 </button>
               </div>
@@ -465,10 +465,10 @@ export default function PricingManager() {
                     </div>
                     
                     <div className="flex items-center justify-between pt-4 border-t border-white/10 mt-auto">
-                      <button onClick={() => openEditPlan(item)} className="p-2 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 rounded transition-colors" title="Edit">
+                      <button onClick={() => openEditPlan(item)} className="p-2 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 rounded transition-colors cursor-pointer" title="Edit">
                         <Edit2 size={16} />
                       </button>
-                      <button onClick={() => handleDelete(item._id, 'plan')} className="p-2 bg-red-500/10 text-red-500 hover:bg-red-500/20 rounded transition-colors" title="Delete">
+                      <button onClick={() => handleDelete(item._id, 'plan')} className="p-2 bg-red-500/10 text-red-500 hover:bg-red-500/20 rounded transition-colors cursor-pointer" title="Delete">
                         <Trash2 size={16} />
                       </button>
                     </div>
@@ -481,7 +481,7 @@ export default function PricingManager() {
           {activeTab === 'categories' && (
             <div>
               <div className="flex justify-end mb-6">
-                <button onClick={openAddCategory} className="flex items-center gap-2 px-4 py-2 bg-primary text-black font-medium rounded-lg hover:bg-primary/90 transition-colors">
+                <button onClick={openAddCategory} className="flex items-center gap-2 px-4 py-2 bg-primary text-black font-medium rounded-lg hover:bg-primary/90 transition-colors cursor-pointer">
                   <Plus className="w-4 h-4" /> Add Category
                 </button>
               </div>
@@ -491,10 +491,10 @@ export default function PricingManager() {
                     <h3 className="text-lg font-bold text-white mb-2">{item.name}</h3>
                     <p className="text-xs text-gray-400 mb-4">{item.description}</p>
                     <div className="flex items-center justify-between pt-4 border-t border-white/10 mt-auto">
-                      <button onClick={() => openEditCategory(item)} className="p-2 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 rounded transition-colors" title="Edit">
+                      <button onClick={() => openEditCategory(item)} className="p-2 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 rounded transition-colors cursor-pointer" title="Edit">
                         <Edit2 size={16} />
                       </button>
-                      <button onClick={() => handleDelete(item._id, 'category')} className="p-2 bg-red-500/10 text-red-500 hover:bg-red-500/20 rounded transition-colors" title="Delete">
+                      <button onClick={() => handleDelete(item._id, 'category')} className="p-2 bg-red-500/10 text-red-500 hover:bg-red-500/20 rounded transition-colors cursor-pointer" title="Delete">
                         <Trash2 size={16} />
                       </button>
                     </div>
@@ -519,10 +519,10 @@ export default function PricingManager() {
                 Are you sure? This action cannot be undone. {deleteModal.type === 'category' && 'Deleting a category will NOT delete its plans automatically.'}
               </p>
               <div className="flex gap-3 w-full">
-                <button type="button" onClick={() => setDeleteModal({ isOpen: false, itemId: null, type: null })} disabled={isDeleting} className="flex-1 px-4 py-2.5 border border-white/10 rounded-lg text-gray-300 hover:text-white hover:bg-white/5 transition-colors disabled:opacity-50">
+                <button type="button" onClick={() => setDeleteModal({ isOpen: false, itemId: null, type: null })} disabled={isDeleting} className="flex-1 px-4 py-2.5 border border-white/10 rounded-lg text-gray-300 hover:text-white hover:bg-white/5 transition-colors disabled:opacity-50 cursor-pointer">
                   Cancel
                 </button>
-                <button type="button" onClick={confirmDelete} disabled={isDeleting} className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-red-500 text-white font-semibold rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50">
+                <button type="button" onClick={confirmDelete} disabled={isDeleting} className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-red-500 text-white font-semibold rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50 cursor-pointer">
                   {isDeleting ? <Loader className="w-4 h-4 animate-spin" /> : 'Delete'}
                 </button>
               </div>
