@@ -36,6 +36,7 @@ const servicePageRoutes = require('./routes/servicePageRoutes');
 const contactRoutes = require('./routes/contactRoutes');
 const leadRoutes = require('./routes/leadRoutes');
 const webhookRoutes = require('./routes/webhookRoutes');
+const subscribeRoutes = require('./routes/subscribeRoutes');
 const { seedServicePages } = require('./controllers/servicePageSeeder');
 const errorHandler = require('./middleware/errorHandler');
 
@@ -104,6 +105,7 @@ app.use('/api/faq', publicCache, faqRoutes);
 app.use('/api/service-pages', publicCache, servicePageRoutes);
 app.use('/api/contact', contactRoutes);   // write route — no cache
 app.use('/api/leads', leadRoutes);         // write route — no cache
+app.use('/api/subscribe', subscribeRoutes);
 app.use('/api', publicCache, settingsRoutes);
 
 // Root route for API status
@@ -141,6 +143,9 @@ mongoose
     await seedBlogsAndSettings();
     await seedFaqData();
     await seedServicePages();
+
+    // Start background jobs worker
+    require('./jobs/agenda');
 
     app.listen(PORT, () => {
       logger.info(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);

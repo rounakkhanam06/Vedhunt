@@ -23,6 +23,7 @@ const CookiePolicy = lazy(() => import('../pages/CookiePolicy'));
 const DPA = lazy(() => import('../pages/DPA'));
 const FAQ = lazy(() => import('../pages/FAQ'));
 const ThankYou = lazy(() => import('../pages/ThankYou'));
+const Unsubscribe = lazy(() => import('../pages/Unsubscribe'));
 
 // Admin Pages
 const AdminLayout = lazy(() => import('../admin/AdminLayout'));
@@ -60,6 +61,7 @@ const DPAManager = lazy(() => import('../admin/pages/DPAManager'));
 const RefundPolicyManager = lazy(() => import('../admin/pages/RefundPolicyManager'));
 const LeadsManager = lazy(() => import('../admin/pages/LeadsManager'));
 const FacebookIntegrationManager = lazy(() => import('../admin/pages/FacebookIntegrationManager'));
+const SubscriberManager = lazy(() => import('../admin/pages/SubscriberManager'));
 
 const RoleManager = lazy(() => import('../admin/pages/RoleManager'));
 
@@ -173,6 +175,10 @@ export const router = createBrowserRouter([
       {
         path: 'thank-you',
         element: withSuspense(ThankYou)
+      },
+      {
+        path: 'unsubscribe/:token',
+        element: withSuspense(Unsubscribe)
       },
       {
         path: '*',
@@ -334,6 +340,10 @@ export const router = createBrowserRouter([
           {
             path: 'facebook-integration',
             element: withSuspense(FacebookIntegrationManager)
+          },
+          {
+            path: 'subscribers',
+            element: withSuspense(SubscriberManager)
           },
           {
             path: '',

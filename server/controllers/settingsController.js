@@ -834,3 +834,54 @@ exports.updateCampaignSettings = async (req, res) => {
   }
 };
 
+/**
+ * @desc    Get Email Settings
+ * @route   GET /api/settings/email
+ * @access  Public
+ */
+exports.getEmailSettings = async (req, res) => {
+  try {
+    let settings = await Settings.findOne({ key: 'email_settings' });
+    if (!settings) {
+      settings = await Settings.create({
+        key: 'email_settings',
+        value: {
+          emailFrom: process.env.EMAIL_FROM || '',
+          hrEmail: process.env.HR_EMAIL || ''
+        },
+      });
+    }
+    res.json(settings.value);
+  } catch (error) {
+    console.error('Error fetching Email Settings:', error);
+    res.status(500).json({ message: 'Server error while fetching Email Settings' });
+  }
+};
+
+/**
+ * @desc    Update Email Settings
+ * @route   PUT /api/admin/settings/email
+ * @access  Private (Super Admin / Editor)
+ */
+exports.updateEmailSettings = async (req, res) => {
+  try {
+    const updatedData = req.body;
+    let settings = await Settings.findOne({ key: 'email_settings' });
+    
+    if (settings) {
+      settings.value = updatedData;
+      await settings.save();
+    } else {
+      settings = await Settings.create({
+        key: 'email_settings',
+        value: updatedData,
+      });
+    }
+    
+    res.json(settings.value);
+  } catch (error) {
+    console.error('Error updating Email Settings:', error);
+    res.status(500).json({ message: 'Server error while updating Email Settings' });
+  }
+};
+

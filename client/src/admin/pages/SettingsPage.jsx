@@ -35,6 +35,11 @@ const SettingsPage = () => {
   const [campaignData, setCampaignData] = useState(defaultCampaignData);
   const [campaignErrors, setCampaignErrors] = useState({});
 
+  const [emailSettings, setEmailSettings] = useState({
+    emailFrom: '',
+    hrEmail: ''
+  });
+
   const fetchContactData = async () => {
     try {
       setLoading(true);
@@ -69,9 +74,25 @@ const SettingsPage = () => {
     }
   };
 
+  const fetchEmailSettings = async () => {
+    try {
+      setLoading(true);
+      const res = await settingsService.getEmailSettings();
+      if (res.data) {
+        setEmailSettings(res.data);
+      }
+    } catch (error) {
+      toast.error('Failed to load email settings');
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (activeTab === 'contact') fetchContactData();
     if (activeTab === 'campaigns') fetchCampaignData();
+    if (activeTab === 'integrations') fetchEmailSettings();
   }, [activeTab]);
 
   const handleContactChange = (e) => {
@@ -117,6 +138,27 @@ const SettingsPage = () => {
       toast.success('Contact info saved successfully!');
     } catch (error) {
       toast.error('Failed to save contact info');
+      console.error(error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleEmailSettingsChange = (e) => {
+    const { name, value } = e.target;
+    setEmailSettings((prev) => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleSaveIntegrations = async () => {
+    try {
+      setSaving(true);
+      await settingsService.updateEmailSettings(emailSettings);
+      toast.success('Email settings saved successfully!');
+    } catch (error) {
+      toast.error('Failed to save email settings');
       console.error(error);
     } finally {
       setSaving(false);
@@ -364,22 +406,20 @@ const SettingsPage = () => {
                         <Mail size={20} className="text-[#EA4335]" />
                       </div>
                       <div>
-                        <h5 className="text-white font-semibold">SMTP / Email Service</h5>
-                        <p className="text-xs text-gray-400">For automated email campaigns and invoicing.</p>
+                        <h5 className="text-white font-semibold">Email Service Settings</h5>
+                        <p className="text-xs text-gray-400">Configure global sender and receiver email addresses.</p>
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className={labelClasses}>Host</label>
-                        <input type="text" placeholder="smtp.gmail.com" className={inputClasses} />
-                      </div>
-                      <div>
-                        <label className={labelClasses}>Port</label>
-                        <input type="text" placeholder="587" className={inputClasses} />
+                      <div className="col-span-2">
+                        <label className={labelClasses}>Sender Email (EMAIL_FROM)</label>
+                        <input type="text" name="emailFrom" value={emailSettings.emailFrom} onChange={handleEmailSettingsChange} placeholder="e.g. noreply@vedhunt.in" className={inputClasses} />
+                        <p className="text-xs text-gray-500 mt-1">This email will be used to send all outgoing emails.</p>
                       </div>
                       <div className="col-span-2">
-                        <label className={labelClasses}>API Key / App Password</label>
-                        <input type="password" placeholder="Enter secure key" className={inputClasses} />
+                        <label className={labelClasses}>Admin Notification Email (HR_EMAIL)</label>
+                        <input type="text" name="hrEmail" value={emailSettings.hrEmail} onChange={handleEmailSettingsChange} placeholder="e.g. hr@vedhunt.in" className={inputClasses} />
+                        <p className="text-xs text-gray-500 mt-1">This email will receive all lead notifications and application submissions.</p>
                       </div>
                     </div>
                   </div>
@@ -570,6 +610,7 @@ const SettingsPage = () => {
         <button 
           onClick={() => {
             if (activeTab === 'contact') handleSaveContact();
+            if (activeTab === 'integrations') handleSaveIntegrations();
             if (activeTab === 'campaigns') handleSaveCampaigns();
           }}
           disabled={saving}

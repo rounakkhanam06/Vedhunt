@@ -3,7 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Users, ChevronDown, ChevronRight, Activity,
   Briefcase, FileText, Wallet, ShieldCheck, Settings, LogOut, X,
-  Image as ImageIcon, Tag, UserPlus, Scale, Share2
+  Image as ImageIcon, Tag, UserPlus, Scale, Share2, Mail
 } from 'lucide-react';
 import { useAdminStore } from '../../store/useAdminStore';
 import { usePermissions } from '../hooks/usePermissions';
@@ -34,6 +34,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
   const navItems = [
     { name: 'Overview', path: '/admin/dashboard', icon: LayoutDashboard }, // no specific perm required
     { name: 'Lead Manager (Ads)', path: '/admin/leads', icon: Users, requiredPermission: 'leads.view' },
+    { name: 'Subscribers', path: '/admin/subscribers', icon: Mail, requiredPermission: 'leads.view' },
     {
       name: 'Services Management',
       icon: Briefcase,

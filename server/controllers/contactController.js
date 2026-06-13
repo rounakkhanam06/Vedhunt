@@ -1,4 +1,5 @@
 const sendEmail = require('../utils/sendEmail');
+const Settings = require('../models/Settings');
 
 exports.submitContactForm = async (req, res) => {
   try {
@@ -8,7 +9,15 @@ exports.submitContactForm = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Please provide all required fields' });
     }
 
-    const hrEmail = process.env.HR_EMAIL || 'hr@vedhunt.in';
+    let hrEmail = process.env.HR_EMAIL || 'hr@vedhunt.in';
+    try {
+      const emailSettings = await Settings.findOne({ key: 'email_settings' });
+      if (emailSettings && emailSettings.value && emailSettings.value.hrEmail) {
+        hrEmail = emailSettings.value.hrEmail;
+      }
+    } catch (err) {
+      console.error('Error fetching email settings:', err);
+    }
     const fullName = `${firstName} ${lastName}`;
 
     const emailContent = `

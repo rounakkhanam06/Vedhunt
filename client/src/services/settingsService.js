@@ -15,5 +15,7 @@ export const settingsService = {
   updateRefundPolicy: (data) => api.put('/admin/settings/refund-policy', data),
   getCampaignSettings: () => api.get('/settings/campaigns'),
   updateCampaignSettings: (data) => api.put('/admin/settings/campaigns', data),
+  getEmailSettings: () => api.get('/settings/email'),
+  updateEmailSettings: (data) => api.put('/admin/settings/email', data),
 };
 

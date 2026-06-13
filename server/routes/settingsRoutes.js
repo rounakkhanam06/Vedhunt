@@ -92,5 +92,15 @@ router.put(
   settingsController.updateCampaignSettings
 );
 
-module.exports = router;
+// Public route to get Email Settings
+router.get('/settings/email', settingsController.getEmailSettings);
 
+// Admin route to update Email Settings
+router.put(
+  '/admin/settings/email',
+  authMiddleware,
+  roleMiddleware('SUPER_ADMIN', 'EDITOR'),
+  settingsController.updateEmailSettings
+);
+
+module.exports = router;

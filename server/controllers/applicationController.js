@@ -1,5 +1,6 @@
 const Application = require('../models/Application');
 const Job = require('../models/Job');
+const Settings = require('../models/Settings');
 const { deleteFromCloudinary } = require('../utils/cloudinary');
 const { applicationSchema } = require('../validators/applicationValidator');
 const sendEmail = require('../utils/sendEmail');
@@ -82,7 +83,15 @@ exports.createApplication = async (req, res) => {
 
     // Send email to HR
     try {
-      const hrEmail = process.env.HR_EMAIL || 'hr@vedhunt.in';
+      let hrEmail = process.env.HR_EMAIL || 'hr@vedhunt.in';
+      try {
+        const emailSettings = await Settings.findOne({ key: 'email_settings' });
+        if (emailSettings && emailSettings.value && emailSettings.value.hrEmail) {
+          hrEmail = emailSettings.value.hrEmail;
+        }
+      } catch (err) {
+        console.error('Error fetching email settings:', err);
+      }
       const emailContent = `
         <h3>New Job Application Received</h3>
         <p><strong>Name:</strong> ${fullName}</p>

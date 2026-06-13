@@ -1,4 +1,5 @@
 const Lead = require('../models/Lead');
+const Settings = require('../models/Settings');
 const sendEmail = require('../utils/sendEmail');
 const logger = require('../utils/logger');
 
@@ -37,8 +38,16 @@ exports.createLead = async (req, res, next) => {
     });
 
     // Send email to HR/Admin
-    const hrEmail = process.env.HR_EMAIL || 'hr@vedhunt.in';
-    
+    // Send email to HR/Admin
+    let hrEmail = process.env.HR_EMAIL || 'hr@vedhunt.in';
+    try {
+      const emailSettings = await Settings.findOne({ key: 'email_settings' });
+      if (emailSettings && emailSettings.value && emailSettings.value.hrEmail) {
+        hrEmail = emailSettings.value.hrEmail;
+      }
+    } catch (err) {
+      logger.error('Error fetching email settings:', err);
+    }
     const emailContent = `
       <h3>New Lead from Landing Page (${source})</h3>
       <p><strong>Name:</strong> ${fullName}</p>

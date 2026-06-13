@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const Lead = require('../models/Lead');
+const Settings = require('../models/Settings');
 const sendEmail = require('../utils/sendEmail');
 const logger = require('../utils/logger');
 
@@ -168,7 +169,15 @@ async function processFacebookLead(leadData) {
     });
 
     // Send Admin Email
-    const hrEmail = process.env.HR_EMAIL || 'hr@vedhunt.in';
+    let hrEmail = process.env.HR_EMAIL || 'hr@vedhunt.in';
+    try {
+      const emailSettings = await Settings.findOne({ key: 'email_settings' });
+      if (emailSettings && emailSettings.value && emailSettings.value.hrEmail) {
+        hrEmail = emailSettings.value.hrEmail;
+      }
+    } catch (err) {
+      logger.error('Error fetching email settings:', err);
+    }
     const emailContent = `
       <h3>New Lead from Facebook Lead Ad</h3>
       <p><strong>Name:</strong> ${fullName}</p>
@@ -262,7 +271,15 @@ exports.receiveGoogleLead = async (req, res) => {
     });
 
     // Send Admin Email
-    const hrEmail = process.env.HR_EMAIL || 'hr@vedhunt.in';
+    let hrEmail = process.env.HR_EMAIL || 'hr@vedhunt.in';
+    try {
+      const emailSettings = await Settings.findOne({ key: 'email_settings' });
+      if (emailSettings && emailSettings.value && emailSettings.value.hrEmail) {
+        hrEmail = emailSettings.value.hrEmail;
+      }
+    } catch (err) {
+      logger.error('Error fetching email settings:', err);
+    }
     const emailContent = `
       <h3>New Lead from Google Ads Lead Form</h3>
       <p><strong>Name:</strong> ${fullName}</p>

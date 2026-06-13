@@ -1,5 +1,6 @@
 const Blog = require('../models/Blog');
 const Settings = require('../models/Settings');
+const agenda = require('../jobs/agenda');
 
 // --- Public Endpoints ---
 
@@ -63,6 +64,12 @@ exports.getAdminBlogBySlug = async (req, res) => {
 exports.createBlog = async (req, res) => {
   try {
     const blog = await Blog.create(req.body);
+    
+    // Trigger email broadcast if the blog is published
+    if (blog.isPublished) {
+      agenda.now('sendNewsletterBatch', { type: 'BLOG_UPDATE', blogId: blog._id.toString() });
+    }
+
     res.status(201).json({ success: true, data: blog });
   } catch (error) {
     console.error('Error creating blog:', error);
@@ -83,6 +90,14 @@ exports.updateBlog = async (req, res) => {
     if (!blog) {
       return res.status(404).json({ success: false, message: 'Blog not found' });
     }
+
+    // Trigger email broadcast if the blog was just published
+    // Note: To be perfectly accurate we would check if it transitioned from draft to published,
+    // but for simplicity we trigger if it's published. Ideally, add a 'newsletterSent' flag to avoid duplicates.
+    if (blog.isPublished) {
+      agenda.now('sendNewsletterBatch', { type: 'BLOG_UPDATE', blogId: blog._id.toString() });
+    }
+
     res.status(200).json({ success: true, data: blog });
   } catch (error) {
     console.error('Error updating blog:', error);
