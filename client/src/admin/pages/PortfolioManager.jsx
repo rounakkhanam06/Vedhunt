@@ -406,8 +406,8 @@ export default function PortfolioManager() {
           </div>
 
           {/* Tab Navigation */}
-          <div className="border-b border-white/10 my-6">
-            <nav className="-mb-px flex space-x-8" aria-label="Tabs">
+          <div className="border-b border-white/10 my-6 overflow-x-auto custom-scrollbar">
+            <nav className="-mb-px flex space-x-4 sm:space-x-8 min-w-max pb-1" aria-label="Tabs">
               <button
                 onClick={() => setActiveTab('showcases')}
                 className={`whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium transition-colors ${

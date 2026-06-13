@@ -70,9 +70,11 @@ const DynamicFormRenderer = ({ config, initialData = {}, onSubmit, isLoading }) 
 
         return (
           <div key={field.name} className="flex flex-col space-y-1">
-            <label className="text-sm font-medium text-gray-300">
-              {field.label} {field.required && <span className="text-red-500">*</span>}
-            </label>
+            {field.type !== 'boolean' && (
+              <label className="text-sm font-medium text-gray-300">
+                {field.label} {field.required && <span className="text-red-500">*</span>}
+              </label>
+            )}
 
             {field.type === 'text' || field.type === 'url' ? (
               <input
@@ -86,12 +88,12 @@ const DynamicFormRenderer = ({ config, initialData = {}, onSubmit, isLoading }) 
               <textarea
                 required={field.required}
                 rows={4}
-                className="rounded-md border border-white/10 bg-[#1A1A1A] px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                className="rounded-md border border-white/10 bg-[#1A1A1A] px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 resize-y overflow-x-hidden custom-scrollbar"
                 value={value}
                 onChange={(e) => handleChange(field.name, e.target.value)}
               />
             ) : field.type === 'boolean' ? (
-              <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-3 pt-2">
                 <button
                   type="button"
                   role="switch"
@@ -101,7 +103,9 @@ const DynamicFormRenderer = ({ config, initialData = {}, onSubmit, isLoading }) 
                 >
                   <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${value ? 'translate-x-5' : 'translate-x-0'}`} />
                 </button>
-                <span className="text-sm text-gray-400">{value ? 'Active' : 'Inactive'}</span>
+                <span className="text-sm font-medium text-gray-300">
+                  {field.label} {value ? '(On)' : '(Off)'}
+                </span>
               </div>
             ) : field.type === 'image' ? (
               <div className="mt-1">

@@ -90,7 +90,7 @@ const TeamManagement = () => {
   const labelClasses = "block text-[12px] font-medium text-gray-400 mb-1.5 font-mono uppercase tracking-wider";
 
   return (
-    <div className="p-8 max-w-6xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
         <div>
           <h2 className="text-3xl font-bold text-white mb-2">Team Management</h2>
@@ -113,13 +113,13 @@ const TeamManagement = () => {
 
       <div className="bg-[#1A1A1A] border border-[#2D2D33] rounded-xl overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full text-left border-collapse whitespace-nowrap">
             <thead>
               <tr className="bg-[#121215] border-b border-[#2D2D33]">
-                <th className="p-4 text-xs font-mono uppercase tracking-widest text-gray-500 font-semibold">Admin Account</th>
-                <th className="p-4 text-xs font-mono uppercase tracking-widest text-gray-500 font-semibold">Roles</th>
-                <th className="p-4 text-xs font-mono uppercase tracking-widest text-gray-500 font-semibold">Status</th>
-                <th className="p-4 text-xs font-mono uppercase tracking-widest text-gray-500 font-semibold text-right">Actions</th>
+                <th className="p-4 text-xs font-mono uppercase tracking-widest text-gray-500 font-semibold min-w-[250px]">Admin Account</th>
+                <th className="p-4 text-xs font-mono uppercase tracking-widest text-gray-500 font-semibold min-w-[200px]">Roles</th>
+                <th className="p-4 text-xs font-mono uppercase tracking-widest text-gray-500 font-semibold min-w-[120px]">Status</th>
+                <th className="p-4 text-xs font-mono uppercase tracking-widest text-gray-500 font-semibold text-right min-w-[100px]">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -139,7 +139,7 @@ const TeamManagement = () => {
                         <div className="w-10 h-10 rounded-full bg-[#FF6B00]/10 flex items-center justify-center text-[#FF6B00] font-bold shrink-0">
                           {user.email.charAt(0).toUpperCase()}
                         </div>
-                        <div className="text-white font-medium break-all">{user.email}</div>
+                        <div className="text-white font-medium">{user.email}</div>
                       </div>
                     </td>
                     <td className="p-4">
@@ -205,7 +205,7 @@ const TeamManagement = () => {
                 </div>
               )}
               
-              <div className="flex gap-4 shrink-0">
+              <div className="flex flex-col sm:flex-row gap-4 shrink-0">
                 <div className="flex-1">
                   <label className={labelClasses}>First Name</label>
                   <div className="relative">

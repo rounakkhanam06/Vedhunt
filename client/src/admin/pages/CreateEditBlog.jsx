@@ -157,7 +157,7 @@ const CreateEditBlog = () => {
         <button 
           onClick={handleSave} 
           disabled={saving}
-          className="bg-primary text-black font-bold px-6 py-2 rounded-lg flex items-center gap-2 hover:bg-primary-hover transition-colors disabled:opacity-50"
+          className="bg-primary text-black font-bold px-6 py-2 rounded-lg flex items-center gap-2 hover:bg-primary-hover cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Save size={20} />
           {saving ? 'Saving...' : 'Save Blog'}
@@ -216,13 +216,13 @@ const CreateEditBlog = () => {
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <button onClick={() => moveBlock(index, -1)} disabled={index === 0} className="p-1 text-on-surface-variant hover:text-on-surface disabled:opacity-30">
+                      <button onClick={() => moveBlock(index, -1)} disabled={index === 0} className="p-1 text-on-surface-variant hover:text-on-surface cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed">
                         <ArrowUp size={16} />
                       </button>
-                      <button onClick={() => moveBlock(index, 1)} disabled={index === formData.contentBlocks.length - 1} className="p-1 text-on-surface-variant hover:text-on-surface disabled:opacity-30">
+                      <button onClick={() => moveBlock(index, 1)} disabled={index === formData.contentBlocks.length - 1} className="p-1 text-on-surface-variant hover:text-on-surface cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed">
                         <ArrowDown size={16} />
                       </button>
-                      <button onClick={() => removeBlock(index)} className="p-1 text-on-surface-variant hover:text-error ml-2">
+                      <button onClick={() => removeBlock(index)} className="p-1 text-on-surface-variant hover:text-error cursor-pointer ml-2">
                         <Trash2 size={16} />
                       </button>
                     </div>
@@ -250,7 +250,7 @@ const CreateEditBlog = () => {
                       <select 
                         value={block.data.level} 
                         onChange={e => updateBlock(index, 'level', parseInt(e.target.value))}
-                        className="w-32 bg-surface-variant/30 border border-outline-variant rounded px-4 py-2 text-on-surface focus:outline-none focus:border-primary"
+                        className="w-32 bg-surface-variant/30 border border-outline-variant rounded px-4 py-2 text-on-surface cursor-pointer focus:outline-none focus:border-primary"
                       >
                         <option value={2}>H2</option>
                         <option value={3}>H3</option>
@@ -303,10 +303,10 @@ const CreateEditBlog = () => {
 
               <div className="flex flex-wrap gap-3 pt-4 border-t border-outline-variant">
                 <span className="w-full text-sm font-medium text-on-surface-variant mb-1">Add New Content Block:</span>
-                <button onClick={() => addBlock('paragraph')} className="px-4 py-2 bg-surface-variant text-on-surface rounded hover:bg-primary/20 hover:text-primary text-sm font-medium transition-colors">+ Add Text Paragraph</button>
-                <button onClick={() => addBlock('heading')} className="px-4 py-2 bg-surface-variant text-on-surface rounded hover:bg-primary/20 hover:text-primary text-sm font-medium transition-colors">+ Add Heading</button>
-                <button onClick={() => addBlock('image')} className="px-4 py-2 bg-surface-variant text-on-surface rounded hover:bg-primary/20 hover:text-primary text-sm font-medium transition-colors" title="Add an image inside the article body">+ Add Inline Image</button>
-                <button onClick={() => addBlock('quote')} className="px-4 py-2 bg-surface-variant text-on-surface rounded hover:bg-primary/20 hover:text-primary text-sm font-medium transition-colors">+ Add Quote</button>
+                <button onClick={() => addBlock('paragraph')} className="px-4 py-2 bg-surface-variant text-on-surface rounded hover:bg-primary/20 hover:text-primary cursor-pointer text-sm font-medium transition-colors">+ Add Text Paragraph</button>
+                <button onClick={() => addBlock('heading')} className="px-4 py-2 bg-surface-variant text-on-surface rounded hover:bg-primary/20 hover:text-primary cursor-pointer text-sm font-medium transition-colors">+ Add Heading</button>
+                <button onClick={() => addBlock('image')} className="px-4 py-2 bg-surface-variant text-on-surface rounded hover:bg-primary/20 hover:text-primary cursor-pointer text-sm font-medium transition-colors" title="Add an image inside the article body">+ Add Inline Image</button>
+                <button onClick={() => addBlock('quote')} className="px-4 py-2 bg-surface-variant text-on-surface rounded hover:bg-primary/20 hover:text-primary cursor-pointer text-sm font-medium transition-colors">+ Add Quote</button>
               </div>
             </div>
           </div>
@@ -344,7 +344,7 @@ const CreateEditBlog = () => {
               <select 
                 value={formData.category} 
                 onChange={e => setFormData({...formData, category: e.target.value})}
-                className="w-full bg-surface border border-outline-variant rounded-lg px-4 py-2 text-on-surface focus:outline-none focus:border-primary uppercase"
+                className="w-full bg-surface border border-outline-variant rounded-lg px-4 py-2 text-on-surface cursor-pointer focus:outline-none focus:border-primary uppercase"
                 required
               >
                 <option value="" disabled>Select a category</option>

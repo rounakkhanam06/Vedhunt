@@ -361,14 +361,21 @@ export default function LeadsManager() {
                           </select>
                         </td>
                         <td className="px-3 py-2 align-middle min-w-[150px]">
-                          <input 
-                            type="text" 
-                            defaultValue={lead.notConnectedReason || ''} 
-                            placeholder="Reason..."
-                            onBlur={(e) => { if(e.target.value !== lead.notConnectedReason) handleFieldChange(lead._id, 'notConnectedReason', e.target.value) }}
-                            className="bg-transparent border border-transparent hover:border-app-border focus:border-primary px-2 py-1 rounded w-full focus:outline-none"
+                          <select 
+                            value={lead.notConnectedReason || ''} 
+                            onChange={(e) => handleFieldChange(lead._id, 'notConnectedReason', e.target.value)}
+                            className="bg-transparent hover:bg-app-bg border border-transparent hover:border-app-border px-2 py-1 rounded text-app-text focus:outline-none focus:border-primary cursor-pointer w-full"
                             disabled={lead.connected === 'Yes'}
-                          />
+                          >
+                            <option className="bg-app-bg text-app-text" value="">-Select Reason-</option>
+                            <option className="bg-app-bg text-app-text" value="Busy">Busy</option>
+                            <option className="bg-app-bg text-app-text" value="Did Not Answer">Did Not Answer</option>
+                            <option className="bg-app-bg text-app-text" value="Switched Off">Switched Off</option>
+                            <option className="bg-app-bg text-app-text" value="Invalid Number">Invalid Number</option>
+                            <option className="bg-app-bg text-app-text" value="Wrong Person">Wrong Person</option>
+                            <option className="bg-app-bg text-app-text" value="Not Reachable">Not Reachable</option>
+                            <option className="bg-app-bg text-app-text" value="Other">Other</option>
+                          </select>
                         </td>
                         <td className="px-3 py-2 align-middle min-w-[120px]">
                           <input 
@@ -396,13 +403,20 @@ export default function LeadsManager() {
                           </select>
                         </td>
                         <td className="px-3 py-2 align-middle min-w-[150px]">
-                          <input 
-                            type="text" 
-                            defaultValue={lead.notConvertedReason || ''} 
-                            placeholder="Why not converted?"
-                            onBlur={(e) => { if(e.target.value !== lead.notConvertedReason) handleFieldChange(lead._id, 'notConvertedReason', e.target.value) }}
-                            className="bg-transparent border border-transparent hover:border-app-border focus:border-primary px-2 py-1 rounded w-full focus:outline-none"
-                          />
+                          <select 
+                            value={lead.notConvertedReason || ''} 
+                            onChange={(e) => handleFieldChange(lead._id, 'notConvertedReason', e.target.value)}
+                            className="bg-transparent hover:bg-app-bg border border-transparent hover:border-app-border px-2 py-1 rounded text-app-text focus:outline-none focus:border-primary cursor-pointer w-full"
+                          >
+                            <option className="bg-app-bg text-app-text" value="">-Why not converted?-</option>
+                            <option className="bg-app-bg text-app-text" value="Too Expensive">Too Expensive</option>
+                            <option className="bg-app-bg text-app-text" value="Went with Competitor">Went with Competitor</option>
+                            <option className="bg-app-bg text-app-text" value="No Longer Needs Service">No Longer Needs Service</option>
+                            <option className="bg-app-bg text-app-text" value="Unresponsive">Unresponsive</option>
+                            <option className="bg-app-bg text-app-text" value="Not a Fit">Not a Fit</option>
+                            <option className="bg-app-bg text-app-text" value="Timing Not Right">Timing Not Right</option>
+                            <option className="bg-app-bg text-app-text" value="Other">Other</option>
+                          </select>
                         </td>
                         <td className="px-3 py-2 align-middle min-w-[200px]">
                           <input 

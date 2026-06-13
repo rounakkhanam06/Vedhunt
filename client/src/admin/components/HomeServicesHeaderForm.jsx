@@ -56,7 +56,7 @@ export default function HomeServicesHeaderForm() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-xl font-bold text-white">Home Services Header</h2>
           <p className="text-gray-400 text-sm mt-1">Manage the header text for the "Our Expertise" section.</p>
