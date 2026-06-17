@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
-import { Loader, Edit2, Trash2, CheckCircle, XCircle, Plus, MessageSquare } from 'lucide-react';
+import { Loader, Edit2, Trash2, CheckCircle, XCircle, Plus, MessageSquare, AlertTriangle } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function TestimonialManager() {
   const [testimonials, setTestimonials] = useState([]);
@@ -9,6 +10,8 @@ export default function TestimonialManager() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [sourceFilter, setSourceFilter] = useState('all'); // all, client, system
   
   const initialFormState = {
@@ -36,37 +39,68 @@ export default function TestimonialManager() {
     fetchTestimonials();
   }, []);
 
-  const fetchTestimonials = async () => {
+  useEffect(() => {
+    const isAnyModalOpen = isModalOpen || !!deleteConfirmId;
+    if (isAnyModalOpen) {
+      const scrollY = window.scrollY;
+      document.body.classList.add('modal-open');
+      document.body.style.top = `-${scrollY}px`;
+    } else {
+      const scrollY = document.body.style.top;
+      document.body.classList.remove('modal-open');
+      document.body.style.top = '';
+      window.scrollTo(0, parseInt(scrollY || '0') * -1);
+    }
+    return () => {
+      const scrollY = document.body.style.top;
+      document.body.classList.remove('modal-open');
+      document.body.style.top = '';
+      if (scrollY) {
+        window.scrollTo(0, parseInt(scrollY) * -1);
+      }
+    };
+  }, [isModalOpen, deleteConfirmId]);
+
+  const fetchTestimonials = async (showLoader = true) => {
     try {
-      setIsLoading(true);
+      if (showLoader) setIsLoading(true);
       const res = await api.get('/testimonials');
       setTestimonials(res.data.data || []);
     } catch (error) {
       alert('Failed to load testimonials');
       console.error(error);
     } finally {
-      setIsLoading(false);
+      if (showLoader) setIsLoading(false);
     }
   };
 
   const updateStatus = async (id, status) => {
+    // Optimistic update for smooth animation
+    setTestimonials(prev => prev.map(t => t._id === id ? { ...t, status } : t));
     try {
       await api.put(`/testimonials/${id}/status`, { status });
-      fetchTestimonials();
     } catch (error) {
       alert('Failed to update status');
       console.error(error);
+      fetchTestimonials(false); // Revert on failure
     }
   };
 
-  const deleteTestimonial = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this testimonial completely?')) return;
+  const confirmDelete = async () => {
+    if (!deleteConfirmId) return;
+    setIsDeleting(true);
+    // Optimistic removal
+    const idToDelete = deleteConfirmId;
+    setTestimonials(prev => prev.filter(t => t._id !== idToDelete));
     try {
-      await api.delete(`/testimonials/${id}`);
-      fetchTestimonials();
+      await api.delete(`/testimonials/${idToDelete}`);
+      setDeleteConfirmId(null);
     } catch (error) {
       alert('Failed to delete testimonial');
       console.error(error);
+      fetchTestimonials(false); // Revert on failure
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -210,126 +244,136 @@ export default function TestimonialManager() {
           <p>No {activeTab} testimonials found.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredTestimonials.map((t) => (
-            <div key={t._id} className="bg-[#1a1a1a] border border-white/10 rounded-xl p-6 relative flex flex-col">
-              <div className="flex gap-4 items-start mb-4">
-                <img src={t.avatar} alt={t.author} className="w-12 h-12 rounded-full object-cover border border-white/10" />
+        <motion.div layout className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <AnimatePresence mode="popLayout">
+            {filteredTestimonials.map((t) => (
+              <motion.div 
+                layout
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
+                transition={{ duration: 0.2 }}
+                key={t._id} 
+                className="bg-[#1a1a1a] border border-white/10 rounded-xl p-4 relative flex flex-col"
+              >
+                <div className="flex gap-3 items-start mb-3">
+                <img src={t.avatar} alt={t.author} className="w-10 h-10 rounded-full object-cover border border-white/10" />
                 <div className="flex-1 min-w-0">
                   <div className="flex justify-between items-start">
-                    <h3 className="text-lg font-bold text-white truncate pr-2">{t.author}</h3>
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                    <h3 className="text-sm font-bold text-white truncate pr-2">{t.author}</h3>
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider shrink-0 ${
                       t.source === 'system' ? 'bg-primary/20 text-primary' : 'bg-blue-500/20 text-blue-400'
                     }`}>
                       {t.source === 'system' ? 'System' : 'Client'}
                     </span>
                   </div>
-                  <p className="text-xs text-gray-400 truncate mt-0.5">{t.role}</p>
-                  <div className="text-xs text-gray-500 mt-1">{t.countryFlag} {t.country}</div>
+                  <p className="text-xs text-gray-400 truncate">{t.role}</p>
+                  <div className="text-[11px] text-gray-500">{t.countryFlag} {t.country}</div>
                 </div>
               </div>
               
-              <div className="bg-black/30 p-3 rounded-lg text-sm text-gray-300 italic mb-6 flex-1">
+              <div className="bg-black/30 p-2.5 rounded-lg text-xs text-gray-300 italic mb-3 flex-1 line-clamp-3">
                 "{t.quote}"
               </div>
 
-              <div className="flex items-center justify-between pt-4 border-t border-white/10 mt-auto">
-                <div className="flex gap-2">
+                <div className="flex items-center justify-between pt-3 border-t border-white/10 mt-auto">
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => openEditModal(t)}
+                      className="p-2 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 rounded transition-all hover:scale-105 active:scale-95 cursor-pointer"
+                      title="Edit"
+                    >
+                      <Edit2 size={16} />
+                    </button>
+                    {activeTab !== 'approved' && (
+                      <button 
+                        onClick={() => updateStatus(t._id, 'approved')}
+                        className="p-2 bg-green-500/10 text-green-500 hover:bg-green-500/20 rounded transition-all hover:scale-105 active:scale-95 cursor-pointer"
+                        title="Approve"
+                      >
+                        <CheckCircle size={16} />
+                      </button>
+                    )}
+                    {activeTab !== 'rejected' && (
+                      <button 
+                        onClick={() => updateStatus(t._id, 'rejected')}
+                        className="p-2 bg-orange-500/10 text-orange-500 hover:bg-orange-500/20 rounded transition-all hover:scale-105 active:scale-95 cursor-pointer"
+                        title="Reject"
+                      >
+                        <XCircle size={16} />
+                      </button>
+                    )}
+                  </div>
+                  
                   <button 
-                    onClick={() => openEditModal(t)}
-                    className="p-2 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 rounded transition-colors"
-                    title="Edit"
+                    onClick={() => setDeleteConfirmId(t._id)}
+                    className="p-2 bg-red-500/10 text-red-500 hover:bg-red-500/20 rounded transition-all hover:scale-105 active:scale-95 cursor-pointer"
+                    title="Delete Permanently"
                   >
-                    <Edit2 size={16} />
+                    <Trash2 size={16} />
                   </button>
-                  {activeTab !== 'approved' && (
-                    <button 
-                      onClick={() => updateStatus(t._id, 'approved')}
-                      className="p-2 bg-green-500/10 text-green-500 hover:bg-green-500/20 rounded transition-colors"
-                      title="Approve"
-                    >
-                      <CheckCircle size={16} />
-                    </button>
-                  )}
-                  {activeTab !== 'rejected' && (
-                    <button 
-                      onClick={() => updateStatus(t._id, 'rejected')}
-                      className="p-2 bg-orange-500/10 text-orange-500 hover:bg-orange-500/20 rounded transition-colors"
-                      title="Reject"
-                    >
-                      <XCircle size={16} />
-                    </button>
-                  )}
                 </div>
-                
-                <button 
-                  onClick={() => deleteTestimonial(t._id)}
-                  className="p-2 bg-red-500/10 text-red-500 hover:bg-red-500/20 rounded transition-colors"
-                  title="Delete Permanently"
-                >
-                  <Trash2 size={16} />
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </motion.div>
       )}
 
       {/* Add Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-          <div className="bg-[#1a1a1a] border border-white/10 rounded-xl p-6 w-full max-w-lg relative">
-            <h2 className="text-xl font-bold text-white mb-6">
+          <div className="bg-[#1a1a1a] border border-white/10 rounded-xl p-5 w-full max-w-lg relative">
+            <h2 className="text-lg font-bold text-white mb-4">
               {editingId ? 'Edit Testimonial' : 'Add New Testimonial'}
             </h2>
             
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+            <form onSubmit={handleSubmit} className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-sm font-medium text-gray-300 block mb-1">Author Name *</label>
+                  <label className="text-[13px] font-medium text-gray-300 block mb-1">Author Name *</label>
                   <input
                     required
                     type="text"
                     value={formData.author}
                     onChange={e => setFormData({ ...formData, author: e.target.value })}
-                    className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-primary"
+                    className="w-full bg-black/50 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-primary"
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-300 block mb-1">Role / Designation</label>
+                  <label className="text-[13px] font-medium text-gray-300 block mb-1">Role / Designation</label>
                   <input
                     type="text"
                     value={formData.role}
                     onChange={e => setFormData({ ...formData, role: e.target.value })}
                     placeholder="e.g. CEO, Founder"
-                    className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-primary"
+                    className="w-full bg-black/50 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-primary"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-sm font-medium text-gray-300 block mb-1">Country</label>
+                  <label className="text-[13px] font-medium text-gray-300 block mb-1">Country</label>
                   <input
                     type="text"
                     value={formData.country}
                     onChange={e => setFormData({ ...formData, country: e.target.value })}
-                    className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-primary"
+                    className="w-full bg-black/50 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-primary"
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-300 block mb-1">Country Flag Emoji</label>
+                  <label className="text-[13px] font-medium text-gray-300 block mb-1">Country Flag Emoji</label>
                   <input
                     type="text"
                     value={formData.countryFlag}
                     onChange={e => setFormData({ ...formData, countryFlag: e.target.value })}
-                    className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-primary"
+                    className="w-full bg-black/50 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-primary"
                   />
                 </div>
               </div>
 
-              <div className="flex items-center gap-4 mb-4">
-                <div className="relative w-16 h-16 rounded-full overflow-hidden border border-white/10 shrink-0 bg-black/50">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="relative w-12 h-12 rounded-full overflow-hidden border border-white/10 shrink-0 bg-black/50">
                   <img src={formData.avatar} alt="Avatar preview" className="w-full h-full object-cover" />
                   {isUploading && (
                     <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
@@ -338,16 +382,16 @@ export default function TestimonialManager() {
                   )}
                 </div>
                 <div className="flex-1">
-                  <label className="text-sm font-medium text-gray-300 block mb-1">Upload Photo (Optional)</label>
+                  <label className="text-[13px] font-medium text-gray-300 block mb-1">Upload Photo (Optional)</label>
                   <input
                     type="file"
                     accept="image/*"
                     onChange={handleImageUpload}
                     disabled={isUploading || isSaving}
-                    className="block w-full text-sm text-gray-400
-                      file:mr-4 file:py-2 file:px-4
+                    className="block w-full text-xs text-gray-400
+                      file:mr-3 file:py-1.5 file:px-3
                       file:rounded-full file:border-0
-                      file:text-sm file:font-semibold
+                      file:text-xs file:font-semibold
                       file:bg-primary/10 file:text-primary
                       hover:file:bg-primary/20
                       disabled:opacity-50"
@@ -357,14 +401,14 @@ export default function TestimonialManager() {
 
               <div>
                 <div className="flex justify-between items-center mb-1">
-                  <label className="text-sm font-medium text-gray-300">Quote / Review *</label>
+                  <label className="text-[13px] font-medium text-gray-300">Quote / Review *</label>
                   <span className={`text-xs ${wordCount > WORD_LIMIT ? 'text-red-500' : 'text-gray-400'}`}>
                     {wordCount} / {WORD_LIMIT} words
                   </span>
                 </div>
                 <textarea
                   required
-                  rows={4}
+                  rows={3}
                   value={formData.quote}
                   onChange={(e) => {
                     const words = countWords(e.target.value);
@@ -372,14 +416,14 @@ export default function TestimonialManager() {
                       setFormData({...formData, quote: e.target.value});
                     }
                   }}
-                  className={`w-full bg-black/50 border ${wordCount > WORD_LIMIT ? 'border-red-500' : 'border-white/10'} rounded-lg px-3 py-2 text-white focus:outline-none focus:border-primary resize-none`}
+                  className={`w-full bg-black/50 border ${wordCount > WORD_LIMIT ? 'border-red-500' : 'border-white/10'} rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-primary resize-none`}
                   placeholder="Share your experience working with us..."
                 />
               </div>
 
-              <div className="mb-4">
-                <label className="text-sm font-medium text-gray-300 block mb-2">Show on Pages</label>
-                <div className="grid grid-cols-2 gap-2 bg-black/50 p-3 rounded-lg border border-white/10">
+              <div className="mb-3">
+                <label className="text-[13px] font-medium text-gray-300 block mb-1.5">Show on Pages</label>
+                <div className="grid grid-cols-2 gap-1.5 bg-black/50 p-2.5 rounded-lg border border-white/10">
                   {[
                     { id: 'home', label: 'Home Page (Main)' },
                     { id: 'app-development', label: 'App Dev (Landing Page)' },
@@ -388,10 +432,10 @@ export default function TestimonialManager() {
                     { id: 'accounting', label: 'Accounting (Landing Page)' },
                     { id: 'mis-reporting', label: 'MIS Reporting (Landing Page)' }
                   ].map(page => (
-                    <label key={page.id} className="flex items-center gap-2 cursor-pointer text-sm text-gray-300 hover:text-white transition-colors">
+                    <label key={page.id} className="flex items-center gap-2 cursor-pointer text-xs text-gray-300 hover:text-white transition-colors">
                       <input 
                         type="checkbox" 
-                        className="accent-primary"
+                        className="accent-primary w-3 h-3"
                         checked={formData.showOnPages.includes(page.id)}
                         onChange={(e) => {
                           if (e.target.checked) {
@@ -407,23 +451,54 @@ export default function TestimonialManager() {
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3 pt-4 border-t border-white/10">
+              <div className="flex justify-end gap-3 pt-3 border-t border-white/10 mt-2">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-6 py-2 text-gray-400 hover:text-white transition-colors"
+                  className="px-5 py-1.5 text-sm text-gray-400 hover:text-white transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSaving || isUploading || wordCount > WORD_LIMIT || wordCount === 0}
-                  className="flex items-center gap-2 px-6 py-2 bg-primary text-black font-semibold rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
+                  className="flex items-center gap-2 px-5 py-1.5 text-sm bg-primary text-black font-semibold rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
                 >
-                  {isSaving ? <Loader className="w-4 h-4 animate-spin" /> : 'Save Testimonial'}
+                  {isSaving ? <Loader className="w-3.5 h-3.5 animate-spin" /> : 'Save Testimonial'}
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirmId && (
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+          <div className="bg-[#1a1a1a] border border-white/10 rounded-xl p-6 w-full max-w-sm relative text-center">
+            <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center mx-auto mb-4 border border-red-500/20">
+              <AlertTriangle className="w-6 h-6 text-red-500" />
+            </div>
+            <h2 className="text-xl font-bold text-white mb-2">Delete Testimonial?</h2>
+            <p className="text-gray-400 text-sm mb-6">
+              This action cannot be undone. This testimonial will be permanently removed from the system.
+            </p>
+            <div className="flex gap-3 justify-center">
+              <button
+                onClick={() => setDeleteConfirmId(null)}
+                disabled={isDeleting}
+                className="px-4 py-2 text-sm font-medium text-white bg-white/5 hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDelete}
+                disabled={isDeleting}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-500 hover:bg-red-600 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
+              >
+                {isDeleting ? <Loader className="w-4 h-4 animate-spin" /> : 'Yes, Delete'}
+              </button>
+            </div>
           </div>
         </div>
       )}

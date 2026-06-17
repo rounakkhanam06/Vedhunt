@@ -3,7 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Users, ChevronDown, ChevronRight, Activity,
   Briefcase, FileText, Wallet, ShieldCheck, Settings, LogOut, X,
-  Image as ImageIcon, Tag, UserPlus, Scale, Share2, Mail
+  Image as ImageIcon, Tag, UserPlus, Scale, Share2, Mail, MessageCircle
 } from 'lucide-react';
 import { useAdminStore } from '../../store/useAdminStore';
 import { usePermissions } from '../hooks/usePermissions';
@@ -16,10 +16,26 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
   const location = useLocation();
   const [openDropdowns, setOpenDropdowns] = useState({
     leads: true, 
-    cms: false, pricing: false, careers: false, legal: false, servicesManagement: false
+    cms: false, pricing: false, careers: false, legal: false, servicesManagement: false, faq: false
   });
 
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+
+  // Auto-open the dropdown that contains the current active page on navigation
+  useEffect(() => {
+    setOpenDropdowns(prev => {
+      const updated = { ...prev };
+      navItems.forEach(item => {
+        if (item.subItems && item.dropdownKey) {
+          const isAnySubActive = item.subItems.some(sub => location.pathname === sub.path);
+          if (isAnySubActive) {
+            updated[item.dropdownKey] = true;
+          }
+        }
+      });
+      return updated;
+    });
+  }, [location.pathname]);
 
   const confirmLogout = async () => {
     setShowLogoutModal(false);
@@ -58,7 +74,16 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
         { name: 'Testimonials', path: '/admin/testimonials' },
         { name: 'Our Presence', path: '/admin/presence' },
         { name: 'About Page', path: '/admin/about' },
+      ]
+    },
+    {
+      name: 'FAQ Management',
+      icon: MessageCircle,
+      dropdownKey: 'faq',
+      requiredPermission: 'cms.manage',
+      subItems: [
         { name: 'FAQ Page', path: '/admin/faq' },
+        { name: 'FAQ Inquiries', path: '/admin/faq-inquiries' }
       ]
     },
     {
@@ -137,7 +162,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
 
             if (item.subItems) {
               const isAnySubActive = item.subItems.some(sub => location.pathname === sub.path);
-              const isOpen = openDropdowns[item.dropdownKey] || isAnySubActive;
+              const isOpen = openDropdowns[item.dropdownKey];
 
               return (
                 <div key={item.name} className="space-y-1">

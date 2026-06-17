@@ -198,6 +198,13 @@
     font-family: 'Inter', 'Poppins', sans-serif;
     overflow-x: hidden;
   }
+
+  body.modal-open {
+    overflow: hidden !important;
+    position: fixed !important;
+    width: 100% !important;
+    height: 100% !important;
+  }
   
   main, .page-container {
     min-height: 90vh;

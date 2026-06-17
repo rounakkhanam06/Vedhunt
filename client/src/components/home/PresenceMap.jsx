@@ -3,9 +3,10 @@ import { MapPin } from 'lucide-react';
 import { usePresence } from '../../hooks/usePublicContent';
 
 const DEFAULT_LOCATIONS = [
-  { _id: '1', name: 'Kolkata', top: '48%', left: '70%', delay: 0 },
-  { _id: '2', name: 'Mumbai', top: '65%', left: '28%', delay: 0.2 },
-  { _id: '3', name: 'Indore', top: '52%', left: '36%', delay: 0.4 },
+  { _id: '1', name: 'Indore',  top: '52%', left: '36%', delay: 0 },
+  { _id: '2', name: 'Mumbai',  top: '62%', left: '27%', delay: 0.2 },
+  { _id: '3', name: 'Kolkata', top: '50%', left: '70%', delay: 0.4 },
+  { _id: '4', name: 'Nagpur',  top: '54%', left: '46%', delay: 0.6 },
 ];
 
 const DEFAULT_HEADER = {
@@ -69,7 +70,7 @@ export default function PresenceMap() {
           {locations.map((loc, idx) => (
             <motion.div
               key={loc._id || idx}
-              className="absolute flex flex-col items-center justify-center pointer-events-none"
+              className="absolute flex flex-col items-center justify-center pointer-events-none -translate-x-1/2 -translate-y-1/2"
               style={{ top: loc.top, left: loc.left }}
               initial={{ opacity: 0, scale: 0, y: 20 }}
               whileInView={{ opacity: 1, scale: 1, y: 0 }}
@@ -79,16 +80,16 @@ export default function PresenceMap() {
               <div className="relative">
                 {/* Ping Animation */}
                 <span className="absolute inline-flex h-full w-full rounded-full bg-primary opacity-75 animate-ping" />
-                <div className="relative bg-app-bg p-2 rounded-full border border-primary/30 shadow-[0_0_15px_rgba(255,107,0,0.5)]">
-                  <MapPin className="w-6 h-6 text-primary" />
+                <div className="relative bg-app-bg p-1 rounded-full border border-primary/30 shadow-[0_0_8px_rgba(255,107,0,0.4)]">
+                  <MapPin className="w-3.5 h-3.5 text-primary" />
                 </div>
               </div>
               <motion.div 
-                initial={{ opacity: 0, y: -10 }}
+                initial={{ opacity: 0, y: -5 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: 0.8 + (loc.delay || 0) }}
-                className={`absolute top-full mt-2 whitespace-nowrap bg-primary/90 border border-primary/50 px-3 py-1.5 rounded-lg shadow-xl backdrop-blur-md text-sm font-bold z-20 text-white`}
+                className="absolute top-full mt-1 whitespace-nowrap bg-primary/90 border border-primary/50 px-1.5 py-0.5 rounded-md shadow-lg backdrop-blur-md text-[10px] font-bold z-20 text-white"
               >
                 {loc.name}
               </motion.div>

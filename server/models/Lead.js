@@ -137,7 +137,7 @@ const leadSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Add pre-save hook for auto-generating leadId
-leadSchema.pre('save', async function(next) {
+leadSchema.pre('save', async function() {
   if (!this.leadId) {
     const date = new Date();
     const year = date.getFullYear().toString().slice(-2);
@@ -145,27 +145,20 @@ leadSchema.pre('save', async function(next) {
     const day = ('0' + date.getDate()).slice(-2);
     const dateStr = `${year}${month}${day}`;
 
-    try {
-      // Find the last lead created today to increment the counter
-      const lastLead = await this.constructor.findOne({
-        leadId: new RegExp(`^VH-${dateStr}-`)
-      }).sort({ createdAt: -1 });
+    // Find the last lead created today to increment the counter
+    const lastLead = await this.constructor.findOne({
+      leadId: new RegExp(`^VH-${dateStr}-`)
+    }).sort({ createdAt: -1 });
 
-      let counter = 1;
-      if (lastLead && lastLead.leadId) {
-        const lastCounter = parseInt(lastLead.leadId.split('-')[2], 10);
-        if (!isNaN(lastCounter)) {
-          counter = lastCounter + 1;
-        }
+    let counter = 1;
+    if (lastLead && lastLead.leadId) {
+      const lastCounter = parseInt(lastLead.leadId.split('-')[2], 10);
+      if (!isNaN(lastCounter)) {
+        counter = lastCounter + 1;
       }
-
-      this.leadId = `VH-${dateStr}-${('000' + counter).slice(-3)}`;
-      next();
-    } catch (err) {
-      next(err);
     }
-  } else {
-    next();
+
+    this.leadId = `VH-${dateStr}-${('000' + counter).slice(-3)}`;
   }
 });
 

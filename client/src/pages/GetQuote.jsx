@@ -107,7 +107,7 @@ const serviceFormConfig = {
     subtitle: 'Tell us about your paid advertising goals',
     dropdowns: [
       { name: 'pmAdPlatform', label: 'Ad Platform *', options: ['Google Ads', 'Meta (FB/Insta)', 'LinkedIn', 'Twitter', 'Other'] },
-      { name: 'pmMonthlySpend', label: 'Monthly Ad Spend', options: ['< $1000', '$1k - $5k', '$5k - $10k', '> $10k'] }
+      { name: 'pmMonthlySpend', label: 'Monthly Ad Spend (INR)', options: ['Below ₹50K', '₹50K - ₹2L', '₹2L - ₹5L', 'Above ₹5L'] }
     ],
     radios: [
       { name: 'pmCurrentlyRunning', label: 'Currently running ads?', options: ['YES', 'NO'] },
@@ -184,20 +184,48 @@ export default function GetQuote() {
   const selectedService = watch('service');
 
   const onSubmitForm = async (data) => {
+    // Prevent submission if not on the final review step (e.g. if user presses Enter key early)
+    if (step < 4) {
+      nextStep();
+      return;
+    }
+
     try {
       // Combine react-hook-form data with our custom checkbox states
       const finalData = { ...data, ...checkboxState };
       const urlParams = new URLSearchParams(window.location.search);
-      
+      // Build dynamic message with all the details
+      let fullMessage = `Timeline: ${finalData.timeline || 'Not specified'}\n\n`;
+      const config = serviceFormConfig[finalData.service];
+      if (config) {
+        if (config.dropdowns) config.dropdowns.forEach(f => {
+          if (finalData[f.name]) fullMessage += `${f.label.replace(' *', '')}: ${finalData[f.name]}\n`;
+        });
+        if (config.radios) config.radios.forEach(f => {
+          if (finalData[f.name]) fullMessage += `${f.label.replace(' *', '')}: ${finalData[f.name]}\n`;
+        });
+        if (config.inputs) config.inputs.forEach(f => {
+          if (finalData[f.name]) fullMessage += `${f.label.replace(' *', '')}: ${finalData[f.name]}\n`;
+        });
+        if (config.checkboxes && finalData[config.checkboxes.name]?.length > 0) {
+          fullMessage += `${config.checkboxes.label.replace(' *', '')}: ${finalData[config.checkboxes.name].join(', ')}\n`;
+        }
+        if (config.textarea && finalData[config.textarea.name]) {
+          fullMessage += `\n${config.textarea.label.replace(' *', '')}:\n${finalData[config.textarea.name]}\n`;
+        }
+      } else if (finalData.projectIdea) {
+        fullMessage += `Details:\n${finalData.projectIdea}\n`;
+      }
+
       const payload = {
         fullName: `${finalData.firstName} ${finalData.lastName || ''}`.trim(),
         phone: finalData.phone,
         email: finalData.email,
-        service: servicesOptions.find(s => s.id === finalData.service)?.label || finalData.service,
+        service: servicesOptions.find(s => s.id === finalData.service)?.label || finalData.service || 'Not Specified',
         businessName: finalData.company,
-        message: finalData.projectIdea,
+        message: fullMessage.trim(),
         consent: true,
-        source: finalData.source || window.location.href,
+        source: finalData.source || window.location.href || 'Get Quote Page',
         city: finalData.city,
         platform: 'Website',
         utmSource: urlParams.get('utm_source') || '',
@@ -211,6 +239,11 @@ export default function GetQuote() {
 
       setSubmittedData(finalData);
       setIsSubmitSuccess(true);
+      
+      // Auto-hide success message after 6 seconds
+      setTimeout(() => {
+        setIsSubmitSuccess(false);
+      }, 6000);
       
       // Trigger tracking
       if (window.trackConversion) {
@@ -512,7 +545,13 @@ export default function GetQuote() {
                               type="text"
                               placeholder="e.g. Rajesh"
                               className={`w-full bg-transparent border-b-2 py-1.5 text-app-text focus:outline-none focus:border-primary transition-colors text-sm font-bold ${errors.firstName ? 'border-red-500/50' : 'border-app-border/70'}`}
-                              {...register('firstName', { required: 'First name is required' })}
+                              {...register('firstName', { 
+                                required: 'First name is required',
+                                pattern: {
+                                  value: /^[A-Za-z\s]+$/,
+                                  message: 'Letters and spaces only'
+                                }
+                              })}
                             />
                             {errors.firstName && <span className="text-[10px] text-red-500">{errors.firstName.message}</span>}
                           </div>
@@ -524,9 +563,15 @@ export default function GetQuote() {
                             <input
                               type="text"
                               placeholder="e.g. Sharma"
-                              className="w-full bg-transparent border-b-2 py-1.5 text-app-text focus:outline-none focus:border-primary transition-colors text-sm font-bold border-app-border/70"
-                              {...register('lastName')}
+                              className={`w-full bg-transparent border-b-2 py-1.5 text-app-text focus:outline-none focus:border-primary transition-colors text-sm font-bold ${errors.lastName ? 'border-red-500/50' : 'border-app-border/70'}`}
+                              {...register('lastName', {
+                                pattern: {
+                                  value: /^[A-Za-z\s]+$/,
+                                  message: 'Letters and spaces only'
+                                }
+                              })}
                             />
+                            {errors.lastName && <span className="text-[10px] text-red-500">{errors.lastName.message}</span>}
                           </div>
                         </div>
 
@@ -711,7 +756,41 @@ export default function GetQuote() {
                           
                           <div>
                             <h4 className="text-[10px] font-extrabold text-primary uppercase tracking-widest mb-2">Details</h4>
-                            <p className="text-app-text-muted text-xs italic">All your provided details will be attached to the estimate request.</p>
+                            {(() => {
+                              const config = serviceFormConfig[selectedService];
+                              if (!config) return null;
+                              
+                              const values = getValues();
+                              const details = [];
+                              
+                              if (config.dropdowns) config.dropdowns.forEach(f => {
+                                if (values[f.name]) details.push({ label: f.label.replace(' *', ''), value: values[f.name] });
+                              });
+                              if (config.radios) config.radios.forEach(f => {
+                                if (values[f.name]) details.push({ label: f.label.replace(' *', ''), value: values[f.name] });
+                              });
+                              if (config.inputs) config.inputs.forEach(f => {
+                                if (values[f.name]) details.push({ label: f.label.replace(' *', ''), value: values[f.name] });
+                              });
+                              if (config.checkboxes && values[config.checkboxes.name]?.length > 0) {
+                                details.push({ label: config.checkboxes.label.replace(' *', ''), value: values[config.checkboxes.name].join(', ') });
+                              }
+                              if (config.textarea && values[config.textarea.name]) {
+                                details.push({ label: config.textarea.label.replace(' *', ''), value: values[config.textarea.name] });
+                              }
+                              
+                              return details.length > 0 ? (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-app-text-muted mt-2">
+                                  {details.map((d, i) => (
+                                    <div key={i} className={d.value.length > 50 ? 'col-span-1 sm:col-span-2' : ''}>
+                                      <strong className="text-app-text">{d.label}:</strong> <span className="break-words">{d.value}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <p className="text-app-text-muted text-xs italic">No additional details provided.</p>
+                              );
+                            })()}
                           </div>
                         </div>
                       </motion.div>

@@ -42,9 +42,15 @@ const errorHandler = require('./middleware/errorHandler');
 
 // Cache middleware for public read-only GET endpoints
 // Allows browsers + CDN to cache responses for 2 minutes (s-maxage 4 min for CDN)
+// Bypasses cache for authenticated admin requests
 const publicCache = (req, res, next) => {
-  if (req.method === 'GET') {
+  if (req.method === 'GET' && !req.headers.authorization) {
     res.set('Cache-Control', 'public, max-age=120, s-maxage=240, stale-while-revalidate=60');
+  } else if (req.method === 'GET' && req.headers.authorization) {
+    // Explicitly prevent caching for admin requests
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
   }
   next();
 };

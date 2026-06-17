@@ -18,6 +18,11 @@ exports.createLead = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'You must agree to be contacted.' });
     }
 
+    const nameRegex = /^[A-Za-z\s]+$/;
+    if (!nameRegex.test(fullName)) {
+      return res.status(400).json({ success: false, message: 'Name can only contain letters and spaces' });
+    }
+
     // Save lead to database
     const lead = await Lead.create({
       fullName,

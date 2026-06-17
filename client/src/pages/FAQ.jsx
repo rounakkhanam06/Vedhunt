@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { ChevronDown, MapPin, Mail, Phone, ArrowRight, Loader2 } from 'lucide-react';
+import toast, { Toaster } from 'react-hot-toast';
 import faqImage from '../assets/footer-illustration/undraw_mobile-assistant_iifm.svg';
 import { faqService } from '../services/faqService';
 
@@ -44,7 +45,7 @@ export default function FAQ() {
   const [frequentFaqs, setFrequentFaqs] = useState([]);
   const [regularFaqs, setRegularFaqs] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [formData, setFormData] = useState({ firstName: '', lastName: '', email: '', message: '' });
+  const [formData, setFormData] = useState({ firstName: '', lastName: '', email: '', phone: '', message: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitMessage, setSubmitMessage] = useState('');
 
@@ -298,6 +299,32 @@ export default function FAQ() {
                 
                 <form className="space-y-6 relative z-10" onSubmit={async (e) => {
                   e.preventDefault();
+                  
+                  // Frontend Validation
+                  const nameRegex = /^[A-Za-z\s]+$/;
+                  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                  const phoneRegex = /^[0-9]{10}$/;
+
+                  if (!nameRegex.test(formData.firstName)) {
+                    toast.error('First name can only contain letters and spaces');
+                    return;
+                  }
+
+                  if (formData.lastName && !nameRegex.test(formData.lastName)) {
+                    toast.error('Last name can only contain letters and spaces');
+                    return;
+                  }
+
+                  if (!emailRegex.test(formData.email)) {
+                    toast.error('Please enter a valid email address');
+                    return;
+                  }
+
+                  if (!phoneRegex.test(formData.phone)) {
+                    toast.error('Please enter a valid 10-digit phone number');
+                    return;
+                  }
+
                   setIsSubmitting(true);
                   setSubmitMessage('');
                   
@@ -313,12 +340,16 @@ export default function FAQ() {
                     const data = await response.json();
                     if (data.success) {
                       setSubmitMessage('Message sent successfully!');
-                      setFormData({ firstName: '', lastName: '', email: '', message: '' });
+                      toast.success('Message sent successfully!');
+                      setFormData({ firstName: '', lastName: '', email: '', phone: '', message: '' });
+                      setTimeout(() => setSubmitMessage(''), 3000);
                     } else {
                       setSubmitMessage(data.message || 'Failed to send message');
+                      toast.error(data.message || 'Failed to send message');
                     }
                   } catch (error) {
                     setSubmitMessage('Error sending message. Please try again.');
+                    toast.error('Error sending message. Please try again.');
                   } finally {
                     setIsSubmitting(false);
                   }
@@ -346,15 +377,27 @@ export default function FAQ() {
                     </div>
                   </div>
                   
-                  <div>
-                    <input 
-                      type="email" 
-                      placeholder="Email" 
-                      value={formData.email}
-                      onChange={(e) => setFormData({...formData, email: e.target.value})}
-                      className="w-full bg-white dark:bg-slate-900 px-5 py-4 rounded-xl text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary transition-all border border-transparent dark:border-slate-800"
-                      required
-                    />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    <div>
+                      <input 
+                        type="email" 
+                        placeholder="Email *" 
+                        value={formData.email}
+                        onChange={(e) => setFormData({...formData, email: e.target.value})}
+                        className="w-full bg-white dark:bg-slate-900 px-5 py-4 rounded-xl text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary transition-all border border-transparent dark:border-slate-800"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <input 
+                        type="tel" 
+                        placeholder="Phone Number *" 
+                        value={formData.phone}
+                        onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                        className="w-full bg-white dark:bg-slate-900 px-5 py-4 rounded-xl text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary transition-all border border-transparent dark:border-slate-800"
+                        required
+                      />
+                    </div>
                   </div>
                   
                   <div>
@@ -396,6 +439,7 @@ export default function FAQ() {
           </div>
         </div>
       </section>
+      <Toaster position="bottom-right" toastOptions={{ duration: 4000, style: { background: '#333', color: '#fff' } }} />
     </div>
   );
 }

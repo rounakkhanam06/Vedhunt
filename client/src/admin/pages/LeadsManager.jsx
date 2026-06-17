@@ -451,16 +451,21 @@ export default function LeadsManager() {
                             className="bg-transparent border border-transparent hover:border-app-border focus:border-primary px-2 py-1 rounded w-full focus:outline-none text-center"
                           />
                         </td>
-                        <td className="px-3 py-2 align-middle text-right whitespace-nowrap sticky right-0 bg-app-card group-hover:bg-surface-variant border-l border-app-border z-10">
-                          {isSuperAdmin ? (
+                        <td className="px-3 py-2 align-middle text-right whitespace-nowrap sticky right-0 bg-app-card group-hover:bg-surface-variant border-l border-app-border z-10 flex items-center justify-end gap-2">
+                          <button 
+                            onClick={() => setSelectedLead(lead)}
+                            className="p-1.5 text-primary hover:bg-primary/10 rounded transition-colors cursor-pointer"
+                            title="View Details"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          {isSuperAdmin && (
                             <button 
                               onClick={() => deleteLead(lead._id)}
-                              className="text-xs text-red-500 hover:text-red-400 transition-colors font-medium px-2 py-1 ml-2 cursor-pointer"
+                              className="text-xs text-red-500 hover:text-red-400 transition-colors font-medium px-2 py-1 cursor-pointer"
                             >
                               Delete
                             </button>
-                          ) : (
-                            <span className="text-xs text-gray-500 italic px-2 py-1">Locked</span>
                           )}
                         </td>
                       </motion.tr>

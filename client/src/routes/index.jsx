@@ -54,6 +54,7 @@ const CreateEditBlog = lazy(() => import('../admin/pages/CreateEditBlog'));
 const JobManager = lazy(() => import('../admin/pages/JobManager'));
 const ApplicationManager = lazy(() => import('../admin/pages/ApplicationManager'));
 const FAQManager = lazy(() => import('../admin/pages/FAQManager'));
+const ContactInquiries = lazy(() => import('../admin/pages/ContactInquiries'));
 const PrivacyPolicyManager = lazy(() => import('../admin/pages/PrivacyPolicyManager'));
 const TermsConditionsManager = lazy(() => import('../admin/pages/TermsConditionsManager'));
 const CookiePolicyManager = lazy(() => import('../admin/pages/CookiePolicyManager'));
@@ -312,6 +313,10 @@ export const router = createBrowserRouter([
           {
             path: 'faq',
             element: withSuspense(FAQManager)
+          },
+          {
+            path: 'faq-inquiries',
+            element: withSuspense(ContactInquiries)
           },
           {
             path: 'privacy-policy',

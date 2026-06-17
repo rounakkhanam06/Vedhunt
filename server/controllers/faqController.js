@@ -93,71 +93,65 @@ exports.deleteFaq = async (req, res, next) => {
 // Seed initial FAQ data
 exports.seedFaqData = async () => {
     try {
-        const faqCount = await Faq.countDocuments();
-        if (faqCount === 0) {
-            const faqsSection1 = [
-                {
-                    question: "How long does it take to create an article?",
-                    answer: "Far far away, behind the word mountains, far from the countries Vokalia and Consonantia, there live the blind texts. Separated they live in Bookmarksgrove right at the coast.",
-                    category: 'frequent',
-                    order: 1
-                },
-                {
-                    question: "How much does it cost for a consultation on SEO?",
-                    answer: "Our SEO consultation costs depend on the scope of your project. We offer customized packages to fit your business needs. Contact us for a detailed quote.",
-                    category: 'frequent',
-                    order: 2
-                },
-                {
-                    question: "What payment methods are available?",
-                    answer: "We accept all major credit cards, bank transfers, and standard online payment gateways. Flexible payment plans are also available for larger projects.",
-                    category: 'frequent',
-                    order: 3
-                }
-            ];
+        // Clear existing FAQs to fix duplicate issues
+        await Faq.deleteMany({});
+        
+        const faqsSection1 = [
+            {
+                question: "What exactly does Vedhunt Infotech do?",
+                answer: "Vedhunt Infotech is a premier digital agency specializing in Web Development, Search Engine Optimization (SEO), UI/UX Design, and custom software solutions tailored to help your business thrive in the digital landscape.",
+                category: 'frequent',
+                order: 1
+            },
+            {
+                question: "How much does a custom website or SEO consultation cost?",
+                answer: "Our pricing depends entirely on the scope and complexity of your project. We offer customized packages designed to fit your specific business needs and budget. Contact us for a detailed, no-obligation quote.",
+                category: 'frequent',
+                order: 2
+            },
+            {
+                question: "What payment methods do you accept?",
+                answer: "We accept all major credit cards, direct bank transfers, and standard online payment gateways. For larger, ongoing projects, we also offer flexible milestone-based payment plans.",
+                category: 'frequent',
+                order: 3
+            }
+        ];
 
-            const faqsSection2 = [
-                {
-                    question: "How long does it take to create an article?",
-                    answer: "Far far away, behind the word mountains, far from the countries Vokalia and Consonantia, there live the blind texts. Separated they live in Bookmarksgrove right at the coast.",
-                    category: 'regular',
-                    order: 1
-                },
-                {
-                    question: "How much does it cost for a consultation on SEO?",
-                    answer: "Our SEO consultation costs depend on the scope of your project. We offer customized packages to fit your business needs.",
-                    category: 'regular',
-                    order: 2
-                },
-                {
-                    question: "What payment methods are available?",
-                    answer: "We accept all major credit cards, bank transfers, and standard online payment gateways.",
-                    category: 'regular',
-                    order: 3
-                },
-                {
-                    question: "Do you offer ongoing support after project completion?",
-                    answer: "Yes, we provide ongoing maintenance and support packages to ensure your digital assets continue to perform optimally.",
-                    category: 'regular',
-                    order: 4
-                },
-                {
-                    question: "Can you help redesign an existing website?",
-                    answer: "Absolutely. We specialize in revamping outdated websites with modern design, improved UX/UI, and better performance metrics.",
-                    category: 'regular',
-                    order: 5
-                },
-                {
-                    question: "What industries do you specialize in?",
-                    answer: "We work across various industries including healthcare, e-commerce, real estate, education, and enterprise SaaS solutions.",
-                    category: 'regular',
-                    order: 6
-                }
-            ];
+        const faqsSection2 = [
+            {
+                question: "How long does it typically take to develop a website?",
+                answer: "A standard corporate website usually takes 4 to 8 weeks from initial design to final launch. More complex platforms, like e-commerce sites or custom web applications, may take 3 to 5 months depending on the required features.",
+                category: 'regular',
+                order: 1
+            },
+            {
+                question: "Do you offer ongoing support after project completion?",
+                answer: "Yes, absolutely! We provide ongoing maintenance and dedicated support packages to ensure your digital assets remain secure, up-to-date, and continue to perform optimally.",
+                category: 'regular',
+                order: 2
+            },
+            {
+                question: "Can you help redesign an existing, outdated website?",
+                answer: "Yes. We specialize in revamping outdated websites with modern design principles, improved UX/UI, enhanced mobile responsiveness, and better core web vitals for SEO.",
+                category: 'regular',
+                order: 3
+            },
+            {
+                question: "What industries do you specialize in?",
+                answer: "We have extensive experience working across various industries including healthcare, e-commerce, real estate, education, finance, and enterprise SaaS solutions.",
+                category: 'regular',
+                order: 4
+            },
+            {
+                question: "Will my website be mobile-friendly and optimized for SEO?",
+                answer: "Every website we build is fully responsive, meaning it will look and function perfectly on all devices (mobile, tablet, desktop). We also build with SEO best practices in mind to give you a head start on search rankings.",
+                category: 'regular',
+                order: 5
+            }
+        ];
 
-            await Faq.insertMany([...faqsSection1, ...faqsSection2]);
-            console.log('FAQ data seeded successfully');
-        }
+        await Faq.insertMany([...faqsSection1, ...faqsSection2]);
+        console.log('FAQ data cleared and seeded successfully');
 
         const contentCount = await FaqContent.countDocuments();
         if (contentCount === 0) {
