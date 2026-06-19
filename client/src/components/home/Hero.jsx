@@ -53,6 +53,8 @@ export default function Hero() {
   const contentOpacity = useTransform(scrollYProgress, [0, 0.5], [1, 0]);
   const contentTranslate = useTransform(scrollYProgress, [0, 0.5], [0, -50]);
 
+  const [shouldLoadVideo, setShouldLoadVideo] = useState(false);
+
   // Detect reduced motion preference
   useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -62,6 +64,15 @@ export default function Hero() {
     mediaQuery.addEventListener('change', handler);
     return () => mediaQuery.removeEventListener('change', handler);
   }, []);
+
+  // Defer video loading to prioritize initial page load
+  useEffect(() => {
+    if (prefersReducedMotion) return;
+    const timer = setTimeout(() => {
+      setShouldLoadVideo(true);
+    }, 2500);
+    return () => clearTimeout(timer);
+  }, [prefersReducedMotion]);
 
   // Rotate text phrases every 4 seconds
   useEffect(() => {
@@ -94,18 +105,25 @@ export default function Hero() {
             className="absolute inset-0 w-full h-full object-cover"
           />
         ) : (
-          <video
-            ref={videoRef}
-            autoPlay
-            loop
-            muted
-            playsInline
-            preload="none"
-            poster={heroImage}
-            className="absolute inset-0 w-full h-full object-cover"
-          >
-            <source src={backgroundVideo} type="video/mp4" />
-          </video>
+          <>
+            <img
+              src={heroImage}
+              alt="Hero Background Poster"
+              className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ${shouldLoadVideo ? 'opacity-0' : 'opacity-100'}`}
+            />
+            {shouldLoadVideo && (
+              <video
+                ref={videoRef}
+                autoPlay
+                loop
+                muted
+                playsInline
+                className="absolute inset-0 w-full h-full object-cover"
+              >
+                <source src={backgroundVideo} type="video/mp4" />
+              </video>
+            )}
+          </>
         )}
         {/* Advanced Overlay System */}
         <div className="absolute inset-0 bg-gradient-to-b from-black/95 via-black/60 to-black/95 z-1" />

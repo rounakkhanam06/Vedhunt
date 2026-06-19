@@ -131,7 +131,7 @@ const TestimonialCarousel = ({ items }) => {
           onClick={prev} 
           className="w-10 h-10 rounded-full bg-app-card border border-app-border flex items-center justify-center text-app-text hover:bg-primary hover:text-black hover:border-primary transition-all shadow-md"
         >
-          <LucideIcons.ChevronLeft className="w-5 h-5 -ml-0.5" />
+          <ChevronLeft className="w-5 h-5 -ml-0.5" />
         </button>
         <div className="flex gap-2 flex-wrap justify-center">
           {items.map((_, i) => (
@@ -148,7 +148,7 @@ const TestimonialCarousel = ({ items }) => {
           onClick={next} 
           className="w-10 h-10 rounded-full bg-app-card border border-app-border flex items-center justify-center text-app-text hover:bg-primary hover:text-black hover:border-primary transition-all shadow-md"
         >
-          <LucideIcons.ChevronRight className="w-5 h-5 -mr-0.5" />
+          <ChevronRight className="w-5 h-5 -mr-0.5" />
         </button>
       </div>
     </div>

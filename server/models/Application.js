@@ -44,6 +44,11 @@ const applicationSchema = new mongoose.Schema({
   coverLetter: {
     type: String,
   },
+  status: {
+    type: String,
+    enum: ['Pending', 'Interviewing', 'Selected / Hired', 'Rejected'],
+    default: 'Pending'
+  }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Application', applicationSchema);
