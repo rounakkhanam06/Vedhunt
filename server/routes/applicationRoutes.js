@@ -17,4 +17,7 @@ router.post('/', uploadResume.single('resume'), multerErrorHandler, applicationC
 // Get all applications (Admin)
 router.get('/', applicationController.getApplications);
 
+// Update application status
+router.patch('/:id/status', applicationController.updateStatus);
+
 module.exports = router;

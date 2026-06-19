@@ -19,7 +19,6 @@ import {
   Layers
 } from 'lucide-react';
 
-import webDevIcon from '../assets/services/Gemini_Generated_Image_89l1mm89l1mm89l1.png';
 
 
 export const CONTACT_INFO = {
