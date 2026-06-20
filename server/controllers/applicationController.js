@@ -3,7 +3,7 @@ const Job = require('../models/Job');
 const Settings = require('../models/Settings');
 const { deleteFromCloudinary } = require('../utils/cloudinary');
 const { applicationSchema } = require('../validators/applicationValidator');
-const sendEmail = require('../utils/sendEmail');
+const { sendEmail } = require('../utils/sendEmail');
 
 // Submit a new application (Public)
 exports.createApplication = async (req, res) => {

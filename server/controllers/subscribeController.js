@@ -1,6 +1,6 @@
 const crypto = require('crypto');
 const Subscriber = require('../models/Subscriber');
-const sendEmail = require('../utils/sendEmail');
+const { sendEmail } = require('../utils/sendEmail');
 const logger = require('../utils/logger');
 // Rate Limiting
 const rateLimit = require('express-rate-limit');

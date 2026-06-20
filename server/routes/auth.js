@@ -7,7 +7,7 @@ const AuditLog = require('../models/AuditLog');
 const authMiddleware = require('../middleware/authMiddleware');
 const { authLimiter } = require('../middleware/rateLimiter');
 const logger = require('../utils/logger');
-const sendEmail = require('../utils/sendEmail');
+const { sendEmail } = require('../utils/sendEmail');
 
 const router = express.Router();
 

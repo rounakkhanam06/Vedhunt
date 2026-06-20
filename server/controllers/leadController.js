@@ -1,6 +1,6 @@
 const Lead = require('../models/Lead');
 const Settings = require('../models/Settings');
-const sendEmail = require('../utils/sendEmail');
+const { sendEmail } = require('../utils/sendEmail');
 const logger = require('../utils/logger');
 
 // @desc    Submit a new lead from a landing page
