@@ -57,6 +57,9 @@ const publicCache = (req, res, next) => {
 
 const app = express();
 
+// Trust first proxy (needed for express-rate-limit to get the correct client IP behind Nginx/Cloudflare/Vercel)
+app.set('trust proxy', 1);
+
 // Security & Global Middleware
 app.use(helmet());
 app.use(
