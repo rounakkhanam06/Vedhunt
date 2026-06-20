@@ -339,6 +339,13 @@ export default function FAQ() {
                     
                     const data = await response.json();
                     if (data.success) {
+                      if (window.gtag) {
+                        window.gtag('event', 'conversion', {
+                          'send_to': 'AW-10976080417/8TJtCIb2vMIcEKHk5vEo',
+                          'value': 1.0,
+                          'currency': 'INR'
+                        });
+                      }
                       setSubmitMessage('Message sent successfully!');
                       toast.success('Message sent successfully!');
                       setFormData({ firstName: '', lastName: '', email: '', phone: '', message: '' });

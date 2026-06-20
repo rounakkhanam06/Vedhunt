@@ -4,6 +4,16 @@ import { Link } from 'react-router-dom';
 import { CheckCircle2, ArrowLeft } from 'lucide-react';
 
 export default function ThankYou() {
+  React.useEffect(() => {
+    if (window.gtag) {
+      window.gtag('event', 'conversion', {
+        'send_to': 'AW-10976080417/8TJtCIb2vMIcEKHk5vEo',
+        'value': 1.0,
+        'currency': 'INR'
+      });
+    }
+  }, []);
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-app-bg px-4 relative overflow-hidden">
       <div className="absolute inset-0 bg-primary/5 filter blur-[120px] rounded-full pointer-events-none -z-10" />

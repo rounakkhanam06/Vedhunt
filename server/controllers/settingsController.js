@@ -743,7 +743,7 @@ const DEFAULT_CAMPAIGN_SETTINGS = {
   facebookPixel: { id: '', enabled: false },
   googleAnalytics: { id: '', enabled: false },
   googleTagManager: { id: '', enabled: false },
-  googleAds: { id: '', enabled: false, conversionLabel: '' },
+  googleAds: { id: 'AW-10976080417', enabled: true, conversionLabel: '8TJtCIb2vMIcEKHk5vEo' },
   linkedInInsight: { id: '', enabled: false },
   audit: { updatedBy: 'System', updatedAt: new Date() }
 };
