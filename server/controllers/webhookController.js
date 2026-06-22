@@ -127,19 +127,21 @@ async function processFacebookLead(leadData) {
 
     // Map Facebook field data to our Lead schema
     let fullName = 'Unknown';
-    let email = 'unknown@example.com';
-    let phone = 'Unknown';
+    let email = '';
+    let phone = 'Not provided';
     let city = '';
     let businessName = '';
     let service = `FB Form ${formId}`;
 
     if (data.field_data) {
       data.field_data.forEach(field => {
-        const val = field.values[0] || '';
+        const val = (field.values && field.values[0]) ? field.values[0].trim() : '';
+        if (!val) return;
+
         switch(field.name) {
           case 'full_name': fullName = val; break;
-          case 'first_name': fullName = fullName === 'Unknown' ? val : val + ' ' + fullName.split(' ')[1]; break;
-          case 'last_name': fullName = fullName === 'Unknown' ? val : fullName.split(' ')[0] + ' ' + val; break;
+          case 'first_name': fullName = fullName === 'Unknown' ? val : val + ' ' + (fullName.split(' ')[1] || ''); break;
+          case 'last_name': fullName = fullName === 'Unknown' ? val : (fullName.split(' ')[0] || '') + ' ' + val; break;
           case 'email': email = val; break;
           case 'phone_number': phone = val; break;
           case 'city': city = val; break;
@@ -147,6 +149,16 @@ async function processFacebookLead(leadData) {
           case 'job_title': businessName = businessName ? `${businessName} (${val})` : val; break;
         }
       });
+    }
+
+    // Sanitize and ensure required fields for Mongoose validation
+    fullName = fullName.trim() || 'Unknown';
+    phone = phone.trim() || 'Not provided';
+    
+    // Validate email format, fallback if invalid/missing
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!email || !emailRegex.test(email)) {
+      email = `fb_${fbLeadId}@facebook.com`;
     }
 
     // Map campaign data if available in the webhook (sometimes it is)

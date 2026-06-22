@@ -406,27 +406,27 @@ export default function Portfolio() {
                             <ClientIcon className="w-4.5 h-4.5 text-primary" />
                           </div>
                           
-                          <h3 className="text-lg sm:text-xl font-black font-heading text-app-text tracking-tight mt-1">
+                          <h3 className="text-lg sm:text-xl font-black font-heading text-slate-900 dark:text-white tracking-tight mt-1">
                             {project.title}
                           </h3>
-                          <p className="text-[10px] sm:text-xs font-bold text-primary/75 italic">
+                          <p className="text-[10px] sm:text-xs font-black text-primary/90 italic">
                             {project.tagline}
                           </p>
                         </div>
 
                         {/* Elegant full height paragraph details */}
-                        <p className="text-xs sm:text-sm text-black dark:text-app-text-muted leading-relaxed font-normal line-clamp-4 sm:line-clamp-5">
+                        <p className="text-xs sm:text-sm text-slate-800 dark:text-zinc-300 leading-relaxed font-semibold line-clamp-4 sm:line-clamp-5">
                           {project.description}
                         </p>
 
                         {/* Coding Engineering tags */}
                         <div className="space-y-1.5 pt-1">
-                          <span className="text-[9px] font-normal uppercase tracking-widest text-black dark:text-white/40 block">Engineering Stack</span>
+                          <span className="text-[9px] font-black uppercase tracking-widest text-slate-600 dark:text-white/50 block">Engineering Stack</span>
                           <div className="flex flex-wrap gap-1">
                             {project.tags.map(tag => (
                               <span 
                                 key={tag} 
-                                className="text-[9px] sm:text-[10px] font-normal text-black dark:text-app-text-muted bg-slate-100 dark:bg-[#151515] border border-app-border/40 px-2.5 py-0.5 rounded"
+                                className="text-[9px] sm:text-[10px] font-bold text-slate-800 dark:text-zinc-300 bg-slate-100 dark:bg-[#151515] border border-slate-300 dark:border-white/10 px-2.5 py-0.5 rounded"
                               >
                                 {tag}
                               </span>

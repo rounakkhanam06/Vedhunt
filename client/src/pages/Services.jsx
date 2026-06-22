@@ -93,7 +93,7 @@ export default function Services() {
   };
 
   return (
-    <div className="bg-app-bg text-app-text-muted min-h-screen py-16 sm:py-24 px-4 sm:px-6 lg:px-8 mesh-grid relative overflow-hidden">
+    <div className="bg-app-bg text-app-text-muted min-h-screen pt-28 pb-16 sm:py-24 px-4 sm:px-6 lg:px-8 mesh-grid relative overflow-hidden">
       {/* Background Ambient Glows */}
       <div className="absolute top-1/4 left-1/3 w-96 h-96 bg-primary/5 rounded-full filter blur-[150px] pointer-events-none" />
       <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-primary/2 dark:bg-white/2 rounded-full filter blur-[150px] pointer-events-none" />

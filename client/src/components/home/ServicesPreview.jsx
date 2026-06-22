@@ -84,15 +84,16 @@ export default function ServicesPreview() {
         </motion.div>
 
         {/* Services Grid */}
-        <motion.div
-          variants={staggerContainer}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, amount: 0.1 }}
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8"
-        >
-          {!isLoading && services.map((srv) => (
-            <motion.div key={srv.id_string || srv._id} variants={scrollFadeUp}>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+          {!isLoading && services.map((srv, idx) => (
+            <motion.div 
+              key={srv.id_string || srv._id} 
+              variants={scrollFadeUp}
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true, amount: 0.05 }}
+              transition={{ delay: idx * 0.08 }}
+            >
               <ServiceCard 
                 service={srv} 
                 image={srv.imageUrl || serviceImages[srv.id_string] || webDevImg}
@@ -102,7 +103,7 @@ export default function ServicesPreview() {
           {isLoading && [...Array(6)].map((_, idx) => (
              <div key={idx} className="h-72 bg-white/5 rounded-2xl animate-pulse"></div>
           ))}
-        </motion.div>
+        </div>
 
         {/* View All Button */}
         <motion.div

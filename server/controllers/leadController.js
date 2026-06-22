@@ -18,9 +18,21 @@ exports.createLead = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'You must agree to be contacted.' });
     }
 
-    const nameRegex = /^[A-Za-z\s]+$/;
+    // Allow Unicode letters, spaces, hyphens, dots, and apostrophes
+    const nameRegex = /^[A-Za-z\p{L}\s.'-]+$/u;
     if (!nameRegex.test(fullName)) {
       return res.status(400).json({ success: false, message: 'Name can only contain letters and spaces' });
+    }
+
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ success: false, message: 'Please enter a valid email address' });
+    }
+
+    // Allow standard digits, spaces, hyphens, plus signs, and parentheses
+    const phoneRegex = /^[+]?[0-9\s().-]{10,20}$/;
+    if (!phoneRegex.test(phone)) {
+      return res.status(400).json({ success: false, message: 'Please enter a valid phone number' });
     }
 
     // Save lead to database
@@ -154,7 +166,7 @@ exports.updateLead = async (req, res, next) => {
     ];
 
     // Field-level access control: Only Super Admins can edit core fields
-    const isSuperAdmin = req.user.permissions && req.user.permissions.includes('*');
+    const isSuperAdmin = req.user?.permissions?.includes('*');
     if (!isSuperAdmin) {
       const protectedFields = ['fullName', 'email', 'phone', 'city', 'businessName', 'platform'];
       allowedUpdates = allowedUpdates.filter(field => !protectedFields.includes(field));

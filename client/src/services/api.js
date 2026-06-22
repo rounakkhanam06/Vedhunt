@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { useAdminStore } from '../store/useAdminStore';
+import toast from 'react-hot-toast';
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
@@ -8,6 +9,7 @@ const api = axios.create({
     'Content-Type': 'application/json',
   },
 });
+
 
 // Interceptor to add Authorization Bearer token from localStorage
 api.interceptors.request.use(
@@ -43,6 +45,11 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
+
+    if (error.response && error.response.status === 413) {
+      toast.error('File size is too large! Please compress the image to under 1MB and try again.');
+      return Promise.reject(error);
+    }
 
     if (
       error.response && 

@@ -604,7 +604,13 @@ export default function GetQuote() {
                               type="email"
                               placeholder="you@company.com"
                               className={`w-full bg-transparent border-b-2 py-1.5 text-app-text focus:outline-none focus:border-primary transition-colors text-sm font-bold ${errors.email ? 'border-red-500/50' : 'border-app-border/70'}`}
-                              {...register('email', { required: 'Email is required', pattern: { value: /^\S+@\S+$/i, message: 'Invalid email' } })}
+                              {...register('email', { 
+                                required: 'Email is required', 
+                                pattern: { 
+                                  value: /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/, 
+                                  message: 'Invalid email address' 
+                                } 
+                              })}
                             />
                             {errors.email && <span className="text-[10px] text-red-500">{errors.email.message}</span>}
                           </div>
@@ -617,7 +623,13 @@ export default function GetQuote() {
                               type="tel"
                               placeholder="+91 98765 43210"
                               className={`w-full bg-transparent border-b-2 py-1.5 text-app-text focus:outline-none focus:border-primary transition-colors text-sm font-bold ${errors.phone ? 'border-red-500/50' : 'border-app-border/70'}`}
-                              {...register('phone', { required: 'Phone is required' })}
+                              {...register('phone', { 
+                                required: 'Phone is required',
+                                pattern: {
+                                  value: /^[+]?[0-9\s-]{10,15}$/,
+                                  message: 'Phone number must be 10 to 15 digits'
+                                }
+                              })}
                             />
                             {errors.phone && <span className="text-[10px] text-red-500">{errors.phone.message}</span>}
                           </div>

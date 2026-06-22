@@ -101,8 +101,8 @@ export default function Footer() {
           <div className="grid grid-cols-2 lg:grid-cols-5 gap-x-4 gap-y-6 lg:gap-6 pb-4 sm:pb-6 border-b border-app-border">
             
             {/* Column 1: Branding & Profile */}
-            <div className="col-span-1 md:col-span-2">
-              <Link to="/" className="inline-block mb-6">
+            <div className="col-span-2 lg:col-span-2 space-y-4 pr-4">
+              <Link to="/" className="inline-block">
                 <img
                   src={theme === 'dark' ? darkLogo : lightLogo}
                   alt="Vedhunt Logo"
@@ -112,9 +112,9 @@ export default function Footer() {
               <p className="text-xs sm:text-sm text-app-text-muted leading-relaxed max-w-sm">
                 Vedhunt Infotech is a full-service digital agency. We specialize in building responsive website development, strategic organic SEO, digital branding, accounting solutions, and automated dashboards to actively turn operations into revenue.
               </p>
-              <div className="flex items-start gap-2.5 text-xs sm:text-sm text-app-text">
+              <div className="flex items-start gap-2 text-xs sm:text-sm text-app-text">
                 <MapPin className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-                <span>{contactInfo.address}</span>
+                <span className="leading-relaxed">{contactInfo.address}</span>
               </div>
             </div>
 
