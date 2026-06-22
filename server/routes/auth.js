@@ -83,6 +83,7 @@ router.post('/login', ...loginMiddleware, async (req, res) => {
       res.json({
         success: true,
         token: accessToken,
+        mustResetPassword: admin.isTemporaryPassword || false,
         admin: {
           _id: admin._id,
           firstName: admin.firstName,
@@ -273,6 +274,29 @@ router.post('/logout', authMiddleware, async (req, res) => {
   });
 
   res.json({ success: true, message: 'Logged out successfully' });
+});
+
+// @route   POST /api/auth/reset-temp-password
+// @desc    Reset temporary password on first login
+// @access  Private
+router.post('/reset-temp-password', authMiddleware, async (req, res) => {
+  try {
+    const { newPassword } = req.body;
+    if (!newPassword || newPassword.length < 6) {
+      return res.status(400).json({ success: false, message: 'Password must be at least 6 characters long' });
+    }
+    const admin = await Admin.findById(req.user._id);
+    if (!admin) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    admin.password = newPassword;
+    admin.isTemporaryPassword = false;
+    await admin.save();
+    res.json({ success: true, message: 'Password reset successfully' });
+  } catch (error) {
+    logger.error('Error resetting temp password:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
 });
 
 module.exports = router;

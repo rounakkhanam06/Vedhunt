@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import { Loader, Users, Download, ExternalLink, Eye, EyeOff, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function ApplicationManager() {
+  const navigate = useNavigate();
   const [applications, setApplications] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [onboardingCandidate, setOnboardingCandidate] = useState(null);
@@ -54,21 +56,35 @@ export default function ApplicationManager() {
     }
   };
 
-  const handleOnboardConfirm = () => {
-    // Simulate backend response
-    const employeeId = `VH-EMP-${Math.floor(100 + Math.random() * 900)}`;
-    console.log('Onboarding Payload:', {
-      candidateId: onboardingCandidate._id,
-      employeeId,
-      ...onboardingData
-    });
-    
-    toast.success(`Successfully onboarded! Employee ID: ${employeeId}`);
-    
-    // Clear from list
-    setApplications(prev => prev.filter(a => a._id !== onboardingCandidate._id));
-    
-    setOnboardingCandidate(null);
+  const handleOnboardConfirm = async () => {
+    try {
+      // Actually save the status in backend
+      await api.patch(`/applications/${onboardingCandidate._id}/status`, { status: 'Selected / Hired' });
+      
+      toast.success('Application marked as Selected! Redirecting to Employee Manager...');
+      
+      // Clear from list
+      setApplications(prev => prev.filter(a => a._id !== onboardingCandidate._id));
+      
+      const candidateData = {
+        firstName: onboardingCandidate.fullName?.split(' ')[0] || '',
+        lastName: onboardingCandidate.fullName?.split(' ').slice(1).join(' ') || '',
+        email: onboardingCandidate.email || '',
+        phone: onboardingCandidate.phone || '',
+        roleDept: onboardingData.role || '',
+        employmentType: onboardingData.employmentType || 'Billable',
+        joinDate: onboardingData.joiningDate || '',
+        salaryCTC: onboardingData.salaryCTC || ''
+      };
+
+      setOnboardingCandidate(null);
+
+      // Navigate to employees page with pre-filled candidate data
+      navigate('/admin/employees', { state: { onboardCandidate: candidateData } });
+    } catch (error) {
+      toast.error('Failed to update application status');
+      console.error(error);
+    }
   };
 
   const formatDate = (dateString) => {

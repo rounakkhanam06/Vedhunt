@@ -66,6 +66,12 @@ const SubscriberManager = lazy(() => import('../admin/pages/SubscriberManager'))
 
 const RoleManager = lazy(() => import('../admin/pages/RoleManager'));
 
+const TempPasswordReset = lazy(() => import('../admin/pages/TempPasswordReset'));
+const EmployeeManager = lazy(() => import('../admin/pages/EmployeeManager'));
+const AdminTasks = lazy(() => import('../admin/pages/AdminTasks'));
+const ESSDashboard = lazy(() => import('../admin/pages/ESSDashboard'));
+const ManagerDashboard = lazy(() => import('../admin/pages/ManagerDashboard'));
+
 import AdminThemeGuard from '../admin/components/AdminThemeGuard';
 import ProtectedRoute from '../admin/components/ProtectedRoute';
 import { Outlet } from 'react-router-dom';
@@ -215,6 +221,10 @@ export const router = createBrowserRouter([
         element: withSuspense(ResetPassword)
       },
       {
+        path: 'reset-temp-password',
+        element: withSuspense(TempPasswordReset)
+      },
+      {
         path: '',
         element: withSuspense(PrivateRoute),
         children: [
@@ -253,6 +263,22 @@ export const router = createBrowserRouter([
           {
             path: 'team',
             element: withPermission(TeamManagement, 'team.manage')
+          },
+          {
+            path: 'employees',
+            element: withPermission(EmployeeManager, 'team.manage')
+          },
+          {
+            path: 'tasks',
+            element: withPermission(AdminTasks, 'team.manage')
+          },
+          {
+            path: 'manager-dashboard',
+            element: withPermission(ManagerDashboard, 'ess.manage')
+          },
+          {
+            path: 'ess-portal',
+            element: withSuspense(ESSDashboard)
           },
           {
             path: 'roles',

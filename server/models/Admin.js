@@ -37,6 +37,13 @@ const adminSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    isTemporaryPassword: {
+      type: Boolean,
+      default: false,
+    },
+    employeeId: {
+      type: String,
+    },
     resetPasswordToken: String,
     resetPasswordExpire: Date,
   },

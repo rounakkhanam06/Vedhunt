@@ -3,7 +3,8 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Users, ChevronDown, ChevronRight, Activity,
   Briefcase, FileText, Wallet, ShieldCheck, Settings, LogOut, X,
-  Image as ImageIcon, Tag, UserPlus, Scale, Share2, Mail, MessageCircle
+  Image as ImageIcon, Tag, UserPlus, Scale, Share2, Mail, MessageCircle,
+  User, Clock, CheckSquare, FileSpreadsheet, CreditCard, Award
 } from 'lucide-react';
 import { useAdminStore } from '../../store/useAdminStore';
 import { usePermissions } from '../hooks/usePermissions';
@@ -122,10 +123,34 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
       ]
     },
     { name: 'Team Management', path: '/admin/team', icon: ShieldCheck, requiredPermission: 'team.manage' },
+    { 
+      name: 'HRMS (Module)', 
+      icon: Users, 
+      dropdownKey: 'hrms', 
+      requiredPermission: 'team.manage',
+      subItems: [
+        { name: 'Employees List', path: '/admin/employees' },
+        { name: 'Organization Tasks', path: '/admin/tasks' },
+        { name: 'Productivity Reports', path: '/admin/manager-dashboard' }
+      ]
+    },
     { name: 'Role Management', path: '/admin/roles', icon: ShieldCheck, requiredPermission: 'roles.manage' },
     { name: 'Facebook Integration', path: '/admin/facebook-integration', icon: Share2, requiredPermission: 'settings.manage' },
     { name: 'Settings', path: '/admin/settings', icon: Settings, requiredPermission: 'settings.manage' },
   ];
+
+  const isEmployeeOnly = admin?.roles?.some(r => r.name === 'EMPLOYEE');
+  const renderedNavItems = isEmployeeOnly
+    ? [
+        { name: 'Dashboard', path: '/admin/ess-portal?tab=dashboard', icon: LayoutDashboard },
+        { name: 'Attendance & Leave', path: '/admin/ess-portal?tab=attendance', icon: Clock },
+        { name: 'My Tasks', path: '/admin/ess-portal?tab=tasks', icon: CheckSquare },
+        { name: 'My Timesheet', path: '/admin/ess-portal?tab=timesheet', icon: FileSpreadsheet },
+        { name: 'My Payslips', path: '/admin/ess-portal?tab=payslips', icon: CreditCard },
+        { name: 'My Performance', path: '/admin/ess-portal?tab=performance', icon: Award },
+        { name: 'My Profile', path: '/admin/ess-portal?tab=profile', icon: User },
+      ]
+    : navItems;
 
   return (
     <>
@@ -139,20 +164,21 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
 
       {/* Sidebar */}
       <aside className={`
-        fixed inset-y-0 left-0 z-50 w-[280px] bg-surface-container-low border-r border-outline-variant flex flex-col p-6 transition-transform duration-300 ease-in-out overflow-y-auto
+        fixed inset-y-0 left-0 z-50 w-[240px] flex flex-col transition-transform duration-300 ease-in-out overflow-y-auto
+        ${isEmployeeOnly ? 'bg-[#FF6B00] border-none py-6 pl-4 pr-0' : 'bg-surface-container-low border-r border-outline-variant p-6'}
         ${isOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
-        <div className="mb-12 flex justify-between items-start shrink-0 pl-1">
+        <div className={`mb-12 flex justify-between items-start shrink-0 ${isEmployeeOnly ? 'pr-6' : 'pl-1'}`}>
           <div className="relative flex items-start">
-            <img src={darkLogo} alt="Vedhunt Logo" className="h-12 md:h-14 w-auto object-contain scale-[1.6] origin-left" />
+            <img src={darkLogo} alt="Vedhunt Logo" className={`h-12 md:h-14 w-auto object-contain scale-[1.6] origin-left ${isEmployeeOnly ? 'brightness-0 invert' : ''}`} />
           </div>
-          <button onClick={() => setIsOpen(false)} className="text-on-surface-variant hover:text-on-surface lg:hidden" title="Close Sidebar">
+          <button onClick={() => setIsOpen(false)} className={`${isEmployeeOnly ? 'text-white hover:text-white/80' : 'text-on-surface-variant hover:text-on-surface'} lg:hidden`} title="Close Sidebar">
             <X size={24} />
           </button>
         </div>
 
-        <nav className="flex-1 space-y-2 pr-2 mt-4 pb-4">
-          {navItems.map((item) => {
+        <nav className={`flex-1 mt-4 pb-4 ${isEmployeeOnly ? 'space-y-0.5' : 'space-y-2 pr-2'}`}>
+          {renderedNavItems.map((item) => {
             // Check permission for rendering this item
             if (item.requiredPermission && !can(item.requiredPermission)) {
               return null;
@@ -213,7 +239,30 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
               );
             }
 
-            const isActive = location.pathname === item.path;
+            const isPathActive = location.pathname === item.path;
+            const fullPathActive = (location.pathname + location.search) === item.path;
+            const isDefaultActive = location.pathname === item.path.split('?')[0] && !location.search && item.path.includes('tab=dashboard');
+            const isActive = item.path.includes('?') ? fullPathActive || isDefaultActive : isPathActive;
+            
+            if (isEmployeeOnly) {
+              return (
+                <Link
+                  key={item.name}
+                  to={item.path}
+                  className={`
+                    flex items-center gap-4 py-2.5 px-4 transition-all duration-300
+                    ${isActive
+                      ? 'bg-[#0F0F12] text-[#FF6B00] rounded-l-[30px] rounded-r-none relative before:content-[""] before:absolute before:right-0 before:-top-6 before:w-6 before:h-6 before:bg-transparent before:rounded-br-[30px] before:shadow-[15px_15px_0_15px_#0F0F12] after:content-[""] after:absolute after:right-0 after:-bottom-6 after:w-6 after:h-6 after:bg-transparent after:rounded-tr-[30px] after:shadow-[15px_-15px_0_15px_#0F0F12] font-bold'
+                      : 'text-white/80 hover:text-white hover:bg-white/10 rounded-l-[30px] mr-4 font-medium'
+                    }
+                  `}
+                >
+                  <Icon className="w-5 h-5 flex-shrink-0" />
+                  <span>{item.name}</span>
+                </Link>
+              );
+            }
+
             return (
               <Link
                 key={item.name}
@@ -233,26 +282,49 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
           })}
         </nav>
 
-        <div className="mt-6 flex items-center justify-between p-4 bg-surface-variant/30 hover:bg-surface-variant/50 rounded-xl shrink-0 mt-auto cursor-pointer transition-colors">
-          <div className="flex items-center gap-4 overflow-hidden">
-            <div className="w-10 h-10 rounded-full bg-admin-primary/20 flex items-center justify-center text-admin-primary font-bold">
-              {admin?.email?.charAt(0).toUpperCase()}
+        {isEmployeeOnly ? (
+          <div className="mt-6 flex items-center justify-between p-4 bg-black/15 hover:bg-black/25 rounded-xl shrink-0 mt-auto cursor-pointer transition-colors mr-4">
+            <div className="flex items-center gap-3 overflow-hidden">
+              <div className="w-10 h-10 flex items-center justify-center text-white text-xl font-extrabold">
+                {admin?.email?.charAt(0).toUpperCase()}
+              </div>
+              <div className="overflow-hidden">
+                <p className="text-[13px] font-bold text-white truncate">{admin?.email}</p>
+                <p className="text-[10px] uppercase tracking-widest text-white/50 truncate mt-0.5">
+                  {admin?.roles?.map(r => r.name).join(', ') || admin?.role || 'User'}
+                </p>
+              </div>
             </div>
-            <div className="overflow-hidden">
-              <p className="text-sm font-bold text-on-surface truncate">{admin?.email}</p>
-              <p className="text-[10px] uppercase tracking-widest text-on-primary-container truncate">
-                {admin?.roles?.map(r => r.name).join(', ') || admin?.role || 'User'}
-              </p>
-            </div>
+            <button
+              onClick={() => setShowLogoutModal(true)}
+              className="text-white/80 hover:text-white transition-colors p-2"
+              title="Logout"
+            >
+              <LogOut size={20} />
+            </button>
           </div>
-          <button
-            onClick={() => setShowLogoutModal(true)}
-            className="text-on-surface-variant hover:text-error transition-colors p-2"
-            title="Logout"
-          >
-            <LogOut size={18} />
-          </button>
-        </div>
+        ) : (
+          <div className="mt-6 flex items-center justify-between p-4 bg-surface-variant/30 hover:bg-surface-variant/50 rounded-xl shrink-0 mt-auto cursor-pointer transition-colors">
+            <div className="flex items-center gap-4 overflow-hidden">
+              <div className="w-10 h-10 rounded-full bg-admin-primary/20 flex items-center justify-center text-admin-primary font-bold">
+                {admin?.email?.charAt(0).toUpperCase()}
+              </div>
+              <div className="overflow-hidden">
+                <p className="text-sm font-bold text-on-surface truncate">{admin?.email}</p>
+                <p className="text-[10px] uppercase tracking-widest text-on-primary-container truncate">
+                  {admin?.roles?.map(r => r.name).join(', ') || admin?.role || 'User'}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowLogoutModal(true)}
+              className="text-on-surface-variant hover:text-error transition-colors p-2"
+              title="Logout"
+            >
+              <LogOut size={18} />
+            </button>
+          </div>
+        )}
       </aside>
 
       {/* Logout Confirmation Modal */}

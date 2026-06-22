@@ -24,5 +24,9 @@ export const authService = {
   resetPassword: async (token, password) => {
     const response = await api.put(`/auth/resetpassword/${token}`, { password });
     return response.data;
+  },
+  resetTempPassword: async (newPassword) => {
+    const response = await api.post('/auth/reset-temp-password', { newPassword });
+    return response.data;
   }
 };

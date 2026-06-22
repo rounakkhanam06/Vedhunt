@@ -3,10 +3,13 @@ import { Outlet, useNavigate } from 'react-router-dom';
 import { Menu, Search, Bell, User } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import { Toaster } from 'react-hot-toast';
+import { useAdminStore } from '../store/useAdminStore';
 
 const AdminLayout = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const navigate = useNavigate();
+  const { admin } = useAdminStore();
+  const isEmployeeOnly = admin?.roles?.some(r => r.name === 'EMPLOYEE');
 
   return (
     <div className="min-h-screen bg-admin-bg text-on-surface font-sans">
@@ -29,7 +32,7 @@ const AdminLayout = () => {
       />
       <Sidebar isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} />
       
-      <div className={`flex flex-col min-h-screen transition-all duration-300 ${isSidebarOpen ? 'lg:ml-[280px]' : 'lg:ml-0'}`}>
+      <div className={`flex flex-col min-h-screen transition-all duration-300 ${isSidebarOpen ? 'lg:ml-[240px]' : 'lg:ml-0'}`}>
         {/* TopNavBar Shell */}
         <header className="sticky top-0 z-40 w-full h-16 bg-surface/80 backdrop-blur-md border-b border-outline-variant flex justify-between items-center px-6">
           <div className="flex items-center gap-6">
@@ -40,7 +43,9 @@ const AdminLayout = () => {
             >
               <Menu size={24} />
             </button>
-            <span className="text-xl font-bold text-on-surface hidden sm:block">Admin Dashboard</span>
+            <span className="text-xl font-bold text-on-surface hidden sm:block">
+              {isEmployeeOnly ? 'Employee Dashboard' : 'Admin Dashboard'}
+            </span>
             
 
           </div>

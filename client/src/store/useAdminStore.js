@@ -12,6 +12,17 @@ export const useAdminStore = create((set, get) => ({
       localStorage.setItem('adminToken', data.token);
     }
     set({ admin: data.admin, isAuthenticated: true });
+    return data;
+  },
+
+  resetTempPassword: async (newPassword) => {
+    const data = await authService.resetTempPassword(newPassword);
+    if (data.success) {
+      // Re-fetch profile to clear any temp password state if applicable
+      const meData = await authService.getMe();
+      set({ admin: meData.admin });
+    }
+    return data;
   },
 
   logout: async () => {

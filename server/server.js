@@ -10,6 +10,7 @@ const logger = require('./utils/logger');
 
 // Import Middleware
 const { globalLimiter } = require('./middleware/rateLimiter');
+const startCronJobs = require('./services/cronJobs');
 
 // Import Routes
 const authRoutes = require('./routes/auth');
@@ -37,6 +38,7 @@ const contactRoutes = require('./routes/contactRoutes');
 const leadRoutes = require('./routes/leadRoutes');
 const webhookRoutes = require('./routes/webhookRoutes');
 const subscribeRoutes = require('./routes/subscribeRoutes');
+const employeeRoutes = require('./routes/employeeRoutes');
 const { seedServicePages } = require('./controllers/servicePageSeeder');
 const errorHandler = require('./middleware/errorHandler');
 
@@ -115,6 +117,7 @@ app.use('/api/service-pages', publicCache, servicePageRoutes);
 app.use('/api/contact', contactRoutes);   // write route — no cache
 app.use('/api/leads', leadRoutes);         // write route — no cache
 app.use('/api/subscribe', subscribeRoutes);
+app.use('/api/employees', employeeRoutes);
 app.use('/api', publicCache, settingsRoutes);
 
 // Root route for API status
@@ -155,6 +158,7 @@ mongoose
 
     // Start background jobs worker
     require('./jobs/agenda');
+    startCronJobs();
 
     app.listen(PORT, () => {
       logger.info(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);

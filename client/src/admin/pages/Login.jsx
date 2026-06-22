@@ -18,7 +18,12 @@ const Login = () => {
 
   useEffect(() => {
     if (isAuthenticated) {
-      navigate(from, { replace: true });
+      const user = useAdminStore.getState().admin;
+      if (user && user.isTemporaryPassword) {
+        navigate('/admin/reset-temp-password', { replace: true });
+      } else {
+        navigate(from, { replace: true });
+      }
     }
   }, [isAuthenticated, navigate, from]);
 
@@ -28,8 +33,10 @@ const Login = () => {
     setIsLoading(true);
     
     try {
-      await login(email, password);
-      // navigation handled by useEffect
+      const res = await login(email, password);
+      if (res && res.mustResetPassword) {
+        navigate('/admin/reset-temp-password', { replace: true });
+      }
     } catch (err) {
       setError(err.response?.data?.message || 'Login failed');
       setIsLoading(false);
