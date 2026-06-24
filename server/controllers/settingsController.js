@@ -885,3 +885,103 @@ exports.updateEmailSettings = async (req, res) => {
   }
 };
 
+/**
+ * @desc    Get Office Timings Settings
+ * @route   GET /api/settings/office-timings
+ * @access  Public
+ */
+exports.getOfficeTimings = async (req, res) => {
+  try {
+    let settings = await Settings.findOne({ key: 'office_timings' });
+    if (!settings) {
+      settings = await Settings.create({
+        key: 'office_timings',
+        value: { standardStartTime: '09:00', standardEndTime: '18:00' },
+      });
+    }
+    res.json(settings.value);
+  } catch (error) {
+    console.error('Error fetching Office Timings Settings:', error);
+    res.status(500).json({ message: 'Server error while fetching Office Timings Settings' });
+  }
+};
+
+/**
+ * @desc    Update Office Timings Settings
+ * @route   PUT /api/admin/settings/office-timings
+ * @access  Private (Super Admin / Editor)
+ */
+exports.updateOfficeTimings = async (req, res) => {
+  try {
+    const updatedData = req.body;
+    let settings = await Settings.findOne({ key: 'office_timings' });
+    
+    if (settings) {
+      settings.value = updatedData;
+      await settings.save();
+    } else {
+      settings = await Settings.create({
+        key: 'office_timings',
+        value: updatedData,
+      });
+    }
+    
+    res.json(settings.value);
+  } catch (error) {
+    console.error('Error updating Office Timings Settings:', error);
+    res.status(500).json({ message: 'Server error while updating Office Timings Settings' });
+  }
+};
+
+/**
+ * @desc    Get Attendance Rules Settings
+ * @route   GET /api/settings/attendance-rules
+ * @access  Public
+ */
+exports.getAttendanceRules = async (req, res) => {
+  try {
+    let settings = await Settings.findOne({ key: 'attendance_rules' });
+    if (!settings) {
+      settings = await Settings.create({
+        key: 'attendance_rules',
+        value: {
+          halfDayCheckInLimit: '13:00',
+          halfDayHoursThreshold: 4.5,
+          defaultLeaves: { CL: 6, SL: 6, PL: 12 }
+        },
+      });
+    }
+    res.json(settings.value);
+  } catch (error) {
+    console.error('Error fetching Attendance Rules:', error);
+    res.status(500).json({ message: 'Server error while fetching Attendance Rules' });
+  }
+};
+
+/**
+ * @desc    Update Attendance Rules Settings
+ * @route   PUT /api/admin/settings/attendance-rules
+ * @access  Private (Super Admin / Editor)
+ */
+exports.updateAttendanceRules = async (req, res) => {
+  try {
+    const updatedData = req.body;
+    let settings = await Settings.findOne({ key: 'attendance_rules' });
+    
+    if (settings) {
+      settings.value = updatedData;
+      await settings.save();
+    } else {
+      settings = await Settings.create({
+        key: 'attendance_rules',
+        value: updatedData,
+      });
+    }
+    
+    res.json(settings.value);
+  } catch (error) {
+    console.error('Error updating Attendance Rules:', error);
+    res.status(500).json({ message: 'Server error while updating Attendance Rules' });
+  }
+};
+

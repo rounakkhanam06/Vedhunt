@@ -9,7 +9,8 @@ const AdminLayout = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const navigate = useNavigate();
   const { admin } = useAdminStore();
-  const isEmployeeOnly = admin?.roles?.some(r => r.name === 'EMPLOYEE');
+  const isEmployee = admin?.roles?.some(r => r.name === 'EMPLOYEE');
+  const isEmployeeOnly = isEmployee && admin?.roles?.length === 1;
 
   return (
     <div className="min-h-screen bg-admin-bg text-on-surface font-sans">
@@ -58,7 +59,7 @@ const AdminLayout = () => {
             {/* Profile Dropdown */}
             <div className="relative">
               <button 
-                onClick={() => navigate('/admin/profile')}
+                onClick={() => navigate(isEmployeeOnly ? '/employee/dashboard?tab=profile' : '/admin/profile')}
                 className="w-10 h-10 flex items-center justify-center rounded-full bg-[#1A1A1A] border border-[#2D2D33] text-on-surface hover:ring-1 hover:ring-[#FF6B00] transition-all cursor-pointer"
               >
                 <User size={18} />

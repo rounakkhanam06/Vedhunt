@@ -133,6 +133,21 @@ const leadSchema = new mongoose.Schema({
     type: String,
     enum: ['New', 'Contacted', 'Qualified', 'Proposal Sent', 'Negotiation', 'Won', 'Lost', 'Dropped'],
     default: 'New'
+  },
+
+  // ── Revenue / Deal Tracking ───────────────────────────────────────────────
+  dealValue: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+  closedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Employee',
+    sparse: true
+  },
+  closedDate: {
+    type: Date
   }
 }, { timestamps: true });
 

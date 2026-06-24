@@ -68,9 +68,14 @@ const RoleManager = lazy(() => import('../admin/pages/RoleManager'));
 
 const TempPasswordReset = lazy(() => import('../admin/pages/TempPasswordReset'));
 const EmployeeManager = lazy(() => import('../admin/pages/EmployeeManager'));
+const LeaveRequestsManager = lazy(() => import('../admin/pages/LeaveRequestsManager'));
 const AdminTasks = lazy(() => import('../admin/pages/AdminTasks'));
 const ESSDashboard = lazy(() => import('../admin/pages/ESSDashboard'));
 const ManagerDashboard = lazy(() => import('../admin/pages/ManagerDashboard'));
+const PerformanceCycleManager = lazy(() => import('../admin/pages/PerformanceCycleManager'));
+const PerformanceGoalAssigner = lazy(() => import('../admin/pages/PerformanceGoalAssigner'));
+const CompanyPerformanceMatrix = lazy(() => import('../admin/pages/CompanyPerformanceMatrix'));
+const AttendanceManager = lazy(() => import('../admin/pages/AttendanceManager'));
 
 import AdminThemeGuard from '../admin/components/AdminThemeGuard';
 import ProtectedRoute from '../admin/components/ProtectedRoute';
@@ -269,6 +274,14 @@ export const router = createBrowserRouter([
             element: withPermission(EmployeeManager, 'team.manage')
           },
           {
+            path: 'leave-requests',
+            element: withPermission(LeaveRequestsManager, 'team.manage')
+          },
+          {
+            path: 'attendance-roster',
+            element: withPermission(AttendanceManager, 'team.manage')
+          },
+          {
             path: 'tasks',
             element: withPermission(AdminTasks, 'team.manage')
           },
@@ -277,8 +290,16 @@ export const router = createBrowserRouter([
             element: withPermission(ManagerDashboard, 'ess.manage')
           },
           {
-            path: 'ess-portal',
-            element: withSuspense(ESSDashboard)
+            path: 'performance-cycles',
+            element: withPermission(PerformanceCycleManager, 'team.manage')
+          },
+          {
+            path: 'performance-goals',
+            element: withPermission(PerformanceGoalAssigner, 'team.manage')
+          },
+          {
+            path: 'performance-matrix',
+            element: withPermission(CompanyPerformanceMatrix, 'team.manage')
           },
           {
             path: 'roles',
@@ -384,6 +405,32 @@ export const router = createBrowserRouter([
       }
     ]
   }
+    ]
+  },
+  {
+    path: '/employee',
+    element: <AdminRoot />,
+    children: [
+      {
+        path: '',
+        element: withSuspense(PrivateRoute),
+        children: [
+          {
+            path: '',
+            element: withSuspense(AdminLayout),
+            children: [
+              {
+                path: 'dashboard',
+                element: withSuspense(ESSDashboard)
+              },
+              {
+                path: '',
+                element: withSuspense(ESSDashboard) // default
+              }
+            ]
+          }
+        ]
+      }
     ]
   }
 ]);

@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { User, Plug, BarChart2, Database, Save, Mail, Lock, Smartphone, DownloadCloud, AlertCircle, Phone, MapPin, Share2 } from 'lucide-react';
+import { User, Plug, BarChart2, Database, Save, Mail, Lock, Smartphone, DownloadCloud, AlertCircle, Phone, MapPin, Share2, Clock } from 'lucide-react';
 import { useAdminStore } from '../../store/useAdminStore';
 import { settingsService } from '../../services/settingsService';
+import api from '../../services/api';
 import toast from 'react-hot-toast';
 
 const SettingsPage = () => {
@@ -39,6 +40,21 @@ const SettingsPage = () => {
     emailFrom: '',
     hrEmail: ''
   });
+
+  const [officeTimings, setOfficeTimings] = useState({
+    standardStartTime: '09:00',
+    standardEndTime: '18:00'
+  });
+
+  const [attendanceRules, setAttendanceRules] = useState({
+    halfDayCheckInLimit: '13:00',
+    halfDayHoursThreshold: 4.5,
+    defaultLeaves: { CL: 6, SL: 6, PL: 12 }
+  });
+
+  const [holidays, setHolidays] = useState([]);
+  const [newHoliday, setNewHoliday] = useState({ name: '', date: '', type: 'Public' });
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
   const fetchContactData = async () => {
     try {
@@ -89,11 +105,59 @@ const SettingsPage = () => {
     }
   };
 
+  const fetchOfficeTimings = async () => {
+    try {
+      setLoading(true);
+      const res = await settingsService.getOfficeTimings();
+      if (res.data) {
+        setOfficeTimings(res.data);
+      }
+    } catch (error) {
+      toast.error('Failed to load office timings');
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchAttendanceRules = async () => {
+    try {
+      setLoading(true);
+      const res = await settingsService.getAttendanceRules();
+      if (res.data) {
+        setAttendanceRules(res.data);
+      }
+    } catch (error) {
+      toast.error('Failed to load attendance rules');
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchHolidays = async () => {
+    try {
+      setLoading(true);
+      const res = await api.get(`/employees/holidays?year=${selectedYear}`);
+      if (res.data.success) {
+        setHolidays(res.data.holidays);
+      }
+    } catch (error) {
+      toast.error('Failed to load holidays');
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (activeTab === 'contact') fetchContactData();
     if (activeTab === 'campaigns') fetchCampaignData();
     if (activeTab === 'integrations') fetchEmailSettings();
-  }, [activeTab]);
+    if (activeTab === 'officeTimings') fetchOfficeTimings();
+    if (activeTab === 'attendanceRules') fetchAttendanceRules();
+    if (activeTab === 'holidays') fetchHolidays();
+  }, [activeTab, selectedYear]);
 
   const handleContactChange = (e) => {
     const { name, value } = e.target;
@@ -165,6 +229,86 @@ const SettingsPage = () => {
     }
   };
 
+  const handleOfficeTimingsChange = (e) => {
+    const { name, value } = e.target;
+    setOfficeTimings((prev) => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleSaveOfficeTimings = async () => {
+    try {
+      setSaving(true);
+      await settingsService.updateOfficeTimings(officeTimings);
+      toast.success('Office timings saved successfully!');
+    } catch (error) {
+      toast.error('Failed to save office timings');
+      console.error(error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleAttendanceRulesChange = (e, isNested = false, nestedKey = '') => {
+    const { name, value } = e.target;
+    if (isNested) {
+      setAttendanceRules(prev => ({
+        ...prev,
+        [nestedKey]: { ...prev[nestedKey], [name]: Number(value) }
+      }));
+    } else {
+      setAttendanceRules(prev => ({
+        ...prev,
+        [name]: value
+      }));
+    }
+  };
+
+  const handleSaveAttendanceRules = async () => {
+    try {
+      setSaving(true);
+      await settingsService.updateAttendanceRules(attendanceRules);
+      toast.success('Attendance rules saved successfully!');
+    } catch (error) {
+      toast.error('Failed to save attendance rules');
+      console.error(error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleAddHoliday = async (e) => {
+    e.preventDefault();
+    if (!newHoliday.name || !newHoliday.date) return toast.error('Name and Date are required');
+    try {
+      setSaving(true);
+      const res = await api.post('/employees/holidays', newHoliday);
+      if (res.data.success) {
+        toast.success('Holiday added');
+        setNewHoliday({ name: '', date: '', type: 'Public' });
+        fetchHolidays();
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to add holiday');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteHoliday = async (id) => {
+    if (!window.confirm('Delete this holiday?')) return;
+    try {
+      const res = await api.delete(`/employees/holidays/${id}`);
+      if (res.data.success) {
+        toast.success('Holiday deleted');
+        fetchHolidays();
+      }
+    } catch (error) {
+      toast.error('Failed to delete holiday');
+    }
+  };
+
   const handleCampaignChange = (platform, field, value) => {
     setCampaignData(prev => ({
       ...prev,
@@ -226,6 +370,9 @@ const SettingsPage = () => {
 
   const tabs = [
     { id: 'contact', label: 'Contact Info', icon: Phone },
+    { id: 'officeTimings', label: 'Office Timings', icon: Clock },
+    { id: 'attendanceRules', label: 'Attendance Rules', icon: Clock },
+    { id: 'holidays', label: 'Holiday Calendar', icon: Database },
     { id: 'integrations', label: 'Integrations', icon: Plug },
     { id: 'campaigns', label: 'Campaign Control', icon: BarChart2 },
     { id: 'backups', label: 'Backups', icon: Database },
@@ -603,6 +750,220 @@ const SettingsPage = () => {
           </div>
         )}
 
+        {/* Office Timings Tab */}
+        {activeTab === 'officeTimings' && (
+          <div className="max-w-3xl animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <h3 className="text-2xl font-bold text-white mb-2">Office Timings</h3>
+            <p className="text-gray-400 text-sm mb-8">Manage standard clock-in and clock-out times to track late arrivals.</p>
+            
+            {loading ? (
+              <div className="text-gray-400">Loading...</div>
+            ) : (
+              <div className="bg-[#121215] border border-[#2D2D33] p-6 rounded-xl">
+                <div className="grid grid-cols-2 gap-6">
+                  <div>
+                    <label className={labelClasses}>Standard Start Time</label>
+                    <input 
+                      type="time" 
+                      name="standardStartTime" 
+                      value={officeTimings.standardStartTime || ''} 
+                      onChange={handleOfficeTimingsChange} 
+                      className={inputClasses} 
+                    />
+                    <p className="text-xs text-gray-500 mt-2">Employees clocking in after this time will receive a Late flag.</p>
+                  </div>
+                  <div>
+                    <label className={labelClasses}>Standard End Time</label>
+                    <input 
+                      type="time" 
+                      name="standardEndTime" 
+                      value={officeTimings.standardEndTime || ''} 
+                      onChange={handleOfficeTimingsChange} 
+                      className={inputClasses} 
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Attendance Rules Tab */}
+        {activeTab === 'attendanceRules' && (
+          <div className="max-w-3xl animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <h3 className="text-2xl font-bold text-white mb-2">Attendance Rules</h3>
+            <p className="text-gray-400 text-sm mb-8">Manage half-day limits and default leave balances.</p>
+            
+            {loading ? (
+              <div className="text-gray-400">Loading...</div>
+            ) : (
+              <div className="space-y-6">
+                <div className="bg-[#121215] border border-[#2D2D33] p-6 rounded-xl">
+                  <h4 className="text-sm font-semibold text-[#FF6B00] uppercase tracking-widest mb-4">Half Day Rules</h4>
+                  <div className="grid grid-cols-2 gap-6">
+                    <div>
+                      <label className={labelClasses}>Late Check-In Limit (Half Day)</label>
+                      <input 
+                        type="time" 
+                        name="halfDayCheckInLimit" 
+                        value={attendanceRules.halfDayCheckInLimit || ''} 
+                        onChange={handleAttendanceRulesChange} 
+                        className={inputClasses} 
+                      />
+                      <p className="text-xs text-gray-500 mt-2">Check-ins after this time will trigger a Half Day.</p>
+                    </div>
+                    <div>
+                      <label className={labelClasses}>Min. Hours Threshold (Half Day)</label>
+                      <input 
+                        type="number" 
+                        step="0.1"
+                        name="halfDayHoursThreshold" 
+                        value={attendanceRules.halfDayHoursThreshold || ''} 
+                        onChange={handleAttendanceRulesChange} 
+                        className={inputClasses} 
+                      />
+                      <p className="text-xs text-gray-500 mt-2">Less than these total working hours triggers a Half Day.</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-[#121215] border border-[#2D2D33] p-6 rounded-xl">
+                  <div className="flex justify-between items-center mb-4">
+                    <h4 className="text-sm font-semibold text-[#FF6B00] uppercase tracking-widest">
+                      Leave Balances (Per {attendanceRules.leaveBalancePeriod || 'Year'})
+                    </h4>
+                    <select 
+                      value={attendanceRules.leaveBalancePeriod || 'Year'}
+                      onChange={(e) => handleAttendanceRulesChange(e, false, 'leaveBalancePeriod')}
+                      name="leaveBalancePeriod"
+                      className="bg-[#1e1e21] border border-[#2D2D33] text-xs text-white px-2 py-1 rounded focus:outline-none focus:border-orange-500"
+                    >
+                      <option value="Year">Per Year</option>
+                      <option value="Month">Per Month</option>
+                    </select>
+                  </div>
+                  <div className="grid grid-cols-3 gap-6">
+                    <div>
+                      <label className={labelClasses}>Casual Leave (CL)</label>
+                      <input 
+                        type="number" 
+                        name="CL" 
+                        value={attendanceRules.defaultLeaves?.CL ?? ''} 
+                        onChange={(e) => handleAttendanceRulesChange(e, true, 'defaultLeaves')} 
+                        className={inputClasses} 
+                      />
+                    </div>
+                    <div>
+                      <label className={labelClasses}>Sick Leave (SL)</label>
+                      <input 
+                        type="number" 
+                        name="SL" 
+                        value={attendanceRules.defaultLeaves?.SL ?? ''} 
+                        onChange={(e) => handleAttendanceRulesChange(e, true, 'defaultLeaves')} 
+                        className={inputClasses} 
+                      />
+                    </div>
+                    <div>
+                      <label className={labelClasses}>Paid Leave (PL)</label>
+                      <input 
+                        type="number" 
+                        name="PL" 
+                        value={attendanceRules.defaultLeaves?.PL ?? ''} 
+                        onChange={(e) => handleAttendanceRulesChange(e, true, 'defaultLeaves')} 
+                        className={inputClasses} 
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Holidays Tab */}
+        {activeTab === 'holidays' && (
+          <div className="max-w-3xl animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <h3 className="text-2xl font-bold text-white mb-2">Company Holiday Calendar</h3>
+            <p className="text-gray-400 text-sm mb-8">Manage official non-working holidays. Employees get paid leaves for these days.</p>
+            
+            <div className="flex justify-between items-center mb-6">
+              <h4 className="text-sm font-semibold text-[#FF6B00] uppercase tracking-widest">Holidays for {selectedYear}</h4>
+              <select 
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(e.target.value)}
+                className="bg-[#121215] border border-[#2D2D33] rounded-lg px-4 py-2 text-white outline-none"
+              >
+                {[...Array(5)].map((_, i) => {
+                  const y = new Date().getFullYear() - 2 + i;
+                  return <option key={y} value={y}>{y}</option>;
+                })}
+              </select>
+            </div>
+
+            <div className="bg-[#121215] border border-[#2D2D33] p-6 rounded-xl mb-8">
+              <form onSubmit={handleAddHoliday} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-end">
+                <div className="col-span-1">
+                  <label className={labelClasses}>Date</label>
+                  <input type="date" required value={newHoliday.date} onChange={e => setNewHoliday({...newHoliday, date: e.target.value})} className={inputClasses} style={{ colorScheme: 'dark' }} />
+                </div>
+                <div className="col-span-1">
+                  <label className={labelClasses}>Holiday Name</label>
+                  <input type="text" required placeholder="Diwali" value={newHoliday.name} onChange={e => setNewHoliday({...newHoliday, name: e.target.value})} className={inputClasses} />
+                </div>
+                <div className="col-span-1">
+                  <label className={labelClasses}>Type</label>
+                  <select value={newHoliday.type} onChange={e => setNewHoliday({...newHoliday, type: e.target.value})} className={inputClasses}>
+                    <option value="Public">Public</option>
+                    <option value="Restricted">Restricted</option>
+                  </select>
+                </div>
+                <div className="col-span-1">
+                  <button type="submit" disabled={saving} className="w-full bg-[#FF6B00] hover:bg-[#EA580C] text-white px-4 py-2 rounded-lg font-bold transition-all h-[42px] whitespace-nowrap">
+                    Add Holiday
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            {loading ? (
+              <div className="text-gray-400">Loading...</div>
+            ) : (
+              <div className="bg-[#121215] border border-[#2D2D33] rounded-xl overflow-x-auto">
+                <table className="w-full text-left text-sm text-gray-300 min-w-[500px]">
+                  <thead className="bg-[#1A1A1E] text-xs uppercase text-gray-400 border-b border-[#2D2D33]">
+                    <tr>
+                      <th className="px-6 py-4">Date</th>
+                      <th className="px-6 py-4">Name</th>
+                      <th className="px-6 py-4">Type</th>
+                      <th className="px-6 py-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#2D2D33]">
+                    {holidays.length === 0 ? (
+                      <tr><td colSpan="4" className="px-6 py-8 text-center text-gray-500">No holidays found for {selectedYear}</td></tr>
+                    ) : (
+                      holidays.map(h => (
+                        <tr key={h._id} className="hover:bg-white/[0.02]">
+                          <td className="px-6 py-4 font-mono">{new Date(h.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
+                          <td className="px-6 py-4 font-semibold text-white">{h.name}</td>
+                          <td className="px-6 py-4">
+                            <span className={`px-2 py-1 rounded text-[10px] uppercase font-bold tracking-wider ${h.type === 'Public' ? 'bg-green-500/10 text-green-500' : 'bg-orange-500/10 text-orange-500'}`}>
+                              {h.type}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <button onClick={() => handleDeleteHoliday(h._id)} className="text-red-500 hover:text-red-400 font-medium text-xs">Delete</button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
       </div>
 
       {/* Sticky Floating Action Button */}
@@ -612,6 +973,8 @@ const SettingsPage = () => {
             if (activeTab === 'contact') handleSaveContact();
             if (activeTab === 'integrations') handleSaveIntegrations();
             if (activeTab === 'campaigns') handleSaveCampaigns();
+            if (activeTab === 'officeTimings') handleSaveOfficeTimings();
+            if (activeTab === 'attendanceRules') handleSaveAttendanceRules();
           }}
           disabled={saving}
           className={`flex items-center gap-2 bg-[#FF6B00] hover:bg-[#EA580C] text-white px-6 py-3 rounded-full font-bold shadow-[0_4px_20px_rgba(255,107,0,0.4)] transition-all ${saving ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105 active:scale-95'}`}

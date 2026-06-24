@@ -22,7 +22,9 @@ const Login = () => {
       if (user && user.isTemporaryPassword) {
         navigate('/admin/reset-temp-password', { replace: true });
       } else {
-        navigate(from, { replace: true });
+        const isEmployeeOnly = user?.roles?.some(r => r.name === 'EMPLOYEE') && user?.roles?.length === 1;
+        const targetRoute = isEmployeeOnly ? '/employee/dashboard' : from;
+        navigate(targetRoute, { replace: true });
       }
     }
   }, [isAuthenticated, navigate, from]);

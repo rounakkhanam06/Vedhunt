@@ -96,16 +96,28 @@ const EmployeeManager = () => {
   const [taskTitle, setTaskTitle] = useState('');
   const [taskDesc, setTaskDesc] = useState('');
   const [taskDue, setTaskDue] = useState('');
-  const [payslipMonth, setPayslipMonth] = useState('January');
+  const [payslipMonth, setPayslipMonth] = useState('June');
   const [payslipYear, setPayslipYear] = useState(new Date().getFullYear().toString());
   const [payslipBase, setPayslipBase] = useState('');
   const [payslipAllowance, setPayslipAllowance] = useState('');
   const [payslipDeduction, setPayslipDeduction] = useState('');
   const [payslipDeductionReason, setPayslipDeductionReason] = useState('');
+  const [isCalculatingSalary, setIsCalculatingSalary] = useState(false);
   const [goalText, setGoalText] = useState('');
   const [goalTargetDate, setGoalTargetDate] = useState('');
+  const [newCL, setNewCL] = useState('');
+  const [newSL, setNewSL] = useState('');
+  const [newPL, setNewPL] = useState('');
 
   useEffect(() => { fetchEmployees(); }, []);
+
+  useEffect(() => {
+    if (selectedEmp) {
+      setNewCL(selectedEmp.leaveBalances?.CL ?? 6);
+      setNewSL(selectedEmp.leaveBalances?.SL ?? 6);
+      setNewPL(selectedEmp.leaveBalances?.PL ?? 12);
+    }
+  }, [selectedEmp]);
 
   // Pre-fill from Application Manager onboarding
   const location = useLocation();
@@ -280,6 +292,12 @@ const EmployeeManager = () => {
           netPay: (base + allowance) - deduction,
           status: 'Paid'
         };
+      } else if (type === 'leaveBalances') {
+        const cl = Number(newCL);
+        const sl = Number(newSL);
+        const pl = Number(newPL);
+        if (cl < 0 || isNaN(cl) || sl < 0 || isNaN(sl) || pl < 0 || isNaN(pl)) { toast.error('Enter valid non-negative leave balances.'); return; }
+        payload.leaveBalances = { CL: cl, SL: sl, PL: pl };
       }
       const res = await api.put(`/employees/${selectedEmp._id}`, payload);
       if (res.data.success) {
@@ -424,7 +442,7 @@ const EmployeeManager = () => {
                 <div className="text-xs space-y-1 text-gray-300 font-mono">
                   {selectedEmp.tempPassword && (
                     <div className="mb-2 pb-2 border-b border-orange-500/10">
-                      <span className="text-orange-400 font-semibold">Temp Password:</span> {selectedEmp.tempPassword}
+                      <span className="text-orange-400 font-semibold">Password:</span> {selectedEmp.tempPassword}
                     </div>
                   )}
                   <div>PAN: {selectedEmp.panNumber}</div>
@@ -437,6 +455,18 @@ const EmployeeManager = () => {
                 <div className="flex justify-between"><span>Type:</span><span className="font-bold text-white">{selectedEmp.employmentType}</span></div>
                 <div className="flex justify-between"><span>Email:</span><span className="font-bold text-white">{selectedEmp.email}</span></div>
                 <div className="flex justify-between"><span>Phone:</span><span className="font-bold text-white">{selectedEmp.phone || 'N/A'}</span></div>
+                <div className="flex justify-between"><span>Leaves Used:</span><span className="font-bold text-white">CL: {selectedEmp.leavesUsed?.CL || 0}, SL: {selectedEmp.leavesUsed?.SL || 0}, PL: {selectedEmp.leavesUsed?.PL || 0}</span></div>
+              </div>
+
+              {/* Update Leave Balance */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-bold text-gray-300 flex items-center gap-1.5">Update Leave Balances</h3>
+                <div className="flex gap-2">
+                  <input type="number" placeholder="CL" title="Casual Leave" className="w-16 text-xs rounded-lg border border-white/10 bg-[#1e1e21] px-2 py-2 text-white placeholder-gray-500 focus:outline-none" value={newCL} onChange={e => setNewCL(e.target.value)} />
+                  <input type="number" placeholder="SL" title="Sick Leave" className="w-16 text-xs rounded-lg border border-white/10 bg-[#1e1e21] px-2 py-2 text-white placeholder-gray-500 focus:outline-none" value={newSL} onChange={e => setNewSL(e.target.value)} />
+                  <input type="number" placeholder="PL" title="Paid Leave" className="w-16 text-xs rounded-lg border border-white/10 bg-[#1e1e21] px-2 py-2 text-white placeholder-gray-500 focus:outline-none" value={newPL} onChange={e => setNewPL(e.target.value)} />
+                  <button onClick={() => handleAddSubItem('leaveBalances')} className="px-4 rounded-lg bg-orange-600/20 text-orange-400 border border-orange-500/20 text-xs font-semibold hover:bg-orange-600 hover:text-white transition-all cursor-pointer">Update</button>
+                </div>
               </div>
 
               {/* Issue Task */}
@@ -486,9 +516,18 @@ const EmployeeManager = () => {
                     <input type="number" placeholder="YYYY" className="w-full text-xs rounded-lg border border-white/10 bg-[#1e1e21] p-2 text-white placeholder-gray-500 focus:outline-none" value={payslipYear} onChange={e => setPayslipYear(e.target.value)} />
                   </div>
                 </div>
-                <div>
-                  <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Base Salary (₹) *</label>
-                  <input type="number" placeholder="e.g. 50000" className="w-full text-xs rounded-lg border border-white/10 bg-[#1e1e21] px-3 py-2 text-white placeholder-gray-500 focus:outline-none" value={payslipBase} onChange={e => setPayslipBase(e.target.value)} />
+                <div className="flex justify-between items-end gap-2">
+                  <div className="flex-1">
+                    <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Base Salary (₹) *</label>
+                    <input type="number" placeholder="e.g. 50000" className="w-full text-xs rounded-lg border border-white/10 bg-[#1e1e21] px-3 py-2 text-white placeholder-gray-500 focus:outline-none" value={payslipBase} onChange={e => setPayslipBase(e.target.value)} />
+                  </div>
+                  <button 
+                    onClick={handleAutoCalculateSalary}
+                    disabled={isCalculatingSalary}
+                    className="py-2 px-3 rounded-lg bg-blue-600/20 text-blue-400 border border-blue-500/20 text-xs font-semibold hover:bg-blue-600 hover:text-white transition-all cursor-pointer whitespace-nowrap"
+                  >
+                    {isCalculatingSalary ? 'Calc...' : 'Auto-Calc'}
+                  </button>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div>

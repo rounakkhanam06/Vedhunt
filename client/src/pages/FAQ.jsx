@@ -209,8 +209,7 @@ export default function FAQ() {
               <AccordionItem 
                 key={faq._id}
                 question={faq.question}
-                answer={faq.answer}
-                isOpen={openIndex2 === index}
+                answer={faq.answer}                isOpen={openIndex2 === index}
                 onClick={() => setOpenIndex2(openIndex2 === index ? -1 : index)}
               />
             ))}

@@ -44,6 +44,18 @@ const RealTimeTimer = ({ activeTimer, tasks = [], onTimerStart, onTimerStop }) =
     };
   }, [activeTimer]);
 
+  // Lock background scroll when timer modals are open
+  useEffect(() => {
+    if (isStartModalOpen || isStopModalOpen) {
+      document.body.classList.add('modal-open');
+    } else {
+      document.body.classList.remove('modal-open');
+    }
+    return () => {
+      document.body.classList.remove('modal-open');
+    };
+  }, [isStartModalOpen, isStopModalOpen]);
+
   const handleStart = async (e) => {
     e.preventDefault();
     try {

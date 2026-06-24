@@ -17,5 +17,8 @@ export const settingsService = {
   updateCampaignSettings: (data) => api.put('/admin/settings/campaigns', data),
   getEmailSettings: () => api.get('/settings/email'),
   updateEmailSettings: (data) => api.put('/admin/settings/email', data),
+  getOfficeTimings: () => api.get('/settings/office-timings'),
+  updateOfficeTimings: (data) => api.put('/admin/settings/office-timings', data),
+  getAttendanceRules: () => api.get('/settings/attendance-rules'),
+  updateAttendanceRules: (data) => api.put('/admin/settings/attendance-rules', data),
 };
-

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import api from '../../services/api';
 import { useAdminStore } from '../../store/useAdminStore';
-import { UserPlus, Trash2, Shield, User, Mail, Lock, CheckCircle2, Eye, EyeOff } from 'lucide-react';
+import { UserPlus, Trash2, Shield, User, Mail, Lock, CheckCircle2, Eye, EyeOff, Edit2 } from 'lucide-react';
 
 const TeamManagement = () => {
   const { admin: currentAdmin } = useAdminStore();
@@ -19,6 +19,19 @@ const TeamManagement = () => {
     email: '',
     password: '',
     roles: []
+  });
+
+  // Edit admin form state
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editError, setEditError] = useState('');
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [editFormData, setEditFormData] = useState({
+    id: '',
+    firstName: '',
+    lastName: '',
+    email: '',
+    roles: [],
+    isActive: true
   });
 
   const fetchData = async () => {
@@ -55,6 +68,38 @@ const TeamManagement = () => {
         return { ...prev, roles: [...prev.roles, roleId] };
       }
     });
+  };
+
+  const handleToggleEditRole = (roleId) => {
+    setEditFormData(prev => {
+      const isSelected = prev.roles.includes(roleId);
+      if (isSelected) {
+        return { ...prev, roles: prev.roles.filter(id => id !== roleId) };
+      } else {
+        return { ...prev, roles: [...prev.roles, roleId] };
+      }
+    });
+  };
+
+  const handleUpdateAdmin = async (e) => {
+    e.preventDefault();
+    setEditError('');
+    setIsUpdating(true);
+    
+    try {
+      const res = await api.put(`/team/${editFormData.id}`, {
+        roles: editFormData.roles,
+        isActive: editFormData.isActive
+      });
+      if (res.data.success) {
+        setShowEditModal(false);
+        fetchData();
+      }
+    } catch (err) {
+      setEditError(err.response?.data?.message || 'Error updating admin');
+    } finally {
+      setIsUpdating(false);
+    }
   };
 
   const handleCreateAdmin = async (e) => {
@@ -169,13 +214,33 @@ const TeamManagement = () => {
                     </td>
                       <td className="p-4 text-right">
                         {currentAdmin?._id !== user._id && (
-                          <button 
-                            onClick={() => handleDeleteAdmin(user._id)}
-                            className="text-gray-500 hover:text-red-500 transition-colors p-2 rounded-lg hover:bg-red-500/10 cursor-pointer"
-                            title="Remove Admin"
-                          >
-                            <Trash2 size={18} />
-                          </button>
+                          <div className="flex items-center justify-end gap-1">
+                            <button 
+                              onClick={() => {
+                                setEditFormData({
+                                  id: user._id,
+                                  firstName: user.firstName || '',
+                                  lastName: user.lastName || '',
+                                  email: user.email,
+                                  roles: user.roles ? user.roles.map(r => r._id || r) : [],
+                                  isActive: user.isActive !== false // defaults to true if undefined
+                                });
+                                setEditError('');
+                                setShowEditModal(true);
+                              }}
+                              className="text-gray-500 hover:text-blue-500 transition-colors p-2 rounded-lg hover:bg-blue-500/10 cursor-pointer"
+                              title="Edit Admin Roles"
+                            >
+                              <Edit2 size={18} />
+                            </button>
+                            <button 
+                              onClick={() => handleDeleteAdmin(user._id)}
+                              className="text-gray-500 hover:text-red-500 transition-colors p-2 rounded-lg hover:bg-red-500/10 cursor-pointer"
+                              title="Remove Admin"
+                            >
+                              <Trash2 size={18} />
+                            </button>
+                          </div>
                         )}
                         {currentAdmin?._id === user._id && (
                           <span className="text-xs text-gray-500 italic mr-2">You</span>
@@ -323,6 +388,93 @@ const TeamManagement = () => {
                 disabled={formData.roles.length === 0}
               >
                 Create Admin
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Admin Modal */}
+      {showEditModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-[#1A1A1A] border border-[#2D2D33] rounded-xl w-full max-w-lg overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col">
+            <div className="p-6 border-b border-[#2D2D33] flex justify-between items-center shrink-0">
+              <h3 className="text-xl font-bold text-white">Edit Admin Access</h3>
+              <button onClick={() => setShowEditModal(false)} className="text-gray-400 hover:text-white">✕</button>
+            </div>
+            
+            <form onSubmit={handleUpdateAdmin} className="p-6 space-y-5 overflow-y-auto custom-scrollbar flex-1">
+              {editError && (
+                <div className="bg-red-500/10 border border-red-500/50 text-red-400 px-4 py-3 rounded-lg text-sm shrink-0">
+                  {editError}
+                </div>
+              )}
+              
+              <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+                <div className="flex justify-between items-center mb-2">
+                  <div className="font-bold text-white">{editFormData.firstName} {editFormData.lastName}</div>
+                  <button
+                    type="button"
+                    onClick={() => setEditFormData(f => ({ ...f, isActive: !f.isActive }))}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold transition-colors cursor-pointer ${editFormData.isActive ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30' : 'bg-gray-800 text-gray-400 border border-gray-700 hover:bg-gray-700'}`}
+                  >
+                    <div className={`w-2 h-2 rounded-full ${editFormData.isActive ? 'bg-emerald-500' : 'bg-gray-500'}`} />
+                    {editFormData.isActive ? 'Account Active' : 'Account Suspended'}
+                  </button>
+                </div>
+                <div className="text-sm text-gray-400">{editFormData.email}</div>
+                <div className="text-xs text-gray-500 mt-2 italic">Suspended accounts cannot log in to the portal.</div>
+              </div>
+
+              <div className="pt-2 shrink-0">
+                <label className={labelClasses}>Role Assignment</label>
+                <div className="bg-[#121215] border border-[#2D2D33] rounded-lg p-3 space-y-2 max-h-48 overflow-y-auto custom-scrollbar">
+                  {availableRoles.length === 0 ? (
+                    <div className="text-sm text-gray-500 p-2">No roles available.</div>
+                  ) : (
+                    availableRoles.map(role => {
+                      const isSelected = editFormData.roles.includes(role._id);
+                      return (
+                        <div 
+                          key={role._id}
+                          onClick={() => handleToggleEditRole(role._id)}
+                          className={`
+                            flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all duration-200
+                            ${isSelected 
+                              ? 'bg-[#FF6B00]/10 border-[#FF6B00]/30 text-white' 
+                              : 'bg-[#1A1A1A] border-[#2D2D33] text-gray-400 hover:border-gray-600'}
+                          `}
+                        >
+                          <div className={`shrink-0 rounded-full flex items-center justify-center w-5 h-5 border ${isSelected ? 'bg-[#FF6B00] border-[#FF6B00]' : 'border-gray-600'}`}>
+                            {isSelected && <CheckCircle2 size={14} className="text-white" />}
+                          </div>
+                          <div>
+                            <div className="text-sm font-medium">{role.name}</div>
+                            {role.description && <div className="text-xs text-gray-500 mt-0.5">{role.description}</div>}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            </form>
+
+            <div className="p-6 border-t border-[#2D2D33] shrink-0 flex gap-3 bg-[#1A1A1A]">
+              <button 
+                type="button" 
+                onClick={() => setShowEditModal(false)}
+                className="flex-1 px-4 py-2.5 rounded-lg border border-[#2D2D33] text-gray-300 hover:bg-[#2D2D33] hover:text-white transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button 
+                type="submit"
+                onClick={handleUpdateAdmin}
+                className="flex-1 px-4 py-2.5 rounded-lg bg-[#FF6B00] hover:bg-[#EA580C] text-white font-semibold transition-colors flex items-center justify-center cursor-pointer disabled:opacity-50"
+                disabled={editFormData.roles.length === 0 || isUpdating}
+              >
+                {isUpdating ? 'Saving...' : 'Save Changes'}
               </button>
             </div>
           </div>

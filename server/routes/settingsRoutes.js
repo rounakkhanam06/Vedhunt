@@ -103,4 +103,26 @@ router.put(
   settingsController.updateEmailSettings
 );
 
+// Public route to get Office Timings
+router.get('/settings/office-timings', settingsController.getOfficeTimings);
+
+// Admin route to update Office Timings
+router.put(
+  '/admin/settings/office-timings',
+  authMiddleware,
+  roleMiddleware('SUPER_ADMIN', 'EDITOR'),
+  settingsController.updateOfficeTimings
+);
+
+// Public route to get Attendance Rules
+router.get('/settings/attendance-rules', settingsController.getAttendanceRules);
+
+// Admin route to update Attendance Rules
+router.put(
+  '/admin/settings/attendance-rules',
+  authMiddleware,
+  roleMiddleware('SUPER_ADMIN', 'EDITOR'),
+  settingsController.updateAttendanceRules
+);
+
 module.exports = router;

@@ -39,6 +39,7 @@ const leadRoutes = require('./routes/leadRoutes');
 const webhookRoutes = require('./routes/webhookRoutes');
 const subscribeRoutes = require('./routes/subscribeRoutes');
 const employeeRoutes = require('./routes/employeeRoutes');
+const performanceRoutes = require('./routes/performanceRoutes');
 const { seedServicePages } = require('./controllers/servicePageSeeder');
 const errorHandler = require('./middleware/errorHandler');
 
@@ -118,6 +119,7 @@ app.use('/api/contact', contactRoutes);   // write route — no cache
 app.use('/api/leads', leadRoutes);         // write route — no cache
 app.use('/api/subscribe', subscribeRoutes);
 app.use('/api/employees', employeeRoutes);
+app.use('/api/performance', performanceRoutes);
 app.use('/api', publicCache, settingsRoutes);
 
 // Root route for API status

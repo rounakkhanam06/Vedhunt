@@ -2,7 +2,10 @@ const express = require('express');
 const Employee = require('../models/Employee');
 const WorkLog = require('../models/WorkLog');
 const Admin = require('../models/Admin');
+const LeaveRequest = require('../models/LeaveRequest');
 const Role = require('../models/Role');
+const Settings = require('../models/Settings');
+const Holiday = require('../models/Holiday');
 const authMiddleware = require('../middleware/authMiddleware');
 const requirePermission = require('../middleware/requirePermission');
 const { encrypt, decrypt } = require('../utils/encryption');
@@ -235,7 +238,8 @@ router.put('/:id', requirePermission('team.manage'), async (req, res) => {
       // Admin options to add tasks, goals, payslips
       newTask,
       newGoal,
-      newPayslip
+      newPayslip,
+      leaveBalances
     } = req.body;
 
     const employee = await Employee.findById(req.params.id);
@@ -251,6 +255,7 @@ router.put('/:id', requirePermission('team.manage'), async (req, res) => {
     if (salaryCTC) employee.salaryCTC = salaryCTC;
     if (panNumber) employee.panNumber = encrypt(panNumber);
     if (aadhaarNumber) employee.aadhaarNumber = encrypt(aadhaarNumber);
+    if (leaveBalances) employee.leaveBalances = leaveBalances;
 
     if (newTask) {
       employee.tasks.push(newTask);
@@ -302,6 +307,96 @@ router.delete('/:id', requirePermission('team.manage'), async (req, res) => {
   }
 });
 
+// Get all leave requests (Admin/HR only)
+router.get('/admin/leave-requests', requirePermission('team.manage'), async (req, res) => {
+  try {
+    const leaveRequests = await LeaveRequest.find({})
+      .populate('employeeId', 'firstName lastName employeeId leaveBalances leavesUsed')
+      .sort({ createdAt: -1 });
+    res.json({ success: true, leaveRequests });
+  } catch (error) {
+    logger.error('Error fetching all leave requests:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// Update leave request status (Admin/HR only)
+router.put('/admin/leave-requests/:id/status', requirePermission('team.manage'), async (req, res) => {
+  try {
+    const { status, adminComment } = req.body;
+    
+    if (!['Approved', 'Rejected'].includes(status)) {
+      return res.status(400).json({ success: false, message: 'Invalid status' });
+    }
+
+    const leaveRequest = await LeaveRequest.findById(req.params.id);
+    if (!leaveRequest) {
+      return res.status(404).json({ success: false, message: 'Leave request not found' });
+    }
+
+    // Only allow updating pending requests to avoid double-processing
+    if (leaveRequest.status !== 'Pending') {
+      return res.status(400).json({ success: false, message: 'Only pending requests can be approved or rejected.' });
+    }
+
+    leaveRequest.status = status;
+    if (adminComment) leaveRequest.adminComment = adminComment;
+    await leaveRequest.save();
+
+    if (status === 'Approved') {
+      const employee = await Employee.findById(leaveRequest.employeeId);
+      if (employee) {
+        const start = new Date(leaveRequest.startDate);
+        const end = new Date(leaveRequest.endDate);
+        start.setHours(0,0,0,0);
+        end.setHours(0,0,0,0);
+        
+        const holidays = await Holiday.find({ date: { $gte: start, $lte: end } });
+        const holidayDates = holidays.map(h => new Date(h.date).toDateString());
+        
+        let currentDate = new Date(start);
+        
+        while (currentDate <= end) {
+          const dayOfWeek = currentDate.getDay(); // 0 is Sunday, 6 is Saturday
+          const isWeekend = (dayOfWeek === 0); // User requested Sunday as weekend
+          const isHoliday = holidayDates.includes(currentDate.toDateString());
+          
+          let attendanceStatus = 'Leave';
+          if (isWeekend) attendanceStatus = 'Weekend';
+          else if (isHoliday) attendanceStatus = 'Holiday';
+          
+          const existingLogIndex = employee.attendance.findIndex(
+            a => new Date(a.date).toDateString() === currentDate.toDateString()
+          );
+
+          if (existingLogIndex >= 0) {
+            employee.attendance[existingLogIndex].status = attendanceStatus;
+          } else {
+            employee.attendance.push({
+              date: new Date(currentDate),
+              status: attendanceStatus
+            });
+          }
+
+          if (!isWeekend && !isHoliday) {
+            const lType = leaveRequest.leaveType || 'PL';
+            if (!employee.leavesUsed) employee.leavesUsed = { CL: 0, SL: 0, PL: 0 };
+            employee.leavesUsed[lType] = (employee.leavesUsed[lType] || 0) + 1;
+          }
+
+          currentDate.setDate(currentDate.getDate() + 1);
+        }
+        await employee.save();
+      }
+    }
+
+    res.json({ success: true, message: `Leave request ${status.toLowerCase()} successfully`, leaveRequest });
+  } catch (error) {
+    logger.error('Error updating leave request status:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
 
 // ==========================================
 // EMPLOYEE SELF-SERVICE (ESS) ROUTES
@@ -335,11 +430,21 @@ router.put('/ess/profile', async (req, res) => {
     }
 
     if (bankDetails) {
+      const { bankName, accountName, accountNumber, ifscCode } = bankDetails;
+      const nameRegex = /^[a-zA-Z\s]+$/;
+      const numberRegex = /^\d+$/;
+      const ifscRegex = /^[A-Z]{4}0[A-Z0-9]{6}$/;
+
+      if (accountName && !nameRegex.test(accountName)) return res.status(400).json({ success: false, message: 'Account Holder Name must contain only letters and spaces.' });
+      if (bankName && !nameRegex.test(bankName)) return res.status(400).json({ success: false, message: 'Bank Name must contain only letters and spaces.' });
+      if (accountNumber && !numberRegex.test(accountNumber)) return res.status(400).json({ success: false, message: 'Account Number must contain only numbers.' });
+      if (ifscCode && !ifscRegex.test(ifscCode)) return res.status(400).json({ success: false, message: 'Invalid IFSC Code format.' });
+
       employee.bankDetails = {
-        accountName: bankDetails.accountName || employee.bankDetails.accountName,
-        accountNumber: bankDetails.accountNumber || employee.bankDetails.accountNumber,
-        bankName: bankDetails.bankName || employee.bankDetails.bankName,
-        ifscCode: bankDetails.ifscCode || employee.bankDetails.ifscCode
+        accountName: accountName || employee.bankDetails.accountName,
+        accountNumber: accountNumber || employee.bankDetails.accountNumber,
+        bankName: bankName || employee.bankDetails.bankName,
+        ifscCode: ifscCode || employee.bankDetails.ifscCode
       };
     }
 
@@ -366,14 +471,36 @@ router.post('/ess/attendance/clock', async (req, res) => {
 
     if (!todayLog) {
       // Clock In
+      let lateByMins = 0;
+      try {
+        const settings = await Settings.findOne({ key: 'office_timings' });
+        if (settings && settings.value && settings.value.standardStartTime) {
+          const standardStart = settings.value.standardStartTime; // e.g., "09:00"
+          const [startHour, startMin] = standardStart.split(':').map(Number);
+          const now = new Date();
+          const currentHour = now.getHours();
+          const currentMin = now.getMinutes();
+          
+          const standardTimeInMins = (startHour * 60) + startMin;
+          const currentTimeInMins = (currentHour * 60) + currentMin;
+          
+          if (currentTimeInMins > standardTimeInMins) {
+            lateByMins = currentTimeInMins - standardTimeInMins;
+          }
+        }
+      } catch (err) {
+        logger.error('Error fetching office timings for late check:', err);
+      }
+
       employee.attendance.push({
         date: new Date(),
         status: 'Present',
         clockIn: timeStr,
-        clockOut: ''
+        clockOut: '',
+        lateByMins
       });
       await employee.save();
-      return res.json({ success: true, action: 'clockIn', time: timeStr, message: 'Successfully clocked in!' });
+      return res.json({ success: true, action: 'clockIn', time: timeStr, lateByMins, message: 'Successfully clocked in!' });
     } else if (!todayLog.clockOut) {
       // Clock Out
       todayLog.clockOut = timeStr;
@@ -582,6 +709,64 @@ router.get('/ess/dashboard-stats', async (req, res) => {
   }
 });
 
+// Create Leave Request
+router.post('/ess/leave-requests', async (req, res) => {
+  try {
+    const { leaveType, startDate, endDate, reason } = req.body;
+    
+    if (!leaveType || !startDate || !endDate || !reason) {
+      return res.status(400).json({ success: false, message: 'Please provide leave type, start date, end date, and reason.' });
+    }
+
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    if (isNaN(start.getTime()) || isNaN(end.getTime()) || start > end) {
+      return res.status(400).json({ success: false, message: 'Invalid date range provided.' });
+    }
+
+    const employee = await Employee.findOne({ adminId: req.user._id });
+    if (!employee) return res.status(404).json({ success: false, message: 'Employee not found' });
+
+    const leaveRequest = await LeaveRequest.create({
+      employeeId: employee._id,
+      leaveType,
+      startDate: start,
+      endDate: end,
+      reason
+    });
+
+    res.status(201).json({ success: true, message: 'Leave request submitted successfully.', leaveRequest });
+  } catch (error) {
+    logger.error('Error creating leave request:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// Get Leave Requests for Logged-in Employee
+router.get('/ess/leave-requests', async (req, res) => {
+  try {
+    const employee = await Employee.findOne({ adminId: req.user._id });
+    if (!employee) return res.status(404).json({ success: false, message: 'Employee not found' });
+
+    const requests = await LeaveRequest.find({ employeeId: employee._id }).sort({ createdAt: -1 });
+
+    const Settings = require('../models/Settings');
+    const settings = await Settings.findOne({ key: 'attendance_rules' });
+    const leaveBalancePeriod = settings?.value?.leaveBalancePeriod || 'Year';
+
+    res.json({
+      success: true,
+      leaveRequests: requests,
+      leaveBalances: employee.leaveBalances,
+      leavesUsed: employee.leavesUsed,
+      leaveBalancePeriod
+    });
+  } catch (error) {
+    logger.error('Error fetching leave requests:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
 // Manager Dashboard: Get Employee Productivity
 router.get('/manager/productivity', authMiddleware, requirePermission('ess.manage'), async (req, res) => {
   try {
@@ -654,6 +839,253 @@ router.get('/manager/productivity', authMiddleware, requirePermission('ess.manag
     res.json({ success: true, stats });
   } catch (error) {
     logger.error('Error fetching manager productivity:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// Admin: Get Daily Attendance Roster
+router.get('/admin/attendance/daily', requirePermission('team.manage'), async (req, res) => {
+  try {
+    const targetDateStr = req.query.date || new Date().toISOString().split('T')[0];
+    const targetDate = new Date(targetDateStr);
+    
+    // Check if weekend or holiday
+    const isWeekend = targetDate.getDay() === 0;
+    const holiday = await Holiday.findOne({
+      date: {
+        $gte: new Date(targetDate.setHours(0,0,0,0)),
+        $lte: new Date(targetDate.setHours(23,59,59,999))
+      }
+    });
+
+    // Get attendance settings
+    const settingDoc = await Settings.findOne({ key: 'attendance_rules' });
+    const rules = settingDoc ? settingDoc.value : { halfDayCheckInLimit: '13:00', halfDayHoursThreshold: 4.5 };
+    
+    const [halfDayHour, halfDayMin] = rules.halfDayCheckInLimit.split(':').map(Number);
+    
+    const employees = await Employee.find({ 'adminId': { $exists: true } }).populate('adminId', 'isActive');
+    
+    const roster = await Promise.all(employees.map(async emp => {
+      // Find today's worklogs
+      const startOfDay = new Date(targetDate);
+      startOfDay.setHours(0,0,0,0);
+      const endOfDay = new Date(targetDate);
+      endOfDay.setHours(23,59,59,999);
+      
+      const worklogs = await WorkLog.find({
+        employeeId: emp._id,
+        startTime: { $gte: startOfDay, $lte: endOfDay }
+      });
+      
+      const attRecord = emp.attendance.find(a => new Date(a.date).toDateString() === targetDate.toDateString());
+      
+      let status = 'Absent';
+      let totalHours = 0;
+      let checkInTime = null;
+      let lateByMins = 0;
+      
+      if (attRecord && attRecord.status === 'Leave') {
+        status = 'On Leave';
+      } else if (holiday) {
+        status = 'Holiday';
+      } else if (isWeekend) {
+        status = 'Weekend';
+      }
+
+      if (worklogs.length > 0) {
+        checkInTime = worklogs[0].startTime;
+        lateByMins = worklogs[0].lateByMins || 0;
+        
+        let totalMins = 0;
+        let forgotCheckOut = false;
+        
+        worklogs.forEach(wl => {
+          if (wl.endTime) {
+            totalMins += wl.duration || 0;
+          } else {
+            forgotCheckOut = true;
+            totalMins += Math.floor((new Date() - wl.startTime) / 60000);
+          }
+        });
+        
+        totalHours = totalMins / 60;
+        
+        const checkInDate = new Date(checkInTime);
+        const limitDate = new Date(targetDate);
+        limitDate.setHours(halfDayHour, halfDayMin, 0, 0);
+
+        if (forgotCheckOut) {
+          status = 'Forgot Check Out';
+        } else if (checkInDate > limitDate || totalHours < rules.halfDayHoursThreshold) {
+          status = 'Half Day';
+        } else if (lateByMins > 0) {
+          status = 'Late';
+        } else {
+          status = 'Present';
+        }
+      }
+
+      return {
+        _id: emp._id,
+        name: `${emp.firstName} ${emp.lastName}`,
+        email: emp.email,
+        employeeId: emp.employeeId,
+        status,
+        checkInTime,
+        workingHours: totalHours > 0 ? `${totalHours.toFixed(2)}h` : '-',
+        lateByMins
+      };
+    }));
+
+    res.json({ success: true, roster });
+  } catch (error) {
+    logger.error('Error fetching daily roster:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// Admin: Get Monthly Payroll Summary for an Employee
+router.get('/admin/attendance/monthly/:id', requirePermission('team.manage'), async (req, res) => {
+  try {
+    const { month, year } = req.query; // month Name (e.g. 'June') and year (e.g. 2026)
+    if (!month || !year) return res.status(400).json({ success: false, message: 'Month and year required' });
+    
+    const monthMap = { 'January':0, 'February':1, 'March':2, 'April':3, 'May':4, 'June':5, 'July':6, 'August':7, 'September':8, 'October':9, 'November':10, 'December':11 };
+    const mIndex = monthMap[month];
+    
+    const startDate = new Date(year, mIndex, 1);
+    const endDate = new Date(year, mIndex + 1, 0);
+    endDate.setHours(23,59,59,999);
+    
+    const employee = await Employee.findById(req.params.id);
+    if (!employee) return res.status(404).json({ success: false, message: 'Employee not found' });
+    
+    const settingDoc = await Settings.findOne({ key: 'attendance_rules' });
+    const rules = settingDoc ? settingDoc.value : { halfDayCheckInLimit: '13:00', halfDayHoursThreshold: 4.5 };
+    const [halfDayHour, halfDayMin] = rules.halfDayCheckInLimit.split(':').map(Number);
+    
+    const holidays = await Holiday.find({ date: { $gte: startDate, $lte: endDate } });
+    const holidayDates = holidays.map(h => new Date(h.date).toDateString());
+    
+    const worklogs = await WorkLog.find({
+      employeeId: employee._id,
+      startTime: { $gte: startDate, $lte: endDate }
+    });
+    
+    let unpaidDays = 0;
+    let absentCount = 0;
+    let halfDayCount = 0;
+    let details = [];
+
+    const worklogsByDate = {};
+    worklogs.forEach(wl => {
+      const d = new Date(wl.startTime).toDateString();
+      if (!worklogsByDate[d]) worklogsByDate[d] = [];
+      worklogsByDate[d].push(wl);
+    });
+
+    let currentDate = new Date(startDate);
+    const today = new Date();
+    const limitDateObj = endDate > today ? today : endDate;
+
+    while (currentDate <= limitDateObj) {
+      const dateStr = currentDate.toDateString();
+      const isWeekend = currentDate.getDay() === 0;
+      const isHoliday = holidayDates.includes(dateStr);
+      
+      const attRecord = employee.attendance.find(a => new Date(a.date).toDateString() === dateStr);
+      const isLeave = attRecord && attRecord.status === 'Leave';
+      
+      const dayLogs = worklogsByDate[dateStr] || [];
+      
+      if (dayLogs.length === 0) {
+        if (!isWeekend && !isHoliday && !isLeave) {
+          absentCount++;
+          unpaidDays += 1;
+        }
+      } else {
+        let totalMins = 0;
+        let checkInDate = dayLogs[0].startTime;
+        dayLogs.forEach(wl => {
+          if (wl.endTime) totalMins += wl.duration || 0;
+        });
+        
+        const totalHours = totalMins / 60;
+        const limitDate = new Date(currentDate);
+        limitDate.setHours(halfDayHour, halfDayMin, 0, 0);
+        
+        if (checkInDate > limitDate || totalHours < rules.halfDayHoursThreshold) {
+          halfDayCount++;
+          unpaidDays += 0.5;
+        }
+      }
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+    
+    let excessUnpaidLeaves = 0;
+    const { leaveBalances = { CL:6, SL:6, PL:12 }, leavesUsed = { CL:0, SL:0, PL:0 } } = employee;
+    
+    res.json({
+      success: true,
+      absentCount,
+      halfDayCount,
+      unpaidDays, // Doesn't perfectly include excess unpaid leaves spanning months, admin can tweak
+      message: `${absentCount} Absent(s), ${halfDayCount} Half Day(s)`
+    });
+  } catch (error) {
+    logger.error('Error in monthly payroll summary:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// ==========================================
+// 8. HOLIDAY MANAGEMENT (Admin)
+// ==========================================
+
+// Get all holidays
+router.get('/holidays', requirePermission('employee.view'), async (req, res) => {
+  try {
+    const year = req.query.year || new Date().getFullYear();
+    const startDate = new Date(year, 0, 1);
+    const endDate = new Date(year, 11, 31);
+    
+    const holidays = await Holiday.find({
+      date: { $gte: startDate, $lte: endDate }
+    }).sort({ date: 1 });
+    
+    res.json({ success: true, holidays });
+  } catch (error) {
+    logger.error('Error fetching holidays', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// Add a new holiday
+router.post('/holidays', requirePermission('employee.manage'), async (req, res) => {
+  try {
+    const { name, date, type } = req.body;
+    
+    const existing = await Holiday.findOne({ date: new Date(date) });
+    if (existing) {
+      return res.status(400).json({ success: false, message: 'A holiday already exists on this date' });
+    }
+    
+    const holiday = await Holiday.create({ name, date, type });
+    res.json({ success: true, holiday });
+  } catch (error) {
+    logger.error('Error adding holiday', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// Delete a holiday
+router.delete('/holidays/:id', requirePermission('employee.manage'), async (req, res) => {
+  try {
+    await Holiday.findByIdAndDelete(req.params.id);
+    res.json({ success: true, message: 'Holiday removed' });
+  } catch (error) {
+    logger.error('Error deleting holiday', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });

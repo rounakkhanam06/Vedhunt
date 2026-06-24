@@ -130,8 +130,12 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
       requiredPermission: 'team.manage',
       subItems: [
         { name: 'Employees List', path: '/admin/employees' },
+        { name: 'Attendance Roster', path: '/admin/attendance-roster' },
         { name: 'Organization Tasks', path: '/admin/tasks' },
-        { name: 'Productivity Reports', path: '/admin/manager-dashboard' }
+        { name: 'Productivity Reports', path: '/admin/manager-dashboard' },
+        { name: 'Performance Cycles', path: '/admin/performance-cycles' },
+        { name: 'KPI Goal Assigner', path: '/admin/performance-goals' },
+        { name: 'Company Performance Matrix', path: '/admin/performance-matrix' }
       ]
     },
     { name: 'Role Management', path: '/admin/roles', icon: ShieldCheck, requiredPermission: 'roles.manage' },
@@ -139,18 +143,29 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     { name: 'Settings', path: '/admin/settings', icon: Settings, requiredPermission: 'settings.manage' },
   ];
 
-  const isEmployeeOnly = admin?.roles?.some(r => r.name === 'EMPLOYEE');
+  const isEmployee = admin?.roles?.some(r => r.name === 'EMPLOYEE');
+  const isEmployeeOnly = isEmployee && admin?.roles?.length === 1;
+
+  let baseNavItems = [...navItems];
+  if (isEmployee && !isEmployeeOnly) {
+    baseNavItems.unshift({
+      name: 'My Employee Portal',
+      path: '/employee/dashboard?tab=dashboard',
+      icon: User
+    });
+  }
+
   const renderedNavItems = isEmployeeOnly
     ? [
-        { name: 'Dashboard', path: '/admin/ess-portal?tab=dashboard', icon: LayoutDashboard },
-        { name: 'Attendance & Leave', path: '/admin/ess-portal?tab=attendance', icon: Clock },
-        { name: 'My Tasks', path: '/admin/ess-portal?tab=tasks', icon: CheckSquare },
-        { name: 'My Timesheet', path: '/admin/ess-portal?tab=timesheet', icon: FileSpreadsheet },
-        { name: 'My Payslips', path: '/admin/ess-portal?tab=payslips', icon: CreditCard },
-        { name: 'My Performance', path: '/admin/ess-portal?tab=performance', icon: Award },
-        { name: 'My Profile', path: '/admin/ess-portal?tab=profile', icon: User },
+        { name: 'Dashboard', path: '/employee/dashboard?tab=dashboard', icon: LayoutDashboard },
+        { name: 'Attendance & Leave', path: '/employee/dashboard?tab=attendance', icon: Clock },
+        { name: 'My Tasks', path: '/employee/dashboard?tab=tasks', icon: CheckSquare },
+        { name: 'My Timesheet', path: '/employee/dashboard?tab=timesheet', icon: FileSpreadsheet },
+        { name: 'My Payslips', path: '/employee/dashboard?tab=payslips', icon: CreditCard },
+        { name: 'My Performance', path: '/employee/dashboard?tab=performance', icon: Award },
+        { name: 'My Profile', path: '/employee/dashboard?tab=profile', icon: User },
       ]
-    : navItems;
+    : baseNavItems;
 
   return (
     <>
@@ -165,7 +180,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
       {/* Sidebar */}
       <aside className={`
         fixed inset-y-0 left-0 z-50 w-[240px] flex flex-col transition-transform duration-300 ease-in-out overflow-y-auto
-        ${isEmployeeOnly ? 'bg-[#FF6B00] border-none py-6 pl-4 pr-0' : 'bg-surface-container-low border-r border-outline-variant p-6'}
+        ${isEmployeeOnly ? 'bg-[#FF8533] border-none py-6 pl-4 pr-0' : 'bg-surface-container-low border-r border-outline-variant p-6'}
         ${isOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
         <div className={`mb-12 flex justify-between items-start shrink-0 ${isEmployeeOnly ? 'pr-6' : 'pl-1'}`}>
@@ -252,7 +267,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                   className={`
                     flex items-center gap-4 py-2.5 px-4 transition-all duration-300
                     ${isActive
-                      ? 'bg-[#0F0F12] text-[#FF6B00] rounded-l-[30px] rounded-r-none relative before:content-[""] before:absolute before:right-0 before:-top-6 before:w-6 before:h-6 before:bg-transparent before:rounded-br-[30px] before:shadow-[15px_15px_0_15px_#0F0F12] after:content-[""] after:absolute after:right-0 after:-bottom-6 after:w-6 after:h-6 after:bg-transparent after:rounded-tr-[30px] after:shadow-[15px_-15px_0_15px_#0F0F12] font-bold'
+                      ? 'bg-[#0F0F12] text-[#FF8533] rounded-l-[30px] rounded-r-none relative before:content-[""] before:absolute before:right-0 before:-top-6 before:w-6 before:h-6 before:bg-transparent before:rounded-br-[30px] before:shadow-[15px_15px_0_15px_#0F0F12] after:content-[""] after:absolute after:right-0 after:-bottom-6 after:w-6 after:h-6 after:bg-transparent after:rounded-tr-[30px] after:shadow-[15px_-15px_0_15px_#0F0F12] font-bold'
                       : 'text-white/80 hover:text-white hover:bg-white/10 rounded-l-[30px] mr-4 font-medium'
                     }
                   `}

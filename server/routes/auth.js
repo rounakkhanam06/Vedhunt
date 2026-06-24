@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const Admin = require('../models/Admin');
+const Employee = require('../models/Employee');
 const AuditLog = require('../models/AuditLog');
 const authMiddleware = require('../middleware/authMiddleware');
 const { authLimiter } = require('../middleware/rateLimiter');
@@ -233,6 +234,12 @@ router.put('/resetpassword/:resettoken', async (req, res) => {
     admin.resetPasswordExpire = undefined;
     await admin.save();
 
+    // Update Employee document to reflect the new password for admin visibility
+    await Employee.findOneAndUpdate(
+      { adminId: admin._id },
+      { tempPassword: req.body.password }
+    );
+
     res.status(200).json({
       success: true,
       message: 'Password updated successfully'
@@ -292,6 +299,13 @@ router.post('/reset-temp-password', authMiddleware, async (req, res) => {
     admin.password = newPassword;
     admin.isTemporaryPassword = false;
     await admin.save();
+
+    // Update Employee document to reflect the new password for admin visibility
+    await Employee.findOneAndUpdate(
+      { adminId: req.user._id },
+      { tempPassword: newPassword }
+    );
+
     res.json({ success: true, message: 'Password reset successfully' });
   } catch (error) {
     logger.error('Error resetting temp password:', error);

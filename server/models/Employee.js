@@ -2,9 +2,10 @@ const mongoose = require('mongoose');
 
 const attendanceSchema = new mongoose.Schema({
   date: { type: Date, required: true },
-  status: { type: String, enum: ['Present', 'Absent', 'Leave'], default: 'Present' },
+  status: { type: String, enum: ['Present', 'Absent', 'Leave', 'Weekend'], default: 'Present' },
   clockIn: { type: String },
-  clockOut: { type: String }
+  clockOut: { type: String },
+  lateByMins: { type: Number, default: 0 }
 });
 
 const taskSchema = new mongoose.Schema({
@@ -79,7 +80,7 @@ const employeeSchema = new mongoose.Schema(
     },
     employmentType: {
       type: String,
-      enum: ['Billable', 'Non-billable'],
+      enum: ['Billable', 'Non-billable', 'Partner', 'Founder'],
       default: 'Billable'
     },
     joinDate: {
@@ -103,6 +104,16 @@ const employeeSchema = new mongoose.Schema(
       accountNumber: { type: String, default: '' },
       bankName: { type: String, default: '' },
       ifscCode: { type: String, default: '' }
+    },
+    leaveBalances: {
+      CL: { type: Number, default: 6 },
+      SL: { type: Number, default: 6 },
+      PL: { type: Number, default: 12 }
+    },
+    leavesUsed: {
+      CL: { type: Number, default: 0 },
+      SL: { type: Number, default: 0 },
+      PL: { type: Number, default: 0 }
     },
     attendance: [attendanceSchema],
     tasks: [taskSchema],
