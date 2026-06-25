@@ -205,10 +205,7 @@ const ServiceManager = ({ isNested = false }) => {
     try {
       const dataToSubmit = { ...formData };
       if (typeof dataToSubmit.features === 'string') {
-        dataToSubmit.features = dataToSubmit.features.split('\n').filter(f => f.trim() !== '');
-      }
-      if (typeof dataToSubmit.subServices === 'string') {
-        dataToSubmit.subServices = dataToSubmit.subServices.split('\n').filter(s => s.trim() !== '');
+        dataToSubmit.features = dataToSubmit.features.split(',').map(f => f.trim()).filter(f => f !== '');
       }
 
       if (editingService) {
