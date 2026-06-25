@@ -155,14 +155,14 @@ const Blog = () => {
         </div>
 
         {/* Browse Section */}
-        <div className="flex flex-col md:flex-row items-center justify-center gap-8 mb-10 pb-6 border-b border-app-border/40">
-          <span className="font-heading font-bold text-lg text-app-text">Browse by :</span>
-          <div className="flex flex-wrap items-center justify-center gap-8">
+        <div className="flex flex-col md:flex-row items-center md:items-start gap-4 md:gap-8 mb-10 pb-6 border-b border-app-border/40">
+          <span className="font-heading font-bold text-lg text-app-text whitespace-nowrap md:mt-[-2px]">Browse by :</span>
+          <div className="flex items-center gap-6 md:gap-8 overflow-x-auto w-full pb-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
             {dynamicCategories.map((category) => (
               <button
                 key={category}
                 onClick={() => setActiveCategory(category)}
-                className={`text-[10px] font-black tracking-[0.2em] uppercase transition-all duration-300 ${
+                className={`text-[10px] font-black tracking-[0.2em] uppercase transition-all duration-300 whitespace-nowrap flex-shrink-0 ${
                   activeCategory === category 
                   ? 'text-primary' 
                   : 'text-app-text hover:text-primary'

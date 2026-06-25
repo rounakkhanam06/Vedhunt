@@ -17,7 +17,10 @@ import {
   Calculator,
   Check,
   Link as LinkIcon,
-  ChevronDown
+  ChevronDown,
+  Palette,
+  Ship,
+  Settings
 } from 'lucide-react';
 import { useContactInfo } from '../context/ContactInfoContext';
 import api from '../services/api';
@@ -60,6 +63,9 @@ const servicesOptions = [
   { id: 'performance_marketing', label: 'Performance Marketing', desc: 'Google / Meta / PPC', icon: Target },
   { id: 'mis', label: 'MIS & Reporting', desc: 'Power BI / Excel', icon: FileSpreadsheet },
   { id: 'accounting', label: 'Accounting & Finance', desc: 'GST / Books / Payroll', icon: Calculator },
+  { id: 'graphic_design', label: 'Logo & Graphic Design', desc: 'Branding / Creatives', icon: Palette },
+  { id: 'shipping', label: 'Shipping Management', desc: 'Logistics / Freight', icon: Ship },
+  { id: 'workflow', label: 'Workflow Management', desc: 'Automation / Systems', icon: Settings },
 ];
 
 const timelineOptions = ['Immediately', 'Within 1 Month', '1-3 Months', 'Just Exploring'];
@@ -67,83 +73,128 @@ const timelineOptions = ['Immediately', 'Within 1 Month', '1-3 Months', 'Just Ex
 // Dynamic form configuration based on service
 const serviceFormConfig = {
   website: {
-    dropdowns: [
-      { name: 'websiteType', label: 'Website Type', options: ['E-commerce', 'Corporate', 'Portfolio', 'Landing Page', 'Blog'] },
-      { name: 'cmsPreference', label: 'CMS Preference', options: ['WordPress', 'Shopify', 'Custom (React/Next.js)', 'Not Sure'] }
-    ],
-    checkboxes: { name: 'websiteFeatures', label: 'Features Required', options: ['Contact Form', 'User Login', 'Payment Gateway', 'Booking System', 'Multilingual', 'Blog', 'SEO Setup', 'Live Chat'] },
     radios: [
-      { name: 'existingWebsite', label: 'Existing website?', options: ['Yes - Redesign', 'No - Fresh'] },
-      { name: 'domainHosting', label: 'Domain & Hosting?', options: ['Have it', 'Need it', 'Not Sure'] }
-    ],
-    textarea: { name: 'projectIdea', label: 'Describe Project Idea *' }
-  },
-  app: {
-    dropdowns: [
-      { name: 'platform', label: 'Platform *', options: ['iOS', 'Android', 'Flutter (Both)', 'Native Both'] },
-      { name: 'appCategory', label: 'App Category', options: ['E-commerce', 'Social', 'Utility', 'Health & Fitness', 'Education', 'Other'] }
-    ],
-    checkboxes: { name: 'appFeatures', label: 'Features Required', options: ['User Login / Auth', 'Push Notifications', 'Payment Gateway', 'GPS / Maps', 'Admin Panel', 'Chat / Messaging', 'API Integration', 'Offline Mode'] },
-    radios: [
-      { name: 'existingApp', label: 'Existing app?', options: ['Yes - Redesign', 'No - Fresh'] },
-      { name: 'backendNeeded', label: 'Backend needed?', options: ['Yes', 'No', 'Not Sure'] }
-    ],
-    textarea: { name: 'projectIdea', label: 'Describe App Idea *' }
-  },
-  digital_marketing: {
-    subtitle: 'Tell us about your marketing goals',
-    dropdowns: [
-      { name: 'dmServiceNeeded', label: 'Service Needed *', options: ['SEO', 'Social Media Management', 'Content Marketing', 'Performance Marketing', 'All-in-one'] },
-      { name: 'industry', label: 'Your Industry', options: ['E-commerce', 'Healthcare', 'Education', 'Real Estate', 'Technology', 'Other'] }
-    ],
-    radios: [
-      { name: 'hasWebsite', label: 'Do you have a website?', options: ['YES', 'NO', 'IN PROGRESS'] },
-      { name: 'monthlyBudget', label: 'Monthly Budget', options: ['BELOW 10K', '10K-30K', '30K-1L', 'ABOVE 1L'] },
-      { name: 'projectBudget', label: 'Project Budget (INR)', options: ['BELOW 25K', '25K-75K', '75K-2L', '2L-5L', 'ABOVE 5L', 'NOT SURE'] }
-    ],
-    textarea: { name: 'projectIdea', label: 'Goals & Requirements *', placeholder: 'Describe target audience, current marketing, competitors, expected results...' }
-  },
-  performance_marketing: {
-    subtitle: 'Tell us about your paid advertising goals',
-    dropdowns: [
-      { name: 'pmAdPlatform', label: 'Ad Platform *', options: ['Google Ads', 'Meta (FB/Insta)', 'LinkedIn', 'Twitter', 'Other'] },
-      { name: 'pmMonthlySpend', label: 'Monthly Ad Spend (INR)', options: ['Below ₹50K', '₹50K - ₹2L', '₹2L - ₹5L', 'Above ₹5L'] }
-    ],
-    radios: [
-      { name: 'pmCurrentlyRunning', label: 'Currently running ads?', options: ['YES', 'NO'] },
-      { name: 'pmPrimaryGoal', label: 'Primary Goal', options: ['LEADS', 'SALES', 'AWARENESS', 'APP INSTALLS'] },
-      { name: 'projectBudget', label: 'Project Budget (INR)', options: ['BELOW 25K', '25K-75K', '75K-2L', '2L-5L', 'ABOVE 5L', 'NOT SURE'] }
+      { name: 'websiteType', label: 'Website Type *', options: ['Business / Corporate', 'Ecommerce Store', 'Landing Page', 'Web App / Portal', 'Redesign Existing'] },
+      { name: 'hasWebsite', label: 'Do you have a website currently?', options: ['Yes', 'No'] },
+      { name: 'sizeScope', label: 'Size / Scope', options: ['1-5 pages', '5-15 pages', '15+ pages', '50+ products', 'Not sure'] },
+      { name: 'designStatus', label: 'Design Status', options: ['Design ready', 'Need design', 'Have logo / brand only'] },
+      { name: 'projectBudget', label: 'Project Budget (INR) *', options: ['Below 25K', '25K-75K', '75K-2L', '2L-5L', 'Above 5L', 'Not sure'] }
     ],
     inputs: [
-      { name: 'landingPageUrl', label: 'Landing Page URL', type: 'url', placeholder: 'https://yoursite.com/landing-page' }
+      { name: 'existingWebsiteUrl', label: 'Existing Website URL *', type: 'url', placeholder: 'https://yoursite.com', showIf: { field: 'hasWebsite', value: 'Yes' } }
     ],
-    textarea: { name: 'projectIdea', label: 'Describe Campaign Goals *', placeholder: 'Product/service, target audience, locations, expected CPC/CPL...' }
+    checkboxes: { name: 'websiteFeatures', label: 'Key Features Needed', options: ['Payment Gateway', 'Bookings / Appointments', 'User Login', 'Blog / CMS', 'Multi-language', 'Live Chat'] },
+    textarea: { name: 'projectIdea', label: 'Describe Your Goals *', placeholder: 'What does this website need to achieve for your business?' }
+  },
+  app: {
+    radios: [
+      { name: 'platform', label: 'Platform *', options: ['Android', 'iOS', 'Both', 'Cross-platform (Flutter)', 'Not sure'] },
+      { name: 'currentStage', label: 'Current Stage', options: ['New idea', 'Have requirement doc', 'MVP needed', 'Improve existing app'] },
+      { name: 'designsReady', label: 'Designs / Wireframes Ready?', options: ['Yes', 'No'] },
+      { name: 'projectBudget', label: 'Project Budget (INR) *', options: ['Below 1L', '1L-3L', '3L-7L', '7L-15L', 'Above 15L', 'Not sure'] }
+    ],
+    dropdowns: [
+      { name: 'appCategory', label: 'App Category', options: ['E-commerce', 'Social', 'Utility', 'Health & Fitness', 'Education', 'Other'] }
+    ],
+    checkboxes: { name: 'appFeatures', label: 'Key Features', options: ['User Login', 'Payments', 'Push Notifications', 'Maps / GPS', 'Chat', 'Admin Panel', 'API Integration'] },
+    textarea: { name: 'projectIdea', label: 'Describe Your Goals *', placeholder: 'Describe your app idea and the core problem it solves.' }
+  },
+  digital_marketing: {
+    subtitle: 'Tell us about your growth goals.',
+    checkboxes: { name: 'servicesNeeded', label: 'Services Needed *', options: ['SEO', 'Social Media Management', 'Content Marketing', 'Email Marketing', 'Influencer / UGC'] },
+    dropdowns: [
+      { name: 'businessType', label: 'Business Type', options: ['B2B', 'B2C', 'Ecommerce', 'Local Business', 'SaaS / Tech'] }
+    ],
+    radios: [
+      { name: 'haveWebsiteSocial', label: 'Have Website / Social Accounts?', options: ['Yes', 'No'] },
+      { name: 'primaryGoal', label: 'Primary Goal', options: ['Brand Awareness', 'Website Traffic', 'Leads', 'Engagement', 'Sales'] },
+      { name: 'engagementType', label: 'Engagement Type', options: ['Monthly Retainer', 'One-time Project', 'Not sure'] },
+      { name: 'projectBudget', label: 'Project Budget (INR) *', options: ['Below 25K', '25K-50K', '50K-1L', '1L-2L', 'Above 2L', 'Not sure'] }
+    ],
+    textarea: { name: 'projectIdea', label: 'Describe Your Goals *', placeholder: 'What growth result are you aiming for in the next 90 days?' }
+  },
+  performance_marketing: {
+    subtitle: 'Tell us about your paid advertising goals.',
+    dropdowns: [
+      { name: 'adPlatform', label: 'Ad Platform *', options: ['Google Ads', 'Meta (FB / Instagram)', 'Both', 'LinkedIn Ads', 'YouTube', 'Not sure'] },
+      { name: 'monthlyAdSpend', label: 'Monthly Ad Spend (INR)', options: ['Below ₹50K', '₹50K–1L', '₹1L–3L', '₹3L–5L', 'Above ₹5L'] }
+    ],
+    radios: [
+      { name: 'currentlyRunningAds', label: 'Currently Running Ads?', options: ['Yes', 'No'] },
+      { name: 'primaryGoal', label: 'Primary Goal', options: ['Leads', 'Sales', 'Awareness', 'App Installs'] },
+      { name: 'projectBudget', label: 'Project Budget (INR) *', options: ['Below 25K', '25K-75K', '75K-2L', '2L-5L', 'Above 5L', 'Not sure'] }
+    ],
+    inputs: [
+      { name: 'landingPageUrl', label: 'Landing Page URL', type: 'url', placeholder: 'vedhunt.in' }
+    ],
+    textarea: { name: 'projectIdea', label: 'Describe Your Goals *', placeholder: 'You can connect me any time' }
   },
   mis: {
-    dropdowns: [
-      { name: 'preferredTool', label: 'Preferred Tool', options: ['Power BI', 'Tableau', 'Excel', 'Google Data Studio', 'Custom Dashboard'] }
-    ],
-    checkboxes: { name: 'dataSources', label: 'Data Sources', options: ['Excel / CSV', 'SQL Database', 'Tally / ERP', 'Web APIs', 'Google Sheets'] },
+    subtitle: 'Tell us what you want to measure and visualise.',
     radios: [
-      { name: 'reportFrequency', label: 'Report Frequency', options: ['Daily', 'Weekly', 'Monthly', 'Real-time'] },
-      { name: 'existingMisSetup', label: 'Existing Setup?', options: ['Yes', 'No'] }
+      { name: 'toolPreference', label: 'Tool Preference *', options: ['Power BI', 'Excel', 'Both', 'Recommend for me'] },
+      { name: 'updateFrequency', label: 'Update Frequency', options: ['Real-time / Live', 'Daily', 'Weekly', 'Monthly', 'One-time'] },
+      { name: 'engagementType', label: 'Engagement Type', options: ['Monthly Retainer', 'One-time'] },
+      { name: 'projectBudget', label: 'Project Budget (INR) *', options: ['Below 25K', '25K-75K', '75K-1.5L', 'Above 1.5L', 'Not sure'] }
     ],
-    textarea: { name: 'projectIdea', label: 'Describe Reporting Requirements *' }
+    dropdowns: [
+      { name: 'dataSource', label: 'Data Source', options: ['Excel / CSV', 'Google Sheets', 'Database (SQL)', 'CRM / ERP', 'Multiple sources', 'Not sure'] }
+    ],
+    checkboxes: { name: 'whatYouNeed', label: 'What do you need?', options: ['Live Dashboard', 'Automated Reports', 'Data Cleaning', 'Sales / MIS Report', 'Financial Dashboard', 'KPI Tracking'] },
+    textarea: { name: 'projectIdea', label: 'Describe Your Goals *', placeholder: 'What decisions should this dashboard help you make?' }
   },
   accounting: {
-    subtitle: 'Tell us about your accounting needs',
+    subtitle: 'Tell us about your compliance and finance needs.',
+    checkboxes: { name: 'servicesNeeded', label: 'Services Needed *', options: ['GST Filing', 'Bookkeeping', 'Payroll', 'ITR Filing', 'Audit Support', 'Financial MIS'] },
     dropdowns: [
-      { name: 'accServiceRequired', label: 'Service Required *', options: ['Bookkeeping', 'GST Filing', 'Payroll Processing', 'Tax Returns', 'Virtual CFO', 'Full Suite'] },
-      { name: 'businessType', label: 'Business Type', options: ['Pvt Ltd', 'LLP', 'Partnership', 'Proprietorship', 'Individual', 'Other'] },
-      { name: 'monthlyTransactions', label: 'Monthly Transactions', options: ['< 100', '100 - 500', '500 - 2000', '> 2000'] },
-      { name: 'numEmployees', label: 'Number of Employees', options: ['1-10', '11-50', '51-200', '200+'] }
+      { name: 'businessType', label: 'Business Type', options: ['Proprietorship', 'Partnership / LLP', 'Pvt Ltd', 'Startup', 'Individual'] }
     ],
     radios: [
-      { name: 'gstRegistered', label: 'GST Registered?', options: ['YES', 'NO', 'NEED REGISTRATION'] },
-      { name: 'currentSoftware', label: 'Current Software', options: ['TALLY', 'ZOHO', 'EXCEL', 'NONE'] },
-      { name: 'projectBudget', label: 'Project Budget (INR)', options: ['BELOW 25K', '25K-75K', '75K-2L', '2L-5L', 'ABOVE 5L', 'NOT SURE'] }
+      { name: 'gstRegistered', label: 'GST Registered?', options: ['Yes', 'No', 'Need Registration'] },
+      { name: 'monthlyTransactionVolume', label: 'Monthly Transaction Volume', options: ['Below 50', '50–200', '200–500', '500+', 'Not sure'] },
+      { name: 'currentSetup', label: 'Current Setup', options: ['Tally', 'Zoho / QuickBooks', 'Excel only', 'Nothing in place', 'Have existing CA'] },
+      { name: 'engagementType', label: 'Engagement Type', options: ['Monthly Retainer', 'Annual Compliance', 'One-time'] }
     ],
-    textarea: { name: 'projectIdea', label: 'Describe Requirements *', placeholder: 'Current setup, pain points, compliance issues...' }
+    textarea: { name: 'projectIdea', label: 'Describe Your Goals *', placeholder: 'Describe your current accounting setup and pain points.' }
+  },
+  graphic_design: {
+    subtitle: 'Tell us what you want designed.',
+    checkboxes: { name: 'whatYouNeed', label: 'What do you need? *', options: ['Logo', 'Brand Identity Kit', 'Social Media Creatives', 'Brochure / Flyer', 'Packaging', 'Business Cards'] },
+    radios: [
+      { name: 'haveBrandGuidelines', label: 'Have Brand Guidelines?', options: ['Yes', 'No'] },
+      { name: 'stylePreference', label: 'Style Preference', options: ['Minimal', 'Modern', 'Bold', 'Classic', 'Not sure'] },
+      { name: 'deliveryTimeline', label: 'Delivery Timeline', options: ['Urgent (3–5 days)', '1–2 weeks', 'Flexible'] },
+      { name: 'engagementType', label: 'Engagement Type', options: ['Monthly Retainer', 'One-time'] },
+      { name: 'projectBudget', label: 'Project Budget (INR) *', options: ['Below 10K', '10K-25K', '25K-50K', 'Above 50K', 'Not sure'] }
+    ],
+    textarea: { name: 'projectIdea', label: 'Describe Your Goals *', placeholder: 'Describe what you want designed and any references you like.' }
+  },
+  shipping: {
+    subtitle: 'Tell us about your shipping or logistics business.',
+    dropdowns: [
+      { name: 'businessType', label: 'Business Type *', options: ['Freight Forwarding', 'Courier / Logistics', 'Import / Export', 'Warehousing', 'Shipping Line / Agency'] }
+    ],
+    checkboxes: { name: 'servicesNeeded', label: 'Services Needed', options: ['Operations Management', 'Documentation', 'Digital System / Software', 'Marketing', 'Accounting / Compliance'] },
+    radios: [
+      { name: 'currentSystem', label: 'Current System In Place?', options: ['Yes', 'No'] },
+      { name: 'teamFleetSize', label: 'Team / Fleet Size', options: ['1–10', '10–50', '50+', 'Not applicable'] },
+      { name: 'engagementType', label: 'Engagement Type', options: ['Monthly Retainer', 'One-time', 'Consultation'] }
+    ],
+    textarea: { name: 'projectIdea', label: 'Describe Your Goals *', placeholder: "Describe what you'd like Vedhunt to manage or build." }
+  },
+  workflow: {
+    subtitle: 'Tell us where your operations slow down.',
+    checkboxes: { name: 'whatToImprove', label: 'What do you want to improve? *', options: ['Lead / Sales Process', 'Project Management', 'Team Productivity', 'Approvals / Docs', 'Reporting / MIS', 'End-to-end Automation'] },
+    dropdowns: [
+      { name: 'currentTools', label: 'Current Tools', options: ['Excel / Spreadsheets', 'Jira / Asana / Trello', 'Notion / Monday.com', 'Custom Software', 'Other'] }
+    ],
+    radios: [
+      { name: 'teamSize', label: 'Team Size', options: ['1–5', '5–20', '20–50', '50+'] },
+      { name: 'biggestPainPoint', label: 'Biggest Pain Point', options: ['Too much manual work', 'No visibility', 'Things slip through', 'Slow approvals', 'Scaling issues'] },
+      { name: 'engagementType', label: 'Engagement Type', options: ['Monthly Retainer', 'One-time Setup', 'Consultation'] },
+      { name: 'projectBudget', label: 'Project Budget (INR) *', options: ['Below 25K', '25K-75K', '75K-2L', 'Above 2L', 'Not sure'] }
+    ],
+    textarea: { name: 'projectIdea', label: 'Describe Your Goals *', placeholder: 'Describe the workflow problem costing you the most time.' }
   }
 };
 
@@ -240,10 +291,7 @@ export default function GetQuote() {
       setSubmittedData(finalData);
       setIsSubmitSuccess(true);
       
-      // Auto-hide success message after 6 seconds
-      setTimeout(() => {
-        setIsSubmitSuccess(false);
-      }, 6000);
+      // Success message will remain until the user manually clicks "Submit New Inquiry"
       
       // Trigger tracking
       if (window.gtag) {
@@ -293,11 +341,17 @@ export default function GetQuote() {
       }
       isValid = true;
     } else if (step === 3) {
-      if (selectedService === 'app') {
-        isValid = await trigger(['projectIdea', 'platform']);
-      } else {
-        isValid = await trigger(['projectIdea']);
+      const fieldsToValidate = ['projectIdea'];
+      const config = serviceFormConfig[selectedService];
+      if (config) {
+        if (config.dropdowns) config.dropdowns.forEach(dd => fieldsToValidate.push(dd.name));
+        if (config.inputs) config.inputs.forEach(inp => {
+          if (!inp.showIf || watch(inp.showIf.field) === inp.showIf.value) {
+            fieldsToValidate.push(inp.name);
+          }
+        });
       }
+      isValid = await trigger(fieldsToValidate);
     }
     
     if (isValid) {
@@ -458,22 +512,25 @@ export default function GetQuote() {
         {/* Inputs */}
         {config.inputs && config.inputs.length > 0 && (
           <div className="space-y-4">
-            {config.inputs.map((inp, idx) => (
-              <div key={idx} className="space-y-1 text-left relative group">
-                <label className="text-[10px] font-extrabold text-app-text-muted/70 uppercase tracking-widest block">
-                  {inp.label}
-                </label>
-                <input
-                  type={inp.type || "text"}
-                  placeholder={inp.placeholder}
-                  className={`w-full bg-transparent border-b-2 py-1.5 text-app-text focus:outline-none focus:border-primary transition-colors text-sm font-bold ${
-                    errors[inp.name] ? 'border-red-500/50' : 'border-app-border/70'
-                  }`}
-                  {...register(inp.name, { required: inp.label.includes('*') ? 'This field is required' : false })}
-                />
-                {errors[inp.name] && <span className="text-[10px] text-red-500">{errors[inp.name].message}</span>}
-              </div>
-            ))}
+            {config.inputs.map((inp, idx) => {
+              if (inp.showIf && watch(inp.showIf.field) !== inp.showIf.value) return null;
+              return (
+                <div key={idx} className="space-y-1 text-left relative group">
+                  <label className="text-[10px] font-extrabold text-app-text-muted/70 uppercase tracking-widest block">
+                    {inp.label}
+                  </label>
+                  <input
+                    type={inp.type || "text"}
+                    placeholder={inp.placeholder}
+                    className={`w-full bg-transparent border-b-2 py-1.5 text-app-text focus:outline-none focus:border-primary transition-colors text-sm font-bold ${
+                      errors[inp.name] ? 'border-red-500/50' : 'border-app-border/70'
+                    }`}
+                    {...register(inp.name, { required: inp.label.includes('*') ? 'This field is required' : false })}
+                  />
+                  {errors[inp.name] && <span className="text-[10px] text-red-500">{errors[inp.name].message}</span>}
+                </div>
+              );
+            })}
           </div>
         )}
 
@@ -790,7 +847,9 @@ export default function GetQuote() {
                                 if (values[f.name]) details.push({ label: f.label.replace(' *', ''), value: values[f.name] });
                               });
                               if (config.inputs) config.inputs.forEach(f => {
-                                if (values[f.name]) details.push({ label: f.label.replace(' *', ''), value: values[f.name] });
+                                if ((!f.showIf || values[f.showIf.field] === f.showIf.value) && values[f.name]) {
+                                  details.push({ label: f.label.replace(' *', ''), value: values[f.name] });
+                                }
                               });
                               if (config.checkboxes && values[config.checkboxes.name]?.length > 0) {
                                 details.push({ label: config.checkboxes.label.replace(' *', ''), value: values[config.checkboxes.name].join(', ') });

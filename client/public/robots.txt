@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+
+# Block admin panel
+Disallow: /admin/
+Disallow: /admin
+
+# Block landing pages (already has noindex meta)
+Disallow: /lp/
+
+Sitemap: https://vedhunt.in/sitemap.xml

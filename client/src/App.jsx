@@ -9,6 +9,7 @@ import 'lenis/dist/lenis.css';
 import { useEffect } from 'react';
 
 import api from './services/api';
+import SEOSchemas from './components/seo/SEOSchemas';
 
 export default function App() {
   useEffect(() => {
@@ -39,6 +40,7 @@ export default function App() {
 
   return (
     <HelmetProvider>
+      <SEOSchemas />
       <ThemeProvider>
         <ContactInfoProvider>
           <ReactLenis root options={{ autoRaf: true, duration: 0.9, lerp: 0.1 }}>
