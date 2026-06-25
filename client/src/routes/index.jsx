@@ -81,17 +81,53 @@ import AdminThemeGuard from '../admin/components/AdminThemeGuard';
 import ProtectedRoute from '../admin/components/ProtectedRoute';
 import { Outlet } from 'react-router-dom';
 
+import React from 'react';
+
+class ChunkLoadErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    const isChunkLoadFailed = error?.message?.match(/Failed to fetch dynamically imported module/i) || 
+                              error?.name === 'ChunkLoadError';
+    
+    if (isChunkLoadFailed) {
+      // The browser has an old version of the app cached. Force a hard reload to get the new chunks.
+      window.location.reload(true);
+    }
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen bg-app-bg flex items-center justify-center text-white">
+          <p>Loading new version...</p>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 // High-fidelity, smooth loading fallback component to display during chunk fetching
 const withSuspense = (Component) => (
-  <Suspense 
-    fallback={
-      <div className="min-h-screen bg-app-bg flex items-center justify-center">
-        <div className="w-10 h-10 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
-      </div>
-    }
-  >
-    <Component />
-  </Suspense>
+  <ChunkLoadErrorBoundary>
+    <Suspense 
+      fallback={
+        <div className="min-h-screen bg-app-bg flex items-center justify-center">
+          <div className="w-10 h-10 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
+        </div>
+      }
+    >
+      <Component />
+    </Suspense>
+  </ChunkLoadErrorBoundary>
 );
 
 const withPermission = (Component, requiredPermission) => (
