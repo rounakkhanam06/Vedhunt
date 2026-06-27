@@ -46,26 +46,7 @@ const injectScripts = (config) => {
     window.fbq('track', 'PageView');
   }
 
-  // Google Analytics 4 & Google Ads
-  const useGA = config.googleAnalytics?.enabled && config.googleAnalytics?.id;
-  const useGAds = config.googleAds?.enabled && config.googleAds?.id;
-
-  if (useGA || useGAds) {
-    const script = document.createElement('script');
-    script.async = true;
-    // Load gtag based on either GA or GAds ID (Google loads both anyway)
-    const loadId = useGA ? config.googleAnalytics.id : config.googleAds.id;
-    script.src = `https://www.googletagmanager.com/gtag/js?id=${loadId}`;
-    document.head.appendChild(script);
-
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){window.dataLayer.push(arguments);}
-    window.gtag = gtag;
-    gtag('js', new Date());
-
-    if (useGA) gtag('config', config.googleAnalytics.id);
-    if (useGAds) gtag('config', config.googleAds.id);
-  }
+  // Note: Google Analytics 4 & Google Ads initialization is now hardcoded in index.html
 
   // Google Tag Manager
   if (config.googleTagManager?.enabled && config.googleTagManager?.id) {
@@ -111,8 +92,8 @@ window.trackConversion = (eventDetails = {}) => {
     });
   }
 
-  // Google Analytics Custom Event
-  if (trackingConfig.googleAnalytics?.enabled && window.gtag) {
+  // Google Analytics Custom Event (Hardcoded GA4)
+  if (window.gtag) {
     window.gtag('event', 'generate_lead', {
       ...eventDetails
     });

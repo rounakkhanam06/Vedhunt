@@ -741,7 +741,7 @@ exports.updateFacebookSettings = async (req, res) => {
 
 const DEFAULT_CAMPAIGN_SETTINGS = {
   facebookPixel: { id: '', enabled: false },
-  googleAnalytics: { id: '', enabled: false },
+  googleAnalytics: { id: 'G-9JFTTEVSL0', enabled: true },
   googleTagManager: { id: '', enabled: false },
   googleAds: { id: 'AW-10976080417', enabled: true, conversionLabel: '8TJtCIb2vMIcEKHk5vEo' },
   linkedInInsight: { id: '', enabled: false },
@@ -781,7 +781,6 @@ exports.updateCampaignSettings = async (req, res) => {
     // Server-side validation
     const validators = {
       facebookPixel: /^\d+$/,
-      googleAnalytics: /^G-[A-Z0-9]+$/,
       googleTagManager: /^GTM-[A-Z0-9]+$/,
       googleAds: /^AW-\d+$/,
       linkedInInsight: /^\d+$/
@@ -798,7 +797,6 @@ exports.updateCampaignSettings = async (req, res) => {
 
     const errors = [
       validatePlatform('facebookPixel', validators.facebookPixel),
-      validatePlatform('googleAnalytics', validators.googleAnalytics),
       validatePlatform('googleTagManager', validators.googleTagManager),
       validatePlatform('googleAds', validators.googleAds),
       validatePlatform('linkedInInsight', validators.linkedInInsight)

@@ -327,7 +327,6 @@ const SettingsPage = () => {
     // Validate before save
     const validators = {
       facebookPixel: /^\d+$/,
-      googleAnalytics: /^G-[A-Z0-9]+$/,
       googleTagManager: /^GTM-[A-Z0-9]+$/,
       googleAds: /^AW-\d+$/,
       linkedInInsight: /^\d+$/
@@ -623,29 +622,7 @@ const SettingsPage = () => {
                   </div>
                 </div>
 
-                {/* Google Analytics */}
-                <div className="bg-[#121215] border border-[#2D2D33] p-6 rounded-xl">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-[#F9AB00]/10 flex items-center justify-center">
-                        <BarChart2 size={20} className="text-[#F9AB00]" />
-                      </div>
-                      <div>
-                        <h4 className="text-white font-semibold">Google Analytics 4</h4>
-                        <p className="text-xs text-gray-400">Track website traffic and user behavior.</p>
-                      </div>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input type="checkbox" className="sr-only peer" checked={campaignData.googleAnalytics?.enabled} onChange={(e) => handleCampaignChange('googleAnalytics', 'enabled', e.target.checked)} />
-                      <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#FF6B00]"></div>
-                    </label>
-                  </div>
-                  <div className={`transition-all duration-300 ${campaignData.googleAnalytics?.enabled ? 'opacity-100 h-auto' : 'opacity-50 pointer-events-none'}`}>
-                    <label className={labelClasses}>Measurement ID</label>
-                    <input type="text" placeholder="e.g. G-XXXXXXX" value={campaignData.googleAnalytics?.id} onChange={(e) => handleCampaignChange('googleAnalytics', 'id', e.target.value)} className={`${inputClasses} ${campaignErrors.googleAnalytics ? 'border-red-500' : ''}`} />
-                    {campaignErrors.googleAnalytics && <p className="text-red-500 text-xs mt-1">{campaignErrors.googleAnalytics}</p>}
-                  </div>
-                </div>
+
 
                 {/* Google Tag Manager */}
                 <div className="bg-[#121215] border border-[#2D2D33] p-6 rounded-xl">
