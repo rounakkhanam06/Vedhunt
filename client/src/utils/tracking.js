@@ -1,39 +1,29 @@
-import { settingsService } from '../services/settingsService';
+// ============================================================
+// Tracking Configuration — config me hi rakha, admin se nahi
+// ============================================================
+//
+// FB Pixel ID: Set VITE_FB_PIXEL_ID in client/.env
+// Google Ads:  Hardcoded in index.html (gtag AW-10976080417)
+// GA4:         Hardcoded in index.html (G-9JFTTEVSL0)
+// GTM / LinkedIn: set VITE_GTM_ID / VITE_LINKEDIN_PARTNER_ID in .env
+//
+// To change Pixel ID: update client/.env → VITE_FB_PIXEL_ID=<your id>
+// ============================================================
 
-let trackingConfig = null;
+// Read pixel IDs directly from Vite env vars — no API call needed
+const FB_PIXEL_ID       = import.meta.env.VITE_FB_PIXEL_ID       || null;
+const GTM_ID            = import.meta.env.VITE_GTM_ID            || null;
+const LINKEDIN_PARTNER  = import.meta.env.VITE_LINKEDIN_PARTNER_ID || null;
+
 let isInitialized = false;
 
-// 1. Fetch from session storage or API
-export const initTracking = async () => {
-  if (isInitialized) return trackingConfig;
+// 1. Initialize all tracking platforms once (called from MainLayout on mount)
+export const initTracking = () => {
+  if (isInitialized) return;
+  isInitialized = true;
 
-  try {
-    const cached = sessionStorage.getItem('campaignSettings');
-    if (cached) {
-      trackingConfig = JSON.parse(cached);
-    } else {
-      const res = await settingsService.getCampaignSettings();
-      if (res.data) {
-        trackingConfig = res.data;
-        sessionStorage.setItem('campaignSettings', JSON.stringify(trackingConfig));
-      }
-    }
-    
-    injectScripts(trackingConfig);
-    isInitialized = true;
-    return trackingConfig;
-  } catch (error) {
-    console.error('Failed to initialize tracking:', error);
-    return null;
-  }
-};
-
-// 2. Inject the actual scripts
-const injectScripts = (config) => {
-  if (!config) return;
-
-  // Facebook Pixel
-  if (config.facebookPixel?.enabled && config.facebookPixel?.id) {
+  // Facebook Pixel — only injects script if VITE_FB_PIXEL_ID is set
+  if (FB_PIXEL_ID) {
     !function(f,b,e,v,n,t,s)
     {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
     n.callMethod.apply(n,arguments):n.queue.push(arguments)};
@@ -42,25 +32,23 @@ const injectScripts = (config) => {
     t.src=v;s=b.getElementsByTagName(e)[0];
     s.parentNode.insertBefore(t,s)}(window, document,'script',
     'https://connect.facebook.net/en_US/fbevents.js');
-    window.fbq('init', config.facebookPixel.id);
+    window.fbq('init', FB_PIXEL_ID);
     window.fbq('track', 'PageView');
   }
 
-  // Note: Google Analytics 4 & Google Ads initialization is now hardcoded in index.html
-
-  // Google Tag Manager
-  if (config.googleTagManager?.enabled && config.googleTagManager?.id) {
+  // Google Tag Manager (optional — set VITE_GTM_ID)
+  if (GTM_ID) {
     (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
     new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
     j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-    })(window,document,'script','dataLayer', config.googleTagManager.id);
+    })(window,document,'script','dataLayer', GTM_ID);
   }
 
-  // LinkedIn Insight Tag
-  if (config.linkedInInsight?.enabled && config.linkedInInsight?.id) {
+  // LinkedIn Insight Tag (optional — set VITE_LINKEDIN_PARTNER_ID)
+  if (LINKEDIN_PARTNER) {
     window._linkedin_data_partner_ids = window._linkedin_data_partner_ids || [];
-    window._linkedin_data_partner_ids.push(config.linkedInInsight.id);
+    window._linkedin_data_partner_ids.push(LINKEDIN_PARTNER);
     (function(l) {
     if (!l){window.lintrk = function(a,b){window.lintrk.q.push([a,b])};
     window.lintrk.q=[]}
@@ -72,35 +60,26 @@ const injectScripts = (config) => {
   }
 };
 
-// 3. Global Conversion Tracker
+// 2. Global Conversion Tracker — call this after any lead form is submitted
+//    Usage: window.trackConversion({ value: 0, currency: 'INR', service: 'SEO' })
 window.trackConversion = (eventDetails = {}) => {
-  if (!trackingConfig) return; // Not initialized or failed
-
-  console.log('Tracking conversion event:', eventDetails);
-
   // Facebook Lead Event
-  if (trackingConfig.facebookPixel?.enabled && window.fbq) {
+  if (FB_PIXEL_ID && window.fbq) {
     window.fbq('track', 'Lead', eventDetails);
   }
 
-  // Google Ads Conversion
-  if (trackingConfig.googleAds?.enabled && window.gtag && trackingConfig.googleAds.conversionLabel) {
-    window.gtag('event', 'conversion', {
-      'send_to': `${trackingConfig.googleAds.id}/${trackingConfig.googleAds.conversionLabel}`,
-      'value': eventDetails.value || 0,
-      'currency': eventDetails.currency || 'USD'
-    });
-  }
+  // Google Ads Conversion (hardcoded label from GetQuote.jsx)
+  // Additional gtag conversions can be fired from individual form pages directly
 
-  // Google Analytics Custom Event (Hardcoded GA4)
+  // Google Analytics 4 (GA4 is hardcoded in index.html)
   if (window.gtag) {
     window.gtag('event', 'generate_lead', {
       ...eventDetails
     });
   }
-  
-  // LinkedIn Lead
-  if (trackingConfig.linkedInInsight?.enabled && window.lintrk) {
-    window.lintrk('track', { conversion_id: trackingConfig.linkedInInsight.id });
+
+  // LinkedIn Conversion
+  if (LINKEDIN_PARTNER && window.lintrk) {
+    window.lintrk('track', { conversion_id: LINKEDIN_PARTNER });
   }
 };

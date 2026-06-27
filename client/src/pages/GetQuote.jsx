@@ -293,7 +293,7 @@ export default function GetQuote() {
       
       // Success message will remain until the user manually clicks "Submit New Inquiry"
       
-      // Trigger tracking
+      // Google Ads specific conversion (kept here — unique conversion label not in trackConversion)
       if (window.gtag) {
         window.gtag('event', 'conversion', {
           'send_to': 'AW-10976080417/8TJtCIb2vMIcEKHk5vEo',
@@ -302,6 +302,7 @@ export default function GetQuote() {
         });
       }
 
+      // trackConversion() handles FB Pixel + GA4 generate_lead + LinkedIn
       if (window.trackConversion) {
         window.trackConversion({
           value: 0,
@@ -309,14 +310,6 @@ export default function GetQuote() {
           service: finalData.service,
           timeline: finalData.timeline,
           source: finalData.source || 'GetQuote Form'
-        });
-      }
-      
-      if (window.fbq) {
-        window.fbq('track', 'Lead', {
-          content_name: payload.service,
-          currency: 'INR',
-          value: 0
         });
       }
 

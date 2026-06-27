@@ -115,21 +115,13 @@ export default function LandingPage() {
         setIsSubmitSuccess(true);
         reset();
         
-        // Trigger tracking
+        // Trigger tracking — trackConversion() handles FB Pixel + GA4 + LinkedIn
         if (window.trackConversion) {
           window.trackConversion({
             value: 0,
             currency: 'INR',
             service: data.service,
             source: 'Landing Page Form'
-          });
-        }
-        
-        if (window.fbq) {
-          window.fbq('track', 'Lead', {
-            content_name: data.service,
-            currency: 'INR',
-            value: 0
           });
         }
         
