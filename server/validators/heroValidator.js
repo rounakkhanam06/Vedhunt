@@ -7,8 +7,11 @@ const heroUpdateSchema = z.object({
   primaryButtonLink: z.string(), // could use z.string().url() if we strictly want full URLs, but we might have relative links like "/contact"
   secondaryButtonText: z.string().max(50).optional().nullable(),
   secondaryButtonLink: z.string().optional().nullable(),
-  backgroundImageUrl: z.string().url("Must be a valid URL").optional().nullable(),
+  tagline: z.string().optional().nullable(),
+  description: z.string().optional().nullable(),
+  backgroundImageUrl: z.string().url("Must be a valid URL").optional().nullable().or(z.literal('')),
   backgroundImagePublicId: z.string().optional().nullable(),
+  backgroundVideoUrl: z.string().url("Must be a valid URL").optional().nullable().or(z.literal('')),
   isActive: z.boolean().optional(),
 });
 

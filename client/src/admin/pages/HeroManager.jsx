@@ -10,7 +10,8 @@ const heroFormConfig = [
   { type: 'text', label: 'Primary Button Link (e.g. /get-quote)', name: 'primaryButtonLink', required: true },
   { type: 'text', label: 'Secondary Button Text', name: 'secondaryButtonText' },
   { type: 'text', label: 'Secondary Button Link (e.g. /services)', name: 'secondaryButtonLink' },
-  { type: 'textarea', label: 'Bottom Description', name: 'description' },
+  { type: 'text', label: 'Background Image URL', name: 'backgroundImageUrl' },
+  { type: 'text', label: 'Background Video URL (e.g. Cloudinary mp4 link)', name: 'backgroundVideoUrl' },
   { type: 'boolean', label: 'Active', name: 'isActive' }
 ];
 
@@ -56,6 +57,8 @@ const HeroManager = ({ isNested = false }) => {
     secondaryButtonText: '',
     secondaryButtonLink: '',
     description: '',
+    backgroundImageUrl: '',
+    backgroundVideoUrl: '',
     isActive: true,
   };
 

@@ -35,6 +35,9 @@ const heroSchema = new mongoose.Schema(
     backgroundImagePublicId: {
       type: String,
     },
+    backgroundVideoUrl: {
+      type: String,
+    },
     isActive: {
       type: Boolean,
       default: true,

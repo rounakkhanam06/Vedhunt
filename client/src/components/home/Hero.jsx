@@ -2,10 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion';
 import { ArrowRight, Sparkles, Check, Award, Users, Play, Pause, Globe, Code, Cpu, Database } from 'lucide-react';
-import heroImage from '../../assets/hero_modern.png';
 import lightLogo from '../../assets/logo_Square.jpg__1_-removebg-preview.png';
 import darkLogo from '../../assets/DarkthemeLogo.png';
-import backgroundVideo from '../../assets/vedio/mp_.mp4';
 import { useTheme } from '../../context/ThemeContext';
 import { Spotlight } from '@/components/ui/spotlight';
 import { EncryptedText } from '@/components/ui/encrypted-text';
@@ -35,6 +33,53 @@ const FloatingIcon = ({ children, delay = 0, className = "" }) => (
   </motion.div>
 );
 
+const formatVideoUrl = (rawUrl) => {
+  if (!rawUrl) return '/mp_.mp4';
+  const cleanUrl = rawUrl.trim();
+
+  // 1. Handle Cloudinary Private Console Dashboard URLs
+  if (cleanUrl.includes('res-console.cloudinary.com')) {
+    try {
+      const parts = cleanUrl.split('/');
+      const cloudNameIndex = parts.indexOf('res-console.cloudinary.com') + 1;
+      const cloudName = parts[cloudNameIndex] || 'df1eyts5l';
+      
+      // Look for base64 encoded segment
+      for (let i = 0; i < parts.length; i++) {
+        const part = parts[i];
+        if (part.includes('==') || (part.length > 20 && !part.includes('.'))) {
+          try {
+            const decoded = atob(part);
+            if (decoded && decoded.length > 2) {
+              return `https://res.cloudinary.com/${cloudName}/video/upload/${decoded}.mp4`;
+            }
+          } catch (e) {
+            // Ignore if not valid base64
+          }
+        }
+      }
+    } catch (e) {
+      console.error('Error parsing Cloudinary console URL:', e);
+    }
+  }
+
+  // 2. Handle Cloudinary Player Embed URLs
+  if (cleanUrl.includes('player.cloudinary.com/embed')) {
+    try {
+      const parsedUrl = new URL(cleanUrl);
+      const cloudName = parsedUrl.searchParams.get('cloud_name');
+      const publicId = parsedUrl.searchParams.get('public_id');
+      if (cloudName && publicId) {
+        return `https://res.cloudinary.com/${cloudName}/video/upload/${publicId}.mp4`;
+      }
+    } catch (e) {
+      console.error('Error parsing Cloudinary embed URL:', e);
+    }
+  }
+
+  return cleanUrl;
+};
+
 export default function Hero() {
   const { theme } = useTheme();
   const [textIndex, setTextIndex] = useState(0);
@@ -43,6 +88,7 @@ export default function Hero() {
   const videoRef = useRef(null);
   
   const { data: heroData, isLoading } = useHero();
+  const videoUrl = formatVideoUrl(heroData?.backgroundVideoUrl);
 
   const { scrollYProgress } = useScroll({
     target: sectionRef,
@@ -74,6 +120,13 @@ export default function Hero() {
     return () => clearTimeout(timer);
   }, [prefersReducedMotion]);
 
+  useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.load();
+      videoRef.current.play().catch(err => console.log("Autoplay prevented:", err));
+    }
+  }, [videoUrl]);
+
   // Rotate text phrases every 4 seconds
   useEffect(() => {
     if (prefersReducedMotion) return;
@@ -98,36 +151,19 @@ export default function Hero() {
         style={{ scale: backgroundScale }}
         className="absolute inset-0 z-0 w-full h-full"
       >
-        {heroData?.backgroundImageUrl ? (
-          <img
-            src={heroData.backgroundImageUrl}
-            alt="Hero Background"
-            className="absolute inset-0 w-full h-full object-cover"
-          />
-        ) : (
-          <>
-            <img
-              src={heroImage}
-              alt="Hero Background Poster"
-              className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ${shouldLoadVideo ? 'opacity-0' : 'opacity-100'}`}
-            />
-            {shouldLoadVideo && (
-              <video
-                ref={videoRef}
-                autoPlay
-                loop
-                muted
-                playsInline
-                className="absolute inset-0 w-full h-full object-cover"
-              >
-                <source src={backgroundVideo} type="video/mp4" />
-              </video>
-            )}
-          </>
-        )}
-        {/* Advanced Overlay System */}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/95 via-black/60 to-black/95 z-1" />
-        <div className="absolute inset-0 bg-black/50 z-1" />
+        <video
+          key={videoUrl}
+          ref={videoRef}
+          autoPlay
+          loop
+          muted
+          playsInline
+          className="absolute inset-0 w-full h-full object-cover"
+        >
+          <source src={videoUrl} type="video/mp4" />
+        </video>
+        {/* Balanced Overlay System for Video Visibility */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/30 to-black/80 pointer-events-none" />
       </motion.div>
 
       {/* Floating Elements for Visual Depth */}
@@ -222,7 +258,7 @@ export default function Hero() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ delay: 0.5, duration: 0.8 }}
-            className="max-w-3xl text-[11px] sm:text-sm text-white/50 sm:text-white/60 leading-relaxed sm:leading-relaxed font-medium tracking-wide mt-6 sm:mt-8 line-clamp-3 sm:line-clamp-none"
+            className="max-w-3xl text-[11px] sm:text-sm text-zinc-200 sm:text-slate-100 font-semibold leading-relaxed sm:leading-relaxed tracking-wide mt-6 sm:mt-8 line-clamp-3 sm:line-clamp-none drop-shadow-md"
           >
             {heroData?.description || "At our company, professionalism meets smart execution. We offer a wide range of high-quality services designed to simplify operations and support business growth under one trusted platform. We believe every business deserves a service partner that understands modern challenges and delivers practical, efficient solutions. Our multi-service expertise allows us to provide flexible, cost-effective, and scalable support across different industries. Your trusted partner for professional multi-service solutions."}
           </motion.p>
