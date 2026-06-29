@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Phone, Mail, ArrowRight, MapPin, ArrowUpRight, Link as LinkIcon } from 'lucide-react';
+import { Phone, Mail, ArrowRight, MapPin, ArrowUpRight, Link as LinkIcon, ChevronRight, Send, Globe } from 'lucide-react';
 import { SERVICES } from '../../constants';
 import { useTheme } from '../../context/ThemeContext';
 import { useContactInfo } from '../../context/ContactInfoContext';
@@ -98,148 +98,23 @@ export default function Footer() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 sm:pt-4">
           
           {/* 5-Column Grid */}
-          <div className="grid grid-cols-2 lg:grid-cols-5 gap-x-4 gap-y-6 lg:gap-6 pb-4 sm:pb-6 border-b border-app-border">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-x-8 gap-y-8 lg:gap-6 pb-6 border-b border-app-border/40">
             
             {/* Column 1: Branding & Profile */}
-            <div className="col-span-2 lg:col-span-2 space-y-4 pr-4">
+            <div className="col-span-1 md:col-span-2 lg:col-span-1 flex flex-col gap-3">
               <Link to="/" className="inline-block">
                 <img
                   src={theme === 'dark' ? darkLogo : lightLogo}
                   alt="Vedhunt Logo"
-                  className="h-16 md:h-20 w-auto object-contain transition-transform duration-300 hover:scale-105"
+                  className="w-44 md:w-52 h-12 md:h-14 object-cover object-center transition-transform duration-300 hover:scale-[1.02]"
                 />
               </Link>
-              <p className="text-xs sm:text-sm text-app-text-muted leading-relaxed max-w-sm">
+              <p className="text-sm text-app-text-muted leading-relaxed mt-1">
                 Vedhunt Infotech is a full-service digital agency. We specialize in building responsive website development, strategic organic SEO, digital branding, accounting solutions, and automated dashboards to actively turn operations into revenue.
               </p>
-              <div className="flex items-start gap-2 text-xs sm:text-sm text-app-text">
-                <MapPin className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-                <span className="leading-relaxed">{contactInfo.address}</span>
-              </div>
-            </div>
-
-            {/* Column 2: Services Directory */}
-            <div className="space-y-3 lg:pt-2 lg:pl-6">
-              <h4 className="text-primary font-heading font-extrabold text-xs uppercase tracking-wider pl-1.5 border-l-2 border-primary">
-                Our Services
-              </h4>
-              <ul className="space-y-1.5 text-xs sm:text-sm">
-                {SERVICES.map((srv) => (
-                  <li key={srv.id}>
-                    <Link
-                      to={`/services/${srv.slug}`}
-                      className="hover:text-primary hover:translate-x-1.5 transition-all duration-300 block py-0.5"
-                    >
-                      {srv.title}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            {/* Column 3: Quick Navigation */}
-            <div className="space-y-3 lg:pt-2 lg:pl-6">
-              <h4 className="text-primary font-heading font-extrabold text-xs uppercase tracking-wider pl-1.5 border-l-2 border-primary">
-                Company
-              </h4>
-              <ul className="space-y-1.5 text-xs sm:text-sm">
-                <li>
-                  <Link to="/about" className="hover:text-primary hover:translate-x-1.5 transition-all duration-300 block py-0.5">
-                    About Us
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/portfolio" className="hover:text-primary hover:translate-x-1.5 transition-all duration-300 block py-0.5">
-                    Our Portfolio
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/services" className="hover:text-primary hover:translate-x-1.5 transition-all duration-300 block py-0.5">
-                    Expert Solutions
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/career" className="hover:text-primary hover:translate-x-1.5 transition-all duration-300 block py-0.5">
-                    Career Vacancies
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/faq" className="hover:text-primary hover:translate-x-1.5 transition-all duration-300 block py-0.5">
-                    FAQ's
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/get-quote" className="hover:text-primary hover:translate-x-1.5 transition-all duration-300 block py-0.5">
-                    Contact Support
-                  </Link>
-                </li>
-              </ul>
-            </div>
-
-            {/* Column 4: Legal & Compliance */}
-            <div className="space-y-3 lg:pt-2 lg:pl-6">
-              <h4 className="text-primary font-heading font-extrabold text-xs uppercase tracking-wider pl-1.5 border-l-2 border-primary">
-                Legal & Compliance
-              </h4>
-              <ul className="space-y-1.5 text-xs sm:text-sm">
-                <li>
-                  <Link to="/privacy-policy" className="hover:text-primary hover:translate-x-1.5 transition-all duration-300 block py-0.5">
-                    Privacy Policy
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/terms-and-conditions" className="hover:text-primary hover:translate-x-1.5 transition-all duration-300 block py-0.5">
-                    Terms & Conditions
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/cookie-policy" className="hover:text-primary hover:translate-x-1.5 transition-all duration-300 block py-0.5">
-                    Cookie Policy
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/data-processing-agreement" className="hover:text-primary hover:translate-x-1.5 transition-all duration-300 block py-0.5">
-                    Data Processing Agreement (DPA)
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/refund-and-billing-policy" className="hover:text-primary hover:translate-x-1.5 transition-all duration-300 block py-0.5">
-                    Refund & Billing Policy
-                  </Link>
-                </li>
-              </ul>
-            </div>
-
-            {/* Column 5: Contact Info & Social Connections */}
-            <div className="space-y-3 lg:pt-2 lg:pl-6 col-span-2 lg:col-span-1">
-              <h4 className="text-primary font-heading font-extrabold text-xs uppercase tracking-wider pl-1.5 border-l-2 border-primary">
-                Contact Info
-              </h4>
-              <div className="space-y-2 text-xs sm:text-sm">
-                <a href={`tel:${contactInfo.phone}`} className="flex items-center gap-2.5 text-app-text hover:text-primary transition-colors group">
-                  <Phone className="w-3.5 h-3.5 text-primary group-hover:scale-110 transition-transform" />
-                  <span>{contactInfo.phoneDisplay}</span>
-                </a>
-                <a href={`mailto:${contactInfo.email}`} className="flex items-center gap-2.5 text-app-text hover:text-primary transition-colors group">
-                  <Mail className="w-3.5 h-3.5 text-primary group-hover:scale-110 transition-transform" />
-                  <span>{contactInfo.email}</span>
-                </a>
-              </div>
-
-              {/* High-Fidelity Interactive CTA Button */}
-              <div className="pt-1 pb-0.5">
-                <Link
-                  to="/get-quote"
-                  className="relative inline-flex items-center justify-center gap-2 w-full px-4 py-2 bg-primary hover:bg-primary-hover text-black font-extrabold text-xs rounded-xl shadow-md hover:shadow-[0_0_15px_rgba(255,107,0,0.4)] group transition-all duration-300 cursor-pointer overflow-hidden"
-                >
-                  <span className="absolute inset-0 bg-white/10 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-out" />
-                  <span>Get in Touch</span>
-                  <ArrowRight className="w-3.5 h-3.5 transition-transform duration-300 group-hover:translate-x-1" />
-                </Link>
-              </div>
-
+              
               {/* High-fidelity custom Social Icons */}
-              <div className="flex flex-wrap items-center gap-3 pt-0.5">
+              <div className="flex flex-wrap items-center gap-3">
                 {(Array.isArray(contactInfo.socialLinks) ? contactInfo.socialLinks : [])
                   .filter(social => social.url)
                   .map((social, idx) => {
@@ -256,13 +131,174 @@ export default function Footer() {
                         href={social.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="w-8 h-8 rounded-lg bg-app-bg border border-app-border hover:border-primary/40 text-app-text-muted hover:text-primary hover:bg-primary/5 transition-all duration-300 flex items-center justify-center group"
+                        className="w-9 h-9 rounded-full border border-app-border hover:border-primary text-app-text-muted hover:text-primary transition-all duration-300 flex items-center justify-center group"
                         title={social.platform}
                       >
-                        <Icon className="w-3.5 h-3.5 transition-transform group-hover:scale-110" />
+                        <Icon className="w-4 h-4 transition-transform group-hover:scale-110" />
                       </a>
                     );
                 })}
+              </div>
+
+              <div className="flex items-start gap-3 text-sm text-app-text-muted pt-2 border-t border-app-border/40">
+                <div className="w-8 h-8 rounded-md border border-primary/30 flex items-center justify-center shrink-0 mt-0.5">
+                  <MapPin className="w-4 h-4 text-primary" />
+                </div>
+                <span className="leading-relaxed text-xs">Office No, 7th Floor, Everest Nivara Infotech Park, A-702, Indira Nagar, MIDC Industrial Area, Turbhe, Navi Mumbai, Maharashtra 400705</span>
+              </div>
+            </div>
+
+            {/* Column 2: Services Directory */}
+            <div className="space-y-3 lg:pt-2">
+              <div className="relative pb-1">
+                <h4 className="text-app-text font-bold text-sm uppercase tracking-wider">
+                  OUR SERVICES
+                </h4>
+                <div className="absolute bottom-0 left-0 w-8 h-0.5 bg-primary rounded-full"></div>
+              </div>
+              <ul className="space-y-2 text-sm">
+                {SERVICES.map((srv) => (
+                  <li key={srv.id} className="flex items-center gap-2 group">
+                    <ChevronRight className="w-4 h-4 text-primary transition-transform group-hover:translate-x-1" />
+                    <Link
+                      to={`/services/${srv.slug}`}
+                      className="text-app-text-muted hover:text-primary transition-colors duration-300 block border-b border-app-border/30 pb-1.5 w-full"
+                    >
+                      {srv.title}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Column 3: Quick Navigation */}
+            <div className="space-y-3 lg:pt-2">
+              <div className="relative pb-1">
+                <h4 className="text-app-text font-bold text-sm uppercase tracking-wider">
+                  COMPANY
+                </h4>
+                <div className="absolute bottom-0 left-0 w-8 h-0.5 bg-primary rounded-full"></div>
+              </div>
+              <ul className="space-y-2 text-sm">
+                <li className="flex items-center gap-2 group">
+                  <ChevronRight className="w-4 h-4 text-primary transition-transform group-hover:translate-x-1" />
+                  <Link to="/about" className="text-app-text-muted hover:text-primary transition-colors duration-300 block border-b border-app-border/30 pb-1.5 w-full">
+                    About Us
+                  </Link>
+                </li>
+                <li className="flex items-center gap-2 group">
+                  <ChevronRight className="w-4 h-4 text-primary transition-transform group-hover:translate-x-1" />
+                  <Link to="/portfolio" className="text-app-text-muted hover:text-primary transition-colors duration-300 block border-b border-app-border/30 pb-1.5 w-full">
+                    Our Portfolio
+                  </Link>
+                </li>
+                <li className="flex items-center gap-2 group">
+                  <ChevronRight className="w-4 h-4 text-primary transition-transform group-hover:translate-x-1" />
+                  <Link to="/services" className="text-app-text-muted hover:text-primary transition-colors duration-300 block border-b border-app-border/30 pb-1.5 w-full">
+                    Expert Solutions
+                  </Link>
+                </li>
+                <li className="flex items-center gap-2 group">
+                  <ChevronRight className="w-4 h-4 text-primary transition-transform group-hover:translate-x-1" />
+                  <Link to="/career" className="text-app-text-muted hover:text-primary transition-colors duration-300 block border-b border-app-border/30 pb-1.5 w-full">
+                    Career Vacancies
+                  </Link>
+                </li>
+                <li className="flex items-center gap-2 group">
+                  <ChevronRight className="w-4 h-4 text-primary transition-transform group-hover:translate-x-1" />
+                  <Link to="/faq" className="text-app-text-muted hover:text-primary transition-colors duration-300 block border-b border-app-border/30 pb-1.5 w-full">
+                    FAQ's
+                  </Link>
+                </li>
+                <li className="flex items-center gap-2 group">
+                  <ChevronRight className="w-4 h-4 text-primary transition-transform group-hover:translate-x-1" />
+                  <Link to="/get-quote" className="text-app-text-muted hover:text-primary transition-colors duration-300 block border-b border-app-border/30 pb-1.5 w-full">
+                    Contact Support
+                  </Link>
+                </li>
+              </ul>
+            </div>
+
+            {/* Column 4: Legal & Compliance */}
+            <div className="space-y-3 lg:pt-2">
+              <div className="relative pb-1">
+                <h4 className="text-app-text font-bold text-sm uppercase tracking-wider">
+                  LEGAL & COMPLIANCE
+                </h4>
+                <div className="absolute bottom-0 left-0 w-8 h-0.5 bg-primary rounded-full"></div>
+              </div>
+              <ul className="space-y-2 text-sm">
+                <li className="flex items-center gap-2 group">
+                  <ChevronRight className="w-4 h-4 text-primary transition-transform group-hover:translate-x-1" />
+                  <Link to="/privacy-policy" className="text-app-text-muted hover:text-primary transition-colors duration-300 block border-b border-app-border/30 pb-1.5 w-full">
+                    Privacy Policy
+                  </Link>
+                </li>
+                <li className="flex items-center gap-2 group">
+                  <ChevronRight className="w-4 h-4 text-primary transition-transform group-hover:translate-x-1" />
+                  <Link to="/terms-and-conditions" className="text-app-text-muted hover:text-primary transition-colors duration-300 block border-b border-app-border/30 pb-1.5 w-full">
+                    Terms & Conditions
+                  </Link>
+                </li>
+                <li className="flex items-center gap-2 group">
+                  <ChevronRight className="w-4 h-4 text-primary transition-transform group-hover:translate-x-1" />
+                  <Link to="/cookie-policy" className="text-app-text-muted hover:text-primary transition-colors duration-300 block border-b border-app-border/30 pb-1.5 w-full">
+                    Cookie Policy
+                  </Link>
+                </li>
+                <li className="flex items-center gap-2 group">
+                  <ChevronRight className="w-4 h-4 text-primary transition-transform group-hover:translate-x-1" />
+                  <Link to="/data-processing-agreement" className="text-app-text-muted hover:text-primary transition-colors duration-300 block border-b border-app-border/30 pb-1.5 w-full">
+                    Data Processing Agreement (DPA)
+                  </Link>
+                </li>
+                <li className="flex items-center gap-2 group">
+                  <ChevronRight className="w-4 h-4 text-primary transition-transform group-hover:translate-x-1" />
+                  <Link to="/refund-and-billing-policy" className="text-app-text-muted hover:text-primary transition-colors duration-300 block border-b border-app-border/30 pb-1.5 w-full">
+                    Refund & Billing Policy
+                  </Link>
+                </li>
+              </ul>
+            </div>
+
+            {/* Column 5: Contact Info & CTA */}
+            <div className="space-y-4 lg:pt-2">
+              <div className="relative pb-1">
+                <h4 className="text-app-text font-bold text-sm uppercase tracking-wider">
+                  CONTACT INFO
+                </h4>
+                <div className="absolute bottom-0 left-0 w-8 h-0.5 bg-primary rounded-full"></div>
+              </div>
+              <div className="space-y-3 text-sm">
+                <a href={`tel:${contactInfo.phone}`} className="flex items-center gap-3 text-app-text-muted hover:text-primary transition-colors group">
+                  <div className="w-8 h-8 rounded-md border border-primary/30 flex items-center justify-center shrink-0 group-hover:border-primary transition-colors">
+                    <Phone className="w-4 h-4 text-primary" />
+                  </div>
+                  <span>{contactInfo.phoneDisplay}</span>
+                </a>
+                <a href={`mailto:${contactInfo.email}`} className="flex items-center gap-3 text-app-text-muted hover:text-primary transition-colors group">
+                  <div className="w-8 h-8 rounded-md border border-primary/30 flex items-center justify-center shrink-0 group-hover:border-primary transition-colors">
+                    <Mail className="w-4 h-4 text-primary" />
+                  </div>
+                  <span>{contactInfo.email}</span>
+                </a>
+                <div className="flex items-center gap-3 text-app-text-muted group">
+                  <div className="w-8 h-8 rounded-md border border-primary/30 flex items-center justify-center shrink-0 group-hover:border-primary transition-colors">
+                    <Globe className="w-4 h-4 text-primary" />
+                  </div>
+                  <span>Navi Mumbai, Maharashtra, India</span>
+                </div>
+              </div>
+
+              {/* High-Fidelity Interactive CTA Button */}
+              <div className="pt-2">
+                <Link
+                  to="/get-quote"
+                  className="relative inline-flex items-center justify-center gap-2 w-full px-6 py-3 bg-[#FF7900] hover:bg-[#E66D00] text-white font-bold text-sm rounded-lg shadow-md hover:shadow-[0_4px_15px_rgba(255,121,0,0.3)] transition-all duration-300 group overflow-hidden"
+                >
+                  <Send className="w-4 h-4 transition-transform duration-300 group-hover:-translate-y-1 group-hover:translate-x-1" />
+                  <span>Get in Touch</span>
+                </Link>
               </div>
             </div>
 
