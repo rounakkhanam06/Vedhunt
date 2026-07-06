@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Users, ChevronDown, ChevronRight, Activity,
   Briefcase, FileText, Wallet, ShieldCheck, Settings, LogOut, X,
   Image as ImageIcon, Tag, UserPlus, Scale, Share2, Mail, MessageCircle,
-  User, Clock, CheckSquare, FileSpreadsheet, CreditCard, Award
+  User, Clock, CheckSquare, FileSpreadsheet, CreditCard, Award, Building2
 } from 'lucide-react';
 import { useAdminStore } from '../../store/useAdminStore';
 import { usePermissions } from '../hooks/usePermissions';
@@ -16,7 +16,8 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [openDropdowns, setOpenDropdowns] = useState({
-    leads: true, 
+    leads: true,
+    clientPortal: false,
     cms: false, pricing: false, careers: false, legal: false, servicesManagement: false, faq: false
   });
 
@@ -49,9 +50,22 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
   };
 
   const navItems = [
-    { name: 'Overview', path: '/admin/dashboard', icon: LayoutDashboard }, // no specific perm required
+    { name: 'Overview', path: '/admin/dashboard', icon: LayoutDashboard },
     { name: 'Lead Manager (Ads)', path: '/admin/leads', icon: Users, requiredPermission: 'leads.view' },
     { name: 'Subscribers', path: '/admin/subscribers', icon: Mail, requiredPermission: 'leads.view' },
+    {
+      name: 'Client Portal (CRM)',
+      icon: Building2,
+      dropdownKey: 'clientPortal',
+      requiredPermission: 'cms.manage',
+      subItems: [
+        { name: 'Client Accounts', path: '/admin/clients' },
+        { name: 'Invoice Manager', path: '/admin/invoices' },
+        { name: 'Project Tracker', path: '/admin/projects' },
+        { name: 'Retainers', path: '/admin/retainers' },
+        { name: 'Support Desk', path: '/admin/support-desk' },
+      ]
+    },
     {
       name: 'Services Management',
       icon: Briefcase,

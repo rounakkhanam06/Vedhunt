@@ -1,0 +1,34 @@
+[
+  {
+    "_id": "6a21140ffa8326151182808d",
+    "jobId": "6a2105fc53daa617561b604d",
+    "fullName": "raunak",
+    "email": "raunak@gmail.com",
+    "phone": "8778788477",
+    "experienceYears": "3",
+    "currentCTC": "12 LPA",
+    "expectedCTC": "15 LPA",
+    "noticePeriod": "30 days",
+    "linkedinUrl": "https://images.unsplash.com/photo-1773332611612-ffdaa753afb1?q=80&w=687&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDF8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
+    "resumeUrl": "/uploads/resumes/resume-1780552719726-310277022.pdf",
+    "coverLetter": "bscc ndnjj nfnjfjjejf  rfkjwnjb bfmjkfb nfnbfsbbndfnjmnjmdfnjm nfdvnmjfj nmrembfhbgfvrhjb frdsfnmwbrhjwbrwntmklw",
+    "createdAt": "2026-06-04T05:58:39.793Z",
+    "updatedAt": "2026-06-22T06:46:38.825Z",
+    "__v": 0,
+    "status": "Selected / Hired"
+  },
+  {
+    "_id": "6a21168bfa8326151182808e",
+    "jobId": "6a2105fc53daa617561b604c",
+    "fullName": "sakshi dwivedi",
+    "email": "sakshi@gmail.com",
+    "phone": "788887765",
+    "experienceYears": "5 year",
+    "currentCTC": "1 lpa",
+    "expectedCTC": "2 lpa",
+    "resumeUrl": "/uploads/resumes/resume-1780553355582-561020179.pdf",
+    "createdAt": "2026-06-04T06:09:15.597Z",
+    "updatedAt": "2026-06-04T06:09:15.597Z",
+    "__v": 0
+  }
+]

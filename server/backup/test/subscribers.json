@@ -1,0 +1,32 @@
+[
+  {
+    "_id": "6a2d09112728e84298efbac4",
+    "email": "teamvedhunt@gmail.com",
+    "active": true,
+    "unsubscribeToken": "1e60a8f8b247c47f74351e86901435bdf6768ab6ac0e6e9c42288ef54db77ead",
+    "subscribedAt": "2026-06-13T07:38:57.521Z",
+    "createdAt": "2026-06-13T07:38:57.523Z",
+    "updatedAt": "2026-06-13T07:38:57.523Z",
+    "__v": 0
+  },
+  {
+    "_id": "6a43538396e5807de32831f8",
+    "email": "raunakkhanam0207@gmail.com",
+    "active": true,
+    "unsubscribeToken": "6cb9969ca7460744b5a44e66086700c9e28e6b2d13758619f787c9616b6027e0",
+    "subscribedAt": "2026-06-30T05:26:27.822Z",
+    "createdAt": "2026-06-30T05:26:27.825Z",
+    "updatedAt": "2026-06-30T05:26:27.825Z",
+    "__v": 0
+  },
+  {
+    "_id": "6a43566ef0fb664ffcf4972e",
+    "email": "raunakktestuser123@gmail.com",
+    "active": true,
+    "unsubscribeToken": "a3e146db8ed5339b2b4903a809d3ab396cc973fe1220b437ca6ca2396c4dd5e3",
+    "subscribedAt": "2026-06-30T05:38:54.624Z",
+    "createdAt": "2026-06-30T05:38:54.626Z",
+    "updatedAt": "2026-06-30T05:38:54.626Z",
+    "__v": 0
+  }
+]

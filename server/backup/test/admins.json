@@ -1,0 +1,141 @@
+[
+  {
+    "_id": "6a102d8de3a0c6edfe4f8700",
+    "email": "vedhunt@gmail.com",
+    "password": "$2b$10$h3DRwgbhsKDF2PKZuCKXx.ZQAIHwLp7X4iM8aDum92caiJ8XQbDVO",
+    "role": "SUPER_ADMIN",
+    "isActive": true,
+    "createdAt": "2026-05-22T10:18:53.780Z",
+    "updatedAt": "2026-06-30T05:18:39.831Z",
+    "__v": 1,
+    "roles": [
+      "6a2a4c2316b76fcc4333da49"
+    ],
+    "isTemporaryPassword": false,
+    "refreshToken": "$2b$10$PQzSMJgCnYnrzdkKHyCdn.3z2Ts1XYN5bd4ZzGAU194T0W5j0LYpO"
+  },
+  {
+    "_id": "6a2a5486a5a1bb7873dfc63a",
+    "email": "sakshi@gmail.com",
+    "password": "$2b$10$IV59i0Z/CKzl8T1wyN1J8.VpzeVZCt1GcNoWDtoejeCX6GNMoFUeC",
+    "roles": [
+      "6a2a544ba5a1bb7873dfc638"
+    ],
+    "isActive": true,
+    "createdAt": "2026-06-11T06:24:06.950Z",
+    "updatedAt": "2026-06-11T07:08:59.581Z",
+    "__v": 0
+  },
+  {
+    "_id": "6a2a5efab1aa6fbb3a37d2ea",
+    "firstName": "Priyank",
+    "lastName": "Patel",
+    "email": "priyank@example.com",
+    "password": "$2b$10$tWBgPUm/kJ/hW7LkxQSup.lxavZeqbx5.D4/uD/DpCzc7Gnx.ZMcS",
+    "roles": [
+      "6a2a5de76647d7cea418d2cf"
+    ],
+    "isActive": true,
+    "createdAt": "2026-06-11T07:08:42.392Z",
+    "updatedAt": "2026-06-11T07:09:44.748Z",
+    "__v": 0,
+    "refreshToken": "$2b$10$jgOXCTSd5by5gb8aX.K/peKRjNoqjGULwiSVWLhLsAdthRrj1QpaS"
+  },
+  {
+    "_id": "6a38da84babdfad6dc1f34ff",
+    "firstName": "raunak",
+    "lastName": "KHAN",
+    "email": "raunak@gmail.com",
+    "password": "$2b$10$CTH9Qwk7lwYvtEaA4aOlPOwXRkmxZ/aJ.A/QLQWYRFo2fhK4mVuoS",
+    "roles": [
+      "6a38da38babdfad6dc1f34fc"
+    ],
+    "isActive": true,
+    "isTemporaryPassword": true,
+    "employeeId": "VH-EMP-002",
+    "createdAt": "2026-06-22T06:47:32.150Z",
+    "updatedAt": "2026-06-22T06:47:32.150Z",
+    "__v": 0
+  },
+  {
+    "_id": "6a38e2c0d20c71a8048d0634",
+    "firstName": "Jagrarti",
+    "lastName": "dod",
+    "email": "jagratidod34@gmail.com",
+    "password": "$2b$10$tPP8A4.jRBC7a79AzPqrweALNxaTB0fpMJ/mcURA6ggwwioNDc7ZW",
+    "roles": [
+      "6a38da38babdfad6dc1f34fc"
+    ],
+    "isActive": true,
+    "isTemporaryPassword": true,
+    "employeeId": "VH-EMP-002",
+    "createdAt": "2026-06-22T07:22:40.507Z",
+    "updatedAt": "2026-06-22T07:22:40.507Z",
+    "__v": 0
+  },
+  {
+    "_id": "6a38e348d20c71a8048d0636",
+    "firstName": "Jagrati",
+    "lastName": "DOD",
+    "email": "jagrartidod23@gmail.com",
+    "password": "$2b$10$IQJ6nooS9uwbfVFTWk17GujvKm5JPcmvKFeJJHsp5CrBa0p700/XG",
+    "roles": [
+      "6a38da38babdfad6dc1f34fc"
+    ],
+    "isActive": true,
+    "isTemporaryPassword": true,
+    "employeeId": "VH-EMP-002",
+    "createdAt": "2026-06-22T07:24:56.062Z",
+    "updatedAt": "2026-06-22T07:24:56.062Z",
+    "__v": 0
+  },
+  {
+    "_id": "6a38e36ad20c71a8048d0638",
+    "firstName": "Jagrati",
+    "lastName": "DOD",
+    "email": "jagrartidod2@gmail.com",
+    "password": "$2b$10$djv5/pJQBfURZ1yXYBDRCOww3hchYoQiAC7QfUikVIaejrKtyJi/W",
+    "roles": [
+      "6a38da38babdfad6dc1f34fc"
+    ],
+    "isActive": true,
+    "isTemporaryPassword": true,
+    "employeeId": "VH-EMP-002",
+    "createdAt": "2026-06-22T07:25:30.478Z",
+    "updatedAt": "2026-06-22T07:25:30.478Z",
+    "__v": 0
+  },
+  {
+    "_id": "6a38e3b5d20c71a8048d063a",
+    "firstName": "Jagrarti",
+    "lastName": "Dod",
+    "email": "jagrati45@gmail.com",
+    "password": "$2b$10$hEwjU/a6dXEj6jEt4u.sxOo2vmLjbq04tslTzVQLeETkJGngatl2W",
+    "roles": [
+      "6a38da38babdfad6dc1f34fc"
+    ],
+    "isActive": true,
+    "isTemporaryPassword": true,
+    "employeeId": "VH-EMP-002",
+    "createdAt": "2026-06-22T07:26:45.288Z",
+    "updatedAt": "2026-06-22T07:26:45.288Z",
+    "__v": 0
+  },
+  {
+    "_id": "6a38e4888784e2bae9e49560",
+    "firstName": "Furqan",
+    "lastName": "Kumar",
+    "email": "furqan@gmail.com",
+    "password": "$2b$10$xI.8H.V3GlUOJKI/CVTAmO9BYy8GKc3UaAxR2HsAZXGIyAoq7uLiq",
+    "roles": [
+      "6a38da38babdfad6dc1f34fc"
+    ],
+    "isActive": true,
+    "isTemporaryPassword": false,
+    "employeeId": "VH-EMP-003",
+    "createdAt": "2026-06-22T07:30:16.760Z",
+    "updatedAt": "2026-06-23T07:15:44.700Z",
+    "__v": 0,
+    "refreshToken": "$2b$10$7zxaLYG/XuiYXlNm7K/h3.ha9MI7ziq.nG5HgMh63WuSJwgvgURx."
+  }
+]

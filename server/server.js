@@ -41,6 +41,11 @@ const subscribeRoutes = require('./routes/subscribeRoutes');
 const employeeRoutes = require('./routes/employeeRoutes');
 const performanceRoutes = require('./routes/performanceRoutes');
 const { seedServicePages } = require('./controllers/servicePageSeeder');
+
+// Client Portal Routes (isolated from admin auth)
+const clientAuthRoutes = require('./routes/clientAuthRoutes');
+const clientPortalRoutes = require('./routes/clientPortalRoutes');
+const clientManagementRoutes = require('./routes/clientManagementRoutes');
 const errorHandler = require('./middleware/errorHandler');
 
 // Cache middleware for public read-only GET endpoints
@@ -121,6 +126,13 @@ app.use('/api/subscribe', subscribeRoutes);
 app.use('/api/employees', employeeRoutes);
 app.use('/api/performance', performanceRoutes);
 app.use('/api', publicCache, settingsRoutes);
+
+// Client Portal — completely isolated auth + data routes
+app.use('/api/client/auth', clientAuthRoutes);
+app.use('/api/client', clientPortalRoutes); // all protected by clientAuthMiddleware internally
+
+// Admin management of client portal data (clients, invoices, projects, retainers, tickets)
+app.use('/api/admin', clientManagementRoutes);
 
 // Root route for API status
 app.get('/', (req, res) => {

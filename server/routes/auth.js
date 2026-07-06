@@ -44,8 +44,8 @@ router.post('/login', ...loginMiddleware, async (req, res) => {
 
       // Hash refresh token before saving
       const salt = await bcrypt.genSalt(10);
-      admin.refreshToken = await bcrypt.hash(refreshToken, salt);
-      await admin.save({ validateBeforeSave: false });
+      const hashedRefreshToken = await bcrypt.hash(refreshToken, salt);
+      await Admin.updateOne({ _id: admin._id }, { $set: { refreshToken: hashedRefreshToken } });
 
       // Calculate permissions for frontend response
       const permissionsSet = new Set();
@@ -176,7 +176,12 @@ router.post('/forgotpassword', async (req, res) => {
     // Get reset token
     const resetToken = admin.getResetPasswordToken();
 
-    await admin.save({ validateBeforeSave: false });
+    await Admin.updateOne({ _id: admin._id }, { 
+      $set: { 
+        resetPasswordToken: admin.resetPasswordToken, 
+        resetPasswordExpire: admin.resetPasswordExpire 
+      } 
+    });
 
     // Create reset url
     // In production, process.env.FRONTEND_URL would be used
@@ -195,10 +200,12 @@ router.post('/forgotpassword', async (req, res) => {
       res.status(200).json({ success: true, data: 'Email sent' });
     } catch (err) {
       console.log(err);
-      admin.resetPasswordToken = undefined;
-      admin.resetPasswordExpire = undefined;
-
-      await admin.save({ validateBeforeSave: false });
+      await Admin.updateOne({ _id: admin._id }, { 
+        $unset: { 
+          resetPasswordToken: 1, 
+          resetPasswordExpire: 1 
+        } 
+      });
 
       return res.status(500).json({ success: false, message: 'Email could not be sent' });
     }
@@ -252,12 +259,11 @@ router.put('/resetpassword/:resettoken', async (req, res) => {
 
 // @route   POST /api/auth/logout
 // @desc    Logout admin / clear cookie
-// @access  Public
+// @access  Private
 router.post('/logout', authMiddleware, async (req, res) => {
-  if (req.user) {
-    req.user.refreshToken = undefined;
-    await req.user.save({ validateBeforeSave: false });
-
+  if (req.user && req.user._id) {
+    await Admin.updateOne({ _id: req.user._id }, { $unset: { refreshToken: 1 } });
+    
     await AuditLog.create({
       adminId: req.user._id,
       action: 'LOGOUT',

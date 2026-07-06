@@ -1,0 +1,64 @@
+[
+  {
+    "_id": "6a2a4c2316b76fcc4333da49",
+    "name": "SUPER_ADMIN",
+    "description": "Has access to everything",
+    "permissions": [
+      "*"
+    ],
+    "isSystem": true,
+    "createdAt": "2026-06-11T05:48:19.195Z",
+    "updatedAt": "2026-06-11T05:48:19.195Z",
+    "__v": 0
+  },
+  {
+    "_id": "6a2a4c2316b76fcc4333da4a",
+    "name": "EDITOR",
+    "description": "Standard editor",
+    "permissions": [
+      "blogs.manage",
+      "portfolio.manage"
+    ],
+    "isSystem": true,
+    "createdAt": "2026-06-11T05:48:19.308Z",
+    "updatedAt": "2026-06-11T05:48:19.308Z",
+    "__v": 0
+  },
+  {
+    "_id": "6a2a544ba5a1bb7873dfc638",
+    "name": "BDE",
+    "description": "Responsible for generating leads, acquiring new clients, managing customer relationships, and driving business growth through strategic sales and outreach efforts",
+    "permissions": [
+      "leads.view"
+    ],
+    "isSystem": false,
+    "createdAt": "2026-06-11T06:23:07.841Z",
+    "updatedAt": "2026-06-11T06:23:07.841Z",
+    "__v": 0
+  },
+  {
+    "_id": "6a2a5de76647d7cea418d2cf",
+    "name": "PROJECT MANAGER",
+    "description": "Assign projects, manage tasks, deadlines, client coordination",
+    "permissions": [
+      "portfolio.manage",
+      "pricing.manage"
+    ],
+    "isSystem": false,
+    "createdAt": "2026-06-11T07:04:07.642Z",
+    "updatedAt": "2026-06-11T07:04:07.642Z",
+    "__v": 0
+  },
+  {
+    "_id": "6a38da38babdfad6dc1f34fc",
+    "name": "EMPLOYEE",
+    "description": "Default role for employees. Access limited to ESS portal.",
+    "permissions": [
+      "ess.access"
+    ],
+    "isSystem": true,
+    "createdAt": "2026-06-22T06:46:16.848Z",
+    "updatedAt": "2026-06-23T06:52:52.037Z",
+    "__v": 3
+  }
+]

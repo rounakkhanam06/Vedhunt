@@ -1,0 +1,14 @@
+[
+  {
+    "_id": "6a3941f6d3ac31288d93af74",
+    "employeeId": "6a38e4888784e2bae9e49561",
+    "startDate": "2026-06-23T00:00:00.000Z",
+    "endDate": "2026-06-24T00:00:00.000Z",
+    "reason": "I have important work to do!",
+    "status": "Approved",
+    "createdAt": "2026-06-22T14:08:54.391Z",
+    "updatedAt": "2026-06-22T14:13:09.898Z",
+    "__v": 0,
+    "adminComment": "u can do WFH"
+  }
+]

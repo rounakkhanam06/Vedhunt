@@ -1,0 +1,54 @@
+[
+  {
+    "_id": "6a143c444fde7b826548b786",
+    "numericValue": 140,
+    "suffix": "+",
+    "label": "Deployments Delivered",
+    "desc": "Secure web systems and custom automation modules.",
+    "icon": "Zap",
+    "order": 1,
+    "isActive": true,
+    "__v": 0,
+    "createdAt": "2026-05-25T12:10:44.832Z",
+    "updatedAt": "2026-05-25T12:10:44.832Z"
+  },
+  {
+    "_id": "6a143c444fde7b826548b787",
+    "numericValue": 99,
+    "suffix": "%",
+    "label": "Retention Rate",
+    "desc": "SMEs & enterprises continuing partnerships with us.",
+    "icon": "Award",
+    "order": 2,
+    "isActive": true,
+    "__v": 0,
+    "createdAt": "2026-05-25T12:10:44.833Z",
+    "updatedAt": "2026-05-25T12:10:44.833Z"
+  },
+  {
+    "_id": "6a143c444fde7b826548b788",
+    "numericValue": 300,
+    "suffix": "%+",
+    "label": "Engagement Growth",
+    "desc": "Average increase across client marketing funnels.",
+    "icon": "Share2",
+    "order": 3,
+    "isActive": true,
+    "__v": 0,
+    "createdAt": "2026-05-25T12:10:44.833Z",
+    "updatedAt": "2026-05-25T12:10:44.833Z"
+  },
+  {
+    "_id": "6a143c444fde7b826548b789",
+    "numericValue": 15,
+    "suffix": " Hrs",
+    "label": "Saved per Week",
+    "desc": "Through automated SQL and Power BI workflows.",
+    "icon": "Database",
+    "order": 4,
+    "isActive": true,
+    "__v": 0,
+    "createdAt": "2026-05-25T12:10:44.833Z",
+    "updatedAt": "2026-05-25T12:10:44.833Z"
+  }
+]

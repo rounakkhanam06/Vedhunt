@@ -45,6 +45,26 @@ exports.createApplication = async (req, res) => {
       return res.status(400).json({ message: 'Resume is required.' });
     }
 
+    // Verify extension and MIME type
+    const path = require('path');
+    const validMimes = [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    ];
+    const ext = path.extname(req.file.originalname).toLowerCase();
+    const validExts = ['.pdf', '.doc', '.docx'];
+
+    if (!validMimes.includes(req.file.mimetype) || !validExts.includes(ext)) {
+      // Delete uploaded file from Cloudinary before returning error
+      try {
+        await deleteFromCloudinary(req.file.filename, true);
+      } catch (err) {
+        console.error("Failed to delete file after file type check error", err);
+      }
+      return res.status(400).json({ message: 'Only PDF, DOC, and DOCX files are allowed.' });
+    }
+
     // Verify Job exists if jobId is provided and not 'general'
     if (jobId && jobId !== 'general') {
       const jobExists = await Job.findById(jobId).lean();

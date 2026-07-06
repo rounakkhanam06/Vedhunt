@@ -1,0 +1,42 @@
+[
+  {
+    "_id": "6a3236b93ebbcfdff3b1855e",
+    "name": "Indore",
+    "top": "52%",
+    "left": "36%",
+    "delay": 0,
+    "__v": 0,
+    "createdAt": "2026-06-17T05:55:05.705Z",
+    "updatedAt": "2026-06-17T05:55:05.705Z"
+  },
+  {
+    "_id": "6a3236b93ebbcfdff3b1855f",
+    "name": "Mumbai",
+    "top": "62%",
+    "left": "27%",
+    "delay": 0.2,
+    "__v": 0,
+    "createdAt": "2026-06-17T05:55:05.708Z",
+    "updatedAt": "2026-06-17T05:55:05.708Z"
+  },
+  {
+    "_id": "6a3236b93ebbcfdff3b18560",
+    "name": "Kolkata",
+    "top": "50%",
+    "left": "70%",
+    "delay": 0.4,
+    "__v": 0,
+    "createdAt": "2026-06-17T05:55:05.708Z",
+    "updatedAt": "2026-06-17T05:55:05.708Z"
+  },
+  {
+    "_id": "6a3236b93ebbcfdff3b18561",
+    "name": "Nagpur",
+    "top": "54%",
+    "left": "46%",
+    "delay": 0.6,
+    "__v": 0,
+    "createdAt": "2026-06-17T05:55:05.708Z",
+    "updatedAt": "2026-06-17T05:55:05.708Z"
+  }
+]

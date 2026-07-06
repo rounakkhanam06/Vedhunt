@@ -1,0 +1,610 @@
+[
+  {
+    "_id": "6a2a544ba5a1bb7873dfc639",
+    "adminId": "6a102d8de3a0c6edfe4f8700",
+    "action": "ROLE_CREATE",
+    "resource": "Role",
+    "beforeSnapshot": null,
+    "afterSnapshot": {
+      "name": "BDE",
+      "description": "Responsible for generating leads, acquiring new clients, managing customer relationships, and driving business growth through strategic sales and outreach efforts",
+      "permissions": [
+        "leads.view"
+      ],
+      "isSystem": false,
+      "_id": "6a2a544ba5a1bb7873dfc638",
+      "createdAt": "2026-06-11T06:23:07.841Z",
+      "updatedAt": "2026-06-11T06:23:07.841Z",
+      "__v": 0
+    },
+    "ipAddress": "::1",
+    "createdAt": "2026-06-11T06:23:07.907Z",
+    "updatedAt": "2026-06-11T06:23:07.907Z",
+    "__v": 0
+  },
+  {
+    "_id": "6a2a5487a5a1bb7873dfc63b",
+    "adminId": "6a102d8de3a0c6edfe4f8700",
+    "action": "USER_CREATE",
+    "resource": "Admin",
+    "beforeSnapshot": null,
+    "afterSnapshot": {
+      "_id": "6a2a5486a5a1bb7873dfc63a",
+      "email": "sakshi@gmail.com",
+      "roles": [
+        {
+          "_id": "6a2a544ba5a1bb7873dfc638",
+          "name": "BDE",
+          "description": "Responsible for generating leads, acquiring new clients, managing customer relationships, and driving business growth through strategic sales and outreach efforts",
+          "permissions": [
+            "leads.view"
+          ],
+          "isSystem": false,
+          "createdAt": "2026-06-11T06:23:07.841Z",
+          "updatedAt": "2026-06-11T06:23:07.841Z",
+          "__v": 0
+        }
+      ],
+      "isActive": true,
+      "createdAt": "2026-06-11T06:24:06.950Z",
+      "updatedAt": "2026-06-11T06:24:06.950Z",
+      "__v": 0
+    },
+    "ipAddress": "::1",
+    "createdAt": "2026-06-11T06:24:07.239Z",
+    "updatedAt": "2026-06-11T06:24:07.239Z",
+    "__v": 0
+  },
+  {
+    "_id": "6a2a54a5a5a1bb7873dfc63c",
+    "adminId": "6a2a5486a5a1bb7873dfc63a",
+    "action": "LOGIN",
+    "resource": "Auth",
+    "beforeSnapshot": null,
+    "afterSnapshot": null,
+    "ipAddress": "::1",
+    "createdAt": "2026-06-11T06:24:37.661Z",
+    "updatedAt": "2026-06-11T06:24:37.661Z",
+    "__v": 0
+  },
+  {
+    "_id": "6a2a59e26647d7cea418d2ce",
+    "adminId": "6a102d8de3a0c6edfe4f8700",
+    "action": "LOGIN",
+    "resource": "Auth",
+    "beforeSnapshot": null,
+    "afterSnapshot": null,
+    "ipAddress": "::1",
+    "createdAt": "2026-06-11T06:46:58.089Z",
+    "updatedAt": "2026-06-11T06:46:58.089Z",
+    "__v": 0
+  },
+  {
+    "_id": "6a2a5de76647d7cea418d2d0",
+    "adminId": "6a102d8de3a0c6edfe4f8700",
+    "action": "ROLE_CREATE",
+    "resource": "Role",
+    "beforeSnapshot": null,
+    "afterSnapshot": {
+      "name": "PROJECT MANAGER",
+      "description": "Assign projects, manage tasks, deadlines, client coordination",
+      "permissions": [
+        "portfolio.manage",
+        "pricing.manage"
+      ],
+      "isSystem": false,
+      "_id": "6a2a5de76647d7cea418d2cf",
+      "createdAt": "2026-06-11T07:04:07.642Z",
+      "updatedAt": "2026-06-11T07:04:07.642Z",
+      "__v": 0
+    },
+    "ipAddress": "::1",
+    "createdAt": "2026-06-11T07:04:07.738Z",
+    "updatedAt": "2026-06-11T07:04:07.738Z",
+    "__v": 0
+  },
+  {
+    "_id": "6a2a5efab1aa6fbb3a37d2eb",
+    "adminId": "6a102d8de3a0c6edfe4f8700",
+    "action": "USER_CREATE",
+    "resource": "Admin",
+    "beforeSnapshot": null,
+    "afterSnapshot": {
+      "_id": "6a2a5efab1aa6fbb3a37d2ea",
+      "firstName": "Priyank",
+      "lastName": "Patel",
+      "email": "priyank@example.com",
+      "roles": [
+        {
+          "_id": "6a2a5de76647d7cea418d2cf",
+          "name": "PROJECT MANAGER",
+          "description": "Assign projects, manage tasks, deadlines, client coordination",
+          "permissions": [
+            "portfolio.manage",
+            "pricing.manage"
+          ],
+          "isSystem": false,
+          "createdAt": "2026-06-11T07:04:07.642Z",
+          "updatedAt": "2026-06-11T07:04:07.642Z",
+          "__v": 0
+        }
+      ],
+      "isActive": true,
+      "createdAt": "2026-06-11T07:08:42.392Z",
+      "updatedAt": "2026-06-11T07:08:42.392Z",
+      "__v": 0
+    },
+    "ipAddress": "::1",
+    "createdAt": "2026-06-11T07:08:42.869Z",
+    "updatedAt": "2026-06-11T07:08:42.869Z",
+    "__v": 0
+  },
+  {
+    "_id": "6a2a5f0bb1aa6fbb3a37d2ec",
+    "adminId": "6a2a5486a5a1bb7873dfc63a",
+    "action": "LOGOUT",
+    "resource": "Auth",
+    "beforeSnapshot": null,
+    "afterSnapshot": null,
+    "ipAddress": "::1",
+    "createdAt": "2026-06-11T07:08:59.682Z",
+    "updatedAt": "2026-06-11T07:08:59.682Z",
+    "__v": 0
+  },
+  {
+    "_id": "6a2a5f38b1aa6fbb3a37d2ed",
+    "adminId": "6a2a5efab1aa6fbb3a37d2ea",
+    "action": "LOGIN",
+    "resource": "Auth",
+    "beforeSnapshot": null,
+    "afterSnapshot": null,
+    "ipAddress": "::1",
+    "createdAt": "2026-06-11T07:09:44.839Z",
+    "updatedAt": "2026-06-11T07:09:44.839Z",
+    "__v": 0
+  },
+  {
+    "_id": "6a2b940b24ac886d935c1409",
+    "adminId": "6a102d8de3a0c6edfe4f8700",
+    "action": "LOGIN",
+    "resource": "Auth",
+    "beforeSnapshot": null,
+    "afterSnapshot": null,
+    "ipAddress": "::1",
+    "createdAt": "2026-06-12T05:07:23.950Z",
+    "updatedAt": "2026-06-12T05:07:23.950Z",
+    "__v": 0
+  },
+  {
+    "_id": "6a2bc489c55f40c020b7f4a3",
+    "adminId": "6a102d8de3a0c6edfe4f8700",
+    "action": "LOGIN",
+    "resource": "Auth",
+    "beforeSnapshot": null,
+    "afterSnapshot": null,
+    "ipAddress": "::1",
+    "createdAt": "2026-06-12T08:34:17.837Z",
+    "updatedAt": "2026-06-12T08:34:17.837Z",
+    "__v": 0
+  },
+  {
+    "_id": "6a2d022ccf6e143f12848246",
+    "adminId": "6a102d8de3a0c6edfe4f8700",
+    "action": "LOGIN",
+    "resource": "Auth",
+    "beforeSnapshot": null,
+    "afterSnapshot": null,
+    "ipAddress": "::1",
+    "createdAt": "2026-06-13T07:09:32.829Z",
+    "updatedAt": "2026-06-13T07:09:32.829Z",
+    "__v": 0
+  },
+  {
+    "_id": "6a2d028fc86f2d262474a20e",
+    "adminId": "6a102d8de3a0c6edfe4f8700",
+    "action": "LOGIN",
+    "resource": "Auth",
+    "beforeSnapshot": null,
+    "afterSnapshot": null,
+    "ipAddress": "::1",
+    "createdAt": "2026-06-13T07:11:11.338Z",
+    "updatedAt": "2026-06-13T07:11:11.338Z",
+    "__v": 0
+  },
+  {
+    "_id": "6a3240c3c426f812d743ee6a",
+    "adminId": "6a102d8de3a0c6edfe4f8700",
+    "action": "LOGIN",
+    "resource": "Auth",
+    "beforeSnapshot": null,
+    "afterSnapshot": null,
+    "ipAddress": "::1",
+    "createdAt": "2026-06-17T06:37:55.912Z",
+    "updatedAt": "2026-06-17T06:37:55.912Z",
+    "__v": 0
+  },
+  {
+    "_id": "6a34cdf431174333c6a7467d",
+    "adminId": "6a102d8de3a0c6edfe4f8700",
+    "action": "LOGIN",
+    "resource": "Auth",
+    "beforeSnapshot": null,
+    "afterSnapshot": null,
+    "ipAddress": "::1",
+    "createdAt": "2026-06-19T05:04:52.842Z",
+    "updatedAt": "2026-06-19T05:04:52.842Z",
+    "__v": 0
+  },
+  {
+    "_id": "6a34f5dd360258d821292319",
+    "adminId": "6a102d8de3a0c6edfe4f8700",
+    "action": "LOGIN",
+    "resource": "Auth",
+    "beforeSnapshot": null,
+    "afterSnapshot": null,
+    "ipAddress": "::ffff:127.0.0.1",
+    "createdAt": "2026-06-19T07:55:09.187Z",
+    "updatedAt": "2026-06-19T07:55:09.187Z",
+    "__v": 0
+  },
+  {
+    "_id": "6a34f66c360258d82129231a",
+    "adminId": "6a102d8de3a0c6edfe4f8700",
+    "action": "LOGOUT",
+    "resource": "Auth",
+    "beforeSnapshot": null,
+    "afterSnapshot": null,
+    "ipAddress": "::ffff:127.0.0.1",
+    "createdAt": "2026-06-19T07:57:32.618Z",
+    "updatedAt": "2026-06-19T07:57:32.618Z",
+    "__v": 0
+  },
+  {
+    "_id": "6a3630b26dcfbc7ba581de21",
+    "adminId": "6a102d8de3a0c6edfe4f8700",
+    "action": "LOGIN",
+    "resource": "Auth",
+    "beforeSnapshot": null,
+    "afterSnapshot": null,
+    "ipAddress": "122.181.103.182",
+    "createdAt": "2026-06-20T06:18:26.159Z",
+    "updatedAt": "2026-06-20T06:18:26.159Z",
+    "__v": 0
+  },
+  {
+    "_id": "6a36370f8fa9ad84f28ed7e4",
+    "adminId": "6a102d8de3a0c6edfe4f8700",
+    "action": "LOGIN",
+    "resource": "Auth",
+    "beforeSnapshot": null,
+    "afterSnapshot": null,
+    "ipAddress": "223.228.58.23",
+    "createdAt": "2026-06-20T06:45:35.527Z",
+    "updatedAt": "2026-06-20T06:45:35.527Z",
+    "__v": 0
+  },
+  {
+    "_id": "6a368574c5447f0e0f742d45",
+    "adminId": "6a102d8de3a0c6edfe4f8700",
+    "action": "LOGIN",
+    "resource": "Auth",
+    "beforeSnapshot": null,
+    "afterSnapshot": null,
+    "ipAddress": "::1",
+    "createdAt": "2026-06-20T12:20:04.799Z",
+    "updatedAt": "2026-06-20T12:20:04.799Z",
+    "__v": 0
+  },
+  {
+    "_id": "6a38d73f649cd8169ae80d29",
+    "adminId": "6a102d8de3a0c6edfe4f8700",
+    "action": "LOGIN",
+    "resource": "Auth",
+    "beforeSnapshot": null,
+    "afterSnapshot": null,
+    "ipAddress": "::1",
+    "createdAt": "2026-06-22T06:33:35.705Z",
+    "updatedAt": "2026-06-22T06:33:35.705Z",
+    "__v": 0
+  },
+  {
+    "_id": "6a38e5338784e2bae9e49562",
+    "adminId": "6a102d8de3a0c6edfe4f8700",
+    "action": "LOGOUT",
+    "resource": "Auth",
+    "beforeSnapshot": null,
+    "afterSnapshot": null,
+    "ipAddress": "::1",
+    "createdAt": "2026-06-22T07:33:07.011Z",
+    "updatedAt": "2026-06-22T07:33:07.011Z",
+    "__v": 0
+  },
+  {
+    "_id": "6a38e55f8784e2bae9e49563",
+    "adminId": "6a38e4888784e2bae9e49560",
+    "action": "LOGIN",
+    "resource": "Auth",
+    "beforeSnapshot": null,
+    "afterSnapshot": null,
+    "ipAddress": "::1",
+    "createdAt": "2026-06-22T07:33:51.303Z",
+    "updatedAt": "2026-06-22T07:33:51.303Z",
+    "__v": 0
+  },
+  {
+    "_id": "6a38f61523c9fb7cd6b4797e",
+    "adminId": "6a102d8de3a0c6edfe4f8700",
+    "action": "LOGIN",
+    "resource": "Auth",
+    "beforeSnapshot": null,
+    "afterSnapshot": null,
+    "ipAddress": "27.59.102.125",
+    "createdAt": "2026-06-22T08:45:09.478Z",
+    "updatedAt": "2026-06-22T08:45:09.478Z",
+    "__v": 0
+  },
+  {
+    "_id": "6a3921ca5293bb74b830eb64",
+    "adminId": "6a102d8de3a0c6edfe4f8700",
+    "action": "LOGOUT",
+    "resource": "Auth",
+    "beforeSnapshot": null,
+    "afterSnapshot": null,
+    "ipAddress": "10.197.39.1",
+    "createdAt": "2026-06-22T11:51:38.812Z",
+    "updatedAt": "2026-06-22T11:51:38.812Z",
+    "__v": 0
+  },
+  {
+    "_id": "6a3921e749513eabfe78b938",
+    "adminId": "6a102d8de3a0c6edfe4f8700",
+    "action": "LOGIN",
+    "resource": "Auth",
+    "beforeSnapshot": null,
+    "afterSnapshot": null,
+    "ipAddress": "122.179.91.237",
+    "createdAt": "2026-06-22T11:52:07.754Z",
+    "updatedAt": "2026-06-22T11:52:07.754Z",
+    "__v": 0
+  },
+  {
+    "_id": "6a394bf649513eabfe78b968",
+    "adminId": "6a102d8de3a0c6edfe4f8700",
+    "action": "LOGIN",
+    "resource": "Auth",
+    "beforeSnapshot": null,
+    "afterSnapshot": null,
+    "ipAddress": "110.224.127.0",
+    "createdAt": "2026-06-22T14:51:34.058Z",
+    "updatedAt": "2026-06-22T14:51:34.058Z",
+    "__v": 0
+  },
+  {
+    "_id": "6a3a1e23507079985b1334df",
+    "adminId": "6a102d8de3a0c6edfe4f8700",
+    "action": "LOGIN",
+    "resource": "Auth",
+    "beforeSnapshot": null,
+    "afterSnapshot": null,
+    "ipAddress": "::1",
+    "createdAt": "2026-06-23T05:48:19.787Z",
+    "updatedAt": "2026-06-23T05:48:19.787Z",
+    "__v": 0
+  },
+  {
+    "_id": "6a3a25c3fada77ad7d46f2be",
+    "adminId": "6a38e4888784e2bae9e49560",
+    "action": "LOGIN",
+    "resource": "Auth",
+    "beforeSnapshot": null,
+    "afterSnapshot": null,
+    "ipAddress": "::1",
+    "createdAt": "2026-06-23T06:20:51.292Z",
+    "updatedAt": "2026-06-23T06:20:51.292Z",
+    "__v": 0
+  },
+  {
+    "_id": "6a3a26f1fada77ad7d46f2e9",
+    "adminId": "6a102d8de3a0c6edfe4f8700",
+    "action": "ROLE_UPDATE",
+    "resource": "Role",
+    "beforeSnapshot": {
+      "_id": "6a38da38babdfad6dc1f34fc",
+      "name": "EMPLOYEE",
+      "description": "Default role for employees. Access limited to ESS portal.",
+      "permissions": [
+        "ess.access"
+      ],
+      "isSystem": true,
+      "createdAt": "2026-06-22T06:46:16.848Z",
+      "updatedAt": "2026-06-22T06:46:16.848Z",
+      "__v": 0
+    },
+    "afterSnapshot": {
+      "_id": "6a38da38babdfad6dc1f34fc",
+      "name": "EMPLOYEE",
+      "description": "Default role for employees. Access limited to ESS portal.",
+      "permissions": [
+        "ess.access",
+        "leads.view"
+      ],
+      "isSystem": true,
+      "createdAt": "2026-06-22T06:46:16.848Z",
+      "updatedAt": "2026-06-23T06:25:53.800Z",
+      "__v": 1
+    },
+    "ipAddress": "::1",
+    "createdAt": "2026-06-23T06:25:53.852Z",
+    "updatedAt": "2026-06-23T06:25:53.852Z",
+    "__v": 0
+  },
+  {
+    "_id": "6a3a2a29fada77ad7d46f314",
+    "adminId": "6a102d8de3a0c6edfe4f8700",
+    "action": "ROLE_UPDATE",
+    "resource": "Role",
+    "beforeSnapshot": {
+      "_id": "6a38da38babdfad6dc1f34fc",
+      "name": "EMPLOYEE",
+      "description": "Default role for employees. Access limited to ESS portal.",
+      "permissions": [
+        "ess.access",
+        "leads.view"
+      ],
+      "isSystem": true,
+      "createdAt": "2026-06-22T06:46:16.848Z",
+      "updatedAt": "2026-06-23T06:25:53.800Z",
+      "__v": 1
+    },
+    "afterSnapshot": {
+      "_id": "6a38da38babdfad6dc1f34fc",
+      "name": "EMPLOYEE",
+      "description": "Default role for employees. Access limited to ESS portal.",
+      "permissions": [
+        "ess.access",
+        "leads.view"
+      ],
+      "isSystem": true,
+      "createdAt": "2026-06-22T06:46:16.848Z",
+      "updatedAt": "2026-06-23T06:25:53.800Z",
+      "__v": 1
+    },
+    "ipAddress": "::1",
+    "createdAt": "2026-06-23T06:39:37.144Z",
+    "updatedAt": "2026-06-23T06:39:37.144Z",
+    "__v": 0
+  },
+  {
+    "_id": "6a3a2a50fada77ad7d46f32d",
+    "adminId": "6a102d8de3a0c6edfe4f8700",
+    "action": "ROLE_UPDATE",
+    "resource": "Role",
+    "beforeSnapshot": {
+      "_id": "6a38da38babdfad6dc1f34fc",
+      "name": "EMPLOYEE",
+      "description": "Default role for employees. Access limited to ESS portal.",
+      "permissions": [
+        "ess.access",
+        "leads.view"
+      ],
+      "isSystem": true,
+      "createdAt": "2026-06-22T06:46:16.848Z",
+      "updatedAt": "2026-06-23T06:25:53.800Z",
+      "__v": 1
+    },
+    "afterSnapshot": {
+      "_id": "6a38da38babdfad6dc1f34fc",
+      "name": "EMPLOYEE",
+      "description": "Default role for employees. Access limited to ESS portal.",
+      "permissions": [
+        "ess.access",
+        "leads.view",
+        "services.manage"
+      ],
+      "isSystem": true,
+      "createdAt": "2026-06-22T06:46:16.848Z",
+      "updatedAt": "2026-06-23T06:40:16.059Z",
+      "__v": 2
+    },
+    "ipAddress": "::1",
+    "createdAt": "2026-06-23T06:40:16.111Z",
+    "updatedAt": "2026-06-23T06:40:16.111Z",
+    "__v": 0
+  },
+  {
+    "_id": "6a3a2d44fada77ad7d46f370",
+    "adminId": "6a102d8de3a0c6edfe4f8700",
+    "action": "ROLE_UPDATE",
+    "resource": "Role",
+    "beforeSnapshot": {
+      "_id": "6a38da38babdfad6dc1f34fc",
+      "name": "EMPLOYEE",
+      "description": "Default role for employees. Access limited to ESS portal.",
+      "permissions": [
+        "ess.access",
+        "leads.view",
+        "services.manage"
+      ],
+      "isSystem": true,
+      "createdAt": "2026-06-22T06:46:16.848Z",
+      "updatedAt": "2026-06-23T06:40:16.059Z",
+      "__v": 2
+    },
+    "afterSnapshot": {
+      "_id": "6a38da38babdfad6dc1f34fc",
+      "name": "EMPLOYEE",
+      "description": "Default role for employees. Access limited to ESS portal.",
+      "permissions": [
+        "ess.access"
+      ],
+      "isSystem": true,
+      "createdAt": "2026-06-22T06:46:16.848Z",
+      "updatedAt": "2026-06-23T06:52:52.037Z",
+      "__v": 3
+    },
+    "ipAddress": "::1",
+    "createdAt": "2026-06-23T06:52:52.094Z",
+    "updatedAt": "2026-06-23T06:52:52.094Z",
+    "__v": 0
+  },
+  {
+    "_id": "6a3a3288fada77ad7d46f3a1",
+    "adminId": "6a38e4888784e2bae9e49560",
+    "action": "LOGOUT",
+    "resource": "Auth",
+    "beforeSnapshot": null,
+    "afterSnapshot": null,
+    "ipAddress": "::1",
+    "createdAt": "2026-06-23T07:15:20.101Z",
+    "updatedAt": "2026-06-23T07:15:20.101Z",
+    "__v": 0
+  },
+  {
+    "_id": "6a3a32a0fada77ad7d46f3a2",
+    "adminId": "6a38e4888784e2bae9e49560",
+    "action": "LOGIN",
+    "resource": "Auth",
+    "beforeSnapshot": null,
+    "afterSnapshot": null,
+    "ipAddress": "::1",
+    "createdAt": "2026-06-23T07:15:44.754Z",
+    "updatedAt": "2026-06-23T07:15:44.754Z",
+    "__v": 0
+  },
+  {
+    "_id": "6a3ba131a094d494ac4c39c4",
+    "adminId": "6a102d8de3a0c6edfe4f8700",
+    "action": "LOGIN",
+    "resource": "Auth",
+    "beforeSnapshot": null,
+    "afterSnapshot": null,
+    "ipAddress": "::1",
+    "createdAt": "2026-06-24T09:19:45.110Z",
+    "updatedAt": "2026-06-24T09:19:45.110Z",
+    "__v": 0
+  },
+  {
+    "_id": "6a3f74835972503145f70850",
+    "adminId": "6a102d8de3a0c6edfe4f8700",
+    "action": "LOGIN",
+    "resource": "Auth",
+    "beforeSnapshot": null,
+    "afterSnapshot": null,
+    "ipAddress": "110.226.178.176",
+    "createdAt": "2026-06-27T06:58:11.886Z",
+    "updatedAt": "2026-06-27T06:58:11.886Z",
+    "__v": 0
+  },
+  {
+    "_id": "6a4351afc8afbecabc41de9d",
+    "adminId": "6a102d8de3a0c6edfe4f8700",
+    "action": "LOGIN",
+    "resource": "Auth",
+    "beforeSnapshot": null,
+    "afterSnapshot": null,
+    "ipAddress": "122.181.103.171",
+    "createdAt": "2026-06-30T05:18:39.879Z",
+    "updatedAt": "2026-06-30T05:18:39.879Z",
+    "__v": 0
+  }
+]

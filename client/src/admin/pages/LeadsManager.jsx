@@ -192,10 +192,11 @@ export default function LeadsManager() {
               </div>
             ) : (
               <div className="overflow-x-auto bg-app-card border border-app-border rounded-xl shadow-sm pb-4">
-                <table className="w-full text-left text-sm whitespace-nowrap min-w-[2500px]">
+                <table className="w-full text-left text-sm whitespace-nowrap min-w-[2650px]">
                   <thead className="bg-app-bg border-b border-app-border text-app-text-muted text-xs uppercase tracking-wider sticky top-0">
                     <tr>
                       <th className="px-3 py-3 font-semibold sticky left-0 bg-app-bg z-10 border-r border-app-border">Lead ID</th>
+                      <th className="px-3 py-3 font-semibold">Received Date/Time</th>
                       <th className="px-3 py-3 font-semibold">Lead Name</th>
                       <th className="px-3 py-3 font-semibold">Phone</th>
                       <th className="px-3 py-3 font-semibold">Email</th>
@@ -234,6 +235,16 @@ export default function LeadsManager() {
                       >
                         <td className="px-3 py-2 align-middle font-mono font-medium text-primary sticky left-0 bg-app-card group-hover:bg-surface-variant border-r border-app-border">
                           {lead.leadId || '-'}
+                        </td>
+                        <td className="px-3 py-2 align-middle text-app-text-muted min-w-[150px]">
+                          {lead.createdAt ? new Date(lead.createdAt).toLocaleString('en-IN', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            hour12: true
+                          }) : '-'}
                         </td>
                         <td className="px-3 py-2 align-middle font-medium text-app-text min-w-[150px]">
                           {isSuperAdmin ? (

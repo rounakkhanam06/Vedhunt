@@ -1,0 +1,28 @@
+[
+  {
+    "_id": "6a395813c7b0cd25af0c4ab9",
+    "cycleId": "6a3957d6294a4e87fd0664ee",
+    "employeeId": "6a38da84babdfad6dc1f3500",
+    "__v": 0,
+    "companyRank": null,
+    "createdAt": "2026-06-22T15:43:15.843Z",
+    "finalScore": 0,
+    "isTopPerformer": false,
+    "managerReview": {
+      "isSubmitted": false,
+      "managerFeedback": "",
+      "managerRating": null
+    },
+    "performanceBand": "Pending",
+    "selfReview": {
+      "achievements": "",
+      "challenges": "",
+      "isSubmitted": false,
+      "learning": "",
+      "selfRating": null,
+      "supportNeeded": ""
+    },
+    "status": "Pending",
+    "updatedAt": "2026-06-22T15:43:15.843Z"
+  }
+]

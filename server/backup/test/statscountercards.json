@@ -1,0 +1,50 @@
+[
+  {
+    "_id": "6a13e2243c2125a2096f24a1",
+    "value": 50,
+    "suffix": "+",
+    "label": "Clients Served",
+    "icon": "Users",
+    "order": 1,
+    "isActive": true,
+    "__v": 0,
+    "createdAt": "2026-05-25T05:46:12.491Z",
+    "updatedAt": "2026-05-25T05:46:12.491Z"
+  },
+  {
+    "_id": "6a13e2243c2125a2096f24a2",
+    "value": 8,
+    "suffix": "+",
+    "label": "Services",
+    "icon": "Layers",
+    "order": 2,
+    "isActive": true,
+    "__v": 0,
+    "createdAt": "2026-05-25T05:46:12.494Z",
+    "updatedAt": "2026-05-25T05:46:12.494Z"
+  },
+  {
+    "_id": "6a13e2243c2125a2096f24a3",
+    "value": 100,
+    "suffix": "%",
+    "label": "Transparency",
+    "icon": "ShieldCheck",
+    "order": 3,
+    "isActive": true,
+    "__v": 0,
+    "createdAt": "2026-05-25T05:46:12.494Z",
+    "updatedAt": "2026-05-25T05:46:12.494Z"
+  },
+  {
+    "_id": "6a13e2243c2125a2096f24a4",
+    "value": 3,
+    "suffix": "+",
+    "label": "Years' Experience",
+    "icon": "Clock",
+    "order": 4,
+    "isActive": true,
+    "__v": 0,
+    "createdAt": "2026-05-25T05:46:12.494Z",
+    "updatedAt": "2026-05-25T05:46:12.494Z"
+  }
+]

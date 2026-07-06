@@ -1,0 +1,73 @@
+[
+  {
+    "_id": "6a108a4c5dd8dd7a120581ca",
+    "label": "Portfolio",
+    "path": "/portfolio",
+    "order": 4,
+    "isDeleted": false,
+    "__v": 0,
+    "createdAt": "2026-05-22T16:54:36.123Z",
+    "updatedAt": "2026-05-22T16:54:36.123Z"
+  },
+  {
+    "_id": "6a108a4c5dd8dd7a120581cd",
+    "label": "Career",
+    "path": "/career",
+    "order": 7,
+    "isDeleted": false,
+    "__v": 0,
+    "createdAt": "2026-05-22T16:54:36.123Z",
+    "updatedAt": "2026-05-22T16:54:36.123Z"
+  },
+  {
+    "_id": "6a108a4c5dd8dd7a120581c9",
+    "label": "Services",
+    "path": "/services",
+    "order": 3,
+    "isDeleted": false,
+    "__v": 0,
+    "createdAt": "2026-05-22T16:54:36.122Z",
+    "updatedAt": "2026-05-22T16:54:36.122Z"
+  },
+  {
+    "_id": "6a108a4c5dd8dd7a120581cc",
+    "label": "Pricing",
+    "path": "/pricing",
+    "order": 6,
+    "isDeleted": false,
+    "__v": 0,
+    "createdAt": "2026-05-22T16:54:36.123Z",
+    "updatedAt": "2026-05-22T17:00:09.489Z",
+    "updatedBy": "6a102d8de3a0c6edfe4f8700"
+  },
+  {
+    "_id": "6a108a4c5dd8dd7a120581c7",
+    "label": "Home",
+    "path": "/",
+    "order": 1,
+    "isDeleted": false,
+    "__v": 0,
+    "createdAt": "2026-05-22T16:54:36.080Z",
+    "updatedAt": "2026-05-22T16:54:36.080Z"
+  },
+  {
+    "_id": "6a108a4c5dd8dd7a120581cb",
+    "label": "Blog",
+    "path": "/blog",
+    "order": 5,
+    "isDeleted": false,
+    "__v": 0,
+    "createdAt": "2026-05-22T16:54:36.123Z",
+    "updatedAt": "2026-05-22T16:54:36.123Z"
+  },
+  {
+    "_id": "6a108a4c5dd8dd7a120581c8",
+    "label": "About",
+    "path": "/about",
+    "order": 2,
+    "isDeleted": false,
+    "__v": 0,
+    "createdAt": "2026-05-22T16:54:36.122Z",
+    "updatedAt": "2026-05-22T16:54:36.122Z"
+  }
+]

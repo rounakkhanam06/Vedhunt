@@ -76,6 +76,21 @@ const PerformanceCycleManager = lazy(() => import('../admin/pages/PerformanceCyc
 const PerformanceGoalAssigner = lazy(() => import('../admin/pages/PerformanceGoalAssigner'));
 const CompanyPerformanceMatrix = lazy(() => import('../admin/pages/CompanyPerformanceMatrix'));
 const AttendanceManager = lazy(() => import('../admin/pages/AttendanceManager'));
+const ClientManager = lazy(() => import('../admin/pages/ClientManager'));
+const InvoiceManager = lazy(() => import('../admin/pages/InvoiceManager'));
+const ProjectManager = lazy(() => import('../admin/pages/ProjectManager'));
+const RetainerManager = lazy(() => import('../admin/pages/RetainerManager'));
+const SupportDeskManager = lazy(() => import('../admin/pages/SupportDeskManager'));
+
+// Client Portal
+const ClientThemeGuard = lazy(() => import('../client/ClientThemeGuard'));
+const ClientPrivateRoute = lazy(() => import('../client/ClientPrivateRoute'));
+const ClientLayout = lazy(() => import('../client/ClientLayout'));
+const ClientLogin = lazy(() => import('../client/pages/ClientLogin'));
+const ClientDashboard = lazy(() => import('../client/pages/ClientDashboard'));
+const ClientForgotPassword = lazy(() => import('../client/pages/ClientForgotPassword'));
+const ClientResetPassword = lazy(() => import('../client/pages/ClientResetPassword'));
+const ClientTempPasswordReset = lazy(() => import('../client/pages/ClientTempPasswordReset'));
 
 import AdminThemeGuard from '../admin/components/AdminThemeGuard';
 import ProtectedRoute from '../admin/components/ProtectedRoute';
@@ -422,6 +437,26 @@ export const router = createBrowserRouter([
             element: withSuspense(RefundPolicyManager)
           },
           {
+            path: 'clients',
+            element: withPermission(ClientManager, 'cms.manage')
+          },
+          {
+            path: 'invoices',
+            element: withPermission(InvoiceManager, 'cms.manage')
+          },
+          {
+            path: 'projects',
+            element: withPermission(ProjectManager, 'cms.manage')
+          },
+          {
+            path: 'retainers',
+            element: withPermission(RetainerManager, 'cms.manage')
+          },
+          {
+            path: 'support-desk',
+            element: withPermission(SupportDeskManager, 'cms.manage')
+          },
+          {
             path: 'leads',
             element: withSuspense(LeadsManager)
           },
@@ -462,6 +497,59 @@ export const router = createBrowserRouter([
               {
                 path: '',
                 element: withSuspense(ESSDashboard) // default
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  // ─── Client Portal ───────────────────────────────────────────────────────
+  {
+    path: '/client',
+    element: (
+      <Suspense fallback={null}>
+        <ClientThemeGuard>
+          <Outlet />
+        </ClientThemeGuard>
+      </Suspense>
+    ),
+    children: [
+      {
+        path: 'login',
+        element: withSuspense(ClientLogin)
+      },
+      {
+        path: 'forgot-password',
+        element: withSuspense(ClientForgotPassword)
+      },
+      {
+        path: 'reset-password/:token',
+        element: withSuspense(ClientResetPassword)
+      },
+      {
+        path: 'reset-temp-password',
+        element: withSuspense(ClientTempPasswordReset)
+      },
+      {
+        path: '',
+        element: (
+          <Suspense fallback={null}>
+            <ClientPrivateRoute />
+          </Suspense>
+        ),
+        children: [
+          {
+            path: '',
+            element: withSuspense(ClientLayout),
+            children: [
+              {
+                path: 'dashboard',
+                element: withSuspense(ClientDashboard)
+              },
+              {
+                path: '',
+                element: withSuspense(ClientDashboard)
               }
             ]
           }

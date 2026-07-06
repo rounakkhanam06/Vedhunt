@@ -1,0 +1,224 @@
+[
+  {
+    "_id": "6a1d47b03a4aa1cc6977eb0f",
+    "slug": "the-future-of-web-development-what-to-expect-in-2026",
+    "__v": 0,
+    "author": "Andrew Wills",
+    "category": "WEB & APP DEVELOPMENT",
+    "contentBlocks": [
+      {
+        "id": "36409726-17c1-4465-8f1d-b07784b3cf2b",
+        "type": "paragraph",
+        "data": {
+          "text": "Explore the latest trends in web development, from AI-driven coding to the rise of edge computing and micro-frontends."
+        }
+      },
+      {
+        "id": "7d6b5c23-720a-485d-941c-6393b9a48ea5",
+        "type": "image",
+        "data": {
+          "url": "https://images.unsplash.com/photo-1498050108023-c5249f4df085?q=80&w=800&h=500&fit=crop",
+          "caption": "The Future of Web Development: What to Expect in 2026"
+        }
+      },
+      {
+        "id": "a042e5e5-e7f3-48d6-ad27-0c94b2f3637e",
+        "type": "paragraph",
+        "data": {
+          "text": "This is a seeded blog post. You can edit or replace this content in the admin dashboard."
+        }
+      }
+    ],
+    "createdAt": "2026-06-01T08:49:52.182Z",
+    "excerpt": "Explore the latest trends in web development, from AI-driven coding to the rise of edge computing and micro-frontends.",
+    "isPublished": true,
+    "thumbnail": "https://images.unsplash.com/photo-1498050108023-c5249f4df085?q=80&w=800&h=500&fit=crop",
+    "title": "The Future of Web Development: What to Expect in 2026",
+    "updatedAt": "2026-06-30T05:38:24.786Z"
+  },
+  {
+    "_id": "6a1d47b03a4aa1cc6977eb10",
+    "slug": "mastering-brand-identity-in-a-digital-first-world",
+    "__v": 0,
+    "author": "Alisha Smith",
+    "category": "BRANDING & DESIGN",
+    "contentBlocks": [
+      {
+        "id": "d7561b5f-2f4e-4169-89dc-44851ae7f15d",
+        "type": "paragraph",
+        "data": {
+          "text": "How to build a brand that resonates with modern consumers and stands out in an increasingly crowded digital marketplace."
+        }
+      },
+      {
+        "id": "6bd21b8b-4e9e-4cbd-80aa-ffa8c731e08a",
+        "type": "image",
+        "data": {
+          "url": "https://images.unsplash.com/photo-1557804506-669a67965ba0?q=80&w=800&h=500&fit=crop",
+          "caption": "Mastering Brand Identity in a Digital-First World"
+        }
+      },
+      {
+        "id": "1fdf19f1-f61c-47b1-89bd-79e8d37381ab",
+        "type": "paragraph",
+        "data": {
+          "text": "This is a seeded blog post. You can edit or replace this content in the admin dashboard."
+        }
+      }
+    ],
+    "createdAt": "2026-06-01T08:49:52.298Z",
+    "excerpt": "How to build a brand that resonates with modern consumers and stands out in an increasingly crowded digital marketplace.",
+    "isPublished": true,
+    "thumbnail": "https://images.unsplash.com/photo-1557804506-669a67965ba0?q=80&w=800&h=500&fit=crop",
+    "title": "Mastering Brand Identity in a Digital-First World",
+    "updatedAt": "2026-06-30T05:38:24.845Z"
+  },
+  {
+    "_id": "6a1d47b03a4aa1cc6977eb11",
+    "slug": "maximizing-roi-strategies-for-high-performance-ad-campaigns",
+    "__v": 0,
+    "author": "Robert White",
+    "category": "ACCOUNTING, FINANCE & COMPLIANCE",
+    "contentBlocks": [
+      {
+        "id": "58a86b2a-8f1c-4f1e-bfe3-912ddb8518d3",
+        "type": "paragraph",
+        "data": {
+          "text": "Learn the secrets of running successful PPC campaigns that drive conversions and scale your business growth."
+        }
+      },
+      {
+        "id": "cbe030be-0afa-4c3e-a602-8a9663c7841d",
+        "type": "image",
+        "data": {
+          "url": "https://plus.unsplash.com/premium_photo-1773833961252-bd44377ceea6?q=80&w=1171&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
+          "caption": "Maximizing ROI: Strategies for High-Performance Ad Campaigns"
+        }
+      },
+      {
+        "id": "e0f961db-2f68-459a-87c3-62f89b6065aa",
+        "type": "paragraph",
+        "data": {
+          "text": "This is a seeded blog post. You can edit or replace this content in the admin dashboard."
+        }
+      }
+    ],
+    "createdAt": "2026-06-01T08:49:52.381Z",
+    "excerpt": "Learn the secrets of running successful PPC campaigns that drive conversions and scale your business growth.",
+    "isPublished": true,
+    "thumbnail": "https://images.unsplash.com/photo-1460925895917-afdab827c52f?q=80&w=800&h=500&fit=crop",
+    "title": "Maximizing ROI: Strategies for High-Performance Ad Campaigns",
+    "updatedAt": "2026-06-30T05:38:24.898Z"
+  },
+  {
+    "_id": "6a1d47b03a4aa1cc6977eb12",
+    "slug": "the-power-of-data-transforming-business-intelligence-with-power-bi",
+    "__v": 0,
+    "author": "Sarah George",
+    "category": "DATA, MIS & POWER BI",
+    "contentBlocks": [
+      {
+        "id": "dddea5cb-f1e7-4002-9479-d113147e336a",
+        "type": "paragraph",
+        "data": {
+          "text": "Unlock the potential of your business data with interactive dashboards and real-time analytics for better decision making."
+        }
+      },
+      {
+        "id": "9f033b8d-7381-4543-bbd7-edf8ef72879f",
+        "type": "image",
+        "data": {
+          "url": "https://plus.unsplash.com/premium_photo-1661454577337-7738fd3dd478?q=80&w=1292&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
+          "caption": "The Power of Data: Transforming Business Intelligence with Power BI"
+        }
+      },
+      {
+        "id": "756d575b-46c4-40bf-b4b9-4940215e111e",
+        "type": "paragraph",
+        "data": {
+          "text": "This is a seeded blog post. You can edit or replace this content in the admin dashboard."
+        }
+      }
+    ],
+    "createdAt": "2026-06-01T08:49:52.467Z",
+    "excerpt": "Unlock the potential of your business data with interactive dashboards and real-time analytics for better decision making.",
+    "isPublished": true,
+    "thumbnail": "https://images.unsplash.com/photo-1758873269181-270f5b7fc6aa?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MzB8fFRoZSUyMFBvd2VyJTIwb2YlMjBEYXRhJTNBJTIwVHJhbnNmb3JtaW5nJTIwQnVzaW5lc3MlMjBJbnRlbGxpZ2VuY2UlMjB3aXRoJTIwUG93ZXIlMjBCSXxlbnwwfHwwfHx8MA%3D%3D",
+    "title": "The Power of Data: Transforming Business Intelligence with Power BI",
+    "updatedAt": "2026-06-30T05:38:24.960Z"
+  },
+  {
+    "_id": "6a1d47b03a4aa1cc6977eb13",
+    "slug": "mobile-app-trends-creating-seamless-user-experiences",
+    "__v": 0,
+    "author": "Andrew Wills",
+    "category": "CASE STUDIES & RESULTS",
+    "contentBlocks": [
+      {
+        "id": "36acc455-33bf-4c9a-a66f-43c8248ee5a3",
+        "type": "paragraph",
+        "data": {
+          "text": "A deep dive into the latest mobile app design patterns and technologies that are defining the next generation of mobile apps."
+        }
+      },
+      {
+        "id": "d622e87c-fea2-4c94-894f-6d9fd3ec6988",
+        "type": "image",
+        "data": {
+          "url": "https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?q=80&w=800&h=500&fit=crop",
+          "caption": "Mobile App Trends: Creating Seamless User Experiences"
+        }
+      },
+      {
+        "id": "7d0b9550-2123-469f-9d37-2778250219bb",
+        "type": "paragraph",
+        "data": {
+          "text": "This is a seeded blog post. You can edit or replace this content in the admin dashboard."
+        }
+      }
+    ],
+    "createdAt": "2026-06-01T08:49:52.548Z",
+    "excerpt": "A deep dive into the latest mobile app design patterns and technologies that are defining the next generation of mobile apps.",
+    "isPublished": true,
+    "thumbnail": "https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?q=80&w=800&h=500&fit=crop",
+    "title": "Mobile App Trends: Creating Seamless User Experiences",
+    "updatedAt": "2026-06-30T05:38:25.009Z"
+  },
+  {
+    "_id": "6a1d47b03a4aa1cc6977eb14",
+    "slug": "seo-secrets-dominating-search-rankings-in-2026",
+    "__v": 0,
+    "author": "Robert White",
+    "category": "SEO & DIGITAL MARKETING",
+    "contentBlocks": [
+      {
+        "id": "f9d1f9ff-2a5d-464a-988f-89119ffe8fe7",
+        "type": "paragraph",
+        "data": {
+          "text": "Everything you need to know about search engine optimization in the era of AI-powered search and semantic understanding."
+        }
+      },
+      {
+        "id": "80d8aec4-6946-4c8a-9b26-d95ec220bbd8",
+        "type": "image",
+        "data": {
+          "url": "https://images.unsplash.com/photo-1571721795195-a2ca2d3370a9?q=80&w=800&h=500&fit=crop",
+          "caption": "SEO Secrets: Dominating Search Rankings in 2026"
+        }
+      },
+      {
+        "id": "a6422a91-4b1f-4e96-841b-8aee3856f070",
+        "type": "paragraph",
+        "data": {
+          "text": "This is a seeded blog post. You can edit or replace this content in the admin dashboard."
+        }
+      }
+    ],
+    "createdAt": "2026-06-01T08:49:52.626Z",
+    "excerpt": "Everything you need to know about search engine optimization in the era of AI-powered search and semantic understanding.",
+    "isPublished": true,
+    "thumbnail": "https://media.istockphoto.com/id/1473508665/photo/administration-teamwork-office-documents-or-people-review-financial-data-finance-funding-or.jpg?s=1024x1024&w=is&k=20&c=7S4FyaQ0_TBEf4mRFuguACbapN2U2u8Kt_DyB-laGUc=",
+    "title": "SEO Secrets: Dominating Search Rankings in 2026",
+    "updatedAt": "2026-06-30T05:38:25.067Z"
+  }
+]

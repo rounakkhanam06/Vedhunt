@@ -1,0 +1,68 @@
+[
+  {
+    "_id": "6a119b629c7130523632ea44",
+    "icon": "Headphones",
+    "title": "Dedicated Support",
+    "description": "Get a dedicated account manager reachable directly over WhatsApp for seamless updates.",
+    "isActive": true,
+    "order": 4,
+    "__v": 0,
+    "createdAt": "2026-05-23T12:19:46.506Z",
+    "updatedAt": "2026-05-23T12:19:46.506Z"
+  },
+  {
+    "_id": "6a119b629c7130523632ea43",
+    "icon": "Zap",
+    "title": "Fast Turnaround",
+    "description": "Optimized agile development workflows to deliver your projects ahead of schedule.",
+    "isActive": true,
+    "order": 3,
+    "__v": 0,
+    "createdAt": "2026-05-23T12:19:46.506Z",
+    "updatedAt": "2026-05-23T12:19:46.506Z"
+  },
+  {
+    "_id": "6a119b629c7130523632ea46",
+    "icon": "BarChart3",
+    "title": "Data-Driven",
+    "description": "Every campaign, design layout, and process optimization is backed by real user data analytics.",
+    "isActive": true,
+    "order": 6,
+    "__v": 0,
+    "createdAt": "2026-05-23T12:19:46.506Z",
+    "updatedAt": "2026-05-23T12:19:46.506Z"
+  },
+  {
+    "_id": "6a119b629c7130523632ea45",
+    "icon": "Lightbulb",
+    "title": "Creative + Technical",
+    "description": "A powerful combination of stunning visual UX design and robust backend engineering.",
+    "isActive": true,
+    "order": 5,
+    "__v": 0,
+    "createdAt": "2026-05-23T12:19:46.506Z",
+    "updatedAt": "2026-05-23T12:19:46.506Z"
+  },
+  {
+    "_id": "6a119b629c7130523632ea42",
+    "icon": "Eye",
+    "title": "Full Transparency",
+    "description": "No hidden charges, no vague metrics—clear communication at every phase.",
+    "isActive": true,
+    "order": 2,
+    "__v": 0,
+    "createdAt": "2026-05-23T12:19:46.506Z",
+    "updatedAt": "2026-05-23T12:19:46.506Z"
+  },
+  {
+    "_id": "6a119b629c7130523632ea41",
+    "icon": "Target",
+    "title": "Result-Oriented",
+    "description": "We focus heavily on measurable outcomes that directly drive your business growth.",
+    "isActive": true,
+    "order": 1,
+    "__v": 0,
+    "createdAt": "2026-05-23T12:19:46.504Z",
+    "updatedAt": "2026-05-23T12:19:46.504Z"
+  }
+]

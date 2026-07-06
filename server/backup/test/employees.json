@@ -1,0 +1,176 @@
+[
+  {
+    "_id": "6a38da84babdfad6dc1f3500",
+    "employeeId": "VH-EMP-002",
+    "adminId": "6a38da84babdfad6dc1f34ff",
+    "firstName": "raunak",
+    "lastName": "KHAN",
+    "email": "raunak@gmail.com",
+    "roleDept": "Creative Design",
+    "employmentType": "Billable",
+    "joinDate": "2026-06-24T00:00:00.000Z",
+    "salaryCTC": 600000,
+    "panNumber": "45e60d1f1930800ddf21a0c4ebb3b1d5:2cadc177a107ad50da9e834a03fa8175",
+    "aadhaarNumber": "845227e6977be2d6ef337ee049ea7a30:78f57c82720c8ef275d4e136ac0f0032",
+    "bankDetails": {
+      "accountName": "",
+      "accountNumber": "",
+      "bankName": "",
+      "ifscCode": ""
+    },
+    "attendance": [],
+    "tasks": [
+      {
+        "title": "admin panel enhancement",
+        "description": "ndhef edjjhf",
+        "status": "Pending",
+        "dueDate": "2026-06-22T00:00:00.000Z",
+        "_id": "6a3914a37392baf12d71bd99"
+      }
+    ],
+    "timesheet": [],
+    "payslips": [
+      {
+        "month": "January",
+        "year": "2026",
+        "baseSalary": 30000,
+        "allowance": 2000,
+        "deduction": 500,
+        "deductionReason": "leave deduction.",
+        "netPay": 31500,
+        "status": "Paid",
+        "_id": "6a391c3a03058a7814fb1156"
+      }
+    ],
+    "performance": [],
+    "createdAt": "2026-06-22T06:47:32.298Z",
+    "updatedAt": "2026-06-24T18:00:00.096Z",
+    "__v": 5,
+    "alerts": [
+      {
+        "type": "MissingTimesheet",
+        "message": "No work logged today. Please submit your timesheet.",
+        "resolved": false,
+        "_id": "6a39782049513eabfe78b98c",
+        "createdAt": "2026-06-22T18:00:00.072Z"
+      },
+      {
+        "type": "MissingTimesheet",
+        "message": "No work logged today. Please submit your timesheet.",
+        "resolved": false,
+        "_id": "6a3ac9a049513eabfe78c140",
+        "createdAt": "2026-06-23T18:00:00.050Z"
+      },
+      {
+        "type": "MissingTimesheet",
+        "message": "No work logged today. Please submit your timesheet.",
+        "resolved": false,
+        "_id": "6a3c1b2049513eabfe78c1ec",
+        "createdAt": "2026-06-24T18:00:00.092Z"
+      }
+    ],
+    "phone": "0000000000",
+    "leaveBalance": 2,
+    "leavesUsed": 0
+  },
+  {
+    "_id": "6a38e4888784e2bae9e49561",
+    "employeeId": "VH-EMP-003",
+    "adminId": "6a38e4888784e2bae9e49560",
+    "firstName": "Furqan",
+    "lastName": "Kumar",
+    "email": "furqan@gmail.com",
+    "phone": "8747748465",
+    "tempPassword": "e06a3d9b",
+    "roleDept": "MERN Developer",
+    "employmentType": "Billable",
+    "joinDate": "2026-06-25T00:00:00.000Z",
+    "salaryCTC": 600000,
+    "panNumber": "f2579f20e42e0558c90f1cca09a47275:7cc63750df869d875893516dcf7661d7",
+    "aadhaarNumber": "ba7f547d0c96563f23e4349eaa2b7b52:5fe3ef58136976a7d838ae7303a59753",
+    "bankDetails": {
+      "accountName": "",
+      "accountNumber": "",
+      "bankName": "",
+      "ifscCode": ""
+    },
+    "attendance": [
+      {
+        "date": "2026-06-22T07:38:26.657Z",
+        "status": "Present",
+        "clockIn": "01:08 pm",
+        "clockOut": "07:37 pm",
+        "_id": "6a38e6728784e2bae9e49564"
+      },
+      {
+        "date": "2026-06-22T18:30:00.000Z",
+        "status": "Leave",
+        "_id": "6a3942f5d3ac31288d93af96",
+        "clockOut": "12:23 pm"
+      },
+      {
+        "date": "2026-06-23T18:30:00.000Z",
+        "status": "Leave",
+        "_id": "6a3942f5d3ac31288d93af97"
+      }
+    ],
+    "tasks": [
+      {
+        "title": "Seller review ",
+        "description": "add seller review option",
+        "status": "Completed",
+        "dueDate": "2026-06-22T00:00:00.000Z",
+        "_id": "6a3915057392baf12d71bda1"
+      }
+    ],
+    "timesheet": [],
+    "payslips": [
+      {
+        "month": "January",
+        "year": "2026",
+        "baseSalary": 35000,
+        "allowance": 1500,
+        "deduction": 300,
+        "deductionReason": "leave deduction",
+        "netPay": 36200,
+        "status": "Paid",
+        "_id": "6a391c8403058a7814fb1165"
+      }
+    ],
+    "performance": [],
+    "createdAt": "2026-06-22T07:30:16.919Z",
+    "updatedAt": "2026-06-24T18:00:00.203Z",
+    "__v": 8,
+    "activeTimer": {
+      "project": null,
+      "task": null,
+      "startTime": null,
+      "activityType": null
+    },
+    "alerts": [
+      {
+        "type": "Productivity",
+        "message": "Your productivity today was 1.37% (Below 70%).",
+        "resolved": false,
+        "_id": "6a397ba449513eabfe78b995",
+        "createdAt": "2026-06-22T18:15:00.060Z"
+      },
+      {
+        "type": "MissingTimesheet",
+        "message": "No work logged today. Please submit your timesheet.",
+        "resolved": false,
+        "_id": "6a3ac9a049513eabfe78c141",
+        "createdAt": "2026-06-23T18:00:00.102Z"
+      },
+      {
+        "type": "MissingTimesheet",
+        "message": "No work logged today. Please submit your timesheet.",
+        "resolved": false,
+        "_id": "6a3c1b2049513eabfe78c1ed",
+        "createdAt": "2026-06-24T18:00:00.201Z"
+      }
+    ],
+    "leaveBalance": 5,
+    "leavesUsed": 2
+  }
+]

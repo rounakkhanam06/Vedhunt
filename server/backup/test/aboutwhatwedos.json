@@ -1,0 +1,55 @@
+[
+  {
+    "_id": "6a1d38b45ef6f591a9bd9ba3",
+    "tagline": "What We Do",
+    "title": "Comprehensive Technology & Financial Solutions",
+    "description": "Vedhunt InfoTech provides successful business solutions to its clients to scale their profitability. It's a trusted agency which provides customized services to businesses across India.",
+    "cards": [
+      {
+        "icon": "Code",
+        "title": "Web & Mobile Engineering",
+        "desc": "High-performing, responsive, and scalable web and mobile applications tailored to your brand and business goals.",
+        "_id": "6a1d38b45ef6f591a9bd9ba4"
+      },
+      {
+        "icon": "Share2",
+        "title": "Social Media Management",
+        "desc": "Expertly managed campaigns and engaging organic content designed to build community and drive brand loyalty.",
+        "_id": "6a1d38b45ef6f591a9bd9ba5"
+      },
+      {
+        "icon": "Megaphone",
+        "title": "Performance Marketing",
+        "desc": "Targeted ad strategies across Google, Meta, and LinkedIn Ads that drive leads, conversions, and long-term brand value.",
+        "_id": "6a1d38b45ef6f591a9bd9ba6"
+      },
+      {
+        "icon": "Palette",
+        "title": "UI/UX Design",
+        "desc": "Intuitive, visually stunning, and user-centric designs that communicate your vision and values effectively to your targeted audience.",
+        "_id": "6a1d38b45ef6f591a9bd9ba7"
+      },
+      {
+        "icon": "Calculator",
+        "title": "Accounting & Financial Services",
+        "desc": "Transparent financial management, outsourced bookkeeping, and compliance reporting services for smooth business operations.",
+        "_id": "6a1d38b45ef6f591a9bd9ba8"
+      },
+      {
+        "icon": "BarChart3",
+        "title": "MIS & Reporting Services",
+        "desc": "Smart dashboards and automated insights to enable quick, data-driven, and highly effective executive decision-making.",
+        "_id": "6a1d38b45ef6f591a9bd9ba9"
+      },
+      {
+        "icon": "Cpu",
+        "title": "Enterprise Process Automation",
+        "desc": "Streamlining business workflows through powerful automation and custom business intelligence tools (SQL, Power BI, Python) to save time and eliminate errors.",
+        "_id": "6a1d38b45ef6f591a9bd9baa"
+      }
+    ],
+    "createdAt": "2026-06-01T07:45:56.113Z",
+    "updatedAt": "2026-06-01T09:52:18.482Z",
+    "__v": 2
+  }
+]

@@ -1,0 +1,509 @@
+[
+  {
+    "_id": "6a117daac194d818a1812194",
+    "id_string": "mobile-app-development",
+    "slug": "mobile-app-development",
+    "title": "Mobile App Development",
+    "subtitle": "Native-Like iOS & Android Apps",
+    "tagline": "High-performance native and hybrid mobile apps built to engage your customers on the move.",
+    "overview": [
+      "Mobile apps have become a principal standard of daily consumer interaction. We engineer fluid native and cross-platform mobile apps for iOS and Android. Our technical experts focus on building hyper-responsive interfaces that consume minimal battery and memory, ensuring optimal retention rates.",
+      "From wireframing and design prototypes to secure database synchronization and deployment on the Apple App Store and Google Play Store, we support you through the full software engineering lifecycle. We implement rich, modern micro-interactions that make your application feel premium."
+    ],
+    "shortDescription": "Scalable iOS & Android applications with fluid, native-like user experiences that keep your customers engaged on every device.",
+    "description": "We design and develop custom mobile apps for iOS and Android — from MVPs to full-scale enterprise applications. Using modern native and cross-platform frameworks, we deliver fast, secure, and intuitive apps with clean UI/UX, smooth performance, and seamless backend integration, so your business stays right in your customer's pocket",
+    "subServices": "iOS App, Android App, Cross-Platform Apps, UI/UX Design",
+    "highlights": [
+      {
+        "text": "Native Performance",
+        "desc": "Blazing-fast speeds with direct API access.",
+        "_id": "6a117daac194d818a1812199"
+      },
+      {
+        "text": "Fluid Animations",
+        "desc": "Smooth, physics-based UI transitions.",
+        "_id": "6a117daac194d818a181219a"
+      },
+      {
+        "text": "Custom Syncing",
+        "desc": "Secure offline database capabilities.",
+        "_id": "6a117daac194d818a181219b"
+      },
+      {
+        "text": "App Store Success",
+        "desc": "Complete deployment and review management.",
+        "_id": "6a117daac194d818a181219c"
+      }
+    ],
+    "process": [
+      {
+        "step": "01",
+        "title": "System Blueprinting",
+        "desc": "Mapping user journeys, API specifications, and architectural schema.",
+        "_id": "6a117daac194d818a181219d"
+      },
+      {
+        "step": "02",
+        "title": "Interactive Prototypes",
+        "desc": "Designing premium visual mockups with interactive flow simulations.",
+        "_id": "6a117daac194d818a181219e"
+      },
+      {
+        "step": "03",
+        "title": "Agile App Coding",
+        "desc": "Robust React Native or Flutter engineering with proper state management.",
+        "_id": "6a117daac194d818a181219f"
+      },
+      {
+        "step": "04",
+        "title": "Rigorous Sandbox Testing",
+        "desc": "Automated testing across multiple virtual and hardware mobile devices.",
+        "_id": "6a117daac194d818a18121a0"
+      },
+      {
+        "step": "05",
+        "title": "Store Submission",
+        "desc": "Navigating Google Play and Apple App Store compliance guidelines for deployment.",
+        "_id": "6a117daac194d818a18121a1"
+      }
+    ],
+    "pricing": {
+      "type": "project",
+      "toggleLabels": {
+        "primary": "MVP Release",
+        "secondary": "Production Ready"
+      },
+      "plans": [
+        {
+          "title": "Starter MVP",
+          "priceOneTime": "₹49,999",
+          "priceSupport": "₹59,999",
+          "subtitle": "Perfect to validate your app concept",
+          "features": [
+            "Clean cross-platform (iOS & Android) MVP",
+            "Up to 6 UI dashboard pages",
+            "Firebase database & authentication setup",
+            "Standard push notifications integration",
+            "Delivery within 20 working days",
+            "Basic App Store guidance"
+          ],
+          "cta": "Build MVP Starter",
+          "highlight": false,
+          "_id": "6a117daac194d818a18121a2"
+        },
+        {
+          "title": "Growth App",
+          "priceOneTime": "₹89,999",
+          "priceSupport": "₹1,09,999",
+          "subtitle": "Ideal for mature startup initiatives",
+          "features": [
+            "Up to 12 custom animated screen layouts",
+            "Custom Node.js API & database backend",
+            "Full payment gateway & wallet setups",
+            "Advanced state management & offline caching",
+            "Enhanced dashboard metrics panel",
+            "30 days post-launch technical support",
+            "Complete store submission management"
+          ],
+          "cta": "Build Growth App",
+          "highlight": true,
+          "_id": "6a117daac194d818a18121a3"
+        },
+        {
+          "title": "Enterprise Custom",
+          "priceOneTime": "₹1,79,999+",
+          "priceSupport": "₹2,09,999+",
+          "subtitle": "For enterprise solutions & custom features",
+          "features": [
+            "Unlimited highly-custom screen screens",
+            "Robust microservice backend system",
+            "Advanced biometric & multi-factor security",
+            "Custom AI / Analytics modeling integrations",
+            "99.9% uptime SLA service agreement",
+            "Dedicated principal engineer support",
+            "Long-term SLA operational contracts"
+          ],
+          "cta": "Build Custom App",
+          "highlight": false,
+          "_id": "6a117daac194d818a18121a4"
+        }
+      ]
+    },
+    "portfolio": [
+      {
+        "image": "/vrumarket-screenshot.png",
+        "title": "Vrushahi Market Delivery App",
+        "metric": "Fast Local Deliveries",
+        "description": "Engineered a highly responsive multi-vendor grocery and product delivery platform with real-time store tracking.",
+        "appLink": "https://vrumarket.com/",
+        "_id": "6a117daac194d818a18121a5"
+      },
+      {
+        "image": "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?q=80&w=600&h=800&fit=crop",
+        "title": "Cleanzo Mobile Experience",
+        "metric": "Premium UI/UX",
+        "description": "Designed a highly engaging home cleaning service app with stunning animations and interactive booking flows.",
+        "appLink": "https://cleanzo-theta.vercel.app/",
+        "iframeUrl": "https://cleanzo-theta.vercel.app/",
+        "_id": "6a117daac194d818a18121a6"
+      },
+      {
+        "image": "/curebasket-screenshot.png",
+        "title": "Cure Basket Pharmacy",
+        "metric": "100% Genuine Medicines",
+        "description": "Developed a comprehensive healthcare and pharmacy app featuring fast, discreet delivery and secure payments.",
+        "appLink": "https://cure-basket.vercel.app/",
+        "_id": "6a117daac194d818a18121a7"
+      }
+    ],
+    "faqs": [
+      {
+        "q": "Should I choose React Native/Flutter or Native Swift/Kotlin?",
+        "a": "For 90% of business applications, React Native or Flutter is perfect. It saves up to 50% in development costs since it uses a single codebase to support both iOS and Android. Native code is only recommended for complex 3D rendering or hardware-intensive architectures.",
+        "_id": "6a117daac194d818a18121a8"
+      },
+      {
+        "q": "Do you help publish the apps on the Apple and Google Play stores?",
+        "a": "Yes, we take care of the entire store submission process, including metadata configuration, icon setups, policy declarations, and addressing review rejections.",
+        "_id": "6a117daac194d818a18121a9"
+      },
+      {
+        "q": "Can the app store data offline?",
+        "a": "Absolutely. We configure lightweight local databases (like SQLite or Realm) that store transactional records offline and sync immediately when an internet connection is established.",
+        "_id": "6a117daac194d818a18121aa"
+      }
+    ],
+    "testimonial": {
+      "feedback": "Their mobile engineering process was extremely detailed and clean. The application prototypes they built helped us demonstrate concrete traction to our investors and secure our seed round. Absolutely top-tier partners!",
+      "author": "Karan Malhotra",
+      "role": "FinTech Founder",
+      "avatar": "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?q=80&w=150&h=150&fit=crop"
+    },
+    "iconName": "Smartphone",
+    "features": [
+      "Native-Like Performance",
+      "Secure & Scalable Architecture",
+      "Intuitive UI/UX Design"
+    ],
+    "cta": "Get Started",
+    "order": 2,
+    "isActive": true,
+    "showOnHome": true,
+    "showOnServicesPage": true,
+    "isDeleted": false,
+    "__v": 1,
+    "createdAt": "2026-05-23T10:12:58.873Z",
+    "updatedAt": "2026-06-29T14:39:57.866Z",
+    "imagePublicId": "vedhunt-cms/qi7ez0dysd5mqjsbxhrp",
+    "imageUrl": "https://res.cloudinary.com/dd2ncdjlm/image/upload/v1782385931/vedhunt-cms/qi7ez0dysd5mqjsbxhrp.jpg",
+    "updatedBy": "6a102d8de3a0c6edfe4f8700"
+  },
+  {
+    "_id": "6a117daac194d818a181217b",
+    "id_string": "website-development",
+    "slug": "website-development",
+    "title": "Website Development",
+    "subtitle": "Fast, Secure & SEO-Ready Websites",
+    "tagline": "Blazing-fast, SEO-optimized custom web solutions to represent your brand with prestige.",
+    "overview": [
+      "Your website is the digital storefront of your business. We craft custom websites that are not just beautiful, but engineered for speed, responsiveness, and conversions. Our approach blends state-of-the-art frontend architectures with sleek, minimal aesthetics that reflect your technical and operational prestige.",
+      "We focus on mobile responsiveness, high-speed optimization, and clean-code structures. Whether it is a premium corporate website, a lightning-fast React application, or an e-commerce platform, we ensure your users have an unforgettable, frictionless experience that drives conversions."
+    ],
+    "shortDescription": "We build fast, secure, responsive, and SEO-friendly websites that help businesses establish a strong online presence and turn visitors into customers.",
+    "description": "Our web development team designs and builds high-performance websites — from business and corporate sites to full eCommerce stores — engineered for speed, mobile responsiveness, and search engine visibility. Every website is built on clean, scalable code with on-page SEO, fast loading times, and conversion-focused layouts, so your brand ranks higher on Google and turns traffic into qualified leads.",
+    "subServices": "Business Website, Corporate Website, eCommerce Website",
+    "highlights": [
+      {
+        "text": "Affordable Pricing",
+        "desc": "Premium engineering at business-friendly rates.",
+        "_id": "6a117daac194d818a1812182"
+      },
+      {
+        "text": "Fast Delivery",
+        "desc": "Launch in days, not months, with optimized workflows.",
+        "_id": "6a117daac194d818a1812183"
+      },
+      {
+        "text": "Proven Results",
+        "desc": "Designed for conversion, high engagement & speed.",
+        "_id": "6a117daac194d818a1812184"
+      },
+      {
+        "text": "Dedicated Support",
+        "desc": "Direct communication with principal developers.",
+        "_id": "6a117daac194d818a1812185"
+      }
+    ],
+    "process": [
+      {
+        "step": "01",
+        "title": "Discovery & Scope",
+        "desc": "We detail your functional specifications and operational targets.",
+        "_id": "6a117daac194d818a1812186"
+      },
+      {
+        "step": "02",
+        "title": "Wireframes & UI UX",
+        "desc": "Crafting responsive layout prototypes for visual feedback.",
+        "_id": "6a117daac194d818a1812187"
+      },
+      {
+        "step": "03",
+        "title": "Agile Engineering",
+        "desc": "Building your custom solution with React, Next.js or lightweight engines.",
+        "_id": "6a117daac194d818a1812188"
+      },
+      {
+        "step": "04",
+        "title": "Quality Assurance",
+        "desc": "Rigorous speed, responsiveness, security, and integration diagnostics.",
+        "_id": "6a117daac194d818a1812189"
+      },
+      {
+        "step": "05",
+        "title": "Launch & Handoff",
+        "desc": "Deployment on premium web servers and training your internal teams.",
+        "_id": "6a117daac194d818a181218a"
+      }
+    ],
+    "pricing": {
+      "type": "project",
+      "toggleLabels": {
+        "primary": "One-Time Payment",
+        "secondary": "With Annual Support"
+      },
+      "plans": [
+        {
+          "title": "Starter",
+          "priceOneTime": "₹14,999",
+          "priceSupport": "₹18,999",
+          "subtitle": "Perfect for local brands & landing pages",
+          "features": [
+            "Up to 5 custom designed pages",
+            "100% responsive mobile layout",
+            "Basic contact form & maps integration",
+            "SEO starter setup & meta configuration",
+            "Frictionless performance optimization",
+            "Delivery within 7-10 working days"
+          ],
+          "cta": "Get Started Starter",
+          "highlight": false,
+          "_id": "6a117daac194d818a181218b"
+        },
+        {
+          "title": "Growth",
+          "priceOneTime": "₹29,999",
+          "priceSupport": "₹34,999",
+          "subtitle": "Highly recommended for growing companies",
+          "features": [
+            "Up to 10 premium responsive pages",
+            "Next.js / React component framework",
+            "Custom CMS / Admin dashboard panel",
+            "API integrations (CRM, WhatsApp, Mailchimp)",
+            "Ultra-high Google PageSpeed score (90+)",
+            "Dynamic custom animations",
+            "Delivery within 15-20 working days",
+            "3 rounds of revisions included"
+          ],
+          "cta": "Get Started Growth",
+          "highlight": true,
+          "_id": "6a117daac194d818a181218c"
+        },
+        {
+          "title": "Enterprise",
+          "priceOneTime": "₹64,999+",
+          "priceSupport": "₹74,999+",
+          "subtitle": "Bespoke engineering for high-volume needs",
+          "features": [
+            "Unlimited custom pages",
+            "Full e-commerce suite or interactive SaaS portal",
+            "Custom high-security database architecture",
+            "Advanced search & filtering algorithms",
+            "Dedicated principal engineer support",
+            "Priority speed caching configurations",
+            "End-to-end user documentation",
+            "Unlimited design iterations"
+          ],
+          "cta": "Get Started Enterprise",
+          "highlight": false,
+          "_id": "6a117daac194d818a181218d"
+        }
+      ]
+    },
+    "portfolio": [
+      {
+        "image": "https://images.unsplash.com/photo-1460925895917-afdab827c52f?q=80&w=600&h=400&fit=crop",
+        "title": "Zenith Logistics Corporate Portal",
+        "metric": "180% PageSpeed Increase",
+        "description": "Redesigned a legacy logistics platform with headless architecture, driving seamless customer quote bookings.",
+        "_id": "6a117daac194d818a181218e"
+      },
+      {
+        "image": "https://images.unsplash.com/photo-1557804506-669a67965ba0?q=80&w=600&h=400&fit=crop",
+        "title": "Luxura Apparel E-Commerce Store",
+        "metric": "4.2% Checkout Conversion Rate",
+        "description": "Built a custom React-based digital storefront with clean micro-interactions and high-performance layout.",
+        "_id": "6a117daac194d818a181218f"
+      }
+    ],
+    "faqs": [
+      {
+        "q": "How long will it take to build a custom website?",
+        "a": "A typical corporate starter site takes 7 to 10 working days, while highly custom React/Next.js frameworks take 15 to 20 working days depending on the scope of custom feature integrations.",
+        "_id": "6a117daac194d818a1812190"
+      },
+      {
+        "q": "Do you provide domain registration and web hosting?",
+        "a": "We assist in procuring domain names and setting up scalable, secure hosting engines (such as Vercel, AWS, or Hostinger). The actual subscription fee is billed transparently at actual cost.",
+        "_id": "6a117daac194d818a1812191"
+      },
+      {
+        "q": "Will my website be mobile-friendly and optimized for SEO?",
+        "a": "Absolutely. Every single layout we design is natively responsive across mobile devices, tablets, and desktops. We also write search engine indexable semantic HTML with proper metadata.",
+        "_id": "6a117daac194d818a1812192"
+      },
+      {
+        "q": "Can I update the copy and images on the website myself?",
+        "a": "Yes, we integrate easy-to-use CMS admin panels (like custom dashboards or headless payloads) so your marketing team can edit content and assets without editing the source code.",
+        "_id": "6a117daac194d818a1812193"
+      }
+    ],
+    "testimonial": {
+      "feedback": "Working with Vedhunt was extremely professional. They took our complex corporate requirements and transformed them into a beautiful, lightning-fast React portal that load instantly. Absolutely outstanding work!",
+      "author": "Reshma S.",
+      "role": "E-Commerce Founder",
+      "avatar": "https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=150&h=150&fit=crop"
+    },
+    "iconName": "Globe",
+    "features": [
+      "SEO-Optimized & Mobile Responsive",
+      "Fast Loading & Secure Hosting",
+      "Conversion-Focused Design"
+    ],
+    "cta": "Get Started",
+    "order": 1,
+    "isActive": true,
+    "showOnHome": true,
+    "showOnServicesPage": true,
+    "isDeleted": false,
+    "__v": 2,
+    "createdAt": "2026-05-23T10:12:58.871Z",
+    "updatedAt": "2026-06-29T14:38:00.508Z",
+    "imagePublicId": "vedhunt-cms/wefdqocgrt7z54wv1ahq",
+    "imageUrl": "https://res.cloudinary.com/dd2ncdjlm/image/upload/v1782385750/vedhunt-cms/wefdqocgrt7z54wv1ahq.jpg",
+    "updatedBy": "6a102d8de3a0c6edfe4f8700"
+  },
+  {
+    "_id": "6a1195a004ec22393d2c9d64",
+    "id_string": "social-media",
+    "slug": "social-media-management",
+    "title": "Social Media Management",
+    "subtitle": "Build an Unforgettable Social Presence",
+    "shortDescription": "Consistent, creative content that builds your brand and engages your audience across every platform.",
+    "description": "Our social media experts plan, create, and schedule scroll-stopping content that grows your following and keeps your audience engaged. From content calendars and high-performing reels to community management and performance analytics, we handle your Instagram, Facebook, LinkedIn, and YouTube presence end to end — turning passive followers into loyal customers.",
+    "subServices": "Posts, Reels, Stories, Strategy, Community Management, Content Calendar",
+    "iconName": "Share2",
+    "features": [
+      "Custom Content Calendar",
+      "High-Engagement Reels & Stories"
+    ],
+    "cta": "Get Started",
+    "order": 3,
+    "isActive": true,
+    "showOnHome": true,
+    "showOnServicesPage": true,
+    "isDeleted": false,
+    "createdAt": "2026-05-23T11:55:12.177Z",
+    "updatedAt": "2026-06-29T14:41:16.272Z",
+    "__v": 0,
+    "imagePublicId": "vedhunt-cms/oea5wypbpq8nhsxzkd2j",
+    "imageUrl": "https://res.cloudinary.com/df1eyts5l/image/upload/v1782741342/vedhunt-cms/oea5wypbpq8nhsxzkd2j.jpg",
+    "updatedBy": "6a102d8de3a0c6edfe4f8700"
+  },
+  {
+    "_id": "6a1195a004ec22393d2c9d65",
+    "id_string": "performance-marketing",
+    "slug": "performance-marketing",
+    "title": "Performance Marketing",
+    "subtitle": "Every Rupee Tracked, Every Result Measured",
+    "shortDescription": "Data-driven ad campaigns across Google, Meta, and more — every rupee tracked and optimized for ROI",
+    "description": "We run high-ROI paid advertising campaigns across Google Ads, Meta Ads, and LinkedIn that turn ad spend into measurable revenue. From audience research and ad creative to conversion tracking and A/B testing, every campaign is built on data and reported through live dashboards — so you always know exactly what your marketing budget is delivering, down to the rupee",
+    "subServices": "Google Ads, Meta Ads, LinkedIn Ads, A/B Testing, Conversion Tracking, Lead Generation",
+    "iconName": "TrendingUp",
+    "features": [
+      "Google",
+      "Meta & LinkedIn Ads",
+      "Live ROI Dashboards",
+      "Data-Driven A/B Testing"
+    ],
+    "cta": "Get Started",
+    "order": 4,
+    "isActive": true,
+    "showOnHome": true,
+    "showOnServicesPage": true,
+    "isDeleted": false,
+    "createdAt": "2026-05-23T11:55:12.682Z",
+    "updatedAt": "2026-06-29T14:42:45.848Z",
+    "__v": 1,
+    "imagePublicId": "vedhunt-cms/htfidldpuxy6smkrmk2q",
+    "imageUrl": "https://res.cloudinary.com/df1eyts5l/image/upload/v1782741955/vedhunt-cms/htfidldpuxy6smkrmk2q.jpg",
+    "updatedBy": "6a102d8de3a0c6edfe4f8700"
+  },
+  {
+    "_id": "6a1195a104ec22393d2c9d66",
+    "id_string": "accounting-finance",
+    "slug": "accounting-financial-services",
+    "title": "Accounting & Finance",
+    "subtitle": "Compliance Handled by Qualified Tax Experts",
+    "shortDescription": "Indian and US accounting, GST, ITR, and compliance — managed by qualified professionals so you can focus on growth",
+    "description": "Our finance team handles your accounting, bookkeeping, and statutory compliance end to end. From GST filing, ITR, and ROC compliance to payroll, virtual CFO support, and US GAAP accounting, every service is delivered by qualified professionals and tax experts. Stay 100% compliant, audit-ready, and in full control of your numbers — without the cost of an in-house finance department.",
+    "subServices": "GST Filing, ITR, Bookkeeping, US GAAP, ROC Compliance, Virtual CFO",
+    "iconName": "Calculator",
+    "features": [
+      "GST",
+      "ITR & ROC Compliance",
+      "Bookkeeping & Payroll",
+      "Virtual CFO Support"
+    ],
+    "cta": "Get Started",
+    "order": 5,
+    "isActive": true,
+    "showOnHome": true,
+    "showOnServicesPage": true,
+    "isDeleted": false,
+    "createdAt": "2026-05-23T11:55:13.100Z",
+    "updatedAt": "2026-06-29T14:43:51.963Z",
+    "__v": 1,
+    "imagePublicId": "vedhunt-cms/wnnv0vbhhagbgnwgncpl",
+    "imageUrl": "https://res.cloudinary.com/df1eyts5l/image/upload/v1782741930/vedhunt-cms/wnnv0vbhhagbgnwgncpl.jpg",
+    "updatedBy": "6a102d8de3a0c6edfe4f8700"
+  },
+  {
+    "_id": "6a1195a104ec22393d2c9d67",
+    "id_string": "mis-reporting",
+    "slug": "mis-reporting-services",
+    "title": "MIS & Reporting Services",
+    "subtitle": "Turn Raw Data Into Decisions",
+    "shortDescription": "Automated dashboards and reports using Excel and Power BI that turn your raw data into clear, real-time business insights.",
+    "description": "We build automated MIS reports and interactive Power BI dashboards that give you a live, single-screen view of your business. From sales and finance to operations and marketing, we connect your data sources, automate repetitive reporting, and design visual dashboards that make decision-making fast, accurate, and effortless — replacing hours of manual Excel work with insights you can act on instantly.",
+    "subServices": "Excel Dashboards, Power BI, Automation, MIS Reports, Data Visualization",
+    "iconName": "LayoutDashboard",
+    "features": [
+      "Live Power BI Dashboards",
+      "Automated Excel Reports",
+      "Real-Time Business Insights"
+    ],
+    "cta": "Get Started",
+    "order": 6,
+    "isActive": true,
+    "showOnHome": true,
+    "showOnServicesPage": true,
+    "isDeleted": false,
+    "createdAt": "2026-05-23T11:55:13.592Z",
+    "updatedAt": "2026-06-29T14:44:52.915Z",
+    "__v": 1,
+    "imagePublicId": "vedhunt-cms/egwppw37id3lpvifkwtd",
+    "imageUrl": "https://res.cloudinary.com/df1eyts5l/image/upload/v1782741885/vedhunt-cms/egwppw37id3lpvifkwtd.jpg",
+    "updatedBy": "6a102d8de3a0c6edfe4f8700"
+  }
+]

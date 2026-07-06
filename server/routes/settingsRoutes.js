@@ -125,4 +125,35 @@ router.put(
   settingsController.updateAttendanceRules
 );
 
+const Settings = require('../models/Settings');
+
+// Admin GET payment settings (also fetched internally by client portal)
+router.get('/settings/payment', authMiddleware, async (req, res) => {
+  try {
+    const doc = await Settings.findOne({ key: 'payment_settings' }).lean();
+    res.json({ success: true, data: doc?.value || {} });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// Admin POST/update payment settings
+router.post(
+  '/settings/payment',
+  authMiddleware,
+  roleMiddleware('SUPER_ADMIN', 'EDITOR'),
+  async (req, res) => {
+    try {
+      await Settings.findOneAndUpdate(
+        { key: 'payment_settings' },
+        { key: 'payment_settings', value: req.body },
+        { upsert: true, new: true }
+      );
+      res.json({ success: true, message: 'Payment settings saved' });
+    } catch (error) {
+      res.status(500).json({ success: false, message: 'Server error' });
+    }
+  }
+);
+
 module.exports = router;

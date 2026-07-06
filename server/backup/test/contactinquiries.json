@@ -1,0 +1,26 @@
+[
+  {
+    "_id": "6a3242f9c426f812d743ee6b",
+    "firstName": "Raunak",
+    "lastName": "Khanam",
+    "email": "raunak@gmail.com",
+    "phone": "9877277276",
+    "message": "Are there any hidden charges?",
+    "status": "Responded",
+    "createdAt": "2026-06-17T06:47:21.713Z",
+    "updatedAt": "2026-06-17T07:06:07.161Z",
+    "__v": 0
+  },
+  {
+    "_id": "6a324740cc7a49c7623c0dee",
+    "firstName": "Sakshi",
+    "lastName": "Dwivedi",
+    "email": "sakshi@gmail.com",
+    "phone": "8975437787",
+    "message": "Do u have any offer for App development??",
+    "status": "Read",
+    "createdAt": "2026-06-17T07:05:36.713Z",
+    "updatedAt": "2026-06-17T07:05:50.783Z",
+    "__v": 0
+  }
+]

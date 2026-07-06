@@ -1,0 +1,79 @@
+[
+  {
+    "_id": "6a13dca1fcb1affdaa49eab8",
+    "feature": "All-in-One Services",
+    "vedhunt": "8 services under one roof",
+    "typical": "Usually 2–3 services",
+    "order": 1,
+    "isActive": true,
+    "__v": 0,
+    "createdAt": "2026-05-25T05:22:41.906Z",
+    "updatedAt": "2026-05-25T05:33:23.365Z"
+  },
+  {
+    "_id": "6a13dca1fcb1affdaa49eab9",
+    "feature": "Pricing",
+    "vedhunt": "Transparent, no hidden fees",
+    "typical": "Often vague or inflated",
+    "order": 2,
+    "isActive": true,
+    "__v": 0,
+    "createdAt": "2026-05-25T05:22:41.907Z",
+    "updatedAt": "2026-05-25T05:22:41.907Z"
+  },
+  {
+    "_id": "6a13dca1fcb1affdaa49eaba",
+    "feature": "Reporting",
+    "vedhunt": "Real-time dashboards & reports",
+    "typical": "Monthly PDF only",
+    "order": 3,
+    "isActive": true,
+    "__v": 0,
+    "createdAt": "2026-05-25T05:22:41.907Z",
+    "updatedAt": "2026-05-25T05:22:41.907Z"
+  },
+  {
+    "_id": "6a13dca1fcb1affdaa49eabb",
+    "feature": "Communication",
+    "vedhunt": "Dedicated manager + WhatsApp",
+    "typical": "Email tickets only",
+    "order": 4,
+    "isActive": true,
+    "__v": 0,
+    "createdAt": "2026-05-25T05:22:41.907Z",
+    "updatedAt": "2026-05-25T05:22:41.907Z"
+  },
+  {
+    "_id": "6a13dca1fcb1affdaa49eabc",
+    "feature": "Strategy",
+    "vedhunt": "Custom strategy per client",
+    "typical": "Generic templates",
+    "order": 5,
+    "isActive": true,
+    "__v": 0,
+    "createdAt": "2026-05-25T05:22:41.908Z",
+    "updatedAt": "2026-05-25T05:22:41.908Z"
+  },
+  {
+    "_id": "6a13dca1fcb1affdaa49eabd",
+    "feature": "Technology",
+    "vedhunt": "Own tech stack + automation",
+    "typical": "Outsourced delivery",
+    "order": 6,
+    "isActive": true,
+    "__v": 0,
+    "createdAt": "2026-05-25T05:22:41.908Z",
+    "updatedAt": "2026-05-25T05:22:41.908Z"
+  },
+  {
+    "_id": "6a13dca1fcb1affdaa49eabe",
+    "feature": "ROI Focus",
+    "vedhunt": "KPI-based campaigns always",
+    "typical": "Vanity metrics focus",
+    "order": 7,
+    "isActive": true,
+    "__v": 0,
+    "createdAt": "2026-05-25T05:22:41.908Z",
+    "updatedAt": "2026-05-25T05:22:41.908Z"
+  }
+]

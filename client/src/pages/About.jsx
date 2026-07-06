@@ -230,7 +230,7 @@ export default function About() {
                 <img
                   src={teamImg}
                   alt="Vedhunt Creative Team"
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 pointer-events-none"
                 />
                 {/* Sleek warm dark brand-orange overlay */}
                 <div className="absolute inset-0 bg-gradient-to-t from-primary/20 via-transparent to-transparent pointer-events-none mix-blend-multiply" />
@@ -404,7 +404,7 @@ export default function About() {
                 <img 
                   src={compImg1} 
                   alt="Vedhunt Engineering Team" 
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 pointer-events-none" 
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-primary/10 via-transparent to-transparent pointer-events-none" />
               </motion.div>
@@ -420,7 +420,7 @@ export default function About() {
                 <img 
                   src={compImg2} 
                   alt="Vedhunt Strategy Team" 
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 pointer-events-none" 
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-primary/10 via-transparent to-transparent pointer-events-none" />
               </motion.div>

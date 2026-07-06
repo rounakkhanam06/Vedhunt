@@ -161,9 +161,11 @@ export default function Career() {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       const validTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+      const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
+      const validExts = ['.pdf', '.doc', '.docx'];
       
-      if (!validTypes.includes(file.type)) {
-        toast.error('Invalid file type. Only PDF and DOC/DOCX are allowed.');
+      if (!validTypes.includes(file.type) || !validExts.includes(ext)) {
+        toast.error('Invalid file type. Only PDF and DOC/DOCX files are allowed.');
         e.target.value = '';
         setFileName('');
         return;
@@ -424,6 +426,9 @@ export default function Career() {
                         </select>
                         <ChevronDown className="absolute right-0 top-1/2 -translate-y-1/2 w-4 h-4 text-app-text-muted pointer-events-none" />
                       </div>
+                      {errors.position && (
+                        <p className="text-red-500 text-[10px] mt-1">{errors.position.message}</p>
+                      )}
                     </div>
                     {/* Full Name */}
                     <div className="space-y-1.5 text-left relative group">
@@ -443,6 +448,9 @@ export default function Career() {
                           pattern: { value: /^[a-zA-Z\s]+$/, message: 'Only letters and spaces allowed' }
                         })}
                       />
+                      {errors.fullName && (
+                        <p className="text-red-500 text-[10px] mt-1">{errors.fullName.message}</p>
+                      )}
                     </div>
 
                     {/* Email Address */}
@@ -464,6 +472,9 @@ export default function Career() {
                           }
                         })}
                       />
+                      {errors.email && (
+                        <p className="text-red-500 text-[10px] mt-1">{errors.email.message}</p>
+                      )}
                     </div>
 
                     {/* Phone Number */}
@@ -480,11 +491,14 @@ export default function Career() {
                         {...register('phone', { 
                           required: 'Phone number is required',
                           pattern: {
-                            value: /^\+?[0-9\s-]{10,15}$/,
-                            message: 'Please enter a valid 10-15 digit phone number'
+                            value: /^(\+\d{1,3})?\d{10}$/,
+                            message: 'Phone number must be exactly 10 digits (or with country code, e.g. +919876543210)'
                           }
                         })}
                       />
+                      {errors.phone && (
+                        <p className="text-red-500 text-[10px] mt-1">{errors.phone.message}</p>
+                      )}
                     </div>
 
                     {/* Years of Experience */}
@@ -500,11 +514,14 @@ export default function Career() {
                         }`}
                         {...register('experience', { 
                           required: 'Experience is required',
-                          pattern: { value: /^\d+$/, message: 'Please enter a valid number' },
-                          min: { value: 0, message: 'Cannot be negative' },
-                          max: { value: 50, message: 'Cannot exceed 50 years' }
+                          pattern: { value: /^\d+(\.\d+)?$/, message: 'Please enter a valid number' },
+                          min: { value: 0, message: 'Experience must be between 0 and 50' },
+                          max: { value: 50, message: 'Experience must be between 0 and 50' }
                         })}
                       />
+                      {errors.experience && (
+                        <p className="text-red-500 text-[10px] mt-1">{errors.experience.message}</p>
+                      )}
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -518,11 +535,14 @@ export default function Career() {
                           placeholder="e.g. 12 LPA"
                           className="w-full bg-transparent border-b-2 py-2 text-black dark:text-white focus:outline-none focus:border-primary transition-colors text-sm font-medium placeholder:text-gray-500 border-black/20 dark:border-white/20"
                           {...register('currentCTC', {
-                            pattern: { value: /^\d+(\.\d+)?$/, message: 'Must be a valid number' }
+                            pattern: { value: /^(|\d+(\.\d+)?)$/, message: 'Must be a valid number' }
                           })}
                         />
+                        {errors.currentCTC && (
+                          <p className="text-red-500 text-[10px] mt-1">{errors.currentCTC.message}</p>
+                        )}
                       </div>
-
+ 
                       {/* Expected CTC */}
                       <div className="space-y-1.5 text-left relative group">
                         <label className="text-[10px] font-bold text-black dark:text-white uppercase tracking-widest block">
@@ -533,9 +553,12 @@ export default function Career() {
                           placeholder="e.g. 15 LPA"
                           className="w-full bg-transparent border-b-2 py-2 text-black dark:text-white focus:outline-none focus:border-primary transition-colors text-sm font-medium placeholder:text-gray-500 border-black/20 dark:border-white/20"
                           {...register('expectedCTC', {
-                            pattern: { value: /^\d+(\.\d+)?$/, message: 'Must be a valid number' }
+                            pattern: { value: /^(|\d+(\.\d+)?)$/, message: 'Must be a valid number' }
                           })}
                         />
+                        {errors.expectedCTC && (
+                          <p className="text-red-500 text-[10px] mt-1">{errors.expectedCTC.message}</p>
+                        )}
                       </div>
                     </div>
 
@@ -549,9 +572,12 @@ export default function Career() {
                         placeholder="e.g. 30 days, Immediate"
                         className="w-full bg-transparent border-b-2 py-2 text-black dark:text-white focus:outline-none focus:border-primary transition-colors text-sm font-medium placeholder:text-gray-500 border-black/20 dark:border-white/20"
                         {...register('noticePeriod', {
-                          maxLength: { value: 50, message: 'Maximum 50 characters allowed' }
+                          maxLength: { value: 200, message: 'Maximum 200 characters allowed' }
                         })}
                       />
+                      {errors.noticePeriod && (
+                        <p className="text-red-500 text-[10px] mt-1">{errors.noticePeriod.message}</p>
+                      )}
                     </div>
 
                     {/* LinkedIn URL */}
@@ -564,9 +590,12 @@ export default function Career() {
                         placeholder="https://linkedin.com/in/username"
                         className="w-full bg-transparent border-b-2 py-2 text-black dark:text-white focus:outline-none focus:border-primary transition-colors text-sm font-medium placeholder:text-gray-500 border-black/20 dark:border-white/20"
                         {...register('linkedinUrl', {
-                          pattern: { value: /^https?:\/\/.*/, message: 'Must be a valid URL starting with http/https' }
+                          pattern: { value: /^(|https?:\/\/.+)$/, message: 'Must be a valid URL starting with http:// or https://' }
                         })}
                       />
+                      {errors.linkedinUrl && (
+                        <p className="text-red-500 text-[10px] mt-1">{errors.linkedinUrl.message}</p>
+                      )}
                     </div>
 
                     {/* Portfolio / Work Samples URL */}
@@ -579,9 +608,12 @@ export default function Career() {
                         placeholder="https://yourportfolio.com"
                         className="w-full bg-transparent border-b-2 py-2 text-black dark:text-white focus:outline-none focus:border-primary transition-colors text-sm font-medium placeholder:text-gray-500 border-black/20 dark:border-white/20"
                         {...register('portfolioUrl', {
-                          pattern: { value: /^https?:\/\/.*/, message: 'Must be a valid URL starting with http/https' }
+                          pattern: { value: /^(|https?:\/\/.+)$/, message: 'Must be a valid URL starting with http:// or https://' }
                         })}
                       />
+                      {errors.portfolioUrl && (
+                        <p className="text-red-500 text-[10px] mt-1">{errors.portfolioUrl.message}</p>
+                      )}
                     </div>
 
                     {/* Drag & Drop Resume Upload Form */}
@@ -630,6 +662,9 @@ export default function Career() {
                           maxLength: { value: 1000, message: 'Maximum 1000 characters allowed' }
                         })}
                       />
+                      {errors.message && (
+                        <p className="text-red-500 text-[10px] mt-1">{errors.message.message}</p>
+                      )}
                     </div>
 
                     {/* Action Button */}

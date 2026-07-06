@@ -1,0 +1,32 @@
+[
+  {
+    "_id": "6a1d264f022fa8e741f6c475",
+    "tagline": "Who We Are",
+    "titleLine1": "Creative Solutions",
+    "titleLine2": "Driven by Data & Engineering",
+    "description": "Vedhunt InfoTech provides successful business solutions to its clients to scale their profitability. It’s a trusted agency which provides customized services to businesses across India.",
+    "servicesList": [
+      "Web & App Engineering",
+      "Creative Brand Identity",
+      "Performance Ads & PPC",
+      "SEO Search Dominance",
+      "Outsource Bookkeeping",
+      "SQL & Power BI Automation"
+    ],
+    "ctaText": "Get Solution",
+    "ctaLink": "/get-quote",
+    "stat1": {
+      "value": "99%",
+      "labelTop": "Client",
+      "labelBottom": "Retention"
+    },
+    "stat2": {
+      "value": "140+",
+      "labelTop": "Active",
+      "labelBottom": "Projects"
+    },
+    "createdAt": "2026-06-01T06:27:27.031Z",
+    "updatedAt": "2026-06-24T09:47:44.546Z",
+    "__v": 0
+  }
+]

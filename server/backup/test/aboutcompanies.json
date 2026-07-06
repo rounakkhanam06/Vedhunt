@@ -1,0 +1,34 @@
+[
+  {
+    "_id": "6a1d34614414031a11003cdc",
+    "tagline": "About Our Company",
+    "headerLine1": "Empowering Businesses",
+    "headerLine2": "Through Smart Technology & Ethical Strategy",
+    "centralBadge": {
+      "value": "5+",
+      "label1": "Years Of",
+      "label2": "Excellence"
+    },
+    "descriptionParagraphs": [
+      "At *Vedhunt InfoTech*, we believe technology isn't just about code — it's about creating meaningful impact.",
+      "We are a **next-generation IT, Digital Marketing, and Automation solutions company** helping businesses streamline operations, boost digital presence, and accelerate growth through intelligent, ethical, and scalable solutions.",
+      "Founded with a vision to *bridge the gap between technology and business success*, Vedhunt InfoTech has evolved into a trusted partner for startups, SMEs, and enterprises across multiple industries.",
+      "Our team of innovators, strategists, and engineers work together to design and deliver end-to-end digital solutions that transform how organizations operate and grow."
+    ],
+    "checklistItem1": {
+      "title": "Certified Company",
+      "description": "Industry-certified security compliance & standard-driven procedures."
+    },
+    "checklistItem2": {
+      "title": "Award Ceremony",
+      "description": "Recognized for excellence in automation & performance-driven marketing."
+    },
+    "signature": {
+      "name": "Priyanka Choudhary",
+      "role": "Founder Tech, Vedhunt"
+    },
+    "createdAt": "2026-06-01T07:27:30.009Z",
+    "updatedAt": "2026-06-24T09:47:29.511Z",
+    "__v": 0
+  }
+]

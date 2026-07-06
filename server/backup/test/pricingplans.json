@@ -1,0 +1,383 @@
+[
+  {
+    "_id": "6a19662e77ca0d5fb313db37",
+    "category": "6a19662d77ca0d5fb313db32",
+    "title": "WordPress Website",
+    "tech": "Elementor · WooCommerce · Responsive",
+    "pricing": {
+      "amount": 15000,
+      "currency": "INR",
+      "period": "one-time",
+      "isStartingAt": true,
+      "discountPercentage": 0
+    },
+    "features": [
+      "Custom theme setup & design",
+      "Elementor page builder",
+      "WooCommerce support",
+      "Responsive mobile layout",
+      "SEO plugins support",
+      "Contact forms integration",
+      "2 rounds of revisions",
+      "Delivery in 7–10 working days"
+    ],
+    "highlight": false,
+    "status": "active",
+    "order": 1,
+    "seo": {
+      "metaTitle": "WordPress Website | Vedhunt",
+      "metaDescription": "Custom theme setup & design Elementor page builder",
+      "keywords": []
+    },
+    "createdAt": "2026-05-29T10:10:54.511Z",
+    "updatedAt": "2026-05-29T10:10:54.511Z",
+    "slug": "wordpress-website",
+    "__v": 0
+  },
+  {
+    "_id": "6a19662e77ca0d5fb313db38",
+    "category": "6a19662d77ca0d5fb313db32",
+    "title": "React / Framework Website",
+    "tech": "Next.js · React · Tailwind · Custom CMS",
+    "pricing": {
+      "amount": 30000,
+      "discountedAmount": 25000,
+      "currency": "INR",
+      "period": "one-time",
+      "isStartingAt": true,
+      "discountPercentage": 0
+    },
+    "features": [
+      "Custom UI/UX design from scratch",
+      "Built on React / Next.js",
+      "SEO-friendly architecture",
+      "Component-based scalable architecture",
+      "Fully responsive design",
+      "API integrations",
+      "Admin panel / CMS",
+      "Analytics setup",
+      "3 rounds of revisions",
+      "Delivery in 10–20 working days"
+    ],
+    "highlight": true,
+    "status": "active",
+    "order": 2,
+    "seo": {
+      "metaTitle": "React / Framework Website | Vedhunt",
+      "metaDescription": "Custom UI/UX design from scratch Built on React / Next.js",
+      "keywords": []
+    },
+    "createdAt": "2026-05-29T10:10:54.711Z",
+    "updatedAt": "2026-05-29T10:46:13.102Z",
+    "slug": "react-framework-website",
+    "__v": 0
+  },
+  {
+    "_id": "6a19662f77ca0d5fb313db39",
+    "category": "6a19662d77ca0d5fb313db32",
+    "title": "E-Commerce Custom Portal",
+    "tech": "Next.js · Node.js · Advanced Payment Gateways",
+    "pricing": {
+      "amount": 50000,
+      "currency": "INR",
+      "period": "one-time",
+      "isStartingAt": true,
+      "discountPercentage": 0
+    },
+    "features": [
+      "Custom multivendor / enterprise store",
+      "Advanced filtering & search engines",
+      "Multiple payment gateway integrations",
+      "Inventory & order management CMS",
+      "High-speed edge caching",
+      "Automated email & SMS notifications",
+      "Dedicated support & maintenance",
+      "Delivery in 20–30 working days"
+    ],
+    "highlight": false,
+    "status": "active",
+    "order": 3,
+    "seo": {
+      "metaTitle": "E-Commerce Custom Portal | Vedhunt",
+      "metaDescription": "Custom multivendor / enterprise store Advanced filtering & search engines",
+      "keywords": []
+    },
+    "createdAt": "2026-05-29T10:10:55.017Z",
+    "updatedAt": "2026-05-29T10:10:55.017Z",
+    "slug": "e-commerce-custom-portal",
+    "__v": 0
+  },
+  {
+    "_id": "6a19662f77ca0d5fb313db3a",
+    "category": "6a19662d77ca0d5fb313db33",
+    "title": "Cross-Platform Mobile App",
+    "tech": "React Native / Flutter · iOS & Android",
+    "pricing": {
+      "amount": 60000,
+      "discountedAmount": null,
+      "currency": "INR",
+      "period": "one-time",
+      "isStartingAt": true,
+      "discountPercentage": 0
+    },
+    "features": [
+      "Single codebase for iOS & Android",
+      "Custom intuitive UI/UX design",
+      "REST API / GraphQL backend integration",
+      "Real-time push notifications",
+      "Social media logins & auth",
+      "App Store & Google Play deployment",
+      "3 months post-launch support"
+    ],
+    "highlight": true,
+    "status": "active",
+    "order": 1,
+    "seo": {
+      "metaTitle": "Cross-Platform Mobile App | Vedhunt",
+      "metaDescription": "Single codebase for iOS & Android Custom intuitive UI/UX design",
+      "keywords": []
+    },
+    "createdAt": "2026-05-29T10:10:55.223Z",
+    "updatedAt": "2026-06-08T12:45:32.223Z",
+    "slug": "cross-platform-mobile-app",
+    "__v": 0
+  },
+  {
+    "_id": "6a19662f77ca0d5fb313db3b",
+    "category": "6a19662d77ca0d5fb313db33",
+    "title": "Enterprise Native Application",
+    "tech": "Swift · Kotlin · High Performance Native",
+    "pricing": {
+      "amount": 120000,
+      "currency": "INR",
+      "period": "one-time",
+      "isStartingAt": true,
+      "discountPercentage": 0
+    },
+    "features": [
+      "Dedicated native iOS & Android apps",
+      "Ultra-high performance & fluid micro-animations",
+      "Offline storage & complex cloud syncing",
+      "Advanced hardware integration (Camera/GPS/Biometrics)",
+      "Bank-grade security encryption",
+      "Dedicated project manager & architect",
+      "6 months post-launch VIP support"
+    ],
+    "highlight": false,
+    "status": "active",
+    "order": 2,
+    "seo": {
+      "metaTitle": "Enterprise Native Application | Vedhunt",
+      "metaDescription": "Dedicated native iOS & Android apps Ultra-high performance & fluid micro-animations",
+      "keywords": []
+    },
+    "createdAt": "2026-05-29T10:10:55.635Z",
+    "updatedAt": "2026-05-29T10:10:55.635Z",
+    "slug": "enterprise-native-application",
+    "__v": 0
+  },
+  {
+    "_id": "6a19663077ca0d5fb313db3c",
+    "category": "6a19662e77ca0d5fb313db34",
+    "title": "Startup Brand Identity Kit",
+    "tech": "Vector Logo · Typography · Color Guidelines",
+    "pricing": {
+      "amount": 15000,
+      "currency": "INR",
+      "period": "one-time",
+      "isStartingAt": true,
+      "discountPercentage": 0
+    },
+    "features": [
+      "3 Custom vector logo concepts",
+      "Primary & secondary color palette selection",
+      "Typography & font pairing guidelines",
+      "Business card & letterhead design",
+      "Social media profile & cover banners",
+      "Full copyright ownership & source files",
+      "Delivery in 5–7 working days"
+    ],
+    "highlight": false,
+    "status": "active",
+    "order": 1,
+    "seo": {
+      "metaTitle": "Startup Brand Identity Kit | Vedhunt",
+      "metaDescription": "3 Custom vector logo concepts Primary & secondary color palette selection",
+      "keywords": []
+    },
+    "createdAt": "2026-05-29T10:10:56.040Z",
+    "updatedAt": "2026-05-29T10:10:56.040Z",
+    "slug": "startup-brand-identity-kit",
+    "__v": 0
+  },
+  {
+    "_id": "6a19663077ca0d5fb313db3d",
+    "category": "6a19662e77ca0d5fb313db34",
+    "title": "Complete Enterprise UI/UX",
+    "tech": "Figma Design System · Wireframing · Prototyping",
+    "pricing": {
+      "amount": 40000,
+      "currency": "INR",
+      "period": "one-time",
+      "isStartingAt": true,
+      "discountPercentage": 0
+    },
+    "features": [
+      "Comprehensive user research & flow mapping",
+      "High-fidelity interactive Figma prototypes",
+      "Complete modular design system & token setup",
+      "Developer-ready asset handoff",
+      "Responsive desktop, tablet & mobile layouts",
+      "Usability testing & 4 revision rounds",
+      "Delivery in 15–20 working days"
+    ],
+    "highlight": true,
+    "status": "active",
+    "order": 2,
+    "seo": {
+      "metaTitle": "Complete Enterprise UI/UX | Vedhunt",
+      "metaDescription": "Comprehensive user research & flow mapping High-fidelity interactive Figma prototypes",
+      "keywords": []
+    },
+    "createdAt": "2026-05-29T10:10:56.349Z",
+    "updatedAt": "2026-05-29T10:10:56.349Z",
+    "slug": "complete-enterprise-uiux",
+    "__v": 0
+  },
+  {
+    "_id": "6a19663277ca0d5fb313db3e",
+    "category": "6a19662e77ca0d5fb313db35",
+    "title": "Local SEO & Organic Growth",
+    "tech": "On-Page SEO · Backlinks · Google My Business",
+    "pricing": {
+      "amount": 15000,
+      "currency": "INR",
+      "period": "monthly",
+      "isStartingAt": false,
+      "discountPercentage": 0
+    },
+    "features": [
+      "Comprehensive website technical SEO audit",
+      "Targeted keyword research & mapping",
+      "Google My Business optimization",
+      "High-authority white-hat backlink building",
+      "Monthly organic traffic & ranking reports",
+      "Continuous on-page content optimization",
+      "Dedicated SEO specialist"
+    ],
+    "highlight": false,
+    "status": "active",
+    "order": 1,
+    "seo": {
+      "metaTitle": "Local SEO & Organic Growth | Vedhunt",
+      "metaDescription": "Comprehensive website technical SEO audit Targeted keyword research & mapping",
+      "keywords": []
+    },
+    "createdAt": "2026-05-29T10:10:58.159Z",
+    "updatedAt": "2026-05-29T10:10:58.159Z",
+    "slug": "local-seo-and-organic-growth",
+    "__v": 0
+  },
+  {
+    "_id": "6a19663477ca0d5fb313db3f",
+    "category": "6a19662e77ca0d5fb313db35",
+    "title": "Performance PPC & Social Ads",
+    "tech": "Google Ads · Meta PPC · LinkedIn Scaling",
+    "pricing": {
+      "amount": 30000,
+      "currency": "INR",
+      "period": "monthly",
+      "isStartingAt": false,
+      "discountPercentage": 0
+    },
+    "features": [
+      "Laser-targeted ad campaign strategy & setup",
+      "High-converting ad creative design & copywriting",
+      "Custom multi-channel retargeting funnels",
+      "A/B testing & continuous conversion optimization",
+      "Detailed bi-weekly ROI & ROAS audits",
+      "Pixel tracking & advanced analytics setup",
+      "Cancel anytime with 30-day notice"
+    ],
+    "highlight": true,
+    "status": "active",
+    "order": 2,
+    "seo": {
+      "metaTitle": "Performance PPC & Social Ads | Vedhunt",
+      "metaDescription": "Laser-targeted ad campaign strategy & setup High-converting ad creative design & copywriting",
+      "keywords": []
+    },
+    "createdAt": "2026-05-29T10:11:00.420Z",
+    "updatedAt": "2026-05-29T10:11:00.420Z",
+    "slug": "performance-ppc-and-social-ads",
+    "__v": 0
+  },
+  {
+    "_id": "6a19663577ca0d5fb313db40",
+    "category": "6a19662e77ca0d5fb313db36",
+    "title": "Outsource Bookkeeping & Tax",
+    "tech": "GST · TDS · GAAP · Monthly Compliance",
+    "pricing": {
+      "amount": 15000,
+      "currency": "INR",
+      "period": "monthly",
+      "isStartingAt": false,
+      "discountPercentage": 0
+    },
+    "features": [
+      "Dedicated professional accountant",
+      "Monthly bank & ledger reconciliation",
+      "GST computation & statutory tax filings",
+      "Payroll processing & TDS compliance",
+      "Monthly Profit & Loss and Balance Sheet reports",
+      "Audit readiness & CA representation support",
+      "Secure cloud accounting software setup"
+    ],
+    "highlight": false,
+    "status": "active",
+    "order": 1,
+    "seo": {
+      "metaTitle": "Outsource Bookkeeping & Tax | Vedhunt",
+      "metaDescription": "Dedicated professional accountant Monthly bank & ledger reconciliation",
+      "keywords": []
+    },
+    "createdAt": "2026-05-29T10:11:01.788Z",
+    "updatedAt": "2026-05-29T10:11:01.788Z",
+    "slug": "outsource-bookkeeping-and-tax",
+    "__v": 0
+  },
+  {
+    "_id": "6a19663577ca0d5fb313db41",
+    "category": "6a19662e77ca0d5fb313db36",
+    "title": "Custom Power BI & Automation",
+    "tech": "Python ETL · SQL Warehousing · Power BI",
+    "pricing": {
+      "amount": 45000,
+      "currency": "INR",
+      "period": "one-time",
+      "isStartingAt": true,
+      "discountPercentage": 0
+    },
+    "features": [
+      "Automated data ingestion pipelines (ETL)",
+      "Custom interactive Power BI executive dashboards",
+      "SQL database architecture & query optimization",
+      "Python scripts for automated web scraping / reporting",
+      "Real-time automated alerts via Email & Slack",
+      "Complete documentation & team training session",
+      "3 months post-delivery maintenance"
+    ],
+    "highlight": true,
+    "status": "active",
+    "order": 2,
+    "seo": {
+      "metaTitle": "Custom Power BI & Automation | Vedhunt",
+      "metaDescription": "Automated data ingestion pipelines (ETL) Custom interactive Power BI executive dashboards",
+      "keywords": []
+    },
+    "createdAt": "2026-05-29T10:11:01.994Z",
+    "updatedAt": "2026-05-29T10:11:01.994Z",
+    "slug": "custom-power-bi-and-automation",
+    "__v": 0
+  }
+]

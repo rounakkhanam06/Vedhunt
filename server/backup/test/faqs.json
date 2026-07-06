@@ -1,0 +1,82 @@
+[
+  {
+    "_id": "6a435651f0fb664ffcf49726",
+    "question": "What exactly does Vedhunt Infotech do?",
+    "answer": "Vedhunt Infotech is a premier digital agency specializing in Web Development, Search Engine Optimization (SEO), UI/UX Design, and custom software solutions tailored to help your business thrive in the digital landscape.",
+    "category": "frequent",
+    "order": 1,
+    "__v": 0,
+    "createdAt": "2026-06-30T05:38:25.176Z",
+    "updatedAt": "2026-06-30T05:38:25.176Z"
+  },
+  {
+    "_id": "6a435651f0fb664ffcf49727",
+    "question": "How much does a custom website or SEO consultation cost?",
+    "answer": "Our pricing depends entirely on the scope and complexity of your project. We offer customized packages designed to fit your specific business needs and budget. Contact us for a detailed, no-obligation quote.",
+    "category": "frequent",
+    "order": 2,
+    "__v": 0,
+    "createdAt": "2026-06-30T05:38:25.177Z",
+    "updatedAt": "2026-06-30T05:38:25.177Z"
+  },
+  {
+    "_id": "6a435651f0fb664ffcf49728",
+    "question": "What payment methods do you accept?",
+    "answer": "We accept all major credit cards, direct bank transfers, and standard online payment gateways. For larger, ongoing projects, we also offer flexible milestone-based payment plans.",
+    "category": "frequent",
+    "order": 3,
+    "__v": 0,
+    "createdAt": "2026-06-30T05:38:25.178Z",
+    "updatedAt": "2026-06-30T05:38:25.178Z"
+  },
+  {
+    "_id": "6a435651f0fb664ffcf49729",
+    "question": "How long does it typically take to develop a website?",
+    "answer": "A standard corporate website usually takes 4 to 8 weeks from initial design to final launch. More complex platforms, like e-commerce sites or custom web applications, may take 3 to 5 months depending on the required features.",
+    "category": "regular",
+    "order": 1,
+    "__v": 0,
+    "createdAt": "2026-06-30T05:38:25.178Z",
+    "updatedAt": "2026-06-30T05:38:25.178Z"
+  },
+  {
+    "_id": "6a435651f0fb664ffcf4972a",
+    "question": "Do you offer ongoing support after project completion?",
+    "answer": "Yes, absolutely! We provide ongoing maintenance and dedicated support packages to ensure your digital assets remain secure, up-to-date, and continue to perform optimally.",
+    "category": "regular",
+    "order": 2,
+    "__v": 0,
+    "createdAt": "2026-06-30T05:38:25.178Z",
+    "updatedAt": "2026-06-30T05:38:25.178Z"
+  },
+  {
+    "_id": "6a435651f0fb664ffcf4972b",
+    "question": "Can you help redesign an existing, outdated website?",
+    "answer": "Yes. We specialize in revamping outdated websites with modern design principles, improved UX/UI, enhanced mobile responsiveness, and better core web vitals for SEO.",
+    "category": "regular",
+    "order": 3,
+    "__v": 0,
+    "createdAt": "2026-06-30T05:38:25.178Z",
+    "updatedAt": "2026-06-30T05:38:25.178Z"
+  },
+  {
+    "_id": "6a435651f0fb664ffcf4972c",
+    "question": "What industries do you specialize in?",
+    "answer": "We have extensive experience working across various industries including healthcare, e-commerce, real estate, education, finance, and enterprise SaaS solutions.",
+    "category": "regular",
+    "order": 4,
+    "__v": 0,
+    "createdAt": "2026-06-30T05:38:25.178Z",
+    "updatedAt": "2026-06-30T05:38:25.178Z"
+  },
+  {
+    "_id": "6a435651f0fb664ffcf4972d",
+    "question": "Will my website be mobile-friendly and optimized for SEO?",
+    "answer": "Every website we build is fully responsive, meaning it will look and function perfectly on all devices (mobile, tablet, desktop). We also build with SEO best practices in mind to give you a head start on search rankings.",
+    "category": "regular",
+    "order": 5,
+    "__v": 0,
+    "createdAt": "2026-06-30T05:38:25.178Z",
+    "updatedAt": "2026-06-30T05:38:25.178Z"
+  }
+]

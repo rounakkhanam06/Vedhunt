@@ -1,0 +1,54 @@
+[
+  {
+    "_id": "6a2105fc53daa617561b604c",
+    "title": "Senior React & Next.js Architect",
+    "department": "Engineering",
+    "type": "Full Time",
+    "location": "Remote / Navi Mumbai",
+    "experience": "4+ Years",
+    "description": "Lead the architecture and development of scalable, high-performance web applications using React 19, Next.js, and modern state management ecosystems.",
+    "status": "Published",
+    "__v": 0,
+    "createdAt": "2026-06-04T04:58:36.661Z",
+    "updatedAt": "2026-06-04T04:58:36.661Z"
+  },
+  {
+    "_id": "6a2105fc53daa617561b604d",
+    "title": "UI/UX Designer & Design System Lead",
+    "department": "Creative Design",
+    "type": "Full Time",
+    "location": "Navi Mumbai",
+    "experience": "2+ Years",
+    "description": "Craft premium, high-converting visual layouts, micro-interactions, and maintain comprehensive design systems in Figma for enterprise clients.",
+    "status": "Published",
+    "__v": 0,
+    "createdAt": "2026-06-04T04:58:36.663Z",
+    "updatedAt": "2026-06-04T05:32:37.487Z"
+  },
+  {
+    "_id": "6a2105fc53daa617561b604e",
+    "title": "Senior Growth Marketer & PPC Specialist",
+    "department": "Marketing",
+    "type": "Full Time",
+    "location": "Remote / Navi Mumbai",
+    "experience": "3+ Years",
+    "description": "Scale client acquisition pipelines by managing high-budget Google Ads, Meta PPC, and LinkedIn ad campaigns with a focus on maximizing ROAS.",
+    "status": "Published",
+    "__v": 0,
+    "createdAt": "2026-06-04T04:58:36.663Z",
+    "updatedAt": "2026-06-10T05:44:34.082Z"
+  },
+  {
+    "_id": "6a2105fc53daa617561b604f",
+    "title": "Python Automation & Power BI Engineer",
+    "department": "Data & BI",
+    "type": "Full Time",
+    "location": "Navi Mumbai",
+    "experience": "2+ Years",
+    "description": "Build automated data extraction pipelines (ETL) and design advanced, interactive Power BI executive dashboards for international finance clients.",
+    "status": "Published",
+    "__v": 0,
+    "createdAt": "2026-06-04T04:58:36.664Z",
+    "updatedAt": "2026-06-04T04:58:36.664Z"
+  }
+]

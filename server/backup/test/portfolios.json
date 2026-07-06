@@ -1,0 +1,98 @@
+[
+  {
+    "_id": "6a14286070dbc6e6c8b1fe2e",
+    "title": "Multifarious Group",
+    "clientUrl": "https://multifariousgroup.com/",
+    "category": "development",
+    "tagline": "High-Fidelity Corporate Infrastructure",
+    "description": "A multi-faceted business conglomerate requiring a highly prestigious digital footprint. We designed and developed a blazing-fast corporate portal representing their extensive range of services with responsive layout, custom graphics, and fluid performance across viewports.",
+    "tags": [
+      "Web Engineering",
+      "UI/UX Design",
+      "Corporate Branding",
+      "React & Vite"
+    ],
+    "image": "https://res.cloudinary.com/dd2ncdjlm/image/upload/v1781957617/vedhunt-cms/ldrctpxirdc6xworptao.jpg",
+    "statLabel": "Lighthouse Score",
+    "statValue": "98/100",
+    "icon": "Laptop",
+    "featured": false,
+    "displayOrder": 1,
+    "status": "active",
+    "__v": 0,
+    "createdAt": "2026-05-25T10:45:52.602Z",
+    "updatedAt": "2026-06-20T12:14:06.504Z"
+  },
+  {
+    "_id": "6a14286070dbc6e6c8b1fe2f",
+    "title": "RINNSAMADHAN",
+    "clientUrl": "https://rinnsamadhan.com/",
+    "category": "automation",
+    "tagline": "Secure Compliance & Bookkeeping Systems",
+    "description": "A premium financial advisory and legal compliance portal. We integrated secure, multi-tier databases, professional outsourced accounting modules, automated document generators, and high-level executive analytics dashboards that streamline daily client-manager collaboration.",
+    "tags": [
+      "Financial Tech",
+      "SQL Automation",
+      "Data Modeling",
+      "Client Portal"
+    ],
+    "image": "https://res.cloudinary.com/dd2ncdjlm/image/upload/v1781958029/vedhunt-cms/ddnju8vf1glnrylnnhev.jpg",
+    "statLabel": "Lead Velocity",
+    "statValue": "+220%",
+    "icon": "Database",
+    "featured": false,
+    "displayOrder": 2,
+    "status": "active",
+    "__v": 0,
+    "createdAt": "2026-05-25T10:45:52.604Z",
+    "updatedAt": "2026-06-20T12:21:04.856Z"
+  },
+  {
+    "_id": "6a14286070dbc6e6c8b1fe30",
+    "title": "Visionsfinity Shipping",
+    "clientUrl": "https://visionsfinityshipping.com/",
+    "category": "development",
+    "tagline": "Global Freight & Logistic Visualizers",
+    "description": "A global logistics, freight forwarding, and international shipping provider. We engineered their responsive digital platform incorporating real-time booking engines, shipping tracking visualizers, and highly refined, lag-free scrolling animations.",
+    "tags": [
+      "Logistics App",
+      "React Router",
+      "UX Engineering",
+      "Global API Sync"
+    ],
+    "image": "https://res.cloudinary.com/dd2ncdjlm/image/upload/v1781958097/vedhunt-cms/ivw5t8hv3ti3am6nzdng.jpg",
+    "statLabel": "Efficiency",
+    "statValue": "3.5x Faster",
+    "icon": "Laptop",
+    "featured": false,
+    "displayOrder": 3,
+    "status": "active",
+    "__v": 0,
+    "createdAt": "2026-05-25T10:45:52.604Z",
+    "updatedAt": "2026-06-20T12:21:40.590Z"
+  },
+  {
+    "_id": "6a14286070dbc6e6c8b1fe31",
+    "title": "Mumbai Shoppers",
+    "clientUrl": "https://mumbaishopper.in/",
+    "category": "marketing",
+    "tagline": "High-Yield E-Commerce Scale & Paid Ads",
+    "description": "A vibrant modern retail and fashion storefront. We developed an incredibly fast, highly intuitive online checkout grid and managed high-performance PPC advertising campaigns across Meta, Instagram, and Google that significantly multiplied purchase intent and organic search traffic.",
+    "tags": [
+      "E-Commerce",
+      "Paid PPC Ads",
+      "SEO Dominance",
+      "Social Management"
+    ],
+    "image": "https://res.cloudinary.com/dd2ncdjlm/image/upload/v1781958255/vedhunt-cms/pd0xdddbibjqhb4rkyjr.jpg",
+    "statLabel": "Social Growth",
+    "statValue": "+310%",
+    "icon": "Share2",
+    "featured": false,
+    "displayOrder": 4,
+    "status": "active",
+    "__v": 0,
+    "createdAt": "2026-05-25T10:45:52.604Z",
+    "updatedAt": "2026-06-20T12:24:18.569Z"
+  }
+]

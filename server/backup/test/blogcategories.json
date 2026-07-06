@@ -1,0 +1,66 @@
+[
+  {
+    "_id": "6a2927d840274fbb3590a1fe",
+    "name": "BRANDING & DESIGN",
+    "__v": 0,
+    "createdAt": "2026-06-10T09:01:12.206Z",
+    "isActive": true,
+    "updatedAt": "2026-06-30T05:52:49.282Z"
+  },
+  {
+    "_id": "6a2927d840274fbb3590a1ff",
+    "name": "WEB & APP DEVELOPMENT",
+    "__v": 0,
+    "createdAt": "2026-06-10T09:01:12.300Z",
+    "isActive": true,
+    "updatedAt": "2026-06-30T05:52:49.385Z"
+  },
+  {
+    "_id": "6a2927d840274fbb3590a200",
+    "name": "ACCOUNTING, FINANCE & COMPLIANCE",
+    "__v": 0,
+    "createdAt": "2026-06-10T09:01:12.401Z",
+    "isActive": true,
+    "updatedAt": "2026-06-30T05:52:49.254Z"
+  },
+  {
+    "_id": "6a2927d840274fbb3590a201",
+    "name": "CASE STUDIES & RESULTS",
+    "__v": 0,
+    "createdAt": "2026-06-10T09:01:12.502Z",
+    "isActive": true,
+    "updatedAt": "2026-06-30T05:52:49.308Z"
+  },
+  {
+    "_id": "6a2927d840274fbb3590a202",
+    "name": "SEO & DIGITAL MARKETING",
+    "__v": 0,
+    "createdAt": "2026-06-10T09:01:12.605Z",
+    "isActive": true,
+    "updatedAt": "2026-06-30T05:52:49.359Z"
+  },
+  {
+    "_id": "6a2927d840274fbb3590a203",
+    "name": "DATA, MIS & POWER BI",
+    "__v": 0,
+    "createdAt": "2026-06-10T09:01:12.709Z",
+    "isActive": true,
+    "updatedAt": "2026-06-30T05:52:49.334Z"
+  },
+  {
+    "_id": "6a3b8c2149513eabfe78c1c6",
+    "name": "GROWTH & ROI STRATEGY",
+    "isActive": true,
+    "createdAt": "2026-06-24T07:49:53.707Z",
+    "updatedAt": "2026-06-24T07:49:53.707Z",
+    "__v": 0
+  },
+  {
+    "_id": "6a3b8c4349513eabfe78c1c7",
+    "name": "PERFORMANCE MARKETING & PAID ADS",
+    "isActive": true,
+    "createdAt": "2026-06-24T07:50:27.050Z",
+    "updatedAt": "2026-06-24T07:50:27.050Z",
+    "__v": 0
+  }
+]

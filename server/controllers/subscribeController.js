@@ -63,7 +63,7 @@ exports.subscribe = async (req, res) => {
         <p style="color: #333; font-size: 16px; line-height: 1.5;">Hi there,</p>
         <p style="color: #333; font-size: 16px; line-height: 1.5;">Thank you for joining our community! We're thrilled to have you on board. You'll now receive our latest updates, insights, and digital marketing strategies straight to your inbox.</p>
         <div style="text-align: center; margin: 30px 0;">
-          <a href="${frontendUrl}" style="background-color: #ff6b00; color: #fff; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold;">Explore Vedhunt</a>
+          <a href="${frontendUrl}" style="background-color: #ff6b00; color: #fff; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold;">Explore Vedhunt Infotech</a>
         </div>
         <p style="color: #333; font-size: 16px; line-height: 1.5;">Best regards,<br>The Vedhunt Team</p>
         <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">

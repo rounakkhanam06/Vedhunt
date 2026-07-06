@@ -1,0 +1,371 @@
+[
+  {
+    "_id": "6a1d47b03a4aa1cc6977eb0e",
+    "key": "blogHero",
+    "__v": 0,
+    "createdAt": "2026-06-01T08:49:52.090Z",
+    "updatedAt": "2026-06-30T05:38:24.724Z",
+    "value": {
+      "title": "THE BLOG",
+      "description": "Stay up to date on tips, tricks, & trends for social media & digital marketing. Explore our latest articles and insights.",
+      "tags": [
+        "New",
+        "Insights & Trends"
+      ]
+    }
+  },
+  {
+    "_id": "6a22bf7ed0269f32acaa53a0",
+    "key": "contactInfo",
+    "__v": 0,
+    "createdAt": "2026-06-05T12:22:22.500Z",
+    "updatedAt": "2026-06-17T07:31:05.550Z",
+    "value": {
+      "phone": "+91 86524 10289",
+      "phoneDisplay": "+91 86524 10289",
+      "email": "info@vedhunt.in",
+      "whatsappNumber": "8652410289",
+      "whatsappMessage": "Hi Vedhunt InfoTech! I want to know more about your services.",
+      "hours": "Mon – Fri: 9:00 AM – 6:00 PM",
+      "address": "Office No, 7th Floor, Everest Nivara Infotech Park, A-702, Indira Nagar, MIDC Industrial Area, Turbhe, Navi Mumbai, Maharashtra 400705",
+      "cin": "CIN - U62099MH2025PTC447275",
+      "registration": "Company Registration: CIN - U62099MH2025PTC447275",
+      "copyright": "© 2026 Vedhunt InfoTech. All Rights Reserved.",
+      "socialLinks": [
+        {
+          "id": "1",
+          "platform": "Facebook",
+          "url": "https://www.facebook.com/Vedhunt6"
+        },
+        {
+          "id": "2",
+          "platform": "Instagram",
+          "url": "https://www.instagram.com/vedhunt/"
+        },
+        {
+          "id": "3",
+          "platform": "LinkedIn",
+          "url": "https://www.linkedin.com/company/vedhunt-infotech"
+        },
+        {
+          "id": "4",
+          "platform": "YouTube",
+          "url": "https://www.youtube.com/@vedhuntinfotech1326"
+        }
+      ]
+    }
+  },
+  {
+    "_id": "6a22f63640274fbb35907206",
+    "key": "privacyPolicy",
+    "__v": 0,
+    "createdAt": "2026-06-05T16:15:49.877Z",
+    "updatedAt": "2026-06-05T17:14:44.298Z",
+    "value": {
+      "introText": "<p><strong><u>Vedhunt&nbsp;InfoTech</u></strong>&nbsp;(“we,”&nbsp;“our,”&nbsp;or&nbsp;“us”)&nbsp;is&nbsp;committed&nbsp;to&nbsp;protecting&nbsp;the&nbsp;privacy&nbsp;and&nbsp;security&nbsp;of&nbsp;our&nbsp;clients,&nbsp;partners,&nbsp;and&nbsp;visitors.</p><p>We&nbsp;collect&nbsp;and&nbsp;process&nbsp;information&nbsp;only&nbsp;to&nbsp;deliver&nbsp;better&nbsp;services,&nbsp;enhance&nbsp;user&nbsp;experience,&nbsp;and&nbsp;fulfill&nbsp;our&nbsp;contractual&nbsp;and&nbsp;legal&nbsp;obligations.</p><p>This&nbsp;Privacy&nbsp;Policy&nbsp;explains&nbsp;how&nbsp;we&nbsp;handle,&nbsp;store,&nbsp;and&nbsp;safeguard&nbsp;your&nbsp;personal&nbsp;and&nbsp;business&nbsp;information.</p>",
+      "sections": [
+        {
+          "id": "1",
+          "title": "1. Scope of This Policy",
+          "content": "<p><strong>This&nbsp;policy&nbsp;applies&nbsp;to:</strong></p><ul><li>Visitors&nbsp;to&nbsp;our&nbsp;website</li><li>Registered&nbsp;users&nbsp;of&nbsp;the&nbsp;Vedhunt&nbsp;Client&nbsp;Portal</li><li>Clients&nbsp;and&nbsp;partners&nbsp;using&nbsp;our&nbsp;services,&nbsp;including&nbsp;website&nbsp;and&nbsp;app&nbsp;development,&nbsp;digital&nbsp;marketing,&nbsp;automation,&nbsp;analytics,&nbsp;accounting,&nbsp;and&nbsp;reporting&nbsp;solutions.</li></ul>"
+        },
+        {
+          "id": "2",
+          "title": "2. Information We Collect",
+          "content": "<p>We&nbsp;collect&nbsp;personal&nbsp;information&nbsp;such&nbsp;as&nbsp;your&nbsp;name,&nbsp;email&nbsp;address,&nbsp;and&nbsp;usage&nbsp;data&nbsp;regarding&nbsp;your&nbsp;interactions&nbsp;with&nbsp;our&nbsp;Services.</p>"
+        },
+        {
+          "id": "3",
+          "title": "3. Data Storage and Security",
+          "content": "<p>Your&nbsp;information&nbsp;is&nbsp;stored&nbsp;securely&nbsp;on&nbsp;encrypted&nbsp;servers&nbsp;and&nbsp;trusted&nbsp;cloud&nbsp;platforms.&nbsp;We&nbsp;employ&nbsp;enterprise-grade&nbsp;security&nbsp;systems&nbsp;including&nbsp;SSL&nbsp;encryption,&nbsp;multi-factor&nbsp;authentication,&nbsp;and&nbsp;regular&nbsp;audits.</p>"
+        },
+        {
+          "id": "1780676125178",
+          "title": "3. Purpose of Data Collection",
+          "content": "<p><strong style=\"color: rgb(0, 0, 0); background-color: rgb(255, 255, 255);\">We&nbsp;collect&nbsp;and&nbsp;use&nbsp;your&nbsp;information&nbsp;strictly&nbsp;for:</strong></p><ul><li><span style=\"color: rgb(0, 0, 0); background-color: transparent;\">Providing&nbsp;and&nbsp;maintaining&nbsp;our&nbsp;services&nbsp;and&nbsp;client&nbsp;portal.</span></li><li><span style=\"color: rgb(0, 0, 0); background-color: transparent;\">Communicating&nbsp;updates,&nbsp;deliverables,&nbsp;and&nbsp;project&nbsp;progress.</span></li><li><span style=\"color: rgb(0, 0, 0); background-color: transparent;\">Improving&nbsp;our&nbsp;systems,&nbsp;dashboards,&nbsp;and&nbsp;user&nbsp;experience.</span></li><li><span style=\"color: rgb(0, 0, 0); background-color: transparent;\">Responding&nbsp;to&nbsp;support&nbsp;requests&nbsp;or&nbsp;technical&nbsp;inquiries.</span></li><li><span style=\"color: rgb(0, 0, 0); background-color: transparent;\">Fulfilling&nbsp;contractual&nbsp;and&nbsp;billing&nbsp;obligations.</span></li><li><span style=\"color: rgb(0, 0, 0); background-color: transparent;\">Ensuring&nbsp;compliance&nbsp;with&nbsp;data&nbsp;protection&nbsp;and&nbsp;security&nbsp;standards.</span></li></ul><p><span style=\"color: rgb(0, 0, 0); background-color: rgb(255, 255, 255);\">All&nbsp;data&nbsp;collected&nbsp;is&nbsp;used&nbsp;solely&nbsp;to&nbsp;serve&nbsp;our&nbsp;clients&nbsp;better&nbsp;—&nbsp;not&nbsp;for&nbsp;unsolicited&nbsp;marketing&nbsp;or&nbsp;unrelated&nbsp;activities.</span></p><p></p>"
+        }
+      ],
+      "lastUpdated": "2026-06-05T16:16:22.120Z",
+      "hero": {
+        "heading": "Privacy Policy.",
+        "introParagraphs": [
+          "Vedhunt InfoTech (“we,” “our,” or “us”) is committed to protecting the privacy and security of our clients, partners, and visitors.\nWe collect and process information only to deliver better services, enhance user experience, and fulfill our contractual and legal obligations.\n\nThis Privacy Policy explains how we handle, store, and safeguard your personal and business information."
+        ]
+      },
+      "policyData": [
+        {
+          "id": "1780679419977",
+          "title": "1. Scope of This Policy",
+          "content": "<p><strong style=\"color: rgb(0, 0, 0); background-color: rgb(255, 255, 255);\">This&nbsp;policy&nbsp;applies&nbsp;to:</strong></p><ul><li><span style=\"color: rgb(0, 0, 0); background-color: transparent;\">Visitors&nbsp;to&nbsp;our&nbsp;website&nbsp;(</span><a href=\"https://www.vedhunt.in/\" rel=\"noopener noreferrer\" target=\"_blank\" style=\"color: rgb(255, 102, 0); background-color: transparent;\">www.vedhunt.in</a><span style=\"color: rgb(0, 0, 0); background-color: transparent;\">)</span></li><li><span style=\"color: rgb(0, 0, 0); background-color: transparent;\">Registered&nbsp;users&nbsp;of&nbsp;the&nbsp;Vedhunt&nbsp;Client&nbsp;Portal</span></li><li><span style=\"color: rgb(0, 0, 0); background-color: transparent;\">Clients&nbsp;and&nbsp;partners&nbsp;using&nbsp;our&nbsp;services,&nbsp;including&nbsp;website&nbsp;and&nbsp;app&nbsp;development,&nbsp;digital&nbsp;marketing,&nbsp;automation,&nbsp;analytics,&nbsp;accounting,&nbsp;and&nbsp;reporting&nbsp;solutions.</span></li></ul><p></p>"
+        },
+        {
+          "id": "1780679611365",
+          "title": "2. Information We Collect",
+          "content": "<p><strong>a)&nbsp;information&nbsp;you&nbsp;provide&nbsp;volunaribilty</strong></p><p>we&nbsp;may&nbsp;collect:</p><ul><li><span style=\"color: rgb(0, 0, 0); background-color: transparent;\">Your&nbsp;name,&nbsp;business&nbsp;name,&nbsp;job&nbsp;title,&nbsp;email&nbsp;address,&nbsp;and&nbsp;contact&nbsp;number.</span></li><li><span style=\"color: rgb(0, 0, 0); background-color: transparent;\">Project&nbsp;briefs,&nbsp;files,&nbsp;and&nbsp;data&nbsp;shared&nbsp;for&nbsp;development,&nbsp;automation,&nbsp;or&nbsp;analysis.</span></li><li><span style=\"color: rgb(0, 0, 0); background-color: transparent;\">Login&nbsp;credentials&nbsp;(username,&nbsp;email)&nbsp;for&nbsp;secure&nbsp;access&nbsp;to&nbsp;our&nbsp;client&nbsp;portal.</span></li><li><span style=\"color: rgb(0, 0, 0); background-color: transparent;\">Communication&nbsp;history&nbsp;(emails,&nbsp;chat,&nbsp;forms,&nbsp;or&nbsp;tickets)&nbsp;for&nbsp;support&nbsp;purposes</span></li></ul><p></p>"
+        }
+      ]
+    }
+  },
+  {
+    "_id": "6a27a85d81a001c4bc0670bb",
+    "key": "dpa",
+    "value": {
+      "hero": {
+        "badgeText": "GDPR & IT Act Compliant",
+        "heading": "Data Processing",
+        "subheading": "Agreement",
+        "description": "This Data Processing Agreement (“Agreement” or “DPA”) forms an integral part of the Service Agreement, Statement of Work (SOW), or Master Services Agreement executed between Vedhunt InfoTech and our Clients."
+      },
+      "policyData": [
+        {
+          "id": "1",
+          "title": "1. Purpose",
+          "content": "<p>The purpose of this DPA is to ensure that any personal or sensitive data processed by Vedhunt InfoTech on behalf of the Client is handled in compliance with applicable data protection laws, including but not limited to the Information Technology Act, 2000, GDPR, and other international regulations.</p>"
+        },
+        {
+          "id": "2",
+          "title": "2. Scope of Processing",
+          "content": "<p>Vedhunt InfoTech may process data solely for the following business purposes:</p><ul><li>Website & App development services</li><li>Automation, Analytics, and Reporting (SQL, Power BI, Python, BI tools)</li><li>Digital Marketing and Lead Management (Google, Meta, LinkedIn, etc.)</li><li>Accounting & Financial MIS Automation</li><li>Healthcare and Insurance Vendor Analytics (non-clinical data)</li><li>Any additional service explicitly defined in the client’s project scope</li></ul><p>Vedhunt shall not process or use the Client’s data for any purpose other than what is contractually agreed.</p>"
+        },
+        {
+          "id": "3",
+          "title": "3. Roles and Responsibilities",
+          "content": "<p><strong>3.1 Client (Data Controller)</strong><br/>The Client determines:</p><ul><li>The categories of data processed.</li><li>The lawful basis for processing.</li><li>Instructions provided to Vedhunt InfoTech.</li></ul><p>The Client ensures data shared is obtained lawfully and does not violate any third-party rights.</p><p><strong>3.2 Vedhunt InfoTech (Data Processor)</strong><br/>Vedhunt agrees to:</p><ul><li>Process data only on documented instructions from the Client.</li><li>Implement technical and organizational measures to protect data.</li><li>Ensure confidentiality of all personnel with access to data.</li><li>Not engage any sub-processor without written consent.</li><li>Assist the Client in ensuring compliance with applicable laws.</li></ul>"
+        },
+        {
+          "id": "4",
+          "title": "4. Categories of Data Processed",
+          "content": "<p>Depending on the service, Vedhunt may process:</p><ul><li>Contact details (name, email, phone, company info)</li><li>Project data and reports</li><li>Transaction or performance data</li><li>System or log data (e.g., Power BI logs, SQL transactions)</li><li>Non-clinical healthcare data (member IDs, claim reference IDs — anonymized)</li></ul><p>Sensitive Personal Data (if applicable): In limited cases (e.g., healthcare vendors), only pseudonymized or masked data is used, ensuring no direct identifiers are accessible.</p>"
+        },
+        {
+          "id": "5",
+          "title": "5. Sub-Processors",
+          "content": "<p>Vedhunt may use third-party service providers (e.g., AWS, Azure, Google Cloud, Microsoft Power BI, Sendinblue, or Zoho) to perform specific functions.</p><p>Vedhunt ensures that:</p><ul><li>Sub-processors are bound by written contracts ensuring equivalent data protection.</li><li>Clients are informed and may object to specific sub-processors.</li></ul><p>Data transfers comply with international standards (Standard Contractual Clauses or similar).</p>"
+        },
+        {
+          "id": "6",
+          "title": "6. Data Security",
+          "content": "<p>Vedhunt InfoTech implements reasonable security practices under Indian IT Rules and industry-standard measures, including:</p><ul><li>SSL/TLS encryption for all transmissions</li><li>Encrypted storage for client files and databases</li><li>Role-based access control (RBAC)</li><li>Regular security audits and firewall protection</li><li>Daily backups and disaster recovery systems</li><li>2FA and VPN-based access for internal operations</li></ul><p>If a data breach occurs, Vedhunt will promptly notify the Client (within 72 hours) with full details and corrective actions.</p>"
+        },
+        {
+          "id": "7",
+          "title": "7. Confidentiality",
+          "content": "<ul><li>All data, project information, and deliverables are treated as confidential.</li><li>Employees, contractors, and partners are bound by NDAs.</li><li>Confidentiality obligations remain effective even after contract termination.</li></ul>"
+        },
+        {
+          "id": "8",
+          "title": "8. Data Retention and Deletion",
+          "content": "<p>Vedhunt retains client data only as long as necessary for the project or as required by law.</p><p>Upon completion or termination of the engagement:</p><ul><li>All personal data will be securely deleted, anonymized, or returned to the Client.</li><li>Backup copies will be purged within 30 to 60 days unless required for legal compliance.</li></ul>"
+        },
+        {
+          "id": "9",
+          "title": "9. Data Subject Rights",
+          "content": "<p>Vedhunt assists the Client in fulfilling requests from data subjects, including:</p><ul><li>Access, correction, or deletion of their personal data.</li><li>Restriction or objection to processing.</li><li>Data portability (where applicable).</li></ul><p>Vedhunt shall not respond directly to such requests without prior approval from the Client.</p>"
+        },
+        {
+          "id": "10",
+          "title": "10. International Data Transfers",
+          "content": "<p>If data is transferred outside India (e.g., hosting or cloud services), Vedhunt ensures:</p><ul><li>The transfer complies with applicable legal safeguards.</li><li>Only GDPR-compliant cloud providers (e.g., AWS, Azure, GCP) are used.</li><li>Data remains encrypted during and after transfer.</li></ul>"
+        },
+        {
+          "id": "11",
+          "title": "11. Audit and Compliance",
+          "content": "<ul><li>Vedhunt will make available all information necessary to demonstrate compliance.</li><li>The Client may, upon reasonable notice, audit Vedhunt’s data handling procedures (once per year).</li><li>Vedhunt will cooperate fully and correct any non-compliance promptly.</li></ul>"
+        },
+        {
+          "id": "12",
+          "title": "12. Data Breach Notification",
+          "content": "<p>In the event of an actual or suspected breach:</p><ol><li>Vedhunt will notify the Client within 72 hours.</li><li>The notice will include: Nature and scope of the breach, Data affected, Steps taken to mitigate risks.</li><li>Vedhunt will work closely with the Client to contain and remediate the issue.</li></ol>"
+        },
+        {
+          "id": "13",
+          "title": "13. Liability",
+          "content": "<p>Vedhunt InfoTech’s total liability arising out of data processing shall not exceed the total amount paid by the Client under the service contract during the 6-month period preceding the claim, unless caused by gross negligence or willful misconduct.</p>"
+        },
+        {
+          "id": "14",
+          "title": "14. Term and Termination",
+          "content": "<p>This DPA remains in effect:</p><ul><li>For as long as Vedhunt processes data on behalf of the Client; or</li><li>Until the termination of all service agreements.</li></ul><p>Upon termination:</p><ul><li>Vedhunt will delete or return all client data (as per Section 8).</li><li>Any surviving confidentiality and security obligations remain binding.</li></ul>"
+        },
+        {
+          "id": "15",
+          "title": "15. Governing Law and Jurisdiction",
+          "content": "<p>This Agreement shall be governed by and construed under the laws of India. All disputes shall be subject to the exclusive jurisdiction of the courts in Pune, Maharashtra, India.</p>"
+        }
+      ],
+      "acceptance": {
+        "title": "Agreement Acceptance",
+        "description": "By signing a Service Agreement or engaging Vedhunt InfoTech’s services, the Client acknowledges that they have reviewed and accepted this Data Processing Agreement. This DPA forms part of the binding contractual relationship between Vedhunt and the Client.",
+        "highlight": "Vedhunt InfoTech is committed to protecting the integrity, confidentiality, and security of all client data — ensuring full compliance with Indian and international data protection laws."
+      }
+    },
+    "createdAt": "2026-06-09T05:45:01.571Z",
+    "updatedAt": "2026-06-09T05:45:01.571Z",
+    "__v": 0
+  },
+  {
+    "_id": "6a27aab2da48e72fc44c4d0c",
+    "key": "refund_policy",
+    "value": {
+      "hero": {
+        "heading": "Refund & Billing Policy",
+        "lastUpdated": "May 2026",
+        "subtitle": "Payments, Refunds & Service Terms at Vedhunt",
+        "paragraphs": [
+          "At Vedhunt InfoTech, we are committed to delivering high-quality, customized solutions that add measurable value to our clients' businesses. Our services are intellectual and time-based, meaning they involve professional expertise, research, planning, and effort invested from the moment a project begins.",
+          "For this reason, our billing and refund policy is designed to maintain fairness, transparency, and mutual respect between Vedhunt InfoTech and our clients."
+        ]
+      },
+      "scope": {
+        "title": "1. Scope",
+        "intro": "This policy applies to all professional services offered by Vedhunt InfoTech, including:",
+        "items": [
+          "Website & App Development",
+          "Digital Marketing & Social Media Management",
+          "Automation (SQL / Power BI / Python)",
+          "MIS & Reporting Services",
+          "Accounting & Financial Services",
+          "Data Analytics, AI, and Consulting Projects"
+        ]
+      },
+      "billingTerms": {
+        "title": "2. Billing Terms",
+        "items": [
+          {
+            "title": "1. Quotation & Agreement",
+            "content": "<p>Every project or engagement is initiated after a written quotation, proposal, or agreement is mutually approved. The scope of work, timeline, and payment schedule are clearly defined before commencement.</p>"
+          },
+          {
+            "title": "2. Advance Payment",
+            "content": "<p>Projects typically begin with an advance payment (as mentioned in the quotation or agreement). The advance is considered a confirmation of engagement and allocation of dedicated resources.</p>"
+          },
+          {
+            "title": "3. Milestone-Based Billing",
+            "content": "<p>Depending on the project type, billing may occur at key milestones, deliverable completion, or on a monthly retainer basis. All invoices are shared electronically, inclusive of applicable taxes (GST or others).</p>"
+          },
+          {
+            "title": "4. Accepted Payment Methods",
+            "content": "<ul><li>Bank Transfer (NEFT / RTGS / IMPS)</li><li>UPI / Payment Gateway</li><li>International Wire Transfer (for overseas clients)</li></ul>"
+          }
+        ]
+      },
+      "noRefund": {
+        "title": "3. No Refund Policy",
+        "subtitle": "Vedhunt InfoTech follows a strict No Refund Policy for all its professional services.",
+        "intro1": "This is because our services involve significant intellectual effort, skilled manpower, and time investments that begin immediately upon project initiation.",
+        "intro2": "We do not offer refunds for:",
+        "noRefundItems": [
+          "Projects where any stage of design, development, or setup has commenced.",
+          "Completed milestones, approved deliverables, or ongoing work-in-progress.",
+          "Retainer, subscription, or maintenance plans once service has started.",
+          "Third-party costs (e.g., domain, hosting, ad spend, software licenses, API integrations)."
+        ],
+        "commitment": {
+          "title": "Our Commitment",
+          "items": [
+            "Every project is executed with clear communication and transparency.",
+            "In case of any dissatisfaction, Vedhunt will work collaboratively to review, revise, or realign deliverables within the agreed scope.",
+            "If a delay or issue arises due to our side, we will rectify or adjust timelines — instead of processing refunds — ensuring that our clients always receive complete value for their investment."
+          ],
+          "footer": "Our priority is long-term client satisfaction, not one-time transactions."
+        }
+      },
+      "cancellation": {
+        "title": "4. Project Cancellation",
+        "intro": "Clients may request cancellation by written notice (email to info@vedhunt.in). In such cases:",
+        "items": [
+          "Work completed up to the date of cancellation will be billed in full.",
+          "Advance payments already received are non-refundable, as resources and time are already allocated.",
+          "If any external vendor costs have been incurred (e.g., ads, hosting, tools), these will also be chargeable."
+        ]
+      }
+    },
+    "createdAt": "2026-06-09T05:54:58.315Z",
+    "updatedAt": "2026-06-09T05:54:58.315Z",
+    "__v": 0
+  },
+  {
+    "_id": "6a27c27e882ea537f4ca0adf",
+    "key": "campaign_settings",
+    "value": {
+      "facebookPixel": {
+        "id": "",
+        "enabled": false
+      },
+      "googleAnalytics": {
+        "id": "",
+        "enabled": false
+      },
+      "googleTagManager": {
+        "id": "",
+        "enabled": false
+      },
+      "googleAds": {
+        "id": "AW-10976080417",
+        "enabled": true,
+        "conversionLabel": "8TJtCIb2vMIcEKHk5vEo"
+      },
+      "linkedInInsight": {
+        "id": "",
+        "enabled": false
+      },
+      "audit": {
+        "updatedBy": "System Migration Script",
+        "updatedAt": "2026-06-20T10:35:46.229Z"
+      }
+    },
+    "createdAt": "2026-06-09T07:36:30.194Z",
+    "updatedAt": "2026-06-20T10:35:46.242Z",
+    "__v": 0
+  },
+  {
+    "_id": "6a2b95a650622695d0011fc8",
+    "key": "facebookIntegration",
+    "value": {
+      "pixelId": "",
+      "isWebhookActive": true
+    },
+    "createdAt": "2026-06-12T05:14:14.562Z",
+    "updatedAt": "2026-06-12T05:14:14.562Z",
+    "__v": 0
+  },
+  {
+    "_id": "6a2d08212728e84298efbac3",
+    "key": "email_settings",
+    "value": {
+      "emailFrom": "info@vedhunt.in",
+      "hrEmail": "hr@vedhunt.in"
+    },
+    "createdAt": "2026-06-13T07:34:57.923Z",
+    "updatedAt": "2026-06-13T07:36:52.701Z",
+    "__v": 0
+  },
+  {
+    "_id": "6a3a4e1491afd723cda6fb6b",
+    "key": "attendance_rules",
+    "value": {
+      "halfDayCheckInLimit": "13:00",
+      "halfDayHoursThreshold": 4.5,
+      "defaultLeaves": {
+        "CL": 1,
+        "SL": 1,
+        "PL": 2
+      },
+      "leaveBalancePeriod": "Month"
+    },
+    "createdAt": "2026-06-23T09:12:52.202Z",
+    "updatedAt": "2026-06-23T09:29:32.358Z",
+    "__v": 0
+  },
+  {
+    "_id": "6a3a4eb531b393419cbaa044",
+    "key": "office_timings",
+    "value": {
+      "standardStartTime": "09:00",
+      "standardEndTime": "17:00"
+    },
+    "createdAt": "2026-06-23T09:15:33.792Z",
+    "updatedAt": "2026-06-23T09:16:00.842Z",
+    "__v": 0
+  }
+]

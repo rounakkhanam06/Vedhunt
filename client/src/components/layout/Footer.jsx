@@ -1,8 +1,10 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Phone, Mail, ArrowRight, MapPin, ArrowUpRight, Link as LinkIcon, ChevronRight, Send, Globe } from 'lucide-react';
 import { SERVICES } from '../../constants';
 import { useTheme } from '../../context/ThemeContext';
 import { useContactInfo } from '../../context/ContactInfoContext';
+import api from '../../services/api';
 import lightLogo from '../../assets/logo_Square.jpg__1_-removebg-preview.png';
 import darkLogo from '../../assets/DarkthemeLogo.png';
 
@@ -39,6 +41,39 @@ const YoutubeIcon = (props) => (
 export default function Footer() {
   const { theme } = useTheme();
   const { contactInfo } = useContactInfo();
+
+  const [subEmail, setSubEmail] = useState('');
+  const [subLoading, setSubLoading] = useState(false);
+  const [subSuccess, setSubSuccess] = useState(false);
+  const [subError, setSubError] = useState('');
+  const [subAlready, setSubAlready] = useState(false);
+
+  const handleSubscribe = async (e) => {
+    e.preventDefault();
+    if (!subEmail) return;
+
+    setSubLoading(true);
+    setSubError('');
+    setSubSuccess(false);
+    setSubAlready(false);
+
+    try {
+      const response = await api.post('/subscribe', { email: subEmail });
+      if (response.data.success) {
+        if (response.data.alreadySubscribed) {
+          setSubAlready(true);
+        } else {
+          setSubSuccess(true);
+          setSubEmail('');
+        }
+      }
+    } catch (err) {
+      setSubError(err.response?.data?.message || 'Failed to subscribe. Please try again.');
+    } finally {
+      setSubLoading(false);
+    }
+  };
+
   return (
     <footer className="relative text-app-text-muted mt-6 sm:mt-12 font-sans theme-transition">
       {/* Wave Divider with light orange glow at the top of the footer */}
@@ -140,13 +175,7 @@ export default function Footer() {
                 })}
               </div>
 
-              <div className="flex items-start gap-3 text-sm text-app-text-muted pt-2 border-t border-app-border/40">
-                <div className="w-8 h-8 rounded-md border border-primary/30 flex items-center justify-center shrink-0 mt-0.5">
-                  <MapPin className="w-4 h-4 text-primary" />
-                </div>
-                <span className="leading-relaxed text-xs">Office No, 7th Floor, Everest Nivara Infotech Park, A-702, Indira Nagar, MIDC Industrial Area, Turbhe, Navi Mumbai, Maharashtra 400705</span>
               </div>
-            </div>
 
             {/* Column 2: Services Directory */}
             <div className="space-y-3 lg:pt-2">
@@ -304,33 +333,70 @@ export default function Footer() {
 
           </div>
 
-          {/* Centered Subscription Input Capsule */}
-          <div className="py-3 sm:py-4 border-b border-app-border/40 flex flex-col items-center justify-center text-center space-y-2 sm:space-y-3">
-            <div className="space-y-1 max-w-md">
-              <h5 className="text-app-text font-heading font-bold text-xs sm:text-sm tracking-wide">
-                Subscribe to Our Newsletter
-              </h5>
-              <p className="text-[11px] sm:text-xs text-app-text-muted leading-relaxed">
-                Stay updated on technological trends, SEO tips, and enterprise solutions.
-              </p>
-            </div>
-            
-            <form onSubmit={(e) => e.preventDefault()} className="w-full max-w-md">
-              <div className="relative flex items-center bg-app-bg border border-app-border focus-within:border-primary/40 focus-within:ring-1 focus-within:ring-primary/40 rounded-full p-1 shadow-md transition-all duration-300">
-                <input
-                  type="email"
-                  placeholder="Enter email address"
-                  className="w-full bg-transparent outline-none pl-4 pr-28 py-1.5 text-xs text-app-text placeholder-gray-500 transition-all"
-                  required
-                />
-                <button
-                  type="submit"
-                  className="absolute right-1 bg-primary hover:bg-primary-hover text-black font-extrabold text-xs px-5 py-1.5 rounded-full transition-all duration-300 shadow-md cursor-pointer hover:shadow-[0_0_15px_rgba(255,107,0,0.4)]"
-                >
-                  Submit
-                </button>
+          {/* Newsletter & Address Section */}
+          <div className="py-6 sm:py-8 border-b border-app-border/40 grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+            {/* Left Side: Newsletter */}
+            <div className="flex flex-col space-y-3 w-full max-w-md">
+              <div className="space-y-1 text-center">
+                <h5 className="text-app-text font-heading font-bold text-sm tracking-wide">
+                  Subscribe to Our Newsletter
+                </h5>
+                <p className="text-xs text-app-text-muted leading-relaxed">
+                  Stay updated on technological trends, SEO tips, and enterprise solutions.
+                </p>
               </div>
-            </form>
+              
+              <form onSubmit={handleSubscribe} className="w-full">
+                <div className="relative flex items-center bg-app-bg border border-app-border focus-within:border-primary/40 focus-within:ring-1 focus-within:ring-primary/40 rounded-full p-1 shadow-md transition-all duration-300 overflow-hidden">
+                  <input
+                    type="email"
+                    placeholder="Enter email address"
+                    value={subEmail}
+                    onChange={(e) => setSubEmail(e.target.value)}
+                    disabled={subLoading || subSuccess}
+                    className="w-full bg-transparent outline-none pl-4 pr-28 py-1.5 text-xs text-app-text placeholder-gray-500 rounded-full transition-all disabled:opacity-50"
+                    required
+                  />
+                  <button
+                    type="submit"
+                    disabled={subLoading || subSuccess}
+                    className="absolute right-1 z-10 bg-primary hover:bg-primary-hover text-black font-extrabold text-xs px-5 py-1.5 rounded-full transition-all duration-300 shadow-md cursor-pointer hover:shadow-[0_0_15px_rgba(255,107,0,0.4)] disabled:opacity-70"
+                  >
+                    {subLoading ? '...' : subSuccess ? 'Subscribed!' : 'Submit'}
+                  </button>
+                </div>
+              </form>
+              {subSuccess && (
+                <p className="mt-2 text-green-500 font-medium text-xs">
+                  Thanks for subscribing! Check your email for a welcome message.
+                </p>
+              )}
+              {subAlready && (
+                <p className="mt-2 text-blue-400 font-medium text-xs">
+                  You are already subscribed to our newsletter.
+                </p>
+              )}
+              {subError && (
+                <p className="mt-2 text-red-500 font-medium text-xs">
+                  {subError}
+                </p>
+              )}
+            </div>
+
+            {/* Right Side: Office Address */}
+            <div className="flex flex-col md:items-end text-left md:text-right space-y-3">
+              <h5 className="text-app-text font-heading font-bold text-sm tracking-wide">
+                Our Office
+              </h5>
+              <div className="flex items-start md:flex-row-reverse gap-3 text-sm text-app-text-muted max-w-sm">
+                <div className="w-8 h-8 rounded-md border border-primary/30 flex items-center justify-center shrink-0 mt-0.5">
+                  <MapPin className="w-4 h-4 text-primary" />
+                </div>
+                <span className="leading-relaxed text-xs">
+                  Office No, 7th Floor, Everest Nivara Infotech Park, A-702, Indira Nagar, MIDC Industrial Area, Turbhe, Navi Mumbai, Maharashtra 400705
+                </span>
+              </div>
+            </div>
           </div>
 
           {/* Footer Bottom Block */}

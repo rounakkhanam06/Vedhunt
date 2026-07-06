@@ -1,0 +1,33 @@
+[
+  {
+    "_id": "6a1d3d5f7b14c696f01b2915",
+    "tagline": "Our Edge",
+    "title": "Why Scaled Brands Trust Vedhunt InfoTech",
+    "description": "We eliminate technical bottlenecks by uniting engineering precision, marketing strategy, and transparent reporting systems under one single cohesive roof.",
+    "cards": [
+      {
+        "title": "End-to-End Ownership",
+        "desc": "From wireframes and strategic plans to high-availability production deployments.",
+        "_id": "6a1d3d5f7b14c696f01b2916"
+      },
+      {
+        "title": "Dedicated Domain Experts",
+        "desc": "Seniors and principal architects leading app design, automation, and bookkeeping.",
+        "_id": "6a1d3d5f7b14c696f01b2917"
+      },
+      {
+        "title": "100% Tailored Strategies",
+        "desc": "No cookie-cutter templates. Custom digital models to solve your explicit bottlenecks.",
+        "_id": "6a1d3d5f7b14c696f01b2918"
+      },
+      {
+        "title": "Ethical Digital Practices",
+        "desc": "Absolute compliance, semantic code structure, and honest metric-supported dashboards.",
+        "_id": "6a1d3d5f7b14c696f01b2919"
+      }
+    ],
+    "createdAt": "2026-06-01T08:05:51.128Z",
+    "updatedAt": "2026-06-01T08:05:51.128Z",
+    "__v": 0
+  }
+]

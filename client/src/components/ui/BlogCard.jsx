@@ -5,49 +5,51 @@ import { Link } from 'react-router-dom';
 
 const BlogCard = ({ post }) => {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
-      className="group flex flex-col h-full cursor-pointer glass-panel bg-app-card border border-app-border rounded-lg p-4 shadow-lg hover:border-primary/30 hover:-translate-y-1 transition-all duration-500"
-    >
-      {/* Image and Vertical Category Container */}
-      <div className="relative flex mb-6">
-        {/* Vertical Category Label */}
-        <div className="relative w-10 flex items-start justify-center">
-          <span className="absolute top-0 rotate-180 [writing-mode:vertical-lr] text-[10px] font-black tracking-[0.3em] text-app-text-muted uppercase group-hover:text-primary transition-colors duration-300">
-            {post.category}
-          </span>
+    <Link to={`/blog/${post.slug || post.id}`} className="block h-full no-underline">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true }}
+        className="group flex flex-col h-full cursor-pointer glass-panel bg-app-card border border-app-border rounded-lg p-4 shadow-lg hover:border-primary/30 hover:-translate-y-1 transition-all duration-500"
+      >
+        {/* Image and Vertical Category Container */}
+        <div className="relative flex mb-6">
+          {/* Vertical Category Label */}
+          <div className="relative w-10 flex items-start justify-center">
+            <span className="absolute top-0 rotate-180 [writing-mode:vertical-lr] text-[10px] font-black tracking-[0.3em] text-app-text-muted uppercase group-hover:text-primary transition-colors duration-300">
+              {post.category}
+            </span>
+          </div>
+
+          {/* Image - Reduced height with 16:9 aspect ratio */}
+          <div className="flex-grow aspect-[2/1] overflow-hidden rounded-sm bg-app-bg">
+            <img
+              src={post.thumbnail || post.image}
+              alt={post.title}
+              className="w-full h-full object-cover grayscale-[0.2] group-hover:grayscale-0 transition-all duration-700 group-hover:scale-105"
+            />
+          </div>
         </div>
 
-        {/* Image - Reduced height with 16:9 aspect ratio */}
-        <div className="flex-grow aspect-[2/1] overflow-hidden rounded-sm bg-app-bg">
-          <img
-            src={post.thumbnail || post.image}
-            alt={post.title}
-            className="w-full h-full object-cover grayscale-[0.2] group-hover:grayscale-0 transition-all duration-700 group-hover:scale-105"
-          />
+        {/* Content */}
+        <div className="flex flex-col flex-grow pl-10">
+          <h3 className="text-xl font-heading font-bold text-app-text mb-3 group-hover:text-primary transition-colors duration-300 leading-tight">
+            {post.title}
+          </h3>
+
+          <p className="text-app-text-muted text-sm leading-relaxed mb-6 line-clamp-2">
+            {post.excerpt}
+          </p>
+
+          <div className="mt-auto">
+            <div className="flex items-center gap-2 text-app-text hover:text-primary italic font-serif text-sm transition-colors duration-300 group/btn">
+              Read More
+              <ArrowRight size={16} className="transition-transform duration-300 group-hover/btn:translate-x-1" />
+            </div>
+          </div>
         </div>
-      </div>
-
-      {/* Content */}
-      <div className="flex flex-col flex-grow pl-10">
-        <h3 className="text-xl font-heading font-bold text-app-text mb-3 group-hover:text-primary transition-colors duration-300 leading-tight">
-          {post.title}
-        </h3>
-
-        <p className="text-app-text-muted text-sm leading-relaxed mb-6 line-clamp-2">
-          {post.excerpt}
-        </p>
-
-        <div className="mt-auto">
-          <Link to={`/blog/${post.slug || post.id}`} className="flex items-center gap-2 text-app-text hover:text-primary italic font-serif text-sm transition-colors duration-300 group/btn">
-            Read More
-            <ArrowRight size={16} className="transition-transform duration-300 group-hover/btn:translate-x-1" />
-          </Link>
-        </div>
-      </div>
-    </motion.div>
+      </motion.div>
+    </Link>
   );
 };
 

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { User, Plug, BarChart2, Database, Save, Mail, Lock, Smartphone, DownloadCloud, AlertCircle, Phone, MapPin, Share2, Clock } from 'lucide-react';
+import { User, Plug, BarChart2, Database, Save, Mail, Lock, Smartphone, DownloadCloud, AlertCircle, Phone, MapPin, Share2, Clock, CreditCard, QrCode } from 'lucide-react';
 import { useAdminStore } from '../../store/useAdminStore';
 import { settingsService } from '../../services/settingsService';
 import api from '../../services/api';
@@ -55,6 +55,17 @@ const SettingsPage = () => {
   const [holidays, setHolidays] = useState([]);
   const [newHoliday, setNewHoliday] = useState({ name: '', date: '', type: 'Public' });
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+
+  const [paymentSettings, setPaymentSettings] = useState({
+    upiId: '',
+    upiQrCodeUrl: '',
+    bankDetails: {
+      accountName: '',
+      accountNumber: '',
+      ifscCode: '',
+      bankName: '',
+    },
+  });
 
   const fetchContactData = async () => {
     try {
@@ -150,6 +161,32 @@ const SettingsPage = () => {
     }
   };
 
+  const fetchPaymentSettings = async () => {
+    try {
+      setLoading(true);
+      const res = await api.get('/settings/payment');
+      if (res.data?.data) {
+        setPaymentSettings(prev => ({ ...prev, ...res.data.data }));
+      }
+    } catch (_) {
+      // Not yet saved — use defaults silently
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSavePaymentSettings = async () => {
+    try {
+      setSaving(true);
+      await api.post('/settings/payment', paymentSettings);
+      toast.success('Payment settings saved!');
+    } catch {
+      toast.error('Failed to save payment settings');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   useEffect(() => {
     if (activeTab === 'contact') fetchContactData();
     if (activeTab === 'campaigns') fetchCampaignData();
@@ -157,6 +194,7 @@ const SettingsPage = () => {
     if (activeTab === 'officeTimings') fetchOfficeTimings();
     if (activeTab === 'attendanceRules') fetchAttendanceRules();
     if (activeTab === 'holidays') fetchHolidays();
+    if (activeTab === 'payment') fetchPaymentSettings();
   }, [activeTab, selectedYear]);
 
   const handleContactChange = (e) => {
@@ -374,6 +412,7 @@ const SettingsPage = () => {
     { id: 'holidays', label: 'Holiday Calendar', icon: Database },
     { id: 'integrations', label: 'Integrations', icon: Plug },
     { id: 'campaigns', label: 'Campaign Control', icon: BarChart2 },
+    { id: 'payment', label: 'Payment Settings', icon: CreditCard },
     { id: 'backups', label: 'Backups', icon: Database },
   ];
 
@@ -707,8 +746,113 @@ const SettingsPage = () => {
           </div>
         )}
 
+        {/* Payment Settings Tab */}
+        {activeTab === 'payment' && (
+          <div className="max-w-3xl animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <h3 className="text-2xl font-bold text-white mb-2">Payment Settings</h3>
+            <p className="text-gray-400 text-sm mb-8">
+              Configure UPI and bank details shown to clients on unpaid invoices in the Client Portal.
+            </p>
+
+            <div className="space-y-6">
+              {/* UPI */}
+              <div className="bg-[#121215] border border-[#2D2D33] p-6 rounded-xl">
+                <div className="flex items-center gap-3 mb-5">
+                  <div className="w-10 h-10 rounded-lg bg-[#FF6B00]/10 flex items-center justify-center">
+                    <QrCode size={20} className="text-[#FF6B00]" />
+                  </div>
+                  <div>
+                    <h4 className="text-white font-semibold">UPI Payment</h4>
+                    <p className="text-xs text-gray-400">Shown as a scannable QR and copyable UPI ID on invoices.</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className={labelClasses}>UPI ID</label>
+                    <input
+                      type="text"
+                      value={paymentSettings.upiId}
+                      onChange={e => setPaymentSettings(p => ({ ...p, upiId: e.target.value }))}
+                      placeholder="e.g. vedhunt@upi"
+                      className={inputClasses}
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClasses}>QR Code Image URL (Cloudinary)</label>
+                    <input
+                      type="url"
+                      value={paymentSettings.upiQrCodeUrl}
+                      onChange={e => setPaymentSettings(p => ({ ...p, upiQrCodeUrl: e.target.value }))}
+                      placeholder="https://res.cloudinary.com/..."
+                      className={inputClasses}
+                    />
+                  </div>
+                </div>
+                {paymentSettings.upiQrCodeUrl && (
+                  <div className="mt-4 flex items-center gap-4">
+                    <img
+                      src={paymentSettings.upiQrCodeUrl}
+                      alt="UPI QR Preview"
+                      className="w-24 h-24 object-contain rounded-xl border border-[#2D2D33] bg-white p-1"
+                      onError={e => { e.target.style.display = 'none'; }}
+                    />
+                    <p className="text-gray-500 text-xs">QR Preview</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Bank Transfer */}
+              <div className="bg-[#121215] border border-[#2D2D33] p-6 rounded-xl">
+                <div className="flex items-center gap-3 mb-5">
+                  <div className="w-10 h-10 rounded-lg bg-[#FF6B00]/10 flex items-center justify-center">
+                    <CreditCard size={20} className="text-[#FF6B00]" />
+                  </div>
+                  <div>
+                    <h4 className="text-white font-semibold">Bank Transfer Details</h4>
+                    <p className="text-xs text-gray-400">Displayed as an alternative payment method on invoices.</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {[
+                    { k: 'accountName', label: 'Account Holder Name' },
+                    { k: 'accountNumber', label: 'Account Number' },
+                    { k: 'ifscCode', label: 'IFSC Code' },
+                    { k: 'bankName', label: 'Bank Name' },
+                  ].map(({ k, label }) => (
+                    <div key={k}>
+                      <label className={labelClasses}>{label}</label>
+                      <input
+                        type="text"
+                        value={paymentSettings.bankDetails?.[k] || ''}
+                        onChange={e => setPaymentSettings(p => ({
+                          ...p,
+                          bankDetails: { ...(p.bankDetails || {}), [k]: e.target.value }
+                        }))}
+                        className={inputClasses}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <button
+                onClick={handleSavePaymentSettings}
+                disabled={saving}
+                className="flex items-center gap-2 px-6 py-2.5 bg-[#FF6B00] text-white font-semibold rounded-lg hover:bg-[#e55c00] disabled:opacity-60 transition-colors cursor-pointer"
+              >
+                {saving
+                  ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  : <Save size={16} />
+                }
+                Save Payment Settings
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Backups Tab */}
         {activeTab === 'backups' && (
+
           <div className="max-w-3xl animate-in fade-in slide-in-from-bottom-4 duration-500">
             <h3 className="text-2xl font-bold text-white mb-2">Data & Backups</h3>
             <p className="text-gray-400 text-sm mb-8">Export your system data securely.</p>

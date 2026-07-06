@@ -1,0 +1,31 @@
+[
+  {
+    "_id": "6a1957691fda6f81fae6dbe2",
+    "tagText": "Let's Collaborate",
+    "tagIcon": "Sparkles",
+    "headingRegular": "Ready to Build Your",
+    "headingHighlight": "Digital Legacy?",
+    "buttonText": "Start a Project",
+    "buttonLink": "/get-quote",
+    "features": [
+      {
+        "text": "Free Visual Mockup Draft",
+        "icon": "Sparkles",
+        "_id": "6a1957691fda6f81fae6dbe3"
+      },
+      {
+        "text": "Direct Engineering Channel",
+        "icon": "Laptop",
+        "_id": "6a1957691fda6f81fae6dbe4"
+      },
+      {
+        "text": "High-Performance Launch",
+        "icon": "Zap",
+        "_id": "6a1957691fda6f81fae6dbe5"
+      }
+    ],
+    "createdAt": "2026-05-29T09:07:53.999Z",
+    "updatedAt": "2026-05-29T09:07:53.999Z",
+    "__v": 0
+  }
+]

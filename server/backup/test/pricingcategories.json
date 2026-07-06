@@ -1,0 +1,87 @@
+[
+  {
+    "_id": "6a19662d77ca0d5fb313db32",
+    "name": "Web Development",
+    "description": "Premium web applications & scalable CMS architectures",
+    "icon": "web",
+    "order": 1,
+    "status": "active",
+    "seo": {
+      "metaTitle": "Web Development Pricing | Vedhunt",
+      "metaDescription": "Premium web applications & scalable CMS architectures",
+      "keywords": []
+    },
+    "createdAt": "2026-05-29T10:10:53.654Z",
+    "updatedAt": "2026-05-29T10:10:53.654Z",
+    "slug": "web-development",
+    "__v": 0
+  },
+  {
+    "_id": "6a19662d77ca0d5fb313db33",
+    "name": "Mobile Apps",
+    "description": "Native and cross-platform mobile solutions",
+    "icon": "app",
+    "order": 2,
+    "status": "active",
+    "seo": {
+      "metaTitle": "Mobile Apps Pricing | Vedhunt",
+      "metaDescription": "Native and cross-platform mobile solutions",
+      "keywords": []
+    },
+    "createdAt": "2026-05-29T10:10:53.838Z",
+    "updatedAt": "2026-05-29T10:10:53.838Z",
+    "slug": "mobile-apps",
+    "__v": 0
+  },
+  {
+    "_id": "6a19662e77ca0d5fb313db34",
+    "name": "Branding & UI/UX",
+    "description": "Strategic design and scalable visual identity kits",
+    "icon": "branding",
+    "order": 3,
+    "status": "active",
+    "seo": {
+      "metaTitle": "Branding & UI/UX Pricing | Vedhunt",
+      "metaDescription": "Strategic design and scalable visual identity kits",
+      "keywords": []
+    },
+    "createdAt": "2026-05-29T10:10:54.014Z",
+    "updatedAt": "2026-05-29T10:10:54.014Z",
+    "slug": "branding-and-uiux",
+    "__v": 0
+  },
+  {
+    "_id": "6a19662e77ca0d5fb313db35",
+    "name": "Marketing & SEO",
+    "description": "Growth-driven organic ranking and paid performance marketing",
+    "icon": "marketing",
+    "order": 4,
+    "status": "active",
+    "seo": {
+      "metaTitle": "Marketing & SEO Pricing | Vedhunt",
+      "metaDescription": "Growth-driven organic ranking and paid performance marketing",
+      "keywords": []
+    },
+    "createdAt": "2026-05-29T10:10:54.184Z",
+    "updatedAt": "2026-05-29T10:10:54.184Z",
+    "slug": "marketing-and-seo",
+    "__v": 0
+  },
+  {
+    "_id": "6a19662e77ca0d5fb313db36",
+    "name": "Accounting & BI",
+    "description": "Automated bookkeeping and Power BI analytics",
+    "icon": "finance",
+    "order": 5,
+    "status": "active",
+    "seo": {
+      "metaTitle": "Accounting & BI Pricing | Vedhunt",
+      "metaDescription": "Automated bookkeeping and Power BI analytics",
+      "keywords": []
+    },
+    "createdAt": "2026-05-29T10:10:54.344Z",
+    "updatedAt": "2026-05-29T10:10:54.344Z",
+    "slug": "accounting-and-bi",
+    "__v": 0
+  }
+]
