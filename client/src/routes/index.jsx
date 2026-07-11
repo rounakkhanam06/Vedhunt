@@ -81,6 +81,7 @@ const InvoiceManager = lazy(() => import('../admin/pages/InvoiceManager'));
 const ProjectManager = lazy(() => import('../admin/pages/ProjectManager'));
 const RetainerManager = lazy(() => import('../admin/pages/RetainerManager'));
 const SupportDeskManager = lazy(() => import('../admin/pages/SupportDeskManager'));
+const PaymentVerificationManager = lazy(() => import('../admin/pages/PaymentVerificationManager'));
 
 // Client Portal
 const ClientThemeGuard = lazy(() => import('../client/ClientThemeGuard'));
@@ -455,6 +456,10 @@ export const router = createBrowserRouter([
           {
             path: 'support-desk',
             element: withPermission(SupportDeskManager, 'cms.manage')
+          },
+          {
+            path: 'payment-verification',
+            element: withPermission(PaymentVerificationManager, 'cms.manage')
           },
           {
             path: 'leads',

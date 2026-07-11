@@ -44,6 +44,7 @@ const invoiceSchema = new mongoose.Schema(
     taxPercent: { type: Number, default: 0, min: 0, max: 100 },
     taxAmount: { type: Number, default: 0, min: 0 },
     totalAmount: { type: Number, required: true, min: 0 },
+    paidAmount: { type: Number, default: 0, min: 0 },
     paymentStatus: {
       type: String,
       enum: ['Paid', 'Unpaid', 'Overdue'],

@@ -80,6 +80,25 @@ const clientService = {
     const { data } = await clientApi.get(`/client/tickets/${id}`);
     return data;
   },
+
+  // ─── Payments ────────────────────────────────────────────────────────────
+  submitPaymentProof: async (payload) => {
+    const { data } = await clientApi.post('/client/payments', payload);
+    return data;
+  },
+
+  getPaymentHistory: async (invoice_ref) => {
+    const { data } = await clientApi.get('/client/payments/history', { params: { invoice_ref } });
+    return data;
+  },
+
+  uploadPublicImage: async (formData) => {
+    // Assuming /api/upload/public doesn't require clientAuth, but we can use clientApi
+    const { data } = await clientApi.post('/upload/public', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return data;
+  }
 };
 
 export default clientService;

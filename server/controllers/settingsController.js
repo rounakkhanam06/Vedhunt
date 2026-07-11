@@ -983,3 +983,64 @@ exports.updateAttendanceRules = async (req, res) => {
   }
 };
 
+// Fallback default info for Payment Settings if not found in DB
+const DEFAULT_PAYMENT_SETTINGS = {
+  upiId: 'vedhunt@upi',
+  qrCodeUrl: '',
+  bankDetails: {
+    bankName: 'HDFC Bank',
+    accountName: 'Vedhunt InfoTech',
+    accountNumber: '1234567890',
+    ifscCode: 'HDFC0001234'
+  }
+};
+
+/**
+ * @desc    Get Payment Settings
+ * @route   GET /api/settings/payment
+ * @access  Public (or Client authenticated)
+ */
+exports.getPaymentSettings = async (req, res) => {
+  try {
+    let settings = await Settings.findOne({ key: 'paymentSettings' });
+    if (!settings) {
+      settings = await Settings.create({
+        key: 'paymentSettings',
+        value: DEFAULT_PAYMENT_SETTINGS,
+      });
+    }
+    // As per user request, we can optionally send a signature hash here if needed.
+    // For now, we will serve the details directly from backend.
+    res.json(settings.value);
+  } catch (error) {
+    console.error('Error fetching Payment Settings:', error);
+    res.status(500).json({ message: 'Server error while fetching Payment Settings' });
+  }
+};
+
+/**
+ * @desc    Update Payment Settings
+ * @route   PUT /api/admin/settings/payment
+ * @access  Private/Admin
+ */
+exports.updatePaymentSettings = async (req, res) => {
+  try {
+    const updatedData = req.body;
+    let settings = await Settings.findOne({ key: 'paymentSettings' });
+    
+    if (settings) {
+      settings.value = updatedData;
+      await settings.save();
+    } else {
+      settings = await Settings.create({
+        key: 'paymentSettings',
+        value: updatedData,
+      });
+    }
+    
+    res.json(settings.value);
+  } catch (error) {
+    console.error('Error updating Payment Settings:', error);
+    res.status(500).json({ message: 'Server error while updating Payment Settings' });
+  }
+};

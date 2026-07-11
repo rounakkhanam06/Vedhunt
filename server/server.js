@@ -33,6 +33,7 @@ const jobRoutes = require('./routes/jobRoutes');
 const applicationRoutes = require('./routes/applicationRoutes');
 const faqRoutes = require('./routes/faqRoutes');
 const settingsRoutes = require('./routes/settingsRoutes');
+const paymentRoutes = require('./routes/paymentRoutes');
 const servicePageRoutes = require('./routes/servicePageRoutes');
 const contactRoutes = require('./routes/contactRoutes');
 const leadRoutes = require('./routes/leadRoutes');
@@ -126,6 +127,8 @@ app.use('/api/subscribe', subscribeRoutes);
 app.use('/api/employees', employeeRoutes);
 app.use('/api/performance', performanceRoutes);
 app.use('/api', publicCache, settingsRoutes);
+app.use('/api', paymentRoutes); // Non-cached payment routes
+
 
 // Client Portal — completely isolated auth + data routes
 app.use('/api/client/auth', clientAuthRoutes);

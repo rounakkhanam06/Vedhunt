@@ -53,13 +53,11 @@ const ClientLayout = () => {
       />
 
       {/* ── Top Navigation Bar ─────────────────────────────────────────────── */}
-      <header className="sticky top-0 z-50 w-full h-14 sm:h-16 bg-bg-card/90 backdrop-blur-md border-b border-border-default flex items-center justify-between px-3 sm:px-6">
+      <header className="sticky top-0 z-50 w-full h-14 sm:h-16 bg-bg-card/90 backdrop-blur-md border-b border-border-default flex items-center justify-between px-2 sm:px-4">
         {/* Left: Logo + Portal Label */}
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-2">
-            <img src={logo} alt="Vedhunt Logo" className="h-10 sm:h-12 w-auto object-contain" />
-            <span className="hidden lg:block text-primary text-[10px] leading-none font-bold tracking-wider uppercase border-l border-white/10 pl-3">Client Portal</span>
-          </div>
+        <div className="flex items-center h-full py-1">
+          <img src={logo} alt="Vedhunt Logo" className="h-full w-auto object-contain scale-[1.15] sm:scale-[1.25] origin-left" />
+          <span className="hidden lg:block text-primary text-[10px] leading-none font-bold tracking-wider uppercase border-l border-white/10 pl-3 ml-3 sm:ml-6">Client Portal</span>
         </div>
 
         {/* Center: Desktop Tab Navigation */}

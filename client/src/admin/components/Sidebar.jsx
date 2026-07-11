@@ -64,6 +64,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
         { name: 'Project Tracker', path: '/admin/projects' },
         { name: 'Retainers', path: '/admin/retainers' },
         { name: 'Support Desk', path: '/admin/support-desk' },
+        { name: 'Payment Verification', path: '/admin/payment-verification' },
       ]
     },
     {

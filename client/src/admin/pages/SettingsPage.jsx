@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { User, Plug, BarChart2, Database, Save, Mail, Lock, Smartphone, DownloadCloud, AlertCircle, Phone, MapPin, Share2, Clock, CreditCard, QrCode } from 'lucide-react';
+import { User, Plug, BarChart2, Database, Save, Mail, Lock, Smartphone, DownloadCloud, AlertCircle, Phone, MapPin, Share2, Clock, CreditCard, QrCode, UploadCloud } from 'lucide-react';
 import { useAdminStore } from '../../store/useAdminStore';
 import { settingsService } from '../../services/settingsService';
 import api from '../../services/api';
@@ -178,12 +178,38 @@ const SettingsPage = () => {
   const handleSavePaymentSettings = async () => {
     try {
       setSaving(true);
-      await api.post('/settings/payment', paymentSettings);
+      await api.put('/admin/settings/payment', paymentSettings);
       toast.success('Payment settings saved!');
     } catch {
       toast.error('Failed to save payment settings');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const [uploadingQr, setUploadingQr] = useState(false);
+
+  const handleQrUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      return toast.error('File size must be less than 5MB');
+    }
+    try {
+      setUploadingQr(true);
+      const formData = new FormData();
+      formData.append('image', file);
+      const res = await api.post('/upload/public', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      if (res.data.success) {
+        setPaymentSettings(p => ({ ...p, upiQrCodeUrl: res.data.url }));
+        toast.success('QR Code uploaded successfully');
+      }
+    } catch (error) {
+      toast.error('Failed to upload QR Code');
+    } finally {
+      setUploadingQr(false);
     }
   };
 
@@ -777,15 +803,34 @@ const SettingsPage = () => {
                       className={inputClasses}
                     />
                   </div>
-                  <div>
-                    <label className={labelClasses}>QR Code Image URL (Cloudinary)</label>
-                    <input
-                      type="url"
-                      value={paymentSettings.upiQrCodeUrl}
-                      onChange={e => setPaymentSettings(p => ({ ...p, upiQrCodeUrl: e.target.value }))}
-                      placeholder="https://res.cloudinary.com/..."
-                      className={inputClasses}
-                    />
+                  <div className="flex flex-col gap-2">
+                    <label className={labelClasses}>QR Code Image URL / Upload</label>
+                    <div className="flex gap-2">
+                      <input
+                        type="url"
+                        value={paymentSettings.upiQrCodeUrl}
+                        onChange={e => setPaymentSettings(p => ({ ...p, upiQrCodeUrl: e.target.value }))}
+                        placeholder="https://res.cloudinary.com/..."
+                        className={`flex-1 ${inputClasses}`}
+                      />
+                      <label className="flex items-center justify-center px-4 bg-[#2D2D33] hover:bg-[#3D3D43] text-white rounded-lg cursor-pointer transition-colors whitespace-nowrap">
+                        {uploadingQr ? (
+                          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        ) : (
+                          <>
+                            <UploadCloud size={16} className="mr-2" />
+                            <span className="text-sm font-medium">Upload</span>
+                          </>
+                        )}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleQrUpload}
+                          className="hidden"
+                          disabled={uploadingQr}
+                        />
+                      </label>
+                    </div>
                   </div>
                 </div>
                 {paymentSettings.upiQrCodeUrl && (

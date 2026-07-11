@@ -196,8 +196,8 @@ export default function ProjectManager() {
                       <span className="font-semibold text-on-surface">{prj.projectName}</span>
                     </td>
                     <td className="px-4 py-3">
-                      <p className="text-on-surface text-xs">{prj.client_ref?.businessName || '—'}</p>
-                      <p className="text-on-surface-variant text-[10px]">{prj.client_ref?.clientId}</p>
+                      <p className="text-on-surface text-xs">{prj.client_ref?.contactName || '—'}</p>
+                      <p className="text-on-surface-variant text-[10px]">{prj.client_ref?.businessName} • {prj.client_ref?.clientId}</p>
                     </td>
                     <td className="px-4 py-3 text-on-surface-variant text-xs hidden md:table-cell">
                       {prj.startDate && new Date(prj.startDate).toLocaleDateString('en-IN')} <br />
@@ -274,7 +274,7 @@ export default function ProjectManager() {
                   <select value={form.client_ref} onChange={e => setForm(p => ({ ...p, client_ref: e.target.value }))} required
                     className="w-full px-3 py-2 bg-admin-bg border border-outline-variant rounded-xl text-on-surface text-sm focus:outline-none focus:border-secondary">
                     <option value="">Select client…</option>
-                    {clients.map(c => <option key={c._id} value={c._id}>{c.businessName} — {c.clientId}</option>)}
+                    {clients.map(c => <option key={c._id} value={c._id}>{c.contactName} ({c.businessName}) — {c.clientId}</option>)}
                   </select>
                 </div>
                 <div>
@@ -284,7 +284,7 @@ export default function ProjectManager() {
                 </div>
                 <div>
                   <label className="block text-on-surface-variant text-xs font-medium mb-1.5">Expected End Date</label>
-                  <input type="date" value={form.expectedEndDate} onChange={e => setForm(p => ({ ...p, expectedEndDate: e.target.value }))}
+                  <input type="date" value={form.expectedEndDate} onChange={e => setForm(p => ({ ...p, expectedEndDate: e.target.value }))} min={form.startDate}
                     className="w-full px-3 py-2 bg-admin-bg border border-outline-variant rounded-xl text-on-surface text-sm focus:outline-none focus:border-secondary [color-scheme:dark]" />
                 </div>
               </div>
