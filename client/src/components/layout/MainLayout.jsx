@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
+import { ReactLenis } from 'lenis/react';
 import Navbar from './Navbar';
 import Footer from './Footer';
 import ScrollToTop from '../common/ScrollToTop';
@@ -27,28 +28,31 @@ export default function MainLayout() {
   }, [location]);
 
   return (
-    <div className="min-h-screen bg-app-bg text-app-text-muted flex flex-col relative overflow-x-hidden">
-      {/* Scroll Restorer */}
-      <ScrollToTop />
+    <ReactLenis root options={{ autoRaf: true, duration: 0.9, lerp: 0.1 }}>
+      <div className="min-h-screen bg-app-bg text-app-text-muted flex flex-col relative overflow-x-hidden">
+        {/* Scroll Restorer */}
+        <ScrollToTop />
 
-      {/* Primary Navigation */}
-      <Navbar />
+        {/* Primary Navigation */}
+        <Navbar />
 
-      {/* Main Container with Hardware-Accelerated Page Transition Animations */}
-      <main className="flex-grow">
-        <div className="max-w-6xl mx-auto w-full h-full theme-transition">
-          <Outlet />
-        </div>
-      </main>
+        {/* Main Container with Hardware-Accelerated Page Transition Animations */}
+        <main className="flex-grow">
+          <div className="max-w-6xl mx-auto w-full h-full theme-transition">
+            <Outlet />
+          </div>
+        </main>
 
-      {/* Universal Footer */}
-      <Footer />
+        {/* Universal Footer */}
+        <Footer />
 
-      {/* Floating WhatsApp Widget */}
-      <WhatsAppWidget />
+        {/* Floating WhatsApp Widget */}
+        <WhatsAppWidget />
 
-      {/* Cookie Consent Banner */}
-      <CookieConsent />
-    </div>
+        {/* Cookie Consent Banner */}
+        <CookieConsent />
+      </div>
+    </ReactLenis>
   );
 }
+

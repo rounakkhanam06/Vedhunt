@@ -51,6 +51,18 @@ export default function RetainerManager() {
 
   useEffect(() => { fetchRetainers(); }, [fetchRetainers]);
 
+  // Lock body scroll when modal is open
+  useEffect(() => {
+    if (showModal) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [showModal]);
+
   const openCreate = () => { setEditTarget(null); setForm(emptyForm()); setShowModal(true); };
   
   const openEdit = (ret) => {

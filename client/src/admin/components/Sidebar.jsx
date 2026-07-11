@@ -193,7 +193,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
 
       {/* Sidebar */}
       <aside className={`
-        fixed inset-y-0 left-0 z-50 w-[240px] flex flex-col transition-transform duration-300 ease-in-out overflow-y-auto
+        fixed inset-y-0 left-0 z-50 w-[280px] flex flex-col transition-transform duration-300 ease-in-out overflow-y-auto
         ${isEmployeeOnly ? 'bg-[#FF8533] border-none py-6 pl-4 pr-0' : 'bg-surface-container-low border-r border-outline-variant p-6'}
         ${isOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>

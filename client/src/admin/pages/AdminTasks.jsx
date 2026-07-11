@@ -74,7 +74,7 @@ export default function AdminTasks() {
   };
 
   return (
-    <div className="space-y-6 text-white bg-[#0d0d0f] min-h-screen p-6">
+    <div className="space-y-6 text-white bg-[#0d0d0f] p-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>

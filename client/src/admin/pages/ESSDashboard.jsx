@@ -265,7 +265,7 @@ const ESSDashboard = () => {
 
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center py-20 bg-[#0d0d0f] min-h-screen text-white">
+      <div className="flex justify-center items-center py-20 bg-[#0d0d0f] text-white">
         <div className="w-10 h-10 rounded-full border-2 border-orange-500/20 border-t-orange-500 animate-spin" />
       </div>
     );
@@ -273,7 +273,7 @@ const ESSDashboard = () => {
 
   if (!employee) {
     return (
-      <div className="text-center py-20 bg-[#0d0d0f] min-h-screen text-white flex flex-col justify-center items-center gap-4">
+      <div className="text-center py-20 bg-[#0d0d0f] text-white flex flex-col justify-center items-center gap-4">
         <ShieldAlert size={48} className="text-orange-500" />
         <h2 className="text-xl font-bold">No Employee Link Found</h2>
         <p className="text-gray-400">Please contact HR to map your login account to your operational employee ID.</p>
@@ -294,7 +294,7 @@ const ESSDashboard = () => {
   const isClockedOut = todayLog && todayLog.clockOut;
 
   return (
-    <div className="min-h-screen bg-[#0d0d0f] text-white p-2 sm:p-6 space-y-6">
+    <div className="bg-[#0d0d0f] text-white p-2 sm:p-6 space-y-6">
       {/* Welcome Banner */}
       <div className="relative overflow-hidden bg-gradient-to-r from-[#FF8533] to-[#FF6B00] p-5 sm:p-6 rounded-2xl border-none shadow-lg mb-6 flex flex-col md:flex-row justify-between items-start md:items-center">
         

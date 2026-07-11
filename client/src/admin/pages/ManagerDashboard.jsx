@@ -50,7 +50,7 @@ const ManagerDashboard = () => {
 
   if (isLoading && stats.length === 0) {
     return (
-      <div className="flex justify-center items-center py-20 bg-admin-bg min-h-screen text-white">
+      <div className="flex justify-center items-center py-20 bg-admin-bg text-white">
         <div className="w-10 h-10 rounded-full border-2 border-orange-500/20 border-t-orange-500 animate-spin" />
       </div>
     );

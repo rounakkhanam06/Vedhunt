@@ -172,7 +172,7 @@ const PerformanceGoalAssigner = () => {
 
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center min-h-screen bg-[#0d0d0f]">
+      <div className="flex justify-center items-center py-20 bg-[#0d0d0f]">
         <div className="w-10 h-10 rounded-full border-2 border-orange-500/20 border-t-orange-500 animate-spin" />
       </div>
     );
@@ -181,7 +181,7 @@ const PerformanceGoalAssigner = () => {
   const selectedEmpObj = employees.find(e => e._id === selectedEmployee);
 
   return (
-    <div className="min-h-screen bg-[#0d0d0f] text-white p-6 space-y-6">
+    <div className="bg-[#0d0d0f] text-white p-6 space-y-6">
       {/* Header */}
       <div>
         <h1 className="text-3xl font-extrabold tracking-tight flex items-center gap-3">

@@ -50,6 +50,18 @@ export default function InvoiceManager() {
 
   useEffect(() => { fetchInvoices(); }, [fetchInvoices]);
 
+  // Lock body scroll when modal is open
+  useEffect(() => {
+    if (showModal) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [showModal]);
+
   const computeTotals = (items, taxPercent) => {
     const subtotal = items.reduce((s, i) => s + Number(i.qty || 1) * Number(i.unitPrice || 0), 0);
     const taxAmount = +(subtotal * (taxPercent / 100)).toFixed(2);
