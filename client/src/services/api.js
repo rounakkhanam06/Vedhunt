@@ -3,7 +3,7 @@ import { useAdminStore } from '../store/useAdminStore';
 import toast from 'react-hot-toast';
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
+  baseURL: import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:5000/api'),
   withCredentials: true, // IMPORTANT: Allows sending HTTP-only cookies
   headers: {
     'Content-Type': 'application/json',
