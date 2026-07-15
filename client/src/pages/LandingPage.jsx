@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { LANDING_PAGES_CONFIG } from '../constants/landingPages';
 import api from '../services/api';
+import { getAttributionSource, getSavedUtms } from '../utils/attribution';
 
 export default function LandingPage() {
   const { slug } = useParams();
@@ -93,6 +94,8 @@ export default function LandingPage() {
     setIsSubmitting(true);
     try {
       const urlParams = new URLSearchParams(window.location.search);
+      const savedUtms = getSavedUtms();
+      const attributionSource = getAttributionSource();
       const payload = {
         fullName: data.name,
         phone: data.phone,
@@ -103,11 +106,12 @@ export default function LandingPage() {
         consent: data.consent,
         source: window.location.href,
         platform: 'Website',
-        utmSource: urlParams.get('utm_source') || '',
-        utmMedium: urlParams.get('utm_medium') || '',
-        utmCampaign: urlParams.get('utm_campaign') || '',
-        utmContent: urlParams.get('utm_content') || '',
-        utmTerm: urlParams.get('utm_term') || ''
+        userSource: attributionSource,
+        utmSource: urlParams.get('utm_source') || savedUtms.utmSource || '',
+        utmMedium: urlParams.get('utm_medium') || savedUtms.utmMedium || '',
+        utmCampaign: urlParams.get('utm_campaign') || savedUtms.utmCampaign || '',
+        utmContent: urlParams.get('utm_content') || savedUtms.utmContent || '',
+        utmTerm: urlParams.get('utm_term') || savedUtms.utmTerm || ''
       };
       
       const res = await api.post('/leads', payload);

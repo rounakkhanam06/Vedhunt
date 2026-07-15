@@ -10,6 +10,8 @@
 // To change Pixel ID: update client/.env → VITE_FB_PIXEL_ID=<your id>
 // ============================================================
 
+import { initAttribution } from './attribution';
+
 // Read pixel IDs directly from Vite env vars — no API call needed
 const FB_PIXEL_ID       = import.meta.env.VITE_FB_PIXEL_ID       || null;
 const GTM_ID            = import.meta.env.VITE_GTM_ID            || null;
@@ -19,6 +21,9 @@ let isInitialized = false;
 
 // 1. Initialize all tracking platforms once (called from MainLayout on mount)
 export const initTracking = () => {
+  // Always run first-touch attribution check on page load/init
+  initAttribution();
+
   if (isInitialized) return;
   isInitialized = true;
 

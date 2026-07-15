@@ -18,6 +18,9 @@ export default function LeadsManager() {
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [platformFilter, setPlatformFilter] = useState('All');
+  const [sourceFilter, setSourceFilter] = useState('All');
+  const [sortBy, setSortBy] = useState('createdAt');
+  const [sortOrder, setSortOrder] = useState('desc');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalLeads, setTotalLeads] = useState(0);
@@ -32,6 +35,16 @@ export default function LeadsManager() {
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
+  const handleSort = (field) => {
+    if (sortBy === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(field);
+      setSortOrder('desc');
+    }
+    setCurrentPage(1);
+  };
+
   // Fetch leads when dependencies change
   const fetchLeads = useCallback(async () => {
     setLoading(true);
@@ -42,7 +55,10 @@ export default function LeadsManager() {
           limit: 10, // Items per page
           status: statusFilter,
           platform: platformFilter,
-          search: debouncedSearchTerm
+          userSource: sourceFilter,
+          search: debouncedSearchTerm,
+          sortBy,
+          sortOrder
         }
       });
       if (response.data.success) {
@@ -56,7 +72,7 @@ export default function LeadsManager() {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, statusFilter, platformFilter, debouncedSearchTerm]);
+  }, [currentPage, statusFilter, platformFilter, sourceFilter, debouncedSearchTerm, sortBy, sortOrder]);
 
   useEffect(() => {
     fetchLeads();
@@ -177,6 +193,29 @@ export default function LeadsManager() {
           </select>
           <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-app-text-muted w-4 h-4 pointer-events-none" />
         </div>
+        <div className="relative min-w-[160px]">
+          <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-app-text-muted w-4 h-4 pointer-events-none" />
+          <select
+            value={sourceFilter}
+            onChange={(e) => {
+              setSourceFilter(e.target.value);
+              setCurrentPage(1);
+            }}
+            className="w-full bg-app-bg border border-app-border rounded-lg pl-10 pr-10 py-2.5 text-sm text-app-text focus:outline-none focus:border-primary transition-colors appearance-none cursor-pointer"
+          >
+            <option className="bg-app-bg text-app-text" value="All">All Sources</option>
+            <option className="bg-app-bg text-app-text" value="Google">Google</option>
+            <option className="bg-app-bg text-app-text" value="Facebook">Facebook</option>
+            <option className="bg-app-bg text-app-text" value="LinkedIn">LinkedIn</option>
+            <option className="bg-app-bg text-app-text" value="Instagram">Instagram</option>
+            <option className="bg-app-bg text-app-text" value="WhatsApp">WhatsApp</option>
+            <option className="bg-app-bg text-app-text" value="Twitter/X">Twitter/X</option>
+            <option className="bg-app-bg text-app-text" value="YouTube">YouTube</option>
+            <option className="bg-app-bg text-app-text" value="Referral">Referral</option>
+            <option className="bg-app-bg text-app-text" value="Direct">Direct</option>
+          </select>
+          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-app-text-muted w-4 h-4 pointer-events-none" />
+        </div>
       </div>
 
       {loading ? (
@@ -195,17 +234,52 @@ export default function LeadsManager() {
                 <table className="w-full text-left text-sm whitespace-nowrap min-w-[2650px]">
                   <thead className="bg-app-bg border-b border-app-border text-app-text-muted text-xs uppercase tracking-wider sticky top-0">
                     <tr>
-                      <th className="px-3 py-3 font-semibold sticky left-0 bg-app-bg z-10 border-r border-app-border">Lead ID</th>
-                      <th className="px-3 py-3 font-semibold">Received Date/Time</th>
-                      <th className="px-3 py-3 font-semibold">Lead Name</th>
+                      <th onClick={() => handleSort('leadId')} className="px-3 py-3 font-semibold sticky left-0 bg-app-bg z-10 border-r border-app-border cursor-pointer select-none hover:text-primary transition-colors">
+                        <div className="flex items-center gap-1">
+                          <span>Lead ID</span>
+                          <span className="text-[9px] opacity-70">{sortBy === 'leadId' ? (sortOrder === 'asc' ? '▲' : '▼') : '↕'}</span>
+                        </div>
+                      </th>
+                      <th onClick={() => handleSort('createdAt')} className="px-3 py-3 font-semibold cursor-pointer select-none hover:text-primary transition-colors">
+                        <div className="flex items-center gap-1">
+                          <span>Received Date/Time</span>
+                          <span className="text-[9px] opacity-70">{sortBy === 'createdAt' ? (sortOrder === 'asc' ? '▲' : '▼') : '↕'}</span>
+                        </div>
+                      </th>
+                      <th onClick={() => handleSort('fullName')} className="px-3 py-3 font-semibold cursor-pointer select-none hover:text-primary transition-colors">
+                        <div className="flex items-center gap-1">
+                          <span>Lead Name</span>
+                          <span className="text-[9px] opacity-70">{sortBy === 'fullName' ? (sortOrder === 'asc' ? '▲' : '▼') : '↕'}</span>
+                        </div>
+                      </th>
                       <th className="px-3 py-3 font-semibold">Phone</th>
                       <th className="px-3 py-3 font-semibold">Email</th>
                       <th className="px-3 py-3 font-semibold">City</th>
-                      <th className="px-3 py-3 font-semibold">Platform</th>
-                      <th className="px-3 py-3 font-semibold">Campaign (UTM)</th>
+                      <th onClick={() => handleSort('platform')} className="px-3 py-3 font-semibold cursor-pointer select-none hover:text-primary transition-colors">
+                        <div className="flex items-center gap-1">
+                          <span>Platform</span>
+                          <span className="text-[9px] opacity-70">{sortBy === 'platform' ? (sortOrder === 'asc' ? '▲' : '▼') : '↕'}</span>
+                        </div>
+                      </th>
+                      <th onClick={() => handleSort('utmCampaign')} className="px-3 py-3 font-semibold cursor-pointer select-none hover:text-primary transition-colors">
+                        <div className="flex items-center gap-1">
+                          <span>Campaign (UTM)</span>
+                          <span className="text-[9px] opacity-70">{sortBy === 'utmCampaign' ? (sortOrder === 'asc' ? '▲' : '▼') : '↕'}</span>
+                        </div>
+                      </th>
                       <th className="px-3 py-3 font-semibold">Business Name</th>
-                      <th className="px-3 py-3 font-semibold">Source</th>
-                      <th className="px-3 py-3 font-semibold">Segment (Service)</th>
+                      <th onClick={() => handleSort('userSource')} className="px-3 py-3 font-semibold cursor-pointer select-none hover:text-primary transition-colors">
+                        <div className="flex items-center gap-1">
+                          <span>Source</span>
+                          <span className="text-[9px] opacity-70">{sortBy === 'userSource' ? (sortOrder === 'asc' ? '▲' : '▼') : '↕'}</span>
+                        </div>
+                      </th>
+                      <th onClick={() => handleSort('service')} className="px-3 py-3 font-semibold cursor-pointer select-none hover:text-primary transition-colors">
+                        <div className="flex items-center gap-1">
+                          <span>Segment (Service)</span>
+                          <span className="text-[9px] opacity-70">{sortBy === 'service' ? (sortOrder === 'asc' ? '▲' : '▼') : '↕'}</span>
+                        </div>
+                      </th>
                       <th className="px-3 py-3 font-semibold">BD</th>
                       <th className="px-3 py-3 font-semibold text-center">Start Call</th>
                       <th className="px-3 py-3 font-semibold">Call Start Time</th>
@@ -304,6 +378,11 @@ export default function LeadsManager() {
                           }`}>
                             {lead.platform || 'Website'}
                           </div>
+                          {lead.userSource && (
+                            <div className="text-[10px] text-app-text-muted mt-0.5 font-medium">
+                              Source: <span className="text-[#E5E2E1] font-semibold">{lead.userSource}</span>
+                            </div>
+                          )}
                         </td>
                         <td className="px-3 py-2 align-middle text-app-text-muted text-xs min-w-[140px] truncate max-w-[180px]" title={lead.utmCampaign || lead.adCampaignId || 'N/A'}>
                           {lead.utmCampaign || lead.adCampaignId || '-'}
@@ -321,8 +400,14 @@ export default function LeadsManager() {
                             <span className="px-2 py-1">{lead.businessName || '-'}</span>
                           )}
                         </td>
-                        <td className="px-3 py-2 align-middle text-app-text-muted truncate max-w-[150px]">
-                           {lead.source}
+                        <td className="px-3 py-2 align-middle text-app-text-muted text-xs truncate max-w-[150px]" title={lead.source}>
+                          {lead.source ? (
+                            <a href={lead.source} target="_blank" rel="noopener noreferrer" className="hover:text-primary hover:underline">
+                              {lead.source}
+                            </a>
+                          ) : (
+                            '-'
+                          )}
                         </td>
                         <td className="px-3 py-2 align-middle min-w-[150px]">
                           <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-primary/10 text-primary border border-primary/20 whitespace-nowrap">
@@ -600,10 +685,14 @@ export default function LeadsManager() {
                   </p>
                 </div>
                 {/* UTM and Campaign details */}
-                <div className="sm:col-span-2 grid grid-cols-2 md:grid-cols-4 gap-4 bg-app-bg border border-app-border p-4 rounded-xl mt-2">
+                <div className="sm:col-span-2 grid grid-cols-2 md:grid-cols-5 gap-4 bg-app-bg border border-app-border p-4 rounded-xl mt-2">
                   <div>
                     <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">Platform</label>
                     <p className="text-sm font-medium text-app-text truncate">{selectedLead.platform || 'Website'}</p>
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">Attribution Source</label>
+                    <p className="text-sm font-medium text-primary truncate">{selectedLead.userSource || 'Direct'}</p>
                   </div>
                   <div>
                     <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">Campaign</label>

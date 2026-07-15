@@ -8,7 +8,7 @@ const logger = require('../utils/logger');
 // @access  Public
 exports.createLead = async (req, res, next) => {
   try {
-    const { fullName, phone, email, service, businessName, message, source, consent, city, platform, utmSource, utmMedium, utmCampaign, utmContent, utmTerm } = req.body;
+    const { fullName, phone, email, service, businessName, message, source, consent, city, platform, userSource, utmSource, utmMedium, utmCampaign, utmContent, utmTerm } = req.body;
 
     if (!fullName || !phone || !email || !source) {
       return res.status(400).json({ success: false, message: 'Please provide all required fields' });
@@ -47,6 +47,7 @@ exports.createLead = async (req, res, next) => {
       consent,
       city,
       platform: platform || 'Website',
+      userSource: userSource || 'Direct',
       utmSource,
       utmMedium,
       utmCampaign,
@@ -73,6 +74,7 @@ exports.createLead = async (req, res, next) => {
       <p><strong>Business Name:</strong> ${businessName || 'N/A'}</p>
       <p><strong>Service Requested:</strong> ${service || 'N/A'}</p>
       <p><strong>Source URL:</strong> ${source}</p>
+      <p><strong>User Source (Attribution):</strong> ${userSource || 'Direct'}</p>
       <br />
       <p><strong>Message / Requirements:</strong></p>
       <p>${message ? message.replace(/\n/g, '<br>') : 'N/A'}</p>
@@ -119,6 +121,11 @@ exports.getLeads = async (req, res, next) => {
       query.platform = req.query.platform;
     }
 
+    // Filter by userSource (attribution source)
+    if (req.query.userSource && req.query.userSource !== 'All') {
+      query.userSource = req.query.userSource;
+    }
+
     // Search by text (using $text index or regex if $text doesn't cover partial well)
     // Note: MongoDB $text search is word-based. For partial matching (e.g. typing part of an email), 
     // regex is often more intuitive for admin panels, though less scalable than raw $text.
@@ -133,9 +140,15 @@ exports.getLeads = async (req, res, next) => {
       ];
     }
 
+    let sort = { createdAt: -1 };
+    if (req.query.sortBy) {
+      const order = req.query.sortOrder === 'asc' ? 1 : -1;
+      sort = { [req.query.sortBy]: order };
+    }
+
     const totalLeads = await Lead.countDocuments(query);
     const leads = await Lead.find(query)
-      .sort({ createdAt: -1 })
+      .sort(sort)
       .skip(startIndex)
       .limit(limit);
 

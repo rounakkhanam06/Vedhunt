@@ -58,6 +58,11 @@ const leadSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+  userSource: {
+    type: String,
+    trim: true,
+    default: 'Direct'
+  },
   utmSource: {
     type: String,
     trim: true

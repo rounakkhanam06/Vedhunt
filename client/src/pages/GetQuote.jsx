@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { useContactInfo } from '../context/ContactInfoContext';
 import api from '../services/api';
+import { getAttributionSource, getSavedUtms } from '../utils/attribution';
 
 // Inline premium custom SVG brand icons
 const FacebookIcon = (props) => (
@@ -245,6 +246,8 @@ export default function GetQuote() {
       // Combine react-hook-form data with our custom checkbox states
       const finalData = { ...data, ...checkboxState };
       const urlParams = new URLSearchParams(window.location.search);
+      const savedUtms = getSavedUtms();
+      const attributionSource = getAttributionSource();
       // Build dynamic message with all the details
       let fullMessage = `Timeline: ${finalData.timeline || 'Not specified'}\n\n`;
       const config = serviceFormConfig[finalData.service];
@@ -279,11 +282,12 @@ export default function GetQuote() {
         source: finalData.source || window.location.href || 'Get Quote Page',
         city: finalData.city,
         platform: 'Website',
-        utmSource: urlParams.get('utm_source') || '',
-        utmMedium: urlParams.get('utm_medium') || '',
-        utmCampaign: urlParams.get('utm_campaign') || '',
-        utmContent: urlParams.get('utm_content') || '',
-        utmTerm: urlParams.get('utm_term') || ''
+        userSource: attributionSource,
+        utmSource: urlParams.get('utm_source') || savedUtms.utmSource || '',
+        utmMedium: urlParams.get('utm_medium') || savedUtms.utmMedium || '',
+        utmCampaign: urlParams.get('utm_campaign') || savedUtms.utmCampaign || '',
+        utmContent: urlParams.get('utm_content') || savedUtms.utmContent || '',
+        utmTerm: urlParams.get('utm_term') || savedUtms.utmTerm || ''
       };
 
       await api.post('/leads', payload);
