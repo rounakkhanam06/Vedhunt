@@ -986,7 +986,7 @@ exports.updateAttendanceRules = async (req, res) => {
 // Fallback default info for Payment Settings if not found in DB
 const DEFAULT_PAYMENT_SETTINGS = {
   upiId: 'vedhunt@upi',
-  qrCodeUrl: '',
+  upiQrCodeUrl: '',
   bankDetails: {
     bankName: 'HDFC Bank',
     accountName: 'Vedhunt InfoTech',

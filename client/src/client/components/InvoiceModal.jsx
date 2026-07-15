@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Copy, CheckCheck, ExternalLink, CreditCard, QrCode, FileText, UploadCloud, Clock } from 'lucide-react';
+import { X, Copy, CheckCheck, ExternalLink, CreditCard, QrCode, FileText, UploadCloud, Clock, DownloadCloud } from 'lucide-react';
 import clientService from '../../services/clientService';
 import StatusBadge from './StatusBadge';
 import SubmitPaymentProofForm from './SubmitPaymentProofForm';
@@ -15,6 +15,7 @@ const InvoiceModal = ({ invoiceId, onClose }) => {
   const [showProofForm, setShowProofForm] = useState(false);
   const [paymentHistory, setPaymentHistory] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [showFullScreenQr, setShowFullScreenQr] = useState(false);
 
   const fetchInvoice = async () => {
     setLoading(true);
@@ -215,7 +216,15 @@ const InvoiceModal = ({ invoiceId, onClose }) => {
 
               {/* Payment section — only for unpaid/overdue */}
               {['Unpaid', 'Overdue'].includes(data.data.paymentStatus) && (
-                showProofForm ? (
+                paymentHistory.some(ph => ph.status === 'Pending') ? (
+                  <div className="rounded-xl border border-yellow-500/20 bg-yellow-500/10 p-5 space-y-3 text-center">
+                    <Clock className="w-10 h-10 text-yellow-500 mx-auto opacity-80" />
+                    <h4 className="text-yellow-500 font-semibold">Payment Under Review</h4>
+                    <p className="text-[#9CA3AF] text-sm">
+                      We have received your payment proof. Vedhunt Infotech will verify it shortly and mark this invoice as paid upon successful verification.
+                    </p>
+                  </div>
+                ) : showProofForm ? (
                   <SubmitPaymentProofForm 
                     invoice={data.data} 
                     onSuccess={handleProofSuccess}
@@ -240,7 +249,8 @@ const InvoiceModal = ({ invoiceId, onClose }) => {
                         <img
                           src={data.paymentInfo.upiQrCodeUrl}
                           alt="UPI QR Code"
-                          className="w-44 h-44 object-contain rounded-xl border border-border-default bg-white p-2"
+                          className="w-44 h-44 object-contain rounded-xl border border-border-default bg-white p-2 cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all"
+                          onClick={() => setShowFullScreenQr(true)}
                         />
                         {data.paymentInfo.upiId && (
                           <div className="flex items-center gap-2 bg-bg-surface border border-border-default rounded-lg px-3 py-2 w-full">
@@ -311,6 +321,40 @@ const InvoiceModal = ({ invoiceId, onClose }) => {
           )}
         </div>
       </div>
+
+      {/* Full Screen QR Modal */}
+      {showFullScreenQr && data?.paymentInfo?.upiQrCodeUrl && (
+        <div 
+          className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-black/90 p-4 backdrop-blur-md cursor-pointer"
+          onClick={() => setShowFullScreenQr(false)}
+        >
+          <button 
+            className="absolute top-4 right-4 md:top-8 md:right-8 p-3 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors"
+            onClick={(e) => { e.stopPropagation(); setShowFullScreenQr(false); }}
+          >
+            <X size={24} />
+          </button>
+          
+          <img 
+            src={data.paymentInfo.upiQrCodeUrl} 
+            alt="UPI QR Code Full" 
+            className="w-full max-w-sm md:max-w-md aspect-square object-contain rounded-3xl bg-white p-6 shadow-2xl cursor-default"
+            onClick={(e) => e.stopPropagation()}
+          />
+          
+          <a
+            href={data.paymentInfo.upiQrCodeUrl}
+            download="payment-qr-code.png"
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="mt-8 flex items-center gap-2 px-6 py-3 bg-primary hover:bg-[#FF6B00] text-white rounded-xl font-bold transition-colors shadow-lg shadow-primary/20"
+          >
+            <DownloadCloud size={20} />
+            Download QR Code
+          </a>
+        </div>
+      )}
     </div>
   );
 };

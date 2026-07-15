@@ -11,19 +11,23 @@ exports.submitPaymentProof = async (req, res) => {
   try {
     const { invoice_ref, amountPaid, utrNumber, paymentDate, screenshotUrl } = req.body;
 
-    if (!invoice_ref || !amountPaid || !utrNumber || !screenshotUrl) {
-      return res.status(400).json({ message: 'All fields are required' });
+    if (!invoice_ref || !amountPaid || !utrNumber) {
+      return res.status(400).json({ message: 'Amount and UTR fields are required' });
+    }
+
+    if (!/^[a-zA-Z0-9]{12,22}$/.test(utrNumber)) {
+      return res.status(400).json({ message: 'Invalid UTR/Transaction ID.' });
     }
 
     // Verify invoice belongs to the client
-    const invoice = await Invoice.findOne({ _id: invoice_ref, client_ref: req.user._id });
+    const invoice = await Invoice.findOne({ _id: invoice_ref, client_ref: req.client._id });
     if (!invoice) {
       return res.status(404).json({ message: 'Invoice not found or unauthorized' });
     }
 
     const proof = new PaymentProof({
       invoice_ref,
-      client_ref: req.user._id,
+      client_ref: req.client._id,
       amountPaid,
       utrNumber,
       paymentDate: paymentDate || Date.now(),
@@ -53,8 +57,8 @@ exports.submitPaymentProof = async (req, res) => {
 exports.getClientPayments = async (req, res) => {
   try {
     const { invoice_ref } = req.query;
-    const filter = { client_ref: req.user._id };
-    
+    const filter = { client_ref: req.client._id };
+
     if (invoice_ref) {
       filter.invoice_ref = invoice_ref;
     }
@@ -62,7 +66,7 @@ exports.getClientPayments = async (req, res) => {
     const payments = await PaymentProof.find(filter)
       .populate('invoice_ref', 'invoiceId totalAmount paidAmount')
       .sort({ createdAt: -1 });
-      
+
     res.json({ success: true, data: payments });
   } catch (error) {
     console.error('Error fetching client payments:', error);

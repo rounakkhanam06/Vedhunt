@@ -111,11 +111,11 @@ router.get('/invoices/:id', async (req, res) => {
     // Fetch UPI/bank payment details from Settings (static QR — admin uploads)
     let paymentInfo = null;
     try {
-      const paymentDoc = await Settings.findOne({ key: 'payment_settings' }).lean();
+      const paymentDoc = await Settings.findOne({ key: 'paymentSettings' }).lean();
       if (paymentDoc?.value) {
         paymentInfo = {
           upiId: paymentDoc.value.upiId || null,
-          upiQrCodeUrl: paymentDoc.value.upiQrCodeUrl || null,
+          upiQrCodeUrl: paymentDoc.value.upiQrCodeUrl || paymentDoc.value.qrCodeUrl || null,
           bankDetails: paymentDoc.value.bankDetails || null,
         };
       }

@@ -41,6 +41,7 @@ const webhookRoutes = require('./routes/webhookRoutes');
 const subscribeRoutes = require('./routes/subscribeRoutes');
 const employeeRoutes = require('./routes/employeeRoutes');
 const performanceRoutes = require('./routes/performanceRoutes');
+const analyticsRoutes = require('./routes/analyticsRoutes');
 const { seedServicePages } = require('./controllers/servicePageSeeder');
 
 // Client Portal Routes (isolated from admin auth)
@@ -136,6 +137,9 @@ app.use('/api/client', clientPortalRoutes); // all protected by clientAuthMiddle
 
 // Admin management of client portal data (clients, invoices, projects, retainers, tickets)
 app.use('/api/admin', clientManagementRoutes);
+
+// Analytics
+app.use('/api/admin/analytics', analyticsRoutes);
 
 // Root route for API status
 app.get('/', (req, res) => {

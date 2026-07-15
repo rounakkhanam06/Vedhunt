@@ -36,6 +36,11 @@ const projectSchema = new mongoose.Schema(
       required: [true, 'Project name is required'],
       trim: true,
     },
+    totalPrice: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
     // internalNotes — NEVER sent to client
     internalNotes: { type: String, trim: true, select: false },
     startDate: { type: Date },

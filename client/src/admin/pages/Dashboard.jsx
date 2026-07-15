@@ -1,9 +1,116 @@
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { UserPlus, LineChart, Megaphone, Activity, TrendingUp } from 'lucide-react';
+import { UserPlus, LineChart, Megaphone, Activity, TrendingUp, IndianRupee, Clock, Briefcase } from 'lucide-react';
+import analyticsService from '../../services/analyticsService';
+import toast from 'react-hot-toast';
 
 const Dashboard = () => {
+  const [financialData, setFinancialData] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchAnalytics = async () => {
+      try {
+        const res = await analyticsService.getEarningsOverview();
+        if (res.success) {
+          setFinancialData(res.data);
+        }
+      } catch (err) {
+        toast.error('Failed to load financial analytics');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchAnalytics();
+  }, []);
+
+  const fmt = (n) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(n || 0);
+
   return (
-    <>
+    <div className="space-y-8">
+      {/* Financial Overview (New) */}
+      <section>
+        <h2 className="text-xl font-bold text-white mb-4">Financial Overview</h2>
+        {loading ? (
+          <div className="flex items-center justify-center h-24 bg-admin-glass border border-white/5 rounded-xl">
+            <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+          </div>
+        ) : financialData && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Total Revenue */}
+            <div className="bg-admin-glass border border-white/5 p-6 rounded-xl transition-transform duration-300 hover:scale-[1.02] group">
+              <div className="flex justify-between items-start mb-4">
+                <span className="text-sm font-medium text-on-primary-container">Total Earnings</span>
+                <IndianRupee className="w-5 h-5 text-[#22C55E] group-hover:scale-110 transition-transform" />
+              </div>
+              <div className="text-3xl font-bold mb-1 text-[#22C55E]">{fmt(financialData.overview.totalRevenue)}</div>
+              <div className="flex items-center gap-1 text-[10px] font-medium text-[#9CA3AF]">
+                From {financialData.overview.totalInvoices} invoices
+              </div>
+            </div>
+
+            {/* Pending Payments */}
+            <div className="bg-admin-glass border border-white/5 p-6 rounded-xl transition-transform duration-300 hover:scale-[1.02] group">
+              <div className="flex justify-between items-start mb-4">
+                <span className="text-sm font-medium text-on-primary-container">Total Pending</span>
+                <Clock className="w-5 h-5 text-yellow-500 group-hover:scale-110 transition-transform" />
+              </div>
+              <div className="text-3xl font-bold mb-1 text-yellow-500">{fmt(financialData.overview.totalPending)}</div>
+              <div className="flex items-center gap-1 text-[10px] font-medium text-[#9CA3AF]">
+                Requires follow-up
+              </div>
+            </div>
+
+            {/* Total Projects */}
+            <div className="bg-admin-glass border border-white/5 p-6 rounded-xl transition-transform duration-300 hover:scale-[1.02] group">
+              <div className="flex justify-between items-start mb-4">
+                <span className="text-sm font-medium text-on-primary-container">Active Projects</span>
+                <Briefcase className="w-5 h-5 text-primary group-hover:scale-110 transition-transform" />
+              </div>
+              <div className="text-3xl font-bold mb-1 text-white">{financialData.overview.totalProjects}</div>
+              <div className="flex items-center gap-1 text-[10px] font-medium text-[#9CA3AF]">
+                Across all clients
+              </div>
+            </div>
+          </div>
+        )}
+      </section>
+
+      {/* Project Financial Breakdown */}
+      {financialData?.projectStats?.length > 0 && (
+        <section className="bg-admin-glass border border-white/5 rounded-xl overflow-hidden">
+          <div className="p-6 border-b border-white/5">
+            <h3 className="text-lg font-semibold text-white">Project-Level Earnings</h3>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-white/5 text-xs text-[#9CA3AF] uppercase tracking-wider">
+                  <th className="px-6 py-4 font-medium">Project ID</th>
+                  <th className="px-6 py-4 font-medium">Project Name</th>
+                  <th className="px-6 py-4 font-medium">Client</th>
+                  <th className="px-6 py-4 font-medium text-right">Total Price</th>
+                  <th className="px-6 py-4 font-medium text-right">Earned</th>
+                  <th className="px-6 py-4 font-medium text-right">Pending</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {financialData.projectStats.map((proj) => (
+                  <tr key={proj._id} className="hover:bg-white/[0.02] transition-colors">
+                    <td className="px-6 py-4 text-sm font-mono text-[#9CA3AF]">{proj.projectId}</td>
+                    <td className="px-6 py-4 text-sm text-white font-medium">{proj.projectName}</td>
+                    <td className="px-6 py-4 text-sm text-[#9CA3AF]">{proj.clientName}</td>
+                    <td className="px-6 py-4 text-sm text-white text-right font-semibold">{fmt(proj.totalPrice)}</td>
+                    <td className="px-6 py-4 text-sm text-[#22C55E] text-right font-bold">{fmt(proj.paidAmount)}</td>
+                    <td className="px-6 py-4 text-sm text-yellow-500 text-right font-bold">{fmt(proj.pendingAmount)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
       {/* KPI Top Row */}
       <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {/* Total Leads */}
@@ -222,7 +329,7 @@ const Dashboard = () => {
           </table>
         </div>
       </section>
-    </>
+    </div>
   );
 };
 

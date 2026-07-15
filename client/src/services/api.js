@@ -73,28 +73,29 @@ api.interceptors.response.use(
       originalRequest._retry = true;
       isRefreshing = true;
 
+      let newToken;
       try {
         const { data } = await axios.post(
           `${api.defaults.baseURL}/auth/refresh-token`,
           {},
           { withCredentials: true }
         );
-        
-        const newToken = data.token;
-        localStorage.setItem('adminToken', newToken);
-        api.defaults.headers.common['Authorization'] = 'Bearer ' + newToken;
-        
-        processQueue(null, newToken);
-        
-        return api(originalRequest);
+        newToken = data.token;
       } catch (err) {
         processQueue(err, null);
         const logout = useAdminStore.getState().logout;
         logout();
-        return Promise.reject(err);
-      } finally {
         isRefreshing = false;
+        return Promise.reject(err);
       }
+
+      localStorage.setItem('adminToken', newToken);
+      api.defaults.headers.common['Authorization'] = 'Bearer ' + newToken;
+      processQueue(null, newToken);
+      isRefreshing = false;
+        
+      originalRequest.headers['Authorization'] = 'Bearer ' + newToken;
+      return api(originalRequest);
     }
 
     return Promise.reject(error);

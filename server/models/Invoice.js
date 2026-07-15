@@ -24,6 +24,10 @@ const invoiceSchema = new mongoose.Schema(
       ref: 'Client',
       required: [true, 'Client reference is required'],
     },
+    project_ref: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Project',
+    },
     issueDate: {
       type: Date,
       required: [true, 'Issue date is required'],

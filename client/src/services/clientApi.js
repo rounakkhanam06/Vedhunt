@@ -70,27 +70,31 @@ clientApi.interceptors.response.use(
       originalRequest._retry = true;
       isRefreshing = true;
 
+      let newToken;
       try {
         const { data } = await axios.post(
           `${clientApi.defaults.baseURL}/client/auth/refresh`,
           {},
           { withCredentials: true }
         );
-
-        const newToken = data.token;
-        localStorage.setItem('clientToken', newToken);
-        clientApi.defaults.headers.common['Authorization'] = 'Bearer ' + newToken;
-        processQueue(null, newToken);
-        return clientApi(originalRequest);
+        newToken = data.token;
       } catch (err) {
         processQueue(err, null);
         // Import lazily to avoid circular dependency
         const { useClientStore } = await import('../store/useClientStore');
         useClientStore.getState().logout();
-        return Promise.reject(err);
-      } finally {
         isRefreshing = false;
+        return Promise.reject(err);
       }
+
+      localStorage.setItem('clientToken', newToken);
+      clientApi.defaults.headers.common['Authorization'] = 'Bearer ' + newToken;
+      processQueue(null, newToken);
+      isRefreshing = false;
+      
+      // Update the original request's header and retry
+      originalRequest.headers['Authorization'] = 'Bearer ' + newToken;
+      return clientApi(originalRequest);
     }
 
     return Promise.reject(error);

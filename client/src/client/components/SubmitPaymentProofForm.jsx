@@ -30,13 +30,18 @@ const SubmitPaymentProofForm = ({ invoice, onSuccess, onCancel }) => {
       return toast.error('Please fill all fields and upload a screenshot');
     }
 
+    const utrRegex = /^[a-zA-Z0-9]{12,22}$/;
+    if (!utrRegex.test(formData.utrNumber)) {
+      return toast.error('Please enter a valid UTR/Transaction Id');
+    }
+
     try {
       setLoading(true);
       // Upload image first
       const uploadData = new FormData();
       uploadData.append('image', imageFile);
       const uploadRes = await clientService.uploadPublicImage(uploadData);
-      
+
       if (!uploadRes.success) {
         throw new Error('Image upload failed');
       }

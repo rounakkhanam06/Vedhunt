@@ -29,7 +29,7 @@ const paymentProofSchema = new mongoose.Schema(
     },
     screenshotUrl: {
       type: String,
-      required: true,
+      default: null
     },
     status: {
       type: String,

@@ -165,8 +165,8 @@ const SettingsPage = () => {
     try {
       setLoading(true);
       const res = await api.get('/settings/payment');
-      if (res.data?.data) {
-        setPaymentSettings(prev => ({ ...prev, ...res.data.data }));
+      if (res.data) {
+        setPaymentSettings(prev => ({ ...prev, ...res.data }));
       }
     } catch (_) {
       // Not yet saved — use defaults silently
