@@ -8,7 +8,7 @@ const logger = require('../utils/logger');
 // @access  Public
 exports.createLead = async (req, res, next) => {
   try {
-    const { fullName, phone, email, service, businessName, message, source, consent, city, platform, userSource, utmSource, utmMedium, utmCampaign, utmContent, utmTerm } = req.body;
+    const { fullName, phone, email, service, businessName, message, source, consent, city, country, platform, userSource, utmSource, utmMedium, utmCampaign, utmContent, utmTerm } = req.body;
 
     if (!fullName || !phone || !email || !source) {
       return res.status(400).json({ success: false, message: 'Please provide all required fields' });
@@ -46,6 +46,7 @@ exports.createLead = async (req, res, next) => {
       source,
       consent,
       city,
+      country,
       platform: platform || 'Website',
       userSource: userSource || 'Direct',
       utmSource,
@@ -108,6 +109,7 @@ exports.getLeads = async (req, res, next) => {
     const page = parseInt(req.query.page, 10) || 1;
     const limit = parseInt(req.query.limit, 10) || 10;
     const startIndex = (page - 1) * limit;
+    const isExport = req.query.export === 'true';
 
     const query = {};
 
@@ -147,17 +149,21 @@ exports.getLeads = async (req, res, next) => {
     }
 
     const totalLeads = await Lead.countDocuments(query);
-    const leads = await Lead.find(query)
-      .sort(sort)
-      .skip(startIndex)
-      .limit(limit);
+    
+    let leadsQuery = Lead.find(query).sort(sort);
+    
+    if (!isExport) {
+      leadsQuery = leadsQuery.skip(startIndex).limit(limit);
+    }
+    
+    const leads = await leadsQuery;
 
     res.status(200).json({
       success: true,
       count: leads.length,
       totalLeads,
-      totalPages: Math.ceil(totalLeads / limit),
-      currentPage: page,
+      totalPages: isExport ? 1 : Math.ceil(totalLeads / limit),
+      currentPage: isExport ? 1 : page,
       data: leads
     });
   } catch (error) {
@@ -172,7 +178,7 @@ exports.getLeads = async (req, res, next) => {
 exports.updateLead = async (req, res, next) => {
   try {
     let allowedUpdates = [
-      'status', 'bd', 'city', 'callStartTime', 'callEndTime', 'callDuration', 
+      'status', 'bd', 'city', 'country', 'callStartTime', 'callEndTime', 'callDuration', 
       'callDate', 'connected', 'notConnectedReason', 'interestLevel', 
       'notConvertedReason', 'remark', 'nextFollowUpDate', 'leadAgeAtCall', 'touchNumber',
       'fullName', 'email', 'phone', 'businessName', 'service'
@@ -181,7 +187,7 @@ exports.updateLead = async (req, res, next) => {
     // Field-level access control: Only Super Admins can edit core fields
     const isSuperAdmin = req.user?.permissions?.includes('*');
     if (!isSuperAdmin) {
-      const protectedFields = ['fullName', 'email', 'phone', 'city', 'businessName', 'platform'];
+      const protectedFields = ['fullName', 'email', 'phone', 'city', 'country', 'businessName', 'platform'];
       allowedUpdates = allowedUpdates.filter(field => !protectedFields.includes(field));
     }
 

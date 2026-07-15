@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { User, Plug, BarChart2, Database, Save, Mail, Lock, Smartphone, DownloadCloud, AlertCircle, Phone, MapPin, Share2, Clock, CreditCard, QrCode, UploadCloud } from 'lucide-react';
+import { User, Plug, BarChart2, Database, Save, Mail, Lock, Smartphone, DownloadCloud, AlertCircle, Phone, MapPin, Share2, Clock, CreditCard, QrCode, UploadCloud, LifeBuoy } from 'lucide-react';
 import { useAdminStore } from '../../store/useAdminStore';
 import { settingsService } from '../../services/settingsService';
 import api from '../../services/api';
@@ -176,12 +176,13 @@ const SettingsPage = () => {
   };
 
   const handleSavePaymentSettings = async () => {
+    setSaving(true);
     try {
-      setSaving(true);
       await api.put('/admin/settings/payment', paymentSettings);
       toast.success('Payment settings saved!');
-    } catch {
+    } catch (err) {
       toast.error('Failed to save payment settings');
+      console.error(err);
     } finally {
       setSaving(false);
     }
@@ -897,7 +898,6 @@ const SettingsPage = () => {
 
         {/* Backups Tab */}
         {activeTab === 'backups' && (
-
           <div className="max-w-3xl animate-in fade-in slide-in-from-bottom-4 duration-500">
             <h3 className="text-2xl font-bold text-white mb-2">Data & Backups</h3>
             <p className="text-gray-400 text-sm mb-8">Export your system data securely.</p>
@@ -1141,6 +1141,8 @@ const SettingsPage = () => {
             if (activeTab === 'campaigns') handleSaveCampaigns();
             if (activeTab === 'officeTimings') handleSaveOfficeTimings();
             if (activeTab === 'attendanceRules') handleSaveAttendanceRules();
+            if (activeTab === 'holidays') fetchHolidays();
+            if (activeTab === 'payment') handleSavePaymentSettings();
           }}
           disabled={saving}
           className={`flex items-center gap-2 bg-[#FF6B00] hover:bg-[#EA580C] text-white px-6 py-3 rounded-full font-bold shadow-[0_4px_20px_rgba(255,107,0,0.4)] transition-all ${saving ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105 active:scale-95'}`}

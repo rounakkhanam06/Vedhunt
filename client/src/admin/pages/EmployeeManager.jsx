@@ -250,9 +250,21 @@ const EmployeeManager = () => {
     setIsModalOpen(true);
   };
 
-  const closeModal = () => {
-    setIsModalOpen(false);
+  const handleAutoCalculateSalary = () => {
+    if (!selectedEmp || !selectedEmp.salaryCTC) {
+      toast.error('Employee CTC not defined.');
+      return;
+    }
+    setIsCalculatingSalary(true);
+    setTimeout(() => {
+      const monthly = Math.round(selectedEmp.salaryCTC / 12);
+      setPayslipBase(monthly.toString());
+      toast.success('Auto-calculated base salary from CTC.');
+      setIsCalculatingSalary(false);
+    }, 500);
   };
+
+  const closeModal = () => setIsModalOpen(false);
 
   const handleDeleteEmployee = async (id) => {
     if (!window.confirm('Are you sure? This will also remove their user account.')) return;

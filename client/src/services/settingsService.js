@@ -21,4 +21,6 @@ export const settingsService = {
   updateOfficeTimings: (data) => api.put('/admin/settings/office-timings', data),
   getAttendanceRules: () => api.get('/settings/attendance-rules'),
   updateAttendanceRules: (data) => api.put('/admin/settings/attendance-rules', data),
+  getSupportCategories: () => api.get('/settings/support-categories'),
+  updateSupportCategories: (data) => api.put('/admin/settings/support-categories', data),
 };

@@ -533,7 +533,8 @@ router.get('/tickets', async (req, res) => {
     const [tickets, total] = await Promise.all([
       SupportTicket.find(filter)
         .populate('client_ref', 'businessName contactName email clientId')
-        .select('+resolution +assignedTo') // admin sees full fields
+        .populate('assignedTo', 'firstName lastName email')
+        .select('+resolution') // admin sees full fields
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
@@ -554,7 +555,7 @@ router.get('/tickets/:id', async (req, res) => {
     const ticket = await SupportTicket.findById(req.params.id)
       .populate('client_ref', 'businessName contactName email clientId')
       .populate('assignedTo', 'firstName lastName email')
-      .select('+resolution +assignedTo');
+      .select('+resolution');
     if (!ticket) return res.status(404).json({ success: false, message: 'Ticket not found' });
     res.json({ success: true, data: ticket.toObject({ virtuals: true }) });
   } catch (error) {

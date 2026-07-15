@@ -37,10 +37,13 @@ exports.subscribe = async (req, res) => {
         return res.status(200).json({ success: true, message: 'You are already subscribed to our newsletter!', alreadySubscribed: true });
       } else {
         // Reactivate
+        const newToken = crypto.randomBytes(32).toString('hex');
+        await Subscriber.updateOne(
+          { email: subscriber.email },
+          { $set: { active: true, unsubscribedAt: null, unsubscribeToken: newToken } }
+        );
         subscriber.active = true;
-        subscriber.unsubscribedAt = undefined;
-        subscriber.unsubscribeToken = crypto.randomBytes(32).toString('hex');
-        await subscriber.save();
+        subscriber.unsubscribeToken = newToken;
       }
     } else {
       // Create new
@@ -105,9 +108,10 @@ exports.unsubscribe = async (req, res) => {
       return res.status(200).json({ success: true, message: 'You have already unsubscribed.' });
     }
 
-    subscriber.active = false;
-    subscriber.unsubscribedAt = Date.now();
-    await subscriber.save();
+    await Subscriber.updateOne(
+      { email: subscriber.email },
+      { $set: { active: false, unsubscribedAt: Date.now() } }
+    );
 
     logger.info(`User unsubscribed: ${subscriber.email}`);
 

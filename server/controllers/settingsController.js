@@ -1044,3 +1044,51 @@ exports.updatePaymentSettings = async (req, res) => {
     res.status(500).json({ message: 'Server error while updating Payment Settings' });
   }
 };
+
+/**
+ * @desc    Get Support Categories
+ * @route   GET /api/settings/support-categories
+ * @access  Public
+ */
+exports.getSupportCategories = async (req, res) => {
+  try {
+    let settings = await Settings.findOne({ key: 'support_categories' });
+    if (!settings) {
+      settings = await Settings.create({
+        key: 'support_categories',
+        value: ['Bug Report', 'Feature Request', 'General Inquiry', 'Urgent Fix'],
+      });
+    }
+    res.json(settings.value);
+  } catch (error) {
+    console.error('Error fetching support categories:', error);
+    res.status(500).json({ message: 'Server error while fetching support categories' });
+  }
+};
+
+/**
+ * @desc    Update Support Categories
+ * @route   PUT /api/admin/settings/support-categories
+ * @access  Private (Super Admin / Editor)
+ */
+exports.updateSupportCategories = async (req, res) => {
+  try {
+    const updatedData = req.body;
+    let settings = await Settings.findOne({ key: 'support_categories' });
+    
+    if (settings) {
+      settings.value = updatedData;
+      await settings.save();
+    } else {
+      settings = await Settings.create({
+        key: 'support_categories',
+        value: updatedData,
+      });
+    }
+    
+    res.json(settings.value);
+  } catch (error) {
+    console.error('Error updating support categories:', error);
+    res.status(500).json({ message: 'Server error while updating support categories' });
+  }
+};

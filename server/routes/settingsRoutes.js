@@ -136,4 +136,15 @@ router.put(
   settingsController.updatePaymentSettings
 );
 
+// Public route to get Support Categories
+router.get('/settings/support-categories', settingsController.getSupportCategories);
+
+// Admin route to update Support Categories
+router.put(
+  '/admin/settings/support-categories',
+  authMiddleware,
+  roleMiddleware('SUPER_ADMIN', 'EDITOR'),
+  settingsController.updateSupportCategories
+);
+
 module.exports = router;

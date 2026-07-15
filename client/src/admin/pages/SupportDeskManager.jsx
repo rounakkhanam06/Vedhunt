@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import api from '../../services/api';
+import { settingsService } from '../../services/settingsService';
 import toast from 'react-hot-toast';
 import {
   MessageCircle, Search, X, Save, Plus,
@@ -8,7 +9,7 @@ import {
 
 const emptyForm = () => ({
   client_ref: '', subject: '', description: '', category: 'General Inquiry',
-  priority: 'Medium', status: 'Open', resolution: ''
+  priority: 'Medium', status: 'Open', resolution: '', assignedTo: ''
 });
 
 const STATUS_COLORS = {
@@ -29,6 +30,7 @@ const PRIORITY_COLORS = {
 export default function SupportDeskManager() {
   const [tickets, setTickets] = useState([]);
   const [clients, setClients] = useState([]);
+  const [teamMembers, setTeamMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [pagination, setPagination] = useState({ total: 0, page: 1, totalPages: 1 });
   const [page, setPage] = useState(1);
@@ -38,10 +40,44 @@ export default function SupportDeskManager() {
   const [form, setForm] = useState(emptyForm());
   const [saving, setSaving] = useState(false);
 
+  const [activeTab, setActiveTab] = useState('tickets');
+  const [supportCategories, setSupportCategories] = useState([]);
+  const [newSupportCategory, setNewSupportCategory] = useState('');
+  const [savingCategories, setSavingCategories] = useState(false);
+
   useEffect(() => {
     api.get('/admin/clients', { params: { limit: 200 } })
       .then(r => setClients(r.data.data || []));
+      
+    api.get('/team')
+      .then(r => setTeamMembers(r.data.admins || []))
+      .catch(err => console.error('Failed to fetch team members', err));
+      
+    fetchSupportCategories();
   }, []);
+
+  const fetchSupportCategories = async () => {
+    try {
+      const res = await settingsService.getSupportCategories();
+      if (res && res.data) {
+        setSupportCategories(res.data);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleSaveSupportCategories = async () => {
+    setSavingCategories(true);
+    try {
+      await settingsService.updateSupportCategories(supportCategories);
+      toast.success('Categories saved successfully');
+    } catch (err) {
+      toast.error('Failed to save categories');
+    } finally {
+      setSavingCategories(false);
+    }
+  };
 
   const fetchTickets = useCallback(async () => {
     setLoading(true);
@@ -80,7 +116,8 @@ export default function SupportDeskManager() {
       category: t.category || 'General Inquiry',
       priority: t.priority || 'Medium',
       status: t.status || 'Open',
-      resolution: t.resolution || ''
+      resolution: t.resolution || '',
+      assignedTo: t.assignedTo?._id || ''
     });
     setShowModal(true);
   };
@@ -121,9 +158,11 @@ export default function SupportDeskManager() {
           <p className="text-on-surface-variant text-sm mt-1">Manage client support tickets & SLA deadlines</p>
         </div>
         <div className="flex gap-3">
-          <div className="bg-secondary/10 text-secondary px-4 py-2 rounded-lg font-bold text-sm">
-            {pagination.total} Tickets
-          </div>
+          {activeTab === 'tickets' && (
+            <div className="bg-secondary/10 text-secondary px-4 py-2 rounded-lg font-bold text-sm">
+              {pagination.total} Tickets
+            </div>
+          )}
           <button onClick={openCreate}
             className="flex items-center gap-2 px-4 py-2 bg-secondary text-white rounded-lg text-sm font-medium hover:bg-secondary/90 cursor-pointer">
             <Plus size={15} /> Open Ticket
@@ -131,8 +170,29 @@ export default function SupportDeskManager() {
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-wrap gap-2 items-center">
+      <div className="flex gap-4 border-b border-outline-variant">
+        <button
+          onClick={() => setActiveTab('tickets')}
+          className={`pb-3 font-semibold text-sm border-b-2 transition-all ${
+            activeTab === 'tickets' ? 'border-secondary text-secondary' : 'border-transparent text-on-surface-variant hover:text-on-surface'
+          }`}
+        >
+          Tickets
+        </button>
+        <button
+          onClick={() => setActiveTab('categories')}
+          className={`pb-3 font-semibold text-sm border-b-2 transition-all ${
+            activeTab === 'categories' ? 'border-secondary text-secondary' : 'border-transparent text-on-surface-variant hover:text-on-surface'
+          }`}
+        >
+          Categories
+        </button>
+      </div>
+
+      {activeTab === 'tickets' && (
+        <>
+          {/* Filters */}
+          <div className="flex flex-wrap gap-2 items-center">
         <Filter size={14} className="text-on-surface-variant" />
         {['', 'Open', 'In Progress', 'Pending Client', 'Resolved', 'Closed'].map(s => (
           <button key={s} onClick={() => { setStatusFilter(s); setPage(1); }}
@@ -163,7 +223,8 @@ export default function SupportDeskManager() {
                   <th className="px-4 py-3 text-left">Ticket</th>
                   <th className="px-4 py-3 text-left">Subject & Client</th>
                   <th className="px-4 py-3 text-center">Priority</th>
-                  <th className="px-4 py-3 text-left hidden md:table-cell">Category</th>
+                  <th className="px-4 py-3 text-left">Category</th>
+                  <th className="px-4 py-3 text-left">Assigned To</th>
                   <th className="px-4 py-3 text-center">SLA Deadline</th>
                   <th className="px-4 py-3 text-center">Status</th>
                   <th className="px-4 py-3 text-center">Actions</th>
@@ -180,7 +241,10 @@ export default function SupportDeskManager() {
                     <td className="px-4 py-3 text-center font-medium">
                       <span className={PRIORITY_COLORS[t.priority] || 'text-on-surface'}>{t.priority}</span>
                     </td>
-                    <td className="px-4 py-3 text-on-surface-variant text-xs hidden md:table-cell">{t.category}</td>
+                    <td className="px-4 py-3 text-on-surface-variant text-xs">{t.category}</td>
+                    <td className="px-4 py-3 text-on-surface-variant text-xs font-medium">
+                      {t.assignedTo && t.assignedTo.firstName ? `${t.assignedTo.firstName} ${t.assignedTo.lastName}` : <span className="text-red-400">Not Assigned</span>}
+                    </td>
                     <td className="px-4 py-3 text-center text-xs">
                       {['Resolved', 'Closed'].includes(t.status) ? (
                         <span className="text-on-surface-variant">Done</span>
@@ -237,6 +301,49 @@ export default function SupportDeskManager() {
           </div>
         )}
       </div>
+      </>
+      )}
+
+      {activeTab === 'categories' && (
+        <div className="max-w-3xl animate-in fade-in duration-300">
+          <div className="bg-surface border border-outline-variant p-6 rounded-xl">
+            <div className="flex gap-2 mb-6">
+              <input 
+                type="text" 
+                value={newSupportCategory} 
+                onChange={(e) => setNewSupportCategory(e.target.value)} 
+                placeholder="Add new category..." 
+                className="flex-1 bg-admin-bg border border-outline-variant text-on-surface px-4 py-2 rounded-lg text-sm focus:outline-none focus:border-secondary"
+              />
+              <button onClick={() => {
+                if (newSupportCategory.trim() && !supportCategories.includes(newSupportCategory.trim())) {
+                  setSupportCategories([...supportCategories, newSupportCategory.trim()]);
+                  setNewSupportCategory('');
+                }
+              }} className="bg-secondary text-white px-5 py-2 rounded-lg font-bold text-sm hover:bg-secondary/90 cursor-pointer">Add</button>
+            </div>
+            <div className="space-y-2 mb-6">
+              {supportCategories.map((cat, idx) => (
+                <div key={idx} className="flex justify-between items-center bg-admin-bg p-3 rounded-lg border border-outline-variant">
+                  <span className="text-on-surface font-medium text-sm">{cat}</span>
+                  <button onClick={() => setSupportCategories(supportCategories.filter((_, i) => i !== idx))} className="text-red-500 text-xs font-semibold hover:text-red-400 cursor-pointer">Remove</button>
+                </div>
+              ))}
+              {supportCategories.length === 0 && (
+                <p className="text-center text-on-surface-variant text-sm py-4">No categories defined.</p>
+              )}
+            </div>
+            <button 
+              onClick={handleSaveSupportCategories} 
+              disabled={savingCategories}
+              className="w-full sm:w-auto flex items-center justify-center gap-2 bg-secondary text-white px-6 py-2.5 rounded-lg font-bold text-sm shadow hover:bg-secondary/90 disabled:opacity-50 cursor-pointer"
+            >
+              {savingCategories ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Save size={16} />}
+              Save Changes
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Modal */}
       {showModal && (
@@ -261,7 +368,7 @@ export default function SupportDeskManager() {
                   <label className="block text-on-surface-variant text-xs font-medium mb-1.5">Category *</label>
                   <select value={form.category} onChange={e => setForm(p => ({ ...p, category: e.target.value }))} required
                     className="w-full px-3 py-2 bg-admin-bg border border-outline-variant rounded-xl text-on-surface text-sm focus:outline-none focus:border-secondary">
-                    {['Bug Report', 'Feature Request', 'General Inquiry', 'Urgent Fix'].map(c => <option key={c} value={c}>{c}</option>)}
+                    {(supportCategories.length > 0 ? supportCategories : ['Bug Report', 'Feature Request', 'General Inquiry', 'Urgent Fix']).map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </div>
 
@@ -291,6 +398,19 @@ export default function SupportDeskManager() {
                   <select value={form.status} onChange={e => setForm(p => ({ ...p, status: e.target.value }))}
                     className="w-full px-3 py-2 bg-admin-bg border border-outline-variant rounded-xl text-on-surface text-sm focus:outline-none focus:border-secondary">
                     {['Open', 'In Progress', 'Pending Client', 'Resolved', 'Closed'].map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-on-surface-variant text-xs font-medium mb-1.5">Assign To</label>
+                  <select value={form.assignedTo} onChange={e => setForm(p => ({ ...p, assignedTo: e.target.value }))}
+                    className="w-full px-3 py-2 bg-admin-bg border border-outline-variant rounded-xl text-on-surface text-sm focus:outline-none focus:border-secondary">
+                    <option value="">Unassigned</option>
+                    {teamMembers.map(member => (
+                      <option key={member._id} value={member._id}>
+                        {member.firstName} {member.lastName}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 

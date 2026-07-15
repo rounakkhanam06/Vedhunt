@@ -71,6 +71,12 @@ const clientService = {
     return data;
   },
 
+  getSupportCategories: async () => {
+    // We can use the public endpoint we created for settings
+    const { data } = await clientApi.get('/settings/support-categories');
+    return data;
+  },
+
   createTicket: async (payload) => {
     const { data } = await clientApi.post('/client/tickets', payload);
     return data;

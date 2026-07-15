@@ -273,7 +273,8 @@ router.get('/tickets', async (req, res) => {
 
     const [tickets, total] = await Promise.all([
       SupportTicket.find(filter)
-        .select('-resolution -assignedTo') // strip internal fields
+        .populate('assignedTo', 'firstName lastName')
+        .select('-resolution') // strip internal fields
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
@@ -345,7 +346,9 @@ router.get('/tickets/:id', async (req, res) => {
     const ticket = await SupportTicket.findOne({
       _id: req.params.id,
       client_ref: req.client._id,
-    }).select('-resolution -assignedTo');
+    })
+      .populate('assignedTo', 'firstName lastName')
+      .select('-resolution');
 
     if (!ticket) {
       return res.status(404).json({ success: false, message: 'Ticket not found' });

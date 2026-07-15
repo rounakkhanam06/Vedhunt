@@ -44,6 +44,10 @@ const leadSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+  country: {
+    type: String,
+    trim: true
+  },
   platform: {
     type: String,
     enum: ['Website', 'Facebook', 'Instagram', 'Google Ads', 'Manual'],

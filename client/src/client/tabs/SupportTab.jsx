@@ -9,7 +9,7 @@ import {
   ChevronUp, RefreshCw, Send, Paperclip,
 } from 'lucide-react';
 
-const CATEGORIES = ['Bug Report', 'Feature Request', 'General Inquiry', 'Urgent Fix'];
+const DEFAULT_CATEGORIES = ['Bug Report', 'Feature Request', 'General Inquiry', 'Urgent Fix'];
 const PRIORITIES = ['Low', 'Medium', 'High', 'Critical'];
 
 const SupportTab = () => {
@@ -23,6 +23,7 @@ const SupportTab = () => {
   const [showForm, setShowForm] = useState(false);
   const [statusFilter, setStatusFilter] = useState('');
   const [expandedId, setExpandedId] = useState(null);
+  const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
   const formRef = useRef(null);
 
   const [form, setForm] = useState({
@@ -35,6 +36,21 @@ const SupportTab = () => {
   // Auto-open form if pre-populated from renewal request link
   useEffect(() => {
     if (params.get('presubject')) setShowForm(true);
+
+    const fetchCategories = async () => {
+      try {
+        const catData = await clientService.getSupportCategories();
+        if (catData && catData.length > 0) {
+          setCategories(catData);
+          if (!params.get('precategory')) {
+            setForm(p => ({ ...p, category: catData[0] }));
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch categories:', err);
+      }
+    };
+    fetchCategories();
   }, []);
 
   const fetchTickets = useCallback(async (page = 1) => {
@@ -61,7 +77,7 @@ const SupportTab = () => {
     try {
       const res = await clientService.createTicket(form);
       toast.success(res.message || 'Ticket submitted!');
-      setForm({ subject: '', description: '', category: 'General Inquiry', priority: 'Medium' });
+      setForm({ subject: '', description: '', category: categories[0] || 'General Inquiry', priority: 'Medium' });
       setShowForm(false);
       fetchTickets(1);
     } catch (err) {
@@ -131,7 +147,7 @@ const SupportTab = () => {
                   onChange={(e) => setForm((p) => ({ ...p, category: e.target.value }))}
                   className="w-full px-4 py-2.5 bg-bg-surface/50 border border-border-default rounded-xl text-white focus:outline-none focus:border-[#FF5A1F]/60 transition-all text-sm"
                 >
-                  {CATEGORIES.map((c) => <option key={c} value={c} className="bg-[#1A1F2B] text-white">{c}</option>)}
+                  {categories.map((c) => <option key={c} value={c} className="bg-[#1A1F2B] text-white">{c}</option>)}
                 </select>
               </div>
               <div>
@@ -236,6 +252,11 @@ const SupportTab = () => {
                           <span className="text-[#D1D5DB] text-xs font-mono">{ticket.ticketId}</span>
                           <StatusBadge status={ticket.status} size="xs" />
                           <StatusBadge status={ticket.priority} size="xs" />
+                          {ticket.assignedTo && ticket.assignedTo.firstName && (
+                            <span className="bg-primary/10 text-primary border border-primary/20 text-[10px] px-2 py-0.5 rounded-full font-medium">
+                              Assigned to: {ticket.assignedTo.firstName} {ticket.assignedTo.lastName}
+                            </span>
+                          )}
                         </div>
                         <p className="text-white text-sm font-medium truncate">{ticket.subject}</p>
                         <div className="flex flex-wrap items-center gap-3 mt-1.5">

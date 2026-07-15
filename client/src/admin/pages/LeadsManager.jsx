@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import api from '../../services/api';
 import { motion } from 'framer-motion';
-import { Mail, Phone, Clock, Globe, Briefcase, FileText, CheckCircle2, Search, Filter, ChevronDown, ChevronLeft, ChevronRight, Eye, X, Play, Square, Save } from 'lucide-react';
+import { Mail, Phone, Clock, Globe, Briefcase, FileText, CheckCircle2, Search, Filter, ChevronDown, ChevronLeft, ChevronRight, Eye, X, Play, Square, Save, Download } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { usePermissions } from '../hooks/usePermissions';
 
@@ -128,6 +128,74 @@ export default function LeadsManager() {
     }
   };
 
+  const handleExport = async (format) => {
+    try {
+      toast.loading('Preparing export...', { id: 'export-toast' });
+      const response = await api.get('/leads', {
+        params: {
+          export: true,
+          status: statusFilter,
+          platform: platformFilter,
+          userSource: sourceFilter,
+          search: debouncedSearchTerm,
+          sortBy,
+          sortOrder
+        }
+      });
+      if (response.data.success) {
+        const leadsToExport = response.data.data;
+        if (leadsToExport.length === 0) {
+          toast.error('No leads to export', { id: 'export-toast' });
+          return;
+        }
+
+        if (format === 'csv') {
+          const headers = ['Lead ID', 'Date', 'Name', 'Phone', 'Email', 'City', 'Country', 'Platform', 'Campaign', 'Business Name', 'Source', 'Service', 'BD', 'Call Duration', 'Status', 'Deal Value'];
+          const csvRows = [headers.join(',')];
+
+          for (const lead of leadsToExport) {
+            const values = [
+              lead.leadId || '',
+              lead.createdAt ? new Date(lead.createdAt).toLocaleString() : '',
+              `"${(lead.fullName || '').replace(/"/g, '""')}"`,
+              lead.phone || '',
+              lead.email || '',
+              `"${(lead.city || '').replace(/"/g, '""')}"`,
+              `"${(lead.country || '').replace(/"/g, '""')}"`,
+              lead.platform || '',
+              `"${(lead.utmCampaign || lead.adCampaignId || '').replace(/"/g, '""')}"`,
+              `"${(lead.businessName || '').replace(/"/g, '""')}"`,
+              `"${(lead.source || '').replace(/"/g, '""')}"`,
+              `"${(lead.service || '').replace(/"/g, '""')}"`,
+              `"${(lead.bd || '').replace(/"/g, '""')}"`,
+              lead.callDuration || '',
+              lead.status || '',
+              lead.dealValue || ''
+            ];
+            csvRows.push(values.join(','));
+          }
+
+          const csvString = csvRows.join('\n');
+          const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `leads_export_${new Date().toISOString().split('T')[0]}.csv`;
+          document.body.appendChild(a);
+          a.click();
+          window.URL.revokeObjectURL(url);
+          document.body.removeChild(a);
+          toast.success('Export downloaded successfully', { id: 'export-toast' });
+        }
+      }
+    } catch (error) {
+      console.error('Error exporting leads:', error);
+      toast.error('Failed to export leads', { id: 'export-toast' });
+    }
+  };
+
+  const [showExportDropdown, setShowExportDropdown] = useState(false);
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -135,8 +203,37 @@ export default function LeadsManager() {
           <h1 className="text-2xl font-bold text-app-text font-heading">Lead Manager</h1>
           <p className="text-sm text-app-text-muted mt-1">Manage and track leads like a spreadsheet</p>
         </div>
-        <div className="bg-primary/10 text-primary px-4 py-2 rounded-lg font-bold text-sm whitespace-nowrap text-center">
-          Total Leads: {totalLeads}
+        <div className="flex items-center gap-3">
+          <div className="bg-primary/10 text-primary px-4 py-2 rounded-lg font-bold text-sm whitespace-nowrap text-center">
+            Total Leads: {totalLeads}
+          </div>
+          <div className="relative">
+            <button
+              onClick={() => setShowExportDropdown(!showExportDropdown)}
+              className="flex items-center gap-2 bg-app-card border border-app-border hover:border-primary px-4 py-2 rounded-lg font-bold text-sm text-app-text transition-colors"
+            >
+              <Download className="w-4 h-4" />
+              <span>Export</span>
+              <ChevronDown className="w-4 h-4" />
+            </button>
+            {showExportDropdown && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowExportDropdown(false)} />
+                <div className="absolute right-0 mt-2 w-48 bg-app-card border border-app-border rounded-xl shadow-lg z-50 overflow-hidden">
+                  <button
+                    onClick={() => {
+                      setShowExportDropdown(false);
+                      handleExport('csv');
+                    }}
+                    className="w-full text-left px-4 py-3 text-sm text-app-text hover:bg-surface-variant hover:text-primary transition-colors flex items-center gap-2"
+                  >
+                    <FileText className="w-4 h-4" />
+                    Export as CSV
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
@@ -255,6 +352,7 @@ export default function LeadsManager() {
                       <th className="px-3 py-3 font-semibold">Phone</th>
                       <th className="px-3 py-3 font-semibold">Email</th>
                       <th className="px-3 py-3 font-semibold">City</th>
+                      <th className="px-3 py-3 font-semibold">Country</th>
                       <th onClick={() => handleSort('platform')} className="px-3 py-3 font-semibold cursor-pointer select-none hover:text-primary transition-colors">
                         <div className="flex items-center gap-1">
                           <span>Platform</span>
@@ -367,6 +465,19 @@ export default function LeadsManager() {
                             />
                           ) : (
                             <span className="px-2 py-1">{lead.city || '-'}</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2 align-middle min-w-[120px]">
+                          {isSuperAdmin ? (
+                            <input 
+                              type="text" 
+                              defaultValue={lead.country || ''} 
+                              placeholder="Add country..."
+                              onBlur={(e) => { if(e.target.value !== lead.country) handleFieldChange(lead._id, 'country', e.target.value) }}
+                              className="bg-transparent border border-transparent hover:border-app-border focus:border-primary px-2 py-1 rounded w-full focus:outline-none"
+                            />
+                          ) : (
+                            <span className="px-2 py-1">{lead.country || '-'}</span>
                           )}
                         </td>
                         <td className="px-3 py-2 align-middle min-w-[120px]">

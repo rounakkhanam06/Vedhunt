@@ -58,8 +58,7 @@ const supportTicketSchema = new mongoose.Schema(
     // Which admin handled it
     assignedTo: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'Admin',
-      select: false, // internal, not shown to client
+      ref: 'Admin'
     },
   },
   { timestamps: true }

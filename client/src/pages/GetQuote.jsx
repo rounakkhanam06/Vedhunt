@@ -224,6 +224,7 @@ export default function GetQuote() {
       company: '',
       email: '',
       phone: '',
+      country: '',
       city: '',
       source: '',
       service: '',
@@ -280,6 +281,7 @@ export default function GetQuote() {
         message: fullMessage.trim(),
         consent: true,
         source: finalData.source || window.location.href || 'Get Quote Page',
+        country: finalData.country,
         city: finalData.city,
         platform: 'Website',
         userSource: attributionSource,
@@ -692,19 +694,20 @@ export default function GetQuote() {
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div className="space-y-1 text-left relative group">
                             <label className="text-[10px] font-extrabold text-app-text-muted/70 uppercase tracking-widest block">
-                              City
+                              Country
                             </label>
                             <div className="relative">
                               <select
                                 className="w-full bg-transparent border-b-2 py-1.5 text-app-text focus:outline-none focus:border-primary transition-colors text-sm font-bold border-app-border/70 appearance-none pr-8"
-                                {...register('city')}
+                                {...register('country')}
                               >
-                                <option value="" className="bg-app-bg">Select city</option>
-                                <option value="Mumbai" className="bg-app-bg">Mumbai</option>
-                                <option value="Delhi" className="bg-app-bg">Delhi</option>
-                                <option value="Bangalore" className="bg-app-bg">Bangalore</option>
-                                <option value="Hyderabad" className="bg-app-bg">Hyderabad</option>
-                                <option value="Pune" className="bg-app-bg">Pune</option>
+                                <option value="" className="bg-app-bg">Select country</option>
+                                <option value="India" className="bg-app-bg">India</option>
+                                <option value="United States" className="bg-app-bg">United States</option>
+                                <option value="United Kingdom" className="bg-app-bg">United Kingdom</option>
+                                <option value="Australia" className="bg-app-bg">Australia</option>
+                                <option value="Canada" className="bg-app-bg">Canada</option>
+                                <option value="UAE" className="bg-app-bg">UAE</option>
                                 <option value="Other" className="bg-app-bg">Other</option>
                               </select>
                               <ChevronDown className="absolute right-0 top-1/2 -translate-y-1/2 w-4 h-4 text-app-text-muted pointer-events-none" />
@@ -713,22 +716,34 @@ export default function GetQuote() {
 
                           <div className="space-y-1 text-left relative group">
                             <label className="text-[10px] font-extrabold text-app-text-muted/70 uppercase tracking-widest block">
-                              How did you find us?
+                              City
                             </label>
-                            <div className="relative">
-                              <select
-                                className="w-full bg-transparent border-b-2 py-1.5 text-app-text focus:outline-none focus:border-primary transition-colors text-sm font-bold border-app-border/70 appearance-none pr-8"
-                                {...register('source')}
-                              >
-                                <option value="" className="bg-app-bg">Select source</option>
-                                <option value="Google Search" className="bg-app-bg">Google Search</option>
-                                <option value="Social Media" className="bg-app-bg">Social Media</option>
-                                <option value="Referral" className="bg-app-bg">Referral</option>
-                                <option value="Advertisement" className="bg-app-bg">Advertisement</option>
-                                <option value="Other" className="bg-app-bg">Other</option>
-                              </select>
-                              <ChevronDown className="absolute right-0 top-1/2 -translate-y-1/2 w-4 h-4 text-app-text-muted pointer-events-none" />
-                            </div>
+                            <input
+                              type="text"
+                              placeholder="e.g. Mumbai"
+                              className="w-full bg-transparent border-b-2 py-1.5 text-app-text focus:outline-none focus:border-primary transition-colors text-sm font-bold border-app-border/70"
+                              {...register('city')}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="space-y-1 text-left relative group">
+                          <label className="text-[10px] font-extrabold text-app-text-muted/70 uppercase tracking-widest block">
+                            How did you find us?
+                          </label>
+                          <div className="relative">
+                            <select
+                              className="w-full bg-transparent border-b-2 py-1.5 text-app-text focus:outline-none focus:border-primary transition-colors text-sm font-bold border-app-border/70 appearance-none pr-8"
+                              {...register('source')}
+                            >
+                              <option value="" className="bg-app-bg">Select source</option>
+                              <option value="Google Search" className="bg-app-bg">Google Search</option>
+                              <option value="Social Media" className="bg-app-bg">Social Media</option>
+                              <option value="Referral" className="bg-app-bg">Referral</option>
+                              <option value="Advertisement" className="bg-app-bg">Advertisement</option>
+                              <option value="Other" className="bg-app-bg">Other</option>
+                            </select>
+                            <ChevronDown className="absolute right-0 top-1/2 -translate-y-1/2 w-4 h-4 text-app-text-muted pointer-events-none" />
                           </div>
                         </div>
 
@@ -813,6 +828,8 @@ export default function GetQuote() {
                               <div><strong>Email:</strong> {getValues('email')}</div>
                               <div><strong>Phone:</strong> {getValues('phone')}</div>
                               {getValues('company') && <div><strong>Company:</strong> {getValues('company')}</div>}
+                              {getValues('country') && <div><strong>Country:</strong> {getValues('country')}</div>}
+                              {getValues('city') && <div><strong>City:</strong> {getValues('city')}</div>}
                             </div>
                           </div>
                           
