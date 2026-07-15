@@ -39,6 +39,8 @@ export default function SupportDeskManager() {
   const [editTarget, setEditTarget] = useState(null);
   const [form, setForm] = useState(emptyForm());
   const [saving, setSaving] = useState(false);
+  const [newMessage, setNewMessage] = useState('');
+  const [sendingMsg, setSendingMsg] = useState(false);
 
   const [activeTab, setActiveTab] = useState('tickets');
   const [supportCategories, setSupportCategories] = useState([]);
@@ -120,6 +122,26 @@ export default function SupportDeskManager() {
       assignedTo: t.assignedTo?._id || ''
     });
     setShowModal(true);
+  };
+
+  
+  const handleSendMessage = async (e) => {
+    e.preventDefault();
+    if (!newMessage.trim() || !editTarget) return;
+    setSendingMsg(true);
+    try {
+      const res = await api.post(`/admin/tickets/${editTarget._id}/messages`, { text: newMessage });
+      if (res.data.success) {
+        setNewMessage('');
+        toast.success('Message sent');
+        setEditTarget(res.data.data);
+        fetchTickets(); // Refresh list to get updated messages
+      }
+    } catch (err) {
+      toast.error('Failed to send message');
+    } finally {
+      setSendingMsg(false);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -243,7 +265,13 @@ export default function SupportDeskManager() {
                     </td>
                     <td className="px-4 py-3 text-on-surface-variant text-xs">{t.category}</td>
                     <td className="px-4 py-3 text-on-surface-variant text-xs font-medium">
-                      {t.assignedTo && t.assignedTo.firstName ? `${t.assignedTo.firstName} ${t.assignedTo.lastName}` : <span className="text-red-400">Not Assigned</span>}
+                      {t.assignedTo ? (
+                        (t.assignedTo.firstName || t.assignedTo.lastName)
+                          ? `${t.assignedTo.firstName || ''} ${t.assignedTo.lastName || ''} ${t.assignedTo.roles?.length ? `(${t.assignedTo.roles.map(r => r.name).join(', ')})` : ''}`.trim()
+                          : (t.assignedTo.roles?.length ? t.assignedTo.roles.map(r => r.name).join(', ') : 'Admin')
+                      ) : (
+                        <span className="text-red-400">Not Assigned</span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-center text-xs">
                       {['Resolved', 'Closed'].includes(t.status) ? (
@@ -406,11 +434,17 @@ export default function SupportDeskManager() {
                   <select value={form.assignedTo} onChange={e => setForm(p => ({ ...p, assignedTo: e.target.value }))}
                     className="w-full px-3 py-2 bg-admin-bg border border-outline-variant rounded-xl text-on-surface text-sm focus:outline-none focus:border-secondary">
                     <option value="">Unassigned</option>
-                    {teamMembers.map(member => (
-                      <option key={member._id} value={member._id}>
-                        {member.firstName} {member.lastName}
-                      </option>
-                    ))}
+                    {teamMembers.map(member => {
+                      const roleString = member.roles?.length ? member.roles.map(r => r.name).join(', ') : 'No Role';
+                      const displayName = (member.firstName || member.lastName)
+                        ? `${member.firstName || ''} ${member.lastName || ''} (${roleString})`.trim()
+                        : `Unnamed Admin (${roleString})`;
+                      return (
+                        <option key={member._id} value={member._id}>
+                          {displayName}
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
                 
@@ -421,6 +455,8 @@ export default function SupportDeskManager() {
                     className="w-full px-3 py-2 bg-admin-bg border border-outline-variant rounded-xl text-on-surface text-sm focus:outline-none focus:border-secondary resize-none" />
                 </div>
               </div>
+
+
 
               <div className="flex gap-3 pt-4 border-t border-outline-variant">
                 <button type="submit" disabled={saving}

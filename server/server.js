@@ -40,6 +40,8 @@ const leadRoutes = require('./routes/leadRoutes');
 const webhookRoutes = require('./routes/webhookRoutes');
 const subscribeRoutes = require('./routes/subscribeRoutes');
 const employeeRoutes = require('./routes/employeeRoutes');
+const employeeAuthRoutes = require('./routes/employeeAuthRoutes');
+const employeePortalRoutes = require('./routes/employeePortalRoutes');
 const performanceRoutes = require('./routes/performanceRoutes');
 const analyticsRoutes = require('./routes/analyticsRoutes');
 const { seedServicePages } = require('./controllers/servicePageSeeder');
@@ -134,6 +136,10 @@ app.use('/api', paymentRoutes); // Non-cached payment routes
 // Client Portal — completely isolated auth + data routes
 app.use('/api/client/auth', clientAuthRoutes);
 app.use('/api/client', clientPortalRoutes); // all protected by clientAuthMiddleware internally
+
+// Employee Portal — completely isolated auth + data routes
+app.use('/api/employee/auth', employeeAuthRoutes);
+app.use('/api/employee-portal', employeePortalRoutes); // all protected by employeeAuthMiddleware internally
 
 // Admin management of client portal data (clients, invoices, projects, retainers, tickets)
 app.use('/api/admin', clientManagementRoutes);

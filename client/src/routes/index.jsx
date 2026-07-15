@@ -83,6 +83,12 @@ const RetainerManager = lazy(() => import('../admin/pages/RetainerManager'));
 const SupportDeskManager = lazy(() => import('../admin/pages/SupportDeskManager'));
 const PaymentVerificationManager = lazy(() => import('../admin/pages/PaymentVerificationManager'));
 
+// Employee Portal
+const EmployeePrivateRoute = lazy(() => import('../employee/EmployeePrivateRoute'));
+const EmployeeLayout = lazy(() => import('../employee/EmployeeLayout'));
+const EmployeeLogin = lazy(() => import('../employee/pages/EmployeeLogin'));
+const EmployeeDashboard = lazy(() => import('../employee/pages/EmployeeDashboard'));
+
 // Client Portal
 const ClientThemeGuard = lazy(() => import('../client/ClientThemeGuard'));
 const ClientPrivateRoute = lazy(() => import('../client/ClientPrivateRoute'));
@@ -485,23 +491,35 @@ export const router = createBrowserRouter([
   },
   {
     path: '/employee',
-    element: <AdminRoot />,
+    element: (
+      <Suspense fallback={null}>
+        <Outlet />
+      </Suspense>
+    ),
     children: [
       {
+        path: 'login',
+        element: withSuspense(EmployeeLogin)
+      },
+      {
         path: '',
-        element: withSuspense(PrivateRoute),
+        element: (
+          <Suspense fallback={null}>
+            <EmployeePrivateRoute />
+          </Suspense>
+        ),
         children: [
           {
             path: '',
-            element: withSuspense(AdminLayout),
+            element: withSuspense(EmployeeLayout),
             children: [
               {
                 path: 'dashboard',
-                element: withSuspense(ESSDashboard)
+                element: withSuspense(EmployeeDashboard)
               },
               {
                 path: '',
-                element: withSuspense(ESSDashboard) // default
+                element: withSuspense(EmployeeDashboard)
               }
             ]
           }

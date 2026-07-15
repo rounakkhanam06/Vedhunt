@@ -60,6 +60,13 @@ const supportTicketSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Admin'
     },
+    messages: [{
+      senderModel: { type: String, enum: ['Client', 'Admin', 'Employee'] },
+      senderId: { type: mongoose.Schema.Types.ObjectId },
+      senderName: { type: String },
+      text: { type: String, required: true },
+      createdAt: { type: Date, default: Date.now }
+    }],
   },
   { timestamps: true }
 );

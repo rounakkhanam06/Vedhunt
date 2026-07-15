@@ -23,6 +23,8 @@ const SupportTab = () => {
   const [showForm, setShowForm] = useState(false);
   const [statusFilter, setStatusFilter] = useState('');
   const [expandedId, setExpandedId] = useState(null);
+  const [newMessage, setNewMessage] = useState('');
+  const [sendingMsg, setSendingMsg] = useState(false);
   const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
   const formRef = useRef(null);
 
@@ -67,6 +69,25 @@ const SupportTab = () => {
   }, [statusFilter]);
 
   useEffect(() => { fetchTickets(1); }, [fetchTickets]);
+
+  const handleSendMessage = async (e, ticketId) => {
+    e.preventDefault();
+    if (!newMessage.trim()) return;
+    setSendingMsg(true);
+    try {
+      const res = await clientService.addTicketMessage(ticketId, newMessage);
+      if (res.success) {
+        setNewMessage('');
+        toast.success('Message sent');
+        fetchTickets(pagination.page); // Refresh list
+      }
+    } catch (err) {
+      toast.error('Failed to send message');
+    } finally {
+      setSendingMsg(false);
+    }
+  };
+
 
   const handleSubmit = async (e) => {
     e.preventDefault();

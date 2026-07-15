@@ -533,7 +533,11 @@ router.get('/tickets', async (req, res) => {
     const [tickets, total] = await Promise.all([
       SupportTicket.find(filter)
         .populate('client_ref', 'businessName contactName email clientId')
-        .populate('assignedTo', 'firstName lastName email')
+        .populate({
+          path: 'assignedTo',
+          select: 'firstName lastName email roles',
+          populate: { path: 'roles', select: 'name' }
+        })
         .select('+resolution') // admin sees full fields
         .sort({ createdAt: -1 })
         .skip(skip)
@@ -554,7 +558,11 @@ router.get('/tickets/:id', async (req, res) => {
     if (!isValidId(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid ticket ID' });
     const ticket = await SupportTicket.findById(req.params.id)
       .populate('client_ref', 'businessName contactName email clientId')
-      .populate('assignedTo', 'firstName lastName email')
+      .populate({
+        path: 'assignedTo',
+        select: 'firstName lastName email roles',
+        populate: { path: 'roles', select: 'name' }
+      })
       .select('+resolution');
     if (!ticket) return res.status(404).json({ success: false, message: 'Ticket not found' });
     res.json({ success: true, data: ticket.toObject({ virtuals: true }) });
@@ -572,7 +580,7 @@ router.put('/tickets/:id', async (req, res) => {
     if (status) update.status = status;
     if (priority) update.priority = priority;
     if (resolution !== undefined) update.resolution = resolution;
-    if (assignedTo) update.assignedTo = assignedTo;
+    if (assignedTo !== undefined) update.assignedTo = assignedTo || null;
 
     const ticket = await SupportTicket.findByIdAndUpdate(req.params.id, update, { new: true, runValidators: true });
     if (!ticket) return res.status(404).json({ success: false, message: 'Ticket not found' });
@@ -585,7 +593,7 @@ router.put('/tickets/:id', async (req, res) => {
 
 router.post('/tickets', async (req, res) => {
   try {
-    const { client_ref, subject, description, category, priority, status, resolution } = req.body;
+    const { client_ref, subject, description, category, priority, status, resolution, assignedTo } = req.body;
     if (!client_ref || !subject || !description || !category) {
       return res.status(400).json({ success: false, message: 'Missing required fields' });
     }
@@ -597,12 +605,38 @@ router.post('/tickets', async (req, res) => {
       priority,
       status,
       resolution,
-      assignedTo: req.user._id,
+      assignedTo: assignedTo || req.user._id,
     });
     await ticket.save();
     res.status(201).json({ success: true, message: 'Ticket created', data: ticket.toObject({ virtuals: true }) });
   } catch (error) {
     logger.error('Admin create ticket error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+router.post('/tickets/:id/messages', async (req, res) => {
+  try {
+    if (!isValidId(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid ticket ID' });
+    const { text } = req.body;
+    if (!text) return res.status(400).json({ success: false, message: 'Message text is required' });
+    
+    const ticket = await SupportTicket.findById(req.params.id);
+    if (!ticket) return res.status(404).json({ success: false, message: 'Ticket not found' });
+    
+    const senderName = req.user.firstName ? `${req.user.firstName} ${req.user.lastName || ''}`.trim() : 'Admin';
+    
+    ticket.messages.push({
+      senderModel: 'Admin',
+      senderId: req.user._id,
+      senderName,
+      text
+    });
+    
+    await ticket.save();
+    res.json({ success: true, message: 'Message sent', data: ticket.toObject({ virtuals: true }) });
+  } catch (error) {
+    logger.error('Admin add ticket message error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });

@@ -87,6 +87,11 @@ const clientService = {
     return data;
   },
 
+  addTicketMessage: async (id, text) => {
+    const { data } = await clientApi.post(`/client/tickets/${id}/messages`, { text });
+    return data;
+  },
+
   // ─── Payments ────────────────────────────────────────────────────────────
   submitPaymentProof: async (payload) => {
     const { data } = await clientApi.post('/client/payments', payload);

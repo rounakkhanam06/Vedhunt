@@ -361,4 +361,42 @@ router.get('/tickets/:id', async (req, res) => {
   }
 });
 
+/**
+ * @route  POST /api/client/tickets/:id/messages
+ * @desc   Add message to ticket (client)
+ * @access Client Private
+ */
+router.post('/tickets/:id/messages', async (req, res) => {
+  try {
+    const { text } = req.body;
+    if (!text) return res.status(400).json({ success: false, message: 'Message text is required' });
+    
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ success: false, message: 'Invalid ticket ID' });
+    }
+
+    const ticket = await SupportTicket.findOne({
+      _id: req.params.id,
+      client_ref: req.client._id,
+    });
+
+    if (!ticket) {
+      return res.status(404).json({ success: false, message: 'Ticket not found' });
+    }
+
+    ticket.messages.push({
+      senderModel: 'Client',
+      senderId: req.client._id,
+      senderName: req.client.contactName || 'Client',
+      text
+    });
+
+    await ticket.save();
+    res.json({ success: true, message: 'Message sent', data: ticket.toObject({ virtuals: true }) });
+  } catch (error) {
+    logger.error('Client add ticket message error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
 module.exports = router;
