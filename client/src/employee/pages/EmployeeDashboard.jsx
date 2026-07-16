@@ -146,7 +146,7 @@ const EmployeeDashboard = () => {
           setKpiTargets(scRes.data.targets || []);
         }
       }
-      const histRes = await employeeApi.get('/employee-portal/ess/performance/history/me');
+      const histRes = await employeeApi.get('/performance/history/me');
       if (histRes.data.success) {
         setPerformanceHistory(histRes.data.history || []);
       }
@@ -1137,21 +1137,21 @@ const EmployeeDashboard = () => {
               <div className="md:col-span-2 bg-[#141416] p-6 rounded-xl border border-white/5 relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/10 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none" />
                 <h3 className="text-gray-400 text-sm font-bold uppercase tracking-wider mb-1">Current Cycle</h3>
-                <div className="text-2xl font-black text-white mb-4">
+                <div className="text-xl md:text-2xl font-extrabold text-white mb-4 leading-tight">
                   {activeCycle ? activeCycle.title : 'No Active Cycle'}
                 </div>
                 {activeCycle ? (
-                  <div className="flex gap-6 text-sm">
+                  <div className="flex flex-wrap gap-4 md:gap-6 text-sm">
                     <div>
-                      <div className="text-gray-500 text-xs">Start Date</div>
+                      <div className="text-gray-500 text-xs uppercase tracking-wider mb-0.5">Start Date</div>
                       <div className="font-bold text-gray-300">{new Date(activeCycle.startDate).toLocaleDateString()}</div>
                     </div>
                     <div>
-                      <div className="text-gray-500 text-xs">End Date</div>
+                      <div className="text-gray-500 text-xs uppercase tracking-wider mb-0.5">End Date</div>
                       <div className="font-bold text-gray-300">{new Date(activeCycle.endDate).toLocaleDateString()}</div>
                     </div>
                     <div>
-                      <div className="text-gray-500 text-xs">Status</div>
+                      <div className="text-gray-500 text-xs uppercase tracking-wider mb-0.5">Status</div>
                       <div className="font-bold text-emerald-400">Active</div>
                     </div>
                   </div>

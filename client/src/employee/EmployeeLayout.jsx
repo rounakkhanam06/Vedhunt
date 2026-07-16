@@ -77,13 +77,14 @@ const EmployeeLayout = () => {
                 key={item.name}
                 to={item.path}
                 className={`
-                  flex items-center gap-4 py-2.5 px-4 transition-all duration-300
+                  flex items-center gap-4 py-2.5 px-4 transition-all duration-300 relative rounded-l-[30px]
+                  before:content-[""] before:absolute before:right-0 before:-top-6 before:w-6 before:h-6 before:bg-transparent before:rounded-br-[30px] before:transition-all before:duration-300
+                  after:content-[""] after:absolute after:right-0 after:-bottom-6 after:w-6 after:h-6 after:bg-transparent after:rounded-tr-[30px] after:transition-all after:duration-300
                   ${isActive
-                    ? 'bg-[#0d0d0f] text-[#FF8533] rounded-l-[30px] rounded-r-none relative before:content-[""] before:absolute before:right-0 before:-top-6 before:w-6 before:h-6 before:bg-transparent before:rounded-br-[30px] before:shadow-[15px_15px_0_15px_#0d0d0f] after:content-[""] after:absolute after:right-0 after:-bottom-6 after:w-6 after:h-6 after:bg-transparent after:rounded-tr-[30px] after:shadow-[15px_-15px_0_15px_#0d0d0f] font-bold'
-                    : 'text-white/80 hover:text-white hover:bg-white/10 rounded-l-[30px] mr-4 font-medium'
+                    ? 'bg-[#0d0d0f] text-[#FF8533] mr-0 rounded-r-none before:shadow-[15px_15px_0_15px_#0d0d0f] after:shadow-[15px_-15px_0_15px_#0d0d0f] font-bold'
+                    : 'bg-transparent text-white/80 hover:text-white hover:bg-white/10 mr-4 rounded-r-[30px] before:shadow-[15px_15px_0_15px_transparent] after:shadow-[15px_-15px_0_15px_transparent] font-medium'
                   }
                 `}
-                onClick={() => setIsMobileMenuOpen(false)}
               >
                 <Icon className="w-5 h-5 flex-shrink-0" />
                 <span>{item.name}</span>
@@ -118,10 +119,10 @@ const EmployeeLayout = () => {
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <header className="lg:hidden h-16 flex items-center justify-between px-4 sm:px-6 bg-[#141416] border-b border-white/5">
-          <img src={darkLogo} alt="Vedhunt Logo" className="h-8 w-auto" />
           <button onClick={() => setIsMobileMenuOpen(true)} className="text-gray-400 hover:text-white">
             <Menu size={24} />
           </button>
+          <img src={darkLogo} alt="Vedhunt Logo" className="h-10 w-auto object-contain scale-[1.2] origin-right brightness-0 invert" />
         </header>
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-[#0d0d0f]">
           <Outlet />
