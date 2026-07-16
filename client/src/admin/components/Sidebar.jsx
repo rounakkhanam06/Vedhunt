@@ -113,6 +113,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
         { name: 'Cookie Policy', path: '/admin/cookie-policy' },
         { name: 'Data Processing Agreement', path: '/admin/data-processing-agreement' },
         { name: 'Refund & Billing Policy', path: '/admin/refund-policy' },
+        { name: 'Service Agreement', path: '/admin/service-agreement' },
       ]
     },
     {

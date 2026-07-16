@@ -10,6 +10,7 @@ const SupportTicket = require('../models/SupportTicket');
 const Lead = require('../models/Lead');
 const logger = require('../utils/logger');
 const { sendEmail } = require('../utils/sendEmail');
+const { updateAgreement, getAgreement } = require('../controllers/agreementController');
 
 const router = express.Router();
 
@@ -652,5 +653,12 @@ router.delete('/tickets/:id', async (req, res) => {
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
+
+// ══════════════════════════════════════════════════════════════════════════════
+// AGREEMENT
+// ══════════════════════════════════════════════════════════════════════════════
+
+router.get('/agreement', getAgreement);
+router.put('/agreement', updateAgreement);
 
 module.exports = router;

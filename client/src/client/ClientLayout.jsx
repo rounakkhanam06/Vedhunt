@@ -1,5 +1,5 @@
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Toaster } from 'react-hot-toast';
 import { useClientStore } from '../store/useClientStore';
 import logo from '../assets/DarkthemeLogo.png';
@@ -11,20 +11,44 @@ import {
   LogOut,
   Menu,
   X,
-  ChevronRight,
 } from 'lucide-react';
+import clientApi from '../services/clientApi';
+import ServiceAgreementAcceptance from './pages/ServiceAgreementAcceptance';
 
 const TABS = [
   { id: 'billing',   label: 'Billing',    icon: FileText,      path: '/client/dashboard?tab=billing' },
   { id: 'projects',  label: 'Projects',   icon: Rocket,        path: '/client/dashboard?tab=projects' },
   { id: 'retainers', label: 'Retainers',  icon: RefreshCcw,    path: '/client/dashboard?tab=retainers' },
   { id: 'support',   label: 'Support',    icon: LifeBuoy,      path: '/client/dashboard?tab=support' },
+  { id: 'agreement', label: 'Agreement',  icon: FileText,      path: '/client/dashboard?tab=agreement' },
 ];
 
 const ClientLayout = () => {
   const { client, logout } = useClientStore();
   const navigate = useNavigate();
   const location = useLocation();
+
+  const [agreement, setAgreement] = useState(null);
+  const [checkingAgreement, setCheckingAgreement] = useState(true);
+
+  useEffect(() => {
+    fetchAgreement();
+  }, [client]);
+
+  const fetchAgreement = async () => {
+    try {
+      const { data } = await clientApi.get('/client/agreement');
+      setAgreement(data);
+    } catch (error) {
+      console.error('Error fetching agreement:', error);
+    } finally {
+      setCheckingAgreement(false);
+    }
+  };
+
+  const needsAgreement = 
+    agreement && 
+    (client?.acceptedAgreementVersion || 0) < agreement.version;
 
   const currentTab = new URLSearchParams(location.search).get('tab') || 'billing';
 
@@ -36,6 +60,23 @@ const ClientLayout = () => {
   const handleTabClick = (tab) => {
     navigate(`/client/dashboard?tab=${tab.id}`);
   };
+
+  if (checkingAgreement) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-bg-primary">
+        <div className="w-12 h-12 rounded-full border-2 border-primary/20 border-t-[#FF5A1F] animate-spin" />
+      </div>
+    );
+  }
+
+  if (needsAgreement) {
+    return (
+      <ServiceAgreementAcceptance 
+        agreement={agreement} 
+        onAccept={() => fetchAgreement()} 
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-bg-primary text-[#E5E2E1] font-sans flex flex-col">
@@ -128,7 +169,7 @@ const ClientLayout = () => {
             >
               <Icon size={18} className={active ? 'text-primary' : 'text-[#9CA3AF]'} />
               <span className={`text-[10px] font-medium leading-none ${active ? 'text-primary font-semibold' : 'text-[#9CA3AF]'}`}>
-                {tab.id === 'billing' ? 'Billing' : tab.id === 'projects' ? 'Projects' : tab.id === 'retainers' ? 'Retainers' : 'Support'}
+                {tab.id === 'billing' ? 'Billing' : tab.id === 'projects' ? 'Projects' : tab.id === 'retainers' ? 'Retainers' : tab.id === 'support' ? 'Support' : 'Agreement'}
               </span>
               {active && (
                 <span className="absolute top-0 w-8 h-[2px] bg-primary rounded-full" />

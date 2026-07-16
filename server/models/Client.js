@@ -82,6 +82,13 @@ const clientSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Admin',
     },
+    acceptedAgreementVersion: {
+      type: Number,
+      default: 0,
+    },
+    agreementAcceptedAt: {
+      type: Date,
+    },
   },
   { timestamps: true }
 );

@@ -7,6 +7,7 @@ const Retainer = require('../models/Retainer');
 const SupportTicket = require('../models/SupportTicket');
 const Settings = require('../models/Settings');
 const logger = require('../utils/logger');
+const { getAgreement, acceptAgreement } = require('../controllers/agreementController');
 
 const router = express.Router();
 
@@ -398,5 +399,12 @@ router.post('/tickets/:id/messages', async (req, res) => {
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
+
+// ══════════════════════════════════════════════════════════════════════════════
+// AGREEMENT
+// ══════════════════════════════════════════════════════════════════════════════
+
+router.get('/agreement', getAgreement);
+router.post('/accept-agreement', acceptAgreement);
 
 module.exports = router;

@@ -43,6 +43,7 @@ const safeClientProfile = (client) => ({
   email: client.email,
   phone: client.phone,
   isTemporaryPassword: client.isTemporaryPassword,
+  acceptedAgreementVersion: client.acceptedAgreementVersion,
   createdAt: client.createdAt,
 });
 
