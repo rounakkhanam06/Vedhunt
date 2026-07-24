@@ -8,4 +8,4 @@ Disallow: /admin
 # Block landing pages (already has noindex meta)
 Disallow: /lp/
 
-Sitemap: https://vedhunt.in/sitemap.xml
+Sitemap: https://vedhunt.in/api/sitemap.xml

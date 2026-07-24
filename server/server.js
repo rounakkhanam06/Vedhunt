@@ -98,7 +98,7 @@ app.use(express.json({ limit: '10mb' })); // Body parser with increased limit fo
 app.use(cookieParser()); // Cookie parser
 
 // Dynamic Sitemap Generation Route
-app.get('/sitemap.xml', generateSitemap);
+app.get('/api/sitemap.xml', generateSitemap);
 
 // Serve public directory for local uploads
 app.use(express.static(path.join(__dirname, 'public')));
