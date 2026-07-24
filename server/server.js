@@ -164,6 +164,53 @@ if (process.env.NODE_ENV === 'production') {
   const clientBuildPath = path.join(__dirname, '../client/dist');
   app.use(express.static(clientBuildPath));
 
+  const fs = require('fs');
+  const Service = require('./models/Service');
+  const ServicePage = require('./models/ServicePage');
+
+  // Server-Side Render Open Graph Tags for Social Media Bots
+  app.get('/services/:slug', async (req, res) => {
+    try {
+      const slug = req.params.slug;
+      
+      // Fetch data
+      const serviceMain = await Service.findOne({ slug, isActive: true }).lean();
+      const serviceDetails = await ServicePage.findOne({ serviceSlug: slug, isActive: true }).lean();
+
+      let htmlData = fs.readFileSync(path.resolve(clientBuildPath, 'index.html'), 'utf8');
+
+      if (serviceMain && serviceDetails) {
+        const ogTitle = serviceDetails.metaTitle || serviceMain.metaTitle || serviceDetails.title || serviceMain.title;
+        const ogDesc = serviceDetails.metaDescription || serviceMain.metaDescription || serviceMain.shortDescription;
+        const ogImage = serviceDetails.ogImage || serviceMain.imageUrl || 'https://vedhunt.in/og-banner.jpg';
+        const canonicalUrl = `https://vedhunt.in/services/${slug}`;
+
+        const metaTags = `
+          <title>${ogTitle}</title>
+          <meta name="description" content="${ogDesc}" />
+          <meta property="og:site_name" content="Vedhunt Infotech" />
+          <meta property="og:type" content="website" />
+          <meta property="og:title" content="${ogTitle}" />
+          <meta property="og:description" content="${ogDesc}" />
+          <meta property="og:url" content="${canonicalUrl}" />
+          <meta property="og:image" content="${ogImage}" />
+          <meta name="twitter:card" content="summary_large_image" />
+          <meta name="twitter:title" content="${ogTitle}" />
+          <meta name="twitter:description" content="${ogDesc}" />
+          <meta name="twitter:image" content="${ogImage}" />
+        `;
+
+        // Inject the meta tags right before </head>
+        htmlData = htmlData.replace('</head>', `${metaTags}</head>`);
+      }
+
+      res.send(htmlData);
+    } catch (error) {
+      console.error('Error serving dynamic OG tags:', error);
+      res.sendFile(path.resolve(clientBuildPath, 'index.html'));
+    }
+  });
+
   app.get('*all', (req, res) => {
     res.sendFile(path.resolve(clientBuildPath, 'index.html'));
   });
