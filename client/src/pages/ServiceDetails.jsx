@@ -405,13 +405,62 @@ export default function ServiceDetails() {
     ? testimonials 
     : (testimonial && testimonial.author ? [testimonial] : []);
 
-  // Animation variants are defined at module level above — no re-creation per render
+  const ogTitle = serviceDetails.metaTitle || serviceMain.metaTitle || serviceDetails.title || serviceMain.title;
+  const ogDesc = serviceDetails.metaDescription || serviceMain.metaDescription || serviceMain.shortDescription;
+  const baseUrl = import.meta.env.VITE_APP_URL || 'https://vedhunt.in';
+  const canonicalUrl = `${baseUrl}/services/${slug}`;
+  const ogImage = serviceDetails.ogImage || serviceMain.imageUrl || `${baseUrl}/og-banner.jpg`;
+
+  const structuredData = {
+    "@context": "https://schema.org",
+    "@type": "Service",
+    "name": title || serviceMain.title,
+    "description": ogDesc,
+    "url": canonicalUrl,
+    "image": ogImage,
+    "serviceType": title || serviceMain.title,
+    "areaServed": "Global",
+    "provider": {
+      "@type": "Organization",
+      "name": "Vedhunt Infotech",
+      "url": "https://vedhunt.in",
+      "logo": "https://vedhunt.in/og-banner.jpg",
+      "sameAs": [
+        "https://www.facebook.com/Vedhunt6",
+        "https://www.linkedin.com/company/vedhunt-infotech",
+        "https://www.instagram.com/vedhunt/"
+      ]
+    }
+  };
 
   return (
     <>
       <Helmet>
-        <title>{serviceDetails.metaTitle || serviceMain.metaTitle || serviceDetails.title || serviceMain.title}</title>
-        <meta name="description" content={serviceDetails.metaDescription || serviceMain.metaDescription || serviceMain.shortDescription} />
+        <title>{ogTitle}</title>
+        <meta name="description" content={ogDesc} />
+        
+        {/* Canonical & Robots */}
+        <link rel="canonical" href={canonicalUrl} />
+        <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+
+        {/* Open Graph / Facebook / LinkedIn */}
+        <meta property="og:site_name" content="Vedhunt Infotech" />
+        <meta property="og:type" content="website" />
+        <meta property="og:title" content={ogTitle} />
+        <meta property="og:description" content={ogDesc} />
+        <meta property="og:url" content={canonicalUrl} />
+        <meta property="og:image" content={ogImage} />
+
+        {/* Twitter */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content={ogTitle} />
+        <meta name="twitter:description" content={ogDesc} />
+        <meta name="twitter:image" content={ogImage} />
+
+        {/* Structured Data (JSON-LD) */}
+        <script type="application/ld+json">
+          {JSON.stringify(structuredData)}
+        </script>
       </Helmet>
 
       <div className="bg-app-bg text-app-text min-h-screen relative overflow-hidden font-sans selection:bg-primary/20 selection:text-primary">
