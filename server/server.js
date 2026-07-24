@@ -45,6 +45,7 @@ const employeePortalRoutes = require('./routes/employeePortalRoutes');
 const performanceRoutes = require('./routes/performanceRoutes');
 const analyticsRoutes = require('./routes/analyticsRoutes');
 const { seedServicePages } = require('./controllers/servicePageSeeder');
+const { generateSitemap } = require('./controllers/sitemapController');
 
 // Client Portal Routes (isolated from admin auth)
 const clientAuthRoutes = require('./routes/clientAuthRoutes');
@@ -95,6 +96,9 @@ app.use('/api/leads/webhook', webhookRoutes);
 
 app.use(express.json({ limit: '10mb' })); // Body parser with increased limit for rich text
 app.use(cookieParser()); // Cookie parser
+
+// Dynamic Sitemap Generation Route
+app.get('/sitemap.xml', generateSitemap);
 
 // Serve public directory for local uploads
 app.use(express.static(path.join(__dirname, 'public')));
