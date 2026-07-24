@@ -3,13 +3,13 @@ import clientApi from '../../services/clientApi';
 import { toast } from 'react-hot-toast';
 import { FileText, CheckCircle2 } from 'lucide-react';
 import { useClientStore } from '../../store/useClientStore';
-import AgreementHeader from '../components/AgreementHeader';
+import AgreementTemplate from '../components/AgreementTemplate';
 import DOMPurify from 'dompurify'; // Assuming DOMPurify is used, if not available, we render normally but it's safe since it's from admin.
 
 const ServiceAgreementAcceptance = ({ agreement, onAccept }) => {
   const [accepted, setAccepted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const { checkAuth } = useClientStore();
+  const { client, checkAuth } = useClientStore();
 
   const handleAccept = async () => {
     if (!accepted) return;
@@ -40,11 +40,7 @@ const ServiceAgreementAcceptance = ({ agreement, onAccept }) => {
 
         <div className="p-0 overflow-y-auto flex-1 bg-[#1A1F2B]">
           <div className="bg-white max-w-4xl mx-auto shadow-sm">
-            <AgreementHeader />
-            <div 
-              className="prose max-w-none text-black p-8 pt-0"
-              dangerouslySetInnerHTML={{ __html: agreement.content }}
-            />
+            <AgreementTemplate client={client} />
           </div>
         </div>
 

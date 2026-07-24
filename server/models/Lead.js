@@ -143,6 +143,25 @@ const leadSchema = new mongoose.Schema({
     enum: ['New', 'Contacted', 'Qualified', 'Proposal Sent', 'Negotiation', 'Won', 'Lost', 'Dropped'],
     default: 'New'
   },
+  
+  pipelineHistory: [{
+    status: {
+      type: String,
+      required: true
+    },
+    date: {
+      type: Date,
+      default: Date.now
+    },
+    updatedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Employee'
+    },
+    note: {
+      type: String,
+      trim: true
+    }
+  }],
 
   // ── Revenue / Deal Tracking ───────────────────────────────────────────────
   dealValue: {

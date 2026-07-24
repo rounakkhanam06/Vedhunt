@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import clientApi from '../../../services/clientApi';
+import clientApi from "../../services/clientApi";
 import { toast } from 'react-hot-toast';
 import { FileText, Download } from 'lucide-react';
 import html2pdf from 'html2pdf.js';

@@ -89,6 +89,41 @@ const clientSchema = new mongoose.Schema(
     agreementAcceptedAt: {
       type: Date,
     },
+    agreementDetails: {
+      domain: { type: String, default: '' },
+      agreementDate: { type: Date },
+      effectiveDate: { type: Date },
+      serviceName: { type: String, default: 'Performance Marketing management' },
+      platforms: { 
+        type: [String], 
+        default: [
+          'Meta Ads (Facebook & Instagram) — campaign strategy, setup, audience targeting, budget management, and daily optimization.',
+          'Google Ads — Search and Shopping campaign strategy, setup, keyword/audience targeting, budget management, and daily optimization.'
+        ] 
+      },
+      deliverables: {
+        type: [String],
+        default: [
+          'Campaign strategy aligned to the Client\'s objective of driving website purchases (ROAS-driven).',
+          'Meta Pixel & Conversions API (CAPI) setup and Google conversion tracking implementation, with test events removed before go-live.',
+          'Daily monitoring and optimization of live campaigns across Meta and Google.',
+          'Access to a live excel performance dashboard tracking Spend, Results, ROAS, and campaign-level metrics.',
+          'Monthly performance summary covering month-on-month growth, platform comparison, and creative performance (static vs. video script).'
+        ]
+      },
+      exclusions: {
+        type: [String],
+        default: [
+          'Ad spend on Meta and Google platforms — billed separately to the Client at actuals with no markup (see Clause 2).',
+          'Creative production (photography, videography, UGC content sourcing) beyond guidance on creative strategy.',
+          'Website, landing page, or product catalog development and maintenance.',
+          'Influencer or third-party talent fees.'
+        ]
+      },
+      monthlyFee: { type: Number, default: 15000 },
+      gstAmount: { type: Number, default: 2700 },
+      totalPayable: { type: Number, default: 17700 }
+    }
   },
   { timestamps: true }
 );

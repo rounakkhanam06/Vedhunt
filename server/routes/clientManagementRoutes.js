@@ -202,7 +202,7 @@ router.put('/clients/:id', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid client ID' });
     }
 
-    const { businessName, contactName, email, phone, notes, isActive, newPassword } = req.body;
+    const { businessName, contactName, email, phone, notes, isActive, newPassword, agreementDetails } = req.body;
 
     const client = await Client.findById(req.params.id).select('+password');
     if (!client) {
@@ -219,6 +219,9 @@ router.put('/clients/:id', async (req, res) => {
       client.password = newPassword;
       client.temporaryPasswordText = newPassword;
       client.isTemporaryPassword = true;
+    }
+    if (agreementDetails) {
+      client.agreementDetails = { ...client.agreementDetails, ...agreementDetails };
     }
 
     await client.save();

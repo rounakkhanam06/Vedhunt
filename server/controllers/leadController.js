@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Lead = require('../models/Lead');
 const Settings = require('../models/Settings');
 const { sendEmail } = require('../utils/sendEmail');
@@ -53,7 +54,11 @@ exports.createLead = async (req, res, next) => {
       utmMedium,
       utmCampaign,
       utmContent,
-      utmTerm
+      utmTerm,
+      pipelineHistory: [{
+        status: 'New',
+        note: 'Lead Received'
+      }]
     });
 
     // Send email to HR/Admin
@@ -191,24 +196,58 @@ exports.updateLead = async (req, res, next) => {
       allowedUpdates = allowedUpdates.filter(field => !protectedFields.includes(field));
     }
 
-    const updates = {};
+    let updates = {};
     for (const key of Object.keys(req.body)) {
       if (allowedUpdates.includes(key)) {
         updates[key] = req.body[key];
       }
     }
 
-    const lead = await Lead.findByIdAndUpdate(
-      req.params.id,
-      updates,
-      { new: true, runValidators: true }
-    );
+    // Bypass Mongoose casting to find the lead (handles both String and ObjectId)
+    const db = mongoose.connection.db;
+    let existingLead = await db.collection('leads').findOne({ _id: req.params.id });
+    if (!existingLead && mongoose.Types.ObjectId.isValid(req.params.id)) {
+      existingLead = await db.collection('leads').findOne({ _id: new mongoose.Types.ObjectId(req.params.id) });
+    }
 
-    if (!lead) {
+    if (!existingLead) {
       return res.status(404).json({ success: false, message: 'Lead not found' });
     }
 
-    res.status(200).json({ success: true, data: lead });
+    let pushUpdate = null;
+    if (updates.status && updates.status !== existingLead.status) {
+      let note = '';
+      if (updates.status === 'Won' && req.body.dealValue) note = `Closed with value ₹${req.body.dealValue}`;
+      else if ((updates.status === 'Lost' || updates.status === 'Dropped') && req.body.notConvertedReason) note = `Reason: ${req.body.notConvertedReason}`;
+      
+      pushUpdate = {
+        pipelineHistory: {
+          status: updates.status,
+          date: new Date(),
+          updatedBy: req.user ? req.user._id : undefined,
+          note
+        }
+      };
+    }
+
+    // Set updated At
+    updates.updatedAt = new Date();
+
+    // Use raw findOneAndUpdate to bypass ObjectId casting
+    const updateQuery = { $set: updates };
+    if (pushUpdate) {
+      updateQuery.$push = pushUpdate;
+    }
+
+    const result = await db.collection('leads').findOneAndUpdate(
+      { _id: existingLead._id },
+      updateQuery,
+      { returnDocument: 'after' }
+    );
+    
+    const updatedLead = result.value || result;
+
+    res.status(200).json({ success: true, data: updatedLead });
   } catch (error) {
     logger.error('Error updating lead:', error);
     next(error);

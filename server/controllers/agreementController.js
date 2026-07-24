@@ -69,7 +69,7 @@ const acceptAgreement = async (req, res) => {
       return res.status(400).json({ message: 'Agreement version is required' });
     }
 
-    const client = await Client.findById(req.user._id);
+    const client = await Client.findById(req.client._id);
     if (!client) {
       return res.status(404).json({ message: 'Client not found' });
     }

@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import api from '../../services/api';
 import { motion } from 'framer-motion';
-import { Mail, Phone, Clock, Globe, Briefcase, FileText, CheckCircle2, Search, Filter, ChevronDown, ChevronLeft, ChevronRight, Eye, X, Play, Square, Save, Download } from 'lucide-react';
+import { Mail, Phone, Clock, Globe, Briefcase, FileText, CheckCircle2, Search, Filter, ChevronDown, ChevronLeft, ChevronRight, Eye, X, Play, Square, Save, Download, LayoutGrid, Table } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { usePermissions } from '../hooks/usePermissions';
+import LeadsPipelineView from '../components/LeadsPipelineView';
 
 export default function LeadsManager() {
   const { can } = usePermissions();
@@ -12,6 +13,7 @@ export default function LeadsManager() {
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedLead, setSelectedLead] = useState(null);
+  const [viewMode, setViewMode] = useState(() => localStorage.getItem('leadsViewMode') || 'table');
   
   // Pagination & Filters state
   const [searchTerm, setSearchTerm] = useState('');
@@ -43,6 +45,11 @@ export default function LeadsManager() {
       setSortOrder('desc');
     }
     setCurrentPage(1);
+  };
+
+  const handleViewModeChange = (mode) => {
+    setViewMode(mode);
+    localStorage.setItem('leadsViewMode', mode);
   };
 
   // Fetch leads when dependencies change
@@ -237,6 +244,27 @@ export default function LeadsManager() {
         </div>
       </div>
 
+      {/* View Toggle */}
+      <div className="flex bg-app-card border border-app-border p-1 rounded-lg w-max">
+        <button
+          onClick={() => handleViewModeChange('table')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-bold transition-all ${
+            viewMode === 'table' ? 'bg-primary text-black' : 'text-app-text-muted hover:text-app-text'
+          }`}
+        >
+          <Table size={16} /> Table
+        </button>
+        <button
+          onClick={() => handleViewModeChange('pipeline')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-bold transition-all ${
+            viewMode === 'pipeline' ? 'bg-primary text-black' : 'text-app-text-muted hover:text-app-text'
+          }`}
+        >
+          <LayoutGrid size={16} /> Pipeline
+        </button>
+      </div>
+
+
       {/* Filters & Search */}
       <div className="flex flex-col sm:flex-row gap-4 bg-app-card p-4 rounded-xl border border-app-border">
         <div className="relative flex-grow">
@@ -319,6 +347,15 @@ export default function LeadsManager() {
         <div className="flex items-center justify-center min-h-[400px]">
           <div className="w-8 h-8 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
         </div>
+      ) : viewMode === 'pipeline' ? (
+        <LeadsPipelineView 
+          leads={leads}
+          isSuperAdmin={isSuperAdmin}
+          handleFieldChange={handleFieldChange}
+          startCall={startCall}
+          endCall={endCall}
+          setSelectedLead={setSelectedLead}
+        />
       ) : (
         <>
           <div className="w-full">
@@ -870,6 +907,53 @@ export default function LeadsManager() {
                   </div>
                 </div>
               )}
+
+              {/* Pipeline Journey */}
+              <div className="bg-app-bg border border-app-border rounded-xl p-4">
+                <label className="text-xs text-primary font-bold uppercase tracking-wider mb-4 flex items-center gap-2">
+                  <Clock size={14} /> Pipeline Journey
+                </label>
+                <div className="space-y-0">
+                  {(selectedLead.pipelineHistory && selectedLead.pipelineHistory.length > 0) ? (
+                    selectedLead.pipelineHistory.map((history, idx) => (
+                      <div key={idx} className="flex gap-4">
+                        <div className="flex flex-col items-center">
+                          <div className={`w-3 h-3 rounded-full mt-1 ${history.status === 'Won' ? 'bg-green-500' : (history.status === 'Lost' || history.status === 'Dropped') ? 'bg-red-500' : 'bg-primary'}`} />
+                          {idx !== selectedLead.pipelineHistory.length - 1 && (
+                            <div className="w-0.5 h-full bg-app-border my-1" />
+                          )}
+                        </div>
+                        <div className="pb-4">
+                          <p className="text-sm font-bold text-app-text">{history.status}</p>
+                          <p className="text-xs text-app-text-muted mt-0.5">{new Date(history.date).toLocaleString()}</p>
+                          {history.note && (
+                            <p className="text-xs text-app-text-muted mt-1 italic border-l-2 border-primary/30 pl-2 py-0.5">{history.note}</p>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="flex gap-4">
+                      <div className="flex flex-col items-center">
+                        <div className="w-3 h-3 rounded-full mt-1 bg-primary" />
+                        <div className="w-0.5 h-12 bg-app-border my-1" />
+                        <div className={`w-3 h-3 rounded-full ${selectedLead.status === 'Won' ? 'bg-green-500' : (selectedLead.status === 'Lost' || selectedLead.status === 'Dropped') ? 'bg-red-500' : 'bg-primary'}`} />
+                      </div>
+                      <div>
+                        <div className="pb-4">
+                          <p className="text-sm font-bold text-app-text">New</p>
+                          <p className="text-xs text-app-text-muted mt-0.5">{new Date(selectedLead.createdAt).toLocaleString()}</p>
+                          <p className="text-xs text-app-text-muted mt-1 italic border-l-2 border-primary/30 pl-2 py-0.5">Lead Received (Legacy)</p>
+                        </div>
+                        <div className="pb-2">
+                          <p className="text-sm font-bold text-app-text">{selectedLead.status}</p>
+                          <p className="text-xs text-app-text-muted mt-0.5">Current Status</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
             <div className="p-4 border-t border-app-border flex justify-end gap-3 bg-app-card sticky bottom-0 z-10">
               {isSuperAdmin && (

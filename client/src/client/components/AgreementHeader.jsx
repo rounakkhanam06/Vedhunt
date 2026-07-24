@@ -44,10 +44,6 @@ const AgreementHeader = () => {
         </div>
       </div>
 
-      {/* Title */}
-      <div className="text-center mt-6">
-        <h2 className="text-[#0B2B5E] text-2xl font-bold tracking-wide">SERVICE AGREEMENT</h2>
-      </div>
     </div>
   );
 };
