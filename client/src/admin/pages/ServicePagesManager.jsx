@@ -14,6 +14,8 @@ const ServicePagesManager = () => {
     title: '',
     subtitle: '',
     tagline: '',
+    metaTitle: '',
+    metaDescription: '',
     overview: '',
     subServices: [],
     pricing: null,
@@ -68,6 +70,8 @@ const ServicePagesManager = () => {
       title: service.title || '',
       subtitle: service.subtitle || '',
       tagline: service.tagline || '',
+      metaTitle: service.metaTitle || '',
+      metaDescription: service.metaDescription || '',
       overview: service.overview ? service.overview.join('\n\n') : '',
       subServices: service.subServices || [],
       pricing: service.pricing || null,
@@ -392,6 +396,8 @@ const ServicePagesManager = () => {
         title: formData.title,
         subtitle: formData.subtitle,
         tagline: formData.tagline,
+        metaTitle: formData.metaTitle,
+        metaDescription: formData.metaDescription,
         overview: formData.overview.split('\n\n').filter(p => p.trim() !== ''),
         subServices: formData.subServices,
         pricing: formData.pricing,
@@ -503,6 +509,37 @@ const ServicePagesManager = () => {
                 className="w-full bg-surface-variant/50 border border-outline-variant rounded-xl px-4 py-3 text-on-surface focus:border-admin-primary focus:ring-1 focus:ring-admin-primary outline-none transition-all resize-none"
                 placeholder="Blazing-fast, SEO-optimized custom web solutions..."
               />
+            </div>
+
+            {/* SEO Configuration (Optional) */}
+            <div className="bg-surface-variant/30 p-5 rounded-xl border border-outline-variant space-y-4">
+              <h3 className="text-sm font-bold text-on-surface flex items-center gap-2">
+                SEO Configuration <span className="text-[10px] font-normal px-2 py-0.5 bg-surface-variant rounded-full text-on-surface-variant">Optional</span>
+              </h3>
+              <div className="grid grid-cols-1 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-on-surface mb-1">Meta Title</label>
+                  <input
+                    type="text"
+                    name="metaTitle"
+                    value={formData.metaTitle}
+                    onChange={handleChange}
+                    className="w-full bg-surface-container border border-outline-variant rounded-lg px-3 py-2 text-sm text-on-surface focus:border-admin-primary focus:ring-1 focus:ring-admin-primary outline-none transition-all"
+                    placeholder="Leave blank to use default title"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-on-surface mb-1">Meta Description</label>
+                  <textarea
+                    name="metaDescription"
+                    value={formData.metaDescription}
+                    onChange={handleChange}
+                    rows={2}
+                    className="w-full bg-surface-container border border-outline-variant rounded-lg px-3 py-2 text-sm text-on-surface focus:border-admin-primary focus:ring-1 focus:ring-admin-primary outline-none transition-all resize-none"
+                    placeholder="Leave blank to use default short description"
+                  />
+                </div>
+              </div>
             </div>
 
             <div>

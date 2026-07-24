@@ -12,6 +12,8 @@ const serviceSchema = new mongoose.Schema(
     iconName: { type: String, required: true }, // e.g. 'Globe'
     features: [{ type: String }],
     cta: { type: String, default: 'Get Started' },
+    metaTitle: { type: String, trim: true },
+    metaDescription: { type: String, trim: true },
     imageUrl: { type: String },
     imagePublicId: { type: String },
     order: { type: Number, default: 0 },

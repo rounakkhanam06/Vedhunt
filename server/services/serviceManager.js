@@ -24,7 +24,7 @@ class ServiceManager {
 
     const services = await Service.find(query)
       .sort({ order: 1 })
-      .select('id_string slug title subtitle shortDescription description subServices iconName features cta imageUrl showOnHome showOnServicesPage _id')
+      .select('id_string slug title subtitle shortDescription description subServices iconName features cta imageUrl showOnHome showOnServicesPage metaTitle metaDescription _id')
       .lean();
 
     if (!publicServicesCache) {

@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ArrowLeft, 
@@ -24,6 +25,7 @@ import {
 import { SERVICES } from '../constants';
 import { SERVICE_DETAILS_DATA } from '../constants/serviceDetailsData';
 import api from '../services/api';
+import { contentService } from '../services/contentService';
 import { getCountryFlag } from '../utils/getCountryFlag';
 
 // Module-level Lucide cache — loaded once, reused across renders
@@ -318,7 +320,24 @@ export default function ServiceDetails() {
     
     const fetchServiceDetails = async () => {
       setLoading(true);
-      const foundMain = SERVICES.find(s => s.slug === slug);
+      const staticMain = SERVICES.find(s => s.slug === slug);
+      
+      if (!staticMain) {
+        navigate('/services');
+        return;
+      }
+
+      let dbMain = null;
+      try {
+        const res = await contentService.getServicesPublic();
+        if (res?.data) {
+          dbMain = res.data.find(s => s.slug === slug);
+        }
+      } catch (err) {
+        console.error('Failed to fetch db services for meta tags:', err);
+      }
+      
+      const foundMain = { ...staticMain, ...dbMain };
       
       if (!foundMain) {
         navigate('/services');
@@ -389,7 +408,13 @@ export default function ServiceDetails() {
   // Animation variants are defined at module level above — no re-creation per render
 
   return (
-    <div className="bg-app-bg text-app-text min-h-screen relative overflow-hidden font-sans selection:bg-primary/20 selection:text-primary">
+    <>
+      <Helmet>
+        <title>{serviceDetails.metaTitle || serviceMain.metaTitle || serviceDetails.title || serviceMain.title}</title>
+        <meta name="description" content={serviceDetails.metaDescription || serviceMain.metaDescription || serviceMain.shortDescription} />
+      </Helmet>
+
+      <div className="bg-app-bg text-app-text min-h-screen relative overflow-hidden font-sans selection:bg-primary/20 selection:text-primary">
       
       {/* Background Ambient Glows */}
       <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-primary/5 dark:bg-primary/5 rounded-full filter blur-[120px] -translate-y-1/3 translate-x-1/3 pointer-events-none z-0" />
@@ -1247,5 +1272,6 @@ export default function ServiceDetails() {
         )}
       </AnimatePresence>
     </div>
+    </>
   );
 }

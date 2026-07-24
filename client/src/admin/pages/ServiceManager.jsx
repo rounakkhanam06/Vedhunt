@@ -49,6 +49,8 @@ const ServiceManager = ({ isNested = false }) => {
     iconName: '',
     features: '',
     cta: 'Get Started',
+    metaTitle: '',
+    metaDescription: '',
     imageUrl: '',
     imagePublicId: '',
     isActive: true,
@@ -112,6 +114,8 @@ const ServiceManager = ({ isNested = false }) => {
         iconName: serviceData.iconName || '',
         features: serviceData.features || '',
         cta: serviceData.cta || 'Get Started',
+        metaTitle: serviceData.metaTitle || '',
+        metaDescription: serviceData.metaDescription || '',
         imageUrl: serviceData.imageUrl || '',
         imagePublicId: serviceData.imagePublicId || '',
         isActive: serviceData.isActive !== undefined ? serviceData.isActive : true,
@@ -131,6 +135,8 @@ const ServiceManager = ({ isNested = false }) => {
         iconName: '',
         features: '',
         cta: 'Get Started',
+        metaTitle: '',
+        metaDescription: '',
         imageUrl: '',
         imagePublicId: '',
         isActive: true,
@@ -618,6 +624,33 @@ const ServiceManager = ({ isNested = false }) => {
                       </label>
                     </div>
                   )}
+                </div>
+              </div>
+
+              {/* SEO Configuration (Optional) */}
+              <div className="bg-[#1A1A1A] p-4 rounded-xl border border-white/5 space-y-4">
+                <h4 className="text-sm font-semibold text-white">SEO Configuration (Optional)</h4>
+                <div className="grid grid-cols-1 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">Meta Title</label>
+                    <input
+                      type="text"
+                      className="w-full rounded-lg border border-white/10 bg-[#222222] px-3.5 py-2 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00] transition-colors"
+                      value={formData.metaTitle}
+                      onChange={(e) => setFormData({ ...formData, metaTitle: e.target.value })}
+                      placeholder="Leave blank to use default title"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">Meta Description</label>
+                    <textarea
+                      rows={2}
+                      className="w-full rounded-lg border border-white/10 bg-[#222222] px-3.5 py-2 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00] transition-colors"
+                      value={formData.metaDescription}
+                      onChange={(e) => setFormData({ ...formData, metaDescription: e.target.value })}
+                      placeholder="Leave blank to use short description"
+                    />
+                  </div>
                 </div>
               </div>
 

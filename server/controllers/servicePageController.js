@@ -38,6 +38,8 @@ const updateServicePage = async (req, res) => {
       title,
       subtitle,
       tagline,
+      metaTitle,
+      metaDescription,
       overview,
       highlights,
       subServices,
@@ -49,23 +51,30 @@ const updateServicePage = async (req, res) => {
       testimonials
     } = req.body;
 
-    const servicePage = await ServicePage.findOne({ slug: req.params.slug });
+    const updatedServicePage = await ServicePage.findOneAndUpdate(
+      { slug: req.params.slug },
+      {
+        $set: {
+          title: title || undefined,
+          subtitle: subtitle || undefined,
+          tagline: tagline || undefined,
+          metaTitle: metaTitle !== undefined ? metaTitle : undefined,
+          metaDescription: metaDescription !== undefined ? metaDescription : undefined,
+          overview: overview || undefined,
+          highlights: highlights || undefined,
+          subServices: subServices || undefined,
+          process: process || undefined,
+          pricing: pricing || undefined,
+          portfolio: portfolio || undefined,
+          faqs: faqs || undefined,
+          testimonial: testimonial || undefined,
+          testimonials: testimonials || undefined
+        }
+      },
+      { new: true, omitUndefined: true }
+    );
 
-    if (servicePage) {
-      servicePage.title = title || servicePage.title;
-      servicePage.subtitle = subtitle || servicePage.subtitle;
-      servicePage.tagline = tagline || servicePage.tagline;
-      servicePage.overview = overview || servicePage.overview;
-      servicePage.highlights = highlights || servicePage.highlights;
-      servicePage.subServices = subServices || servicePage.subServices;
-      servicePage.process = process || servicePage.process;
-      servicePage.pricing = pricing || servicePage.pricing;
-      servicePage.portfolio = portfolio || servicePage.portfolio;
-      servicePage.faqs = faqs || servicePage.faqs;
-      servicePage.testimonial = testimonial || servicePage.testimonial;
-      servicePage.testimonials = testimonials || servicePage.testimonials;
-
-      const updatedServicePage = await servicePage.save();
+    if (updatedServicePage) {
       res.json(updatedServicePage);
     } else {
       res.status(404).json({ message: 'Service page not found' });

@@ -5,6 +5,8 @@ const servicePageSchema = new mongoose.Schema({
   title: { type: String, required: true },
   subtitle: { type: String, required: true },
   tagline: { type: String, required: true },
+  metaTitle: { type: String, trim: true },
+  metaDescription: { type: String, trim: true },
   overview: [{ type: String }],
   highlights: [{
     text: { type: String },
