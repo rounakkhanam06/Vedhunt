@@ -39,6 +39,14 @@ const leadFormSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  // Question key -> human label, captured when the form is first seen. The
+  // lead payload only carries the slugified key, so this is what lets us
+  // render "What's your estimated project budget?" instead of the slug.
+  questions: [{
+    _id: false,
+    key: { type: String, trim: true },
+    label: { type: String, trim: true }
+  }],
   leadCount: {
     type: Number,
     default: 0

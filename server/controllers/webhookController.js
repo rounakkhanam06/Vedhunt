@@ -111,6 +111,30 @@ exports.receiveFacebookLead = async (req, res) => {
   }
 };
 
+/**
+ * Facebook's prefilled question keys, which vary between forms — the same
+ * phone field arrives as `phone_number` on one form and `phone` on another.
+ * Matching only one spelling silently drops the answer, so every known
+ * spelling is listed. Anything not in here is treated as a custom question
+ * and kept in the lead's message.
+ */
+const STANDARD_FIELDS = {
+  fullName:    ['full_name', 'name'],
+  firstName:   ['first_name'],
+  lastName:    ['last_name'],
+  email:       ['email', 'email_address', 'work_email'],
+  phone:       ['phone_number', 'phone', 'mobile_number', 'work_phone_number'],
+  city:        ['city'],
+  companyName: ['company_name'],
+  jobTitle:    ['job_title']
+};
+
+/** Turn a question key like `what's_your_timeline?` into a readable label. */
+function prettifyKey(key) {
+  const text = String(key || '').replace(/_/g, ' ').trim();
+  return text ? text.charAt(0).toUpperCase() + text.slice(1) : 'Answer';
+}
+
 async function processFacebookLead(leadData) {
   try {
     const fbLeadId = leadData.leadgen_id;
@@ -193,31 +217,71 @@ async function processFacebookLead(leadData) {
       return;
     }
 
+    // ── Platform Detection: Facebook vs Instagram ──────────────────────────────
+    // Instagram Lead Ads are delivered through the same page webhook, so the
+    // payload alone cannot tell them apart. The lead object's `platform` field
+    // is the authoritative signal: 'ig' for Instagram, 'fb' for Facebook.
+    const isInstagram = data.platform === 'ig' || data.platform === 'instagram';
+    const platform = isInstagram ? 'Instagram' : 'Facebook';
+    const utmSource = isInstagram ? 'instagram' : 'facebook';
+
+    // ── Form Routing ───────────────────────────────────────────────────────────
+    // Every form on the page delivers to this one webhook, so the form is what
+    // tells a BD hiring lead apart from a service enquiry. Resolved before the
+    // field mapping because it carries the question labels used below.
+    const form = await resolveLeadForm(formId, platform, pageAccessToken);
+    const formName = form?.name || `FB Form ${formId}`;
+    const leadType = form?.leadType || 'Sales';
+
+    const questionLabels = new Map(
+      (form?.questions || []).filter((q) => q.label).map((q) => [q.key, q.label])
+    );
+
     // ── Field Mapping ──────────────────────────────────────────────────────────
     let fullName     = 'Unknown';
     let email        = '';
     let phone        = 'Not provided';
     let city         = '';
     let businessName = '';
-    let service      = `FB Form ${formId}`;
+
+    // Answers to the form's own questions — budget, timeline, years of
+    // experience, expected CTC. These are the whole point of a lead form and
+    // used to be discarded outright, so they are kept verbatim.
+    const extraAnswers = [];
 
     if (data.field_data) {
       for (const field of data.field_data) {
-        const val = (field.values && field.values[0]) ? field.values[0].trim() : '';
-        if (!val) continue;
+        const values = (field.values || []).map((v) => String(v).trim()).filter(Boolean);
+        if (!values.length) continue;
 
-        switch (field.name) {
-          case 'full_name':    fullName = val; break;
-          case 'first_name':  fullName = fullName === 'Unknown' ? val : `${val} ${(fullName.split(' ')[1] || '')}`.trim(); break;
-          case 'last_name':   fullName = fullName === 'Unknown' ? val : `${(fullName.split(' ')[0] || '')} ${val}`.trim(); break;
-          case 'email':       email = val; break;
-          case 'phone_number': phone = val; break;
-          case 'city':        city = val; break;
-          case 'company_name': businessName = val; break;
-          case 'job_title':   businessName = businessName ? `${businessName} (${val})` : val; break;
+        const val = values.join(', '); // multi-select questions return several
+        const key = String(field.name || '').toLowerCase();
+
+        if (STANDARD_FIELDS.fullName.includes(key)) {
+          fullName = val;
+        } else if (STANDARD_FIELDS.firstName.includes(key)) {
+          fullName = fullName === 'Unknown' ? val : `${val} ${(fullName.split(' ')[1] || '')}`.trim();
+        } else if (STANDARD_FIELDS.lastName.includes(key)) {
+          fullName = fullName === 'Unknown' ? val : `${(fullName.split(' ')[0] || '')} ${val}`.trim();
+        } else if (STANDARD_FIELDS.email.includes(key)) {
+          email = val;
+        } else if (STANDARD_FIELDS.phone.includes(key)) {
+          phone = val;
+        } else if (STANDARD_FIELDS.city.includes(key)) {
+          city = val;
+        } else if (STANDARD_FIELDS.companyName.includes(key)) {
+          businessName = val;
+        } else if (STANDARD_FIELDS.jobTitle.includes(key)) {
+          businessName = businessName ? `${businessName} (${val})` : val;
+        } else {
+          // Anything else is a question this form asked. Prefer the real label
+          // from the form definition, falling back to the slugified key.
+          extraAnswers.push({ label: questionLabels.get(field.name) || prettifyKey(field.name), value: val });
         }
       }
     }
+
+    const message = extraAnswers.map(({ label, value }) => `${label}: ${value}`).join('\n');
 
     // Sanitize required fields
     fullName = fullName.trim() || 'Unknown';
@@ -228,14 +292,6 @@ async function processFacebookLead(leadData) {
     if (!email || !emailRegex.test(email)) {
       email = `fb_${fbLeadId}@facebook.com`;
     }
-
-    // ── Platform Detection: Facebook vs Instagram ──────────────────────────────
-    // Instagram Lead Ads are delivered through the same page webhook, so the
-    // payload alone cannot tell them apart. The lead object's `platform` field
-    // is the authoritative signal: 'ig' for Instagram, 'fb' for Facebook.
-    const isInstagram = data.platform === 'ig' || data.platform === 'instagram';
-    const platform = isInstagram ? 'Instagram' : 'Facebook';
-    const utmSource = isInstagram ? 'instagram' : 'facebook';
 
     // ── Campaign Attribution ───────────────────────────────────────────────────
     const campaignId   = data.campaign_id || '';
@@ -250,25 +306,17 @@ async function processFacebookLead(leadData) {
     // back to the raw id when the token lacks ads-read permission.
     const utmCampaign = campaignName || campaignId;
 
-    // ── Form Routing ───────────────────────────────────────────────────────────
-    // Every form on the page delivers to this one webhook, so the form is what
-    // tells a BD hiring lead apart from a service enquiry.
-    const form = await resolveLeadForm(formId, platform, pageAccessToken);
-    const formName = form?.name || `FB Form ${formId}`;
-    const leadType = form?.leadType || 'Sales';
-
+    // ── Create Lead ────────────────────────────────────────────────────────────
     // `service` is the sales team's editable "what do they want" column. The
     // form name describes that far better than an ad name does.
-    service = formName;
-
-    // ── Create Lead ────────────────────────────────────────────────────────────
     const lead = await Lead.create({
       fullName,
       email,
       phone,
       city,
       businessName,
-      service,
+      message,
+      service: formName,
       platform,
       fbLeadId,
       fbFormId: formId,
@@ -348,21 +396,25 @@ async function resolveLeadForm(formId, platform, pageAccessToken) {
       // The lead object does not carry the form name, so fetch it separately.
       // Only ever runs once per form.
       let name = '';
+      let questions = [];
       try {
         const res = await fetch(
-          `https://graph.facebook.com/v19.0/${formId}?fields=name&access_token=${pageAccessToken}`
+          `https://graph.facebook.com/v19.0/${formId}?fields=name,questions{key,label}&access_token=${pageAccessToken}`
         );
         const formData = await res.json();
         if (formData.error) {
-          logger.warn(`Could not fetch name for form ${formId}: ${formData.error.message}`);
+          logger.warn(`Could not fetch details for form ${formId}: ${formData.error.message}`);
         } else {
           name = formData.name || '';
+          questions = (formData.questions || [])
+            .filter((q) => q.key)
+            .map((q) => ({ key: q.key, label: q.label || '' }));
         }
       } catch (err) {
-        logger.warn(`Could not fetch name for form ${formId}: ${err.message}`);
+        logger.warn(`Could not fetch details for form ${formId}: ${err.message}`);
       }
 
-      form = await LeadForm.create({ formId, name, platform });
+      form = await LeadForm.create({ formId, name, platform, questions });
       logger.warn(
         `New Facebook lead form registered: "${name || formId}" (${formId}). ` +
         'It defaults to Sales — classify it in Admin → Facebook Integration.'
@@ -430,8 +482,13 @@ exports.receiveGoogleLead = async (req, res) => {
     let businessName = '';
     let service = `Google Ad Campaign ${campaign_id || ''}`;
 
+    // As with Facebook, answers to the form's own qualifying questions are the
+    // point of the lead — keep any column we do not map to a column of its own.
+    const extraAnswers = [];
+
     user_column_data.forEach(field => {
       const val = field.string_value || '';
+      if (!val) return;
       switch(field.column_id) {
         case 'FULL_NAME': fullName = val; break;
         case 'FIRST_NAME': fullName = fullName === 'Unknown' ? val : val + ' ' + fullName.split(' ')[1]; break;
@@ -440,6 +497,7 @@ exports.receiveGoogleLead = async (req, res) => {
         case 'USER_PHONE': phone = val; break;
         case 'CITY': city = val; break;
         case 'COMPANY_NAME': businessName = val; break;
+        default: extraAnswers.push({ label: prettifyKey(String(field.column_id).toLowerCase()), value: val });
       }
     });
 
@@ -449,6 +507,7 @@ exports.receiveGoogleLead = async (req, res) => {
       phone,
       city,
       businessName,
+      message: extraAnswers.map(({ label, value }) => `${label}: ${value}`).join('\n'),
       service,
       platform: 'Google Ads',
       fbLeadId: `google_${lead_id}`,

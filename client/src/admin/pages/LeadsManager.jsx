@@ -963,7 +963,7 @@ export default function LeadsManager() {
               {selectedLead.message && (
                 <div className="bg-app-bg border border-app-border rounded-xl p-4">
                   <label className="text-xs text-app-text-muted font-bold uppercase tracking-wider mb-2 flex items-center gap-2">
-                    <FileText size={14} /> Message Attached
+                    <FileText size={14} /> {selectedLead.fbFormId ? 'Form Answers' : 'Message Attached'}
                   </label>
                   <div className="text-sm text-app-text whitespace-pre-wrap leading-relaxed">
                     {selectedLead.message}
