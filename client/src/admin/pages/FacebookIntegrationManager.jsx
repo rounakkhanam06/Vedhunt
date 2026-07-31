@@ -14,6 +14,15 @@ export default function FacebookIntegrationManager() {
   const [leadForms, setLeadForms] = useState([]);
   const [savingFormId, setSavingFormId] = useState(null);
 
+  // Derive the webhook URL from the API this panel is actually talking to.
+  // It used to be hardcoded, which is how it came to point at a hostname that
+  // did not resolve — Facebook silently dropped every lead against it.
+  const apiBase = api.defaults.baseURL || '/api';
+  const apiOrigin = /^https?:\/\//.test(apiBase)
+    ? apiBase
+    : `${window.location.origin}${apiBase}`;
+  const webhookUrl = `${apiOrigin.replace(/\/$/, '')}/leads/webhook/facebook`;
+
   useEffect(() => {
     fetchSettings();
     fetchLeadForms();
@@ -196,7 +205,15 @@ export default function FacebookIntegrationManager() {
               <p>
                 To receive leads automatically from Facebook & Instagram Instant Forms, you need to configure the webhook in your Facebook Developer App.
               </p>
-              <p><strong>Webhook URL:</strong> <code className="bg-app-bg px-2 py-1 rounded text-primary">https://api.vedhunt.in/api/leads/webhook/facebook</code></p>
+              <p className="break-all">
+                <strong>Webhook URL:</strong>{' '}
+                <code className="bg-app-bg px-2 py-1 rounded text-primary">{webhookUrl}</code>
+              </p>
+              <p className="text-xs text-app-text-muted">
+                Paste this exactly into your Facebook App → Webhooks → Page → Callback URL.
+                The hostname must be publicly reachable — if it does not resolve, Facebook
+                drops every lead without any error showing up on your side.
+              </p>
             </div>
           </div>
 
