@@ -46,16 +46,29 @@ exports.receiveFacebookLead = async (req, res) => {
       return res.status(401).send('No signature provided');
     }
 
-    const elements = signature.split('=');
-    const signatureHash = elements[1];
-    
-    // Note: req.body MUST be raw buffer for this to work correctly!
+    // express.raw() leaves req.body as {} when the content type does not match,
+    // which would make the HMAC below throw an opaque TypeError. Catch it here
+    // so the cause is obvious in the logs.
+    if (!Buffer.isBuffer(req.body)) {
+      logger.error(
+        `Facebook webhook received a non-raw body (content-type: ${req.headers['content-type']}). ` +
+        'The webhook route must be registered before the global express.json().'
+      );
+      return res.status(400).send('Expected raw body');
+    }
+
+    const signatureHash = signature.split('=')[1] || '';
+
     const expectedHash = crypto
       .createHmac('sha256', process.env.FB_APP_SECRET)
       .update(req.body)
       .digest('hex');
 
-    if (signatureHash !== expectedHash) {
+    // Constant-time compare. timingSafeEqual throws on length mismatch, so the
+    // lengths are checked first.
+    const received = Buffer.from(signatureHash, 'utf8');
+    const expected = Buffer.from(expectedHash, 'utf8');
+    if (received.length !== expected.length || !crypto.timingSafeEqual(received, expected)) {
       logger.error('Facebook webhook signature mismatch');
       return res.status(401).send('Invalid signature');
     }
@@ -63,8 +76,12 @@ exports.receiveFacebookLead = async (req, res) => {
     // 2. Parse payload
     const body = JSON.parse(req.body.toString());
 
+    // Anything that is not a page event is acknowledged with 200. A non-2xx
+    // makes Facebook retry the delivery and counts towards the failure rate
+    // that can get the whole subscription disabled.
     if (body.object !== 'page') {
-      return res.status(404).send('Not a page object');
+      logger.info(`Ignoring Facebook webhook for object: ${body.object}`);
+      return res.status(200).send('EVENT_RECEIVED');
     }
 
     // Acknowledge receipt to Facebook immediately
@@ -73,8 +90,10 @@ exports.receiveFacebookLead = async (req, res) => {
 
     // FIX: Use for...of instead of forEach with async callbacks.
     // forEach does NOT await async callbacks — errors were silently swallowed.
-    for (const entry of body.entry) {
-      for (const change of entry.changes) {
+    // Entries for other subscribed fields (messaging, feed, …) carry no
+    // `changes` array, so guard before iterating.
+    for (const entry of body.entry || []) {
+      for (const change of entry.changes || []) {
         if (change.field === 'leadgen') {
           const leadData = change.value;
           // Pass the page_id so we can detect Instagram vs Facebook
@@ -111,15 +130,6 @@ async function processFacebookLead(leadData) {
       return;
     }
 
-    // Use native fetch (Node 18+), fallback to node-fetch for older versions
-    let fetchFn;
-    try {
-      fetchFn = fetch;
-    } catch(e) {
-      const fetchModule = await import('node-fetch');
-      fetchFn = fetchModule.default;
-    }
-
     // Request campaign/platform metadata alongside the answers. The leadgen
     // webhook payload only carries ad_id/adgroup_id/form_id — campaign details
     // and the fb-vs-ig platform flag are only available on the lead object.
@@ -133,10 +143,40 @@ async function processFacebookLead(leadData) {
       'is_organic'
     ].join(',');
 
-    const response = await fetchFn(
-      `https://graph.facebook.com/v19.0/${fbLeadId}?fields=${leadFields}&access_token=${pageAccessToken}`
-    );
-    const data = await response.json();
+    const url = `https://graph.facebook.com/v19.0/${fbLeadId}?fields=${leadFields}&access_token=${pageAccessToken}`;
+
+    // We already returned 200 to Facebook, so it will never redeliver this
+    // lead. A transient network blip or Graph API 5xx would lose it for good —
+    // retry a few times before giving up.
+    let data;
+    const MAX_ATTEMPTS = 3;
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      try {
+        const response = await fetch(url);
+        data = await response.json();
+
+        // Codes 1, 2 and 4 are Graph API's transient/throttling errors.
+        const transient = data.error && [1, 2, 4].includes(data.error.code);
+        if (!transient) break;
+
+        logger.warn(
+          `Transient Graph API error for lead ${fbLeadId} ` +
+          `(attempt ${attempt}/${MAX_ATTEMPTS}): [${data.error.code}] ${data.error.message}`
+        );
+      } catch (err) {
+        logger.warn(`Graph API request failed for lead ${fbLeadId} (attempt ${attempt}/${MAX_ATTEMPTS}): ${err.message}`);
+        data = null;
+      }
+
+      if (attempt < MAX_ATTEMPTS) {
+        await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
+      }
+    }
+
+    if (!data) {
+      logger.error(`Graph API unreachable after ${MAX_ATTEMPTS} attempts. Lead ID ${fbLeadId} was NOT saved.`);
+      return;
+    }
 
     if (data.error) {
       // Provide clear guidance for token expiry — the most common failure mode

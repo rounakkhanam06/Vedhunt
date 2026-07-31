@@ -1,5 +1,8 @@
 const express = require('express');
+const cookieParser = require('cookie-parser');
 const router = express.Router();
+const authMiddleware = require('../middleware/authMiddleware');
+const roleMiddleware = require('../middleware/roleMiddleware');
 const { verifyFacebookWebhook, receiveFacebookLead, receiveGoogleLead } = require('../controllers/webhookController');
 
 // Google Ads Webhook (Uses standard JSON)
@@ -14,12 +17,16 @@ router.get('/facebook', verifyFacebookWebhook);
 // We use express.raw to ensure we can verify the HMAC signature correctly
 router.post('/facebook', express.raw({ type: 'application/json' }), receiveFacebookLead);
 
-// Safe Debug Route to check if env variables are present on live server
-router.get('/debug', (req, res) => {
+// Debug route to check if env variables are present on the live server.
+// Publicly readable config disclosure, so it is admin-only. This router is
+// mounted before the global cookieParser(), so it needs its own to let
+// authMiddleware read the adminToken cookie.
+router.get('/debug', cookieParser(), authMiddleware, roleMiddleware('SUPER_ADMIN'), (req, res) => {
   res.json({
     FB_APP_SECRET_exists: !!process.env.FB_APP_SECRET,
     FB_VERIFY_TOKEN_exists: !!process.env.FB_VERIFY_TOKEN,
     FB_PAGE_ACCESS_TOKEN_exists: !!process.env.FB_PAGE_ACCESS_TOKEN,
+    GOOGLE_WEBHOOK_KEY_exists: !!process.env.GOOGLE_WEBHOOK_KEY,
     NODE_ENV: process.env.NODE_ENV
   });
 });

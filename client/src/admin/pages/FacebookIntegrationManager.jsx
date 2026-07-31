@@ -36,7 +36,7 @@ export default function FacebookIntegrationManager() {
   const handleSave = async () => {
     try {
       setSaving(true);
-      await api.put('/settings/facebook', settings);
+      await api.put('/admin/settings/facebook', settings);
       toast.success('Facebook settings saved successfully!');
     } catch (error) {
       toast.error('Failed to save settings');
