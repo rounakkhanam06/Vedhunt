@@ -1,11 +1,11 @@
 import React from 'react';
 import AgreementHeader from './AgreementHeader';
-import moment from 'moment';
+import { formatDateDDMMMYYYY } from '../../utils/formatDate';
 
 const AgreementTemplate = ({ client }) => {
   const details = client?.agreementDetails || {};
-  const agreementDate = details.agreementDate ? moment(details.agreementDate).format('DD-MMM-YYYY') : '[Agreement Date]';
-  const effectiveDate = details.effectiveDate ? moment(details.effectiveDate).format('DD-MMM-YYYY') : '[Effective Date]';
+  const agreementDate = formatDateDDMMMYYYY(details.agreementDate) || '[Agreement Date]';
+  const effectiveDate = formatDateDDMMMYYYY(details.effectiveDate) || '[Effective Date]';
   const domain = details.domain || '[Domain Name]';
   const serviceName = details.serviceName || '[Service Name]';
   const monthlyFee = details.monthlyFee || 0;
@@ -336,7 +336,7 @@ const AgreementTemplate = ({ client }) => {
                 <p className="bg-yellow-100 inline-block">{domain}</p>
                 <p className="mt-2">
                   <span className="bg-yellow-100">
-                    Date: {client?.agreementAcceptedAt ? moment(client.agreementAcceptedAt).format('DD-MMM-YYYY') : '_____________'}
+                    Date: {formatDateDDMMMYYYY(client?.agreementAcceptedAt) || '_____________'}
                   </span>
                 </p>
               </td>
