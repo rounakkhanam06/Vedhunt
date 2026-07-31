@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
-import { Save, AlertCircle, RefreshCw, Share2, ExternalLink, Code } from 'lucide-react';
+import { Save, AlertCircle, RefreshCw, Share2, ExternalLink, Code, ClipboardList } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export default function FacebookIntegrationManager() {
@@ -11,10 +11,41 @@ export default function FacebookIntegrationManager() {
     pixelId: '',
     isWebhookActive: true
   });
+  const [leadForms, setLeadForms] = useState([]);
+  const [savingFormId, setSavingFormId] = useState(null);
 
   useEffect(() => {
     fetchSettings();
+    fetchLeadForms();
   }, []);
+
+  const fetchLeadForms = async () => {
+    try {
+      const res = await api.get('/admin/lead-forms');
+      setLeadForms(res.data?.data || []);
+    } catch (error) {
+      toast.error('Failed to load lead forms');
+    }
+  };
+
+  const handleFormTypeChange = async (form, leadType) => {
+    setSavingFormId(form._id);
+    try {
+      const res = await api.put(`/admin/lead-forms/${form._id}`, { leadType });
+      setLeadForms((forms) => forms.map((f) => (f._id === form._id ? res.data.data : f)));
+
+      const moved = res.data.reclassifiedCount;
+      toast.success(
+        moved
+          ? `Set to ${leadType} — ${moved} existing lead${moved === 1 ? '' : 's'} moved`
+          : `Set to ${leadType}`
+      );
+    } catch (error) {
+      toast.error('Failed to update form type');
+    } finally {
+      setSavingFormId(null);
+    }
+  };
 
   const fetchSettings = async () => {
     try {
@@ -93,6 +124,64 @@ export default function FacebookIntegrationManager() {
               Save Pixel Settings
             </button>
           </div>
+        </div>
+
+        {/* Lead Form Routing */}
+        <div className="bg-app-card border border-app-border rounded-xl p-6 shadow-sm space-y-4">
+          <div>
+            <h2 className="text-lg font-bold text-app-text flex items-center gap-2">
+              <ClipboardList size={18} className="text-primary" /> Lead Form Routing
+            </h2>
+            <p className="text-sm text-app-text-muted mt-1">
+              Every Instant Form on your page delivers to the same webhook. Tell us which
+              forms are hiring forms so their leads stay out of the sales pipeline.
+            </p>
+          </div>
+
+          {leadForms.length === 0 ? (
+            <div className="bg-app-bg border border-app-border rounded-lg p-4 text-sm text-app-text-muted">
+              No forms yet. A form appears here automatically the first time it sends a lead.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="text-app-text-muted text-xs uppercase tracking-wider border-b border-app-border">
+                  <tr>
+                    <th className="py-2 pr-4 font-semibold">Form Name</th>
+                    <th className="py-2 pr-4 font-semibold">Leads</th>
+                    <th className="py-2 pr-4 font-semibold">Type</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {leadForms.map((form) => (
+                    <tr key={form._id} className="border-b border-app-border/50 last:border-0">
+                      <td className="py-3 pr-4">
+                        <div className="font-medium text-app-text">{form.name || 'Unnamed form'}</div>
+                        <div className="text-xs text-app-text-muted font-mono">{form.formId}</div>
+                        {!form.isClassified && (
+                          <span className="inline-block mt-1 text-[10px] font-bold uppercase tracking-wider text-primary bg-primary/10 border border-primary/20 rounded px-1.5 py-0.5">
+                            Needs review
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-3 pr-4 text-app-text-muted">{form.leadCount || 0}</td>
+                      <td className="py-3 pr-4">
+                        <select
+                          value={form.leadType}
+                          disabled={savingFormId === form._id}
+                          onChange={(e) => handleFormTypeChange(form, e.target.value)}
+                          className="bg-app-bg border border-app-border rounded-lg px-3 py-2 text-sm text-app-text focus:outline-none focus:border-primary transition-colors cursor-pointer disabled:opacity-50"
+                        >
+                          <option className="bg-app-bg text-app-text" value="Sales">Sales</option>
+                          <option className="bg-app-bg text-app-text" value="Hiring">Hiring</option>
+                        </select>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
 
         {/* Webhook Configuration Instructions */}

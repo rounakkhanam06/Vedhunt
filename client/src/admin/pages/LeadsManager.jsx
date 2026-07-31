@@ -21,6 +21,11 @@ export default function LeadsManager() {
   const [statusFilter, setStatusFilter] = useState('All');
   const [platformFilter, setPlatformFilter] = useState('All');
   const [sourceFilter, setSourceFilter] = useState('All');
+  // Sales vs Hiring. Facebook delivers both through the same webhook, and the
+  // sales pipeline/revenue fields are meaningless for job applicants.
+  const [leadTypeFilter, setLeadTypeFilter] = useState('Sales');
+  const [formFilter, setFormFilter] = useState('All');
+  const [leadForms, setLeadForms] = useState([]);
   const [sortBy, setSortBy] = useState('createdAt');
   const [sortOrder, setSortOrder] = useState('desc');
   const [currentPage, setCurrentPage] = useState(1);
@@ -63,6 +68,8 @@ export default function LeadsManager() {
           status: statusFilter,
           platform: platformFilter,
           userSource: sourceFilter,
+          leadType: leadTypeFilter,
+          fbFormId: formFilter,
           search: debouncedSearchTerm,
           sortBy,
           sortOrder
@@ -79,11 +86,19 @@ export default function LeadsManager() {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, statusFilter, platformFilter, sourceFilter, debouncedSearchTerm, sortBy, sortOrder]);
+  }, [currentPage, statusFilter, platformFilter, sourceFilter, leadTypeFilter, formFilter, debouncedSearchTerm, sortBy, sortOrder]);
 
   useEffect(() => {
     fetchLeads();
   }, [fetchLeads]);
+
+  // Populate the form filter dropdown. Forms register themselves as leads
+  // arrive, so this list grows on its own.
+  useEffect(() => {
+    api.get('/admin/lead-forms')
+      .then((res) => setLeadForms(res.data?.data || []))
+      .catch(() => { /* filter just stays empty — not worth a toast */ });
+  }, []);
 
   const deleteLead = async (id) => {
     if (window.confirm('Are you sure you want to delete this lead?')) {
@@ -144,6 +159,8 @@ export default function LeadsManager() {
           status: statusFilter,
           platform: platformFilter,
           userSource: sourceFilter,
+          leadType: leadTypeFilter,
+          fbFormId: formFilter,
           search: debouncedSearchTerm,
           sortBy,
           sortOrder
@@ -157,7 +174,7 @@ export default function LeadsManager() {
         }
 
         if (format === 'csv') {
-          const headers = ['Lead ID', 'Date', 'Name', 'Phone', 'Email', 'City', 'Country', 'Platform', 'Campaign', 'Business Name', 'Source', 'Service', 'BD', 'Call Duration', 'Status', 'Deal Value'];
+          const headers = ['Lead ID', 'Date', 'Name', 'Phone', 'Email', 'City', 'Country', 'Platform', 'Type', 'Form', 'Campaign', 'Business Name', 'Source', 'Service', 'BD', 'Call Duration', 'Status', 'Deal Value'];
           const csvRows = [headers.join(',')];
 
           for (const lead of leadsToExport) {
@@ -170,6 +187,8 @@ export default function LeadsManager() {
               `"${(lead.city || '').replace(/"/g, '""')}"`,
               `"${(lead.country || '').replace(/"/g, '""')}"`,
               lead.platform || '',
+              lead.leadType || 'Sales',
+              `"${(lead.fbFormName || '').replace(/"/g, '""')}"`,
               `"${(lead.utmCampaign || lead.adCampaignId || '').replace(/"/g, '""')}"`,
               `"${(lead.businessName || '').replace(/"/g, '""')}"`,
               `"${(lead.source || '').replace(/"/g, '""')}"`,
@@ -212,7 +231,7 @@ export default function LeadsManager() {
         </div>
         <div className="flex items-center gap-3">
           <div className="bg-primary/10 text-primary px-4 py-2 rounded-lg font-bold text-sm whitespace-nowrap text-center">
-            Total Leads: {totalLeads}
+            {leadTypeFilter === 'All' ? 'Total Leads' : `${leadTypeFilter} Leads`}: {totalLeads}
           </div>
           <div className="relative">
             <button
@@ -242,6 +261,24 @@ export default function LeadsManager() {
             )}
           </div>
         </div>
+      </div>
+
+      {/* Sales / Hiring split — Facebook delivers both through one webhook */}
+      <div className="flex bg-app-card border border-app-border p-1 rounded-lg w-max">
+        {['Sales', 'Hiring', 'All'].map((type) => (
+          <button
+            key={type}
+            onClick={() => {
+              setLeadTypeFilter(type);
+              setCurrentPage(1);
+            }}
+            className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${
+              leadTypeFilter === type ? 'bg-primary text-black' : 'text-app-text-muted hover:text-app-text'
+            }`}
+          >
+            {type === 'All' ? 'All Leads' : `${type} Leads`}
+          </button>
+        ))}
       </div>
 
       {/* View Toggle */}
@@ -341,6 +378,27 @@ export default function LeadsManager() {
           </select>
           <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-app-text-muted w-4 h-4 pointer-events-none" />
         </div>
+        {leadForms.length > 0 && (
+          <div className="relative min-w-[180px]">
+            <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-app-text-muted w-4 h-4 pointer-events-none" />
+            <select
+              value={formFilter}
+              onChange={(e) => {
+                setFormFilter(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-full bg-app-bg border border-app-border rounded-lg pl-10 pr-10 py-2.5 text-sm text-app-text focus:outline-none focus:border-primary transition-colors appearance-none cursor-pointer"
+            >
+              <option className="bg-app-bg text-app-text" value="All">All Forms</option>
+              {leadForms.map((form) => (
+                <option key={form._id} className="bg-app-bg text-app-text" value={form.formId}>
+                  {form.name || form.formId}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-app-text-muted w-4 h-4 pointer-events-none" />
+          </div>
+        )}
       </div>
 
       {loading ? (
@@ -529,6 +587,11 @@ export default function LeadsManager() {
                           {lead.userSource && (
                             <div className="text-[10px] text-app-text-muted mt-0.5 font-medium">
                               Source: <span className="text-[#E5E2E1] font-semibold">{lead.userSource}</span>
+                            </div>
+                          )}
+                          {lead.fbFormName && (
+                            <div className="text-[10px] text-app-text-muted mt-0.5 font-medium truncate max-w-[150px]" title={lead.fbFormName}>
+                              Form: <span className="text-[#E5E2E1] font-semibold">{lead.fbFormName}</span>
                             </div>
                           )}
                         </td>

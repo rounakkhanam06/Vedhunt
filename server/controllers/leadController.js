@@ -133,6 +133,19 @@ exports.getLeads = async (req, res, next) => {
       query.userSource = req.query.userSource;
     }
 
+    // Filter by lead type (Sales vs Hiring). Leads created before this field
+    // existed have no leadType, so 'Sales' must also match those.
+    if (req.query.leadType && req.query.leadType !== 'All') {
+      query.leadType = req.query.leadType === 'Sales'
+        ? { $in: ['Sales', null] }
+        : req.query.leadType;
+    }
+
+    // Filter by the Facebook Instant Form the lead came from
+    if (req.query.fbFormId && req.query.fbFormId !== 'All') {
+      query.fbFormId = req.query.fbFormId;
+    }
+
     // Search by text (using $text index or regex if $text doesn't cover partial well)
     // Note: MongoDB $text search is word-based. For partial matching (e.g. typing part of an email), 
     // regex is often more intuitive for admin panels, though less scalable than raw $text.

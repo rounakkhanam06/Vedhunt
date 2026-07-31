@@ -58,6 +58,23 @@ const leadSchema = new mongoose.Schema({
     unique: true,
     sparse: true
   },
+  // Which Instant Form produced this lead. One page runs many forms at once,
+  // so this is what separates a BD hiring lead from a service enquiry.
+  fbFormId: {
+    type: String,
+    trim: true
+  },
+  fbFormName: {
+    type: String,
+    trim: true
+  },
+  // Sales leads run the revenue pipeline; hiring leads are job applicants and
+  // must stay out of sales counts and deal reporting.
+  leadType: {
+    type: String,
+    enum: ['Sales', 'Hiring'],
+    default: 'Sales'
+  },
   adCampaignId: {
     type: String,
     trim: true
@@ -209,6 +226,8 @@ leadSchema.pre('save', async function() {
 leadSchema.index({ status: 1 });
 leadSchema.index({ createdAt: -1 });
 leadSchema.index({ leadId: 1 });
+leadSchema.index({ leadType: 1, createdAt: -1 });
+leadSchema.index({ fbFormId: 1 });
 
 // Add compound text index for scalable backend searching
 leadSchema.index({ fullName: 'text', email: 'text', phone: 'text', leadId: 'text' });

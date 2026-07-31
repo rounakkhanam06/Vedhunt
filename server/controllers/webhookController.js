@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const Lead = require('../models/Lead');
+const LeadForm = require('../models/LeadForm');
 const Settings = require('../models/Settings');
 const { sendEmail } = require('../utils/sendEmail');
 const logger = require('../utils/logger');
@@ -249,7 +250,16 @@ async function processFacebookLead(leadData) {
     // back to the raw id when the token lacks ads-read permission.
     const utmCampaign = campaignName || campaignId;
 
-    if (adName) service = adName;
+    // ── Form Routing ───────────────────────────────────────────────────────────
+    // Every form on the page delivers to this one webhook, so the form is what
+    // tells a BD hiring lead apart from a service enquiry.
+    const form = await resolveLeadForm(formId, platform, pageAccessToken);
+    const formName = form?.name || `FB Form ${formId}`;
+    const leadType = form?.leadType || 'Sales';
+
+    // `service` is the sales team's editable "what do they want" column. The
+    // form name describes that far better than an ad name does.
+    service = formName;
 
     // ── Create Lead ────────────────────────────────────────────────────────────
     const lead = await Lead.create({
@@ -261,6 +271,9 @@ async function processFacebookLead(leadData) {
       service,
       platform,
       fbLeadId,
+      fbFormId: formId,
+      fbFormName: formName,
+      leadType,
       adCampaignId: campaignId,
       source: sourceLabel,
       consent: true,
@@ -270,7 +283,9 @@ async function processFacebookLead(leadData) {
       utmContent: adName
     });
 
-    logger.info(`New ${platform} lead saved: ${lead.leadId} — ${fullName} (${phone})`);
+    logger.info(
+      `New ${platform} ${leadType} lead saved: ${lead.leadId} — ${fullName} (${phone}) [form: ${formName}]`
+    );
 
     // ── Admin Email Notification ───────────────────────────────────────────────
     let hrEmail = process.env.HR_EMAIL || 'hr@vedhunt.in';
@@ -284,15 +299,16 @@ async function processFacebookLead(leadData) {
     }
 
     const emailContent = `
-      <h3>New Lead from ${platform} Lead Ad</h3>
+      <h3>New ${leadType} Lead from ${platform} Lead Ad</h3>
       <p><strong>Lead ID:</strong> ${lead.leadId}</p>
+      <p><strong>Form:</strong> ${formName}</p>
+      <p><strong>Type:</strong> ${leadType}</p>
       <p><strong>Name:</strong> ${fullName}</p>
       <p><strong>Phone:</strong> ${phone}</p>
       <p><strong>Email:</strong> ${email}</p>
       <p><strong>City:</strong> ${city || 'Not provided'}</p>
       <p><strong>Business:</strong> ${businessName || 'Not provided'}</p>
       <p><strong>Platform:</strong> ${platform} Lead Ad</p>
-      <p><strong>Form ID:</strong> ${formId}</p>
       <p><strong>Campaign:</strong> ${campaignName || campaignId || 'N/A'}</p>
       <p><strong>Ad:</strong> ${adName || adId || 'N/A'}</p>
     `;
@@ -300,7 +316,7 @@ async function processFacebookLead(leadData) {
     try {
       await sendEmail({
         email: hrEmail,
-        subject: `${platform} Lead: ${fullName} — ${phone}`,
+        subject: `${platform} ${leadType} Lead: ${fullName} — ${phone} (${formName})`,
         html: emailContent
       });
     } catch (e) {
@@ -309,6 +325,60 @@ async function processFacebookLead(leadData) {
 
   } catch (error) {
     logger.error('Error processing Facebook lead:', error);
+  }
+}
+
+/**
+ * Look up the Instant Form a lead came from, registering it on first sight.
+ *
+ * A page can run any number of forms and marketing adds new ones without
+ * telling anyone, so the registry is populated from live traffic rather than
+ * configured up front. A newly seen form defaults to 'Sales' and is flagged
+ * unclassified until an admin sets its type in the Facebook Integration page.
+ *
+ * Never throws — a failure here must not cost us the lead.
+ */
+async function resolveLeadForm(formId, platform, pageAccessToken) {
+  if (!formId) return null;
+
+  try {
+    let form = await LeadForm.findOne({ formId });
+
+    if (!form) {
+      // The lead object does not carry the form name, so fetch it separately.
+      // Only ever runs once per form.
+      let name = '';
+      try {
+        const res = await fetch(
+          `https://graph.facebook.com/v19.0/${formId}?fields=name&access_token=${pageAccessToken}`
+        );
+        const formData = await res.json();
+        if (formData.error) {
+          logger.warn(`Could not fetch name for form ${formId}: ${formData.error.message}`);
+        } else {
+          name = formData.name || '';
+        }
+      } catch (err) {
+        logger.warn(`Could not fetch name for form ${formId}: ${err.message}`);
+      }
+
+      form = await LeadForm.create({ formId, name, platform });
+      logger.warn(
+        `New Facebook lead form registered: "${name || formId}" (${formId}). ` +
+        'It defaults to Sales — classify it in Admin → Facebook Integration.'
+      );
+    }
+
+    // Fire-and-forget stats; a failure here is not worth losing the lead over.
+    LeadForm.updateOne(
+      { _id: form._id },
+      { $inc: { leadCount: 1 }, $set: { lastLeadAt: new Date() } }
+    ).catch((err) => logger.warn(`Could not update stats for form ${formId}: ${err.message}`));
+
+    return form;
+  } catch (error) {
+    logger.error(`Error resolving lead form ${formId}:`, error);
+    return null;
   }
 }
 

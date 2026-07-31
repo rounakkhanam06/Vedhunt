@@ -37,6 +37,7 @@ const paymentRoutes = require('./routes/paymentRoutes');
 const servicePageRoutes = require('./routes/servicePageRoutes');
 const contactRoutes = require('./routes/contactRoutes');
 const leadRoutes = require('./routes/leadRoutes');
+const leadFormRoutes = require('./routes/leadFormRoutes');
 const webhookRoutes = require('./routes/webhookRoutes');
 const subscribeRoutes = require('./routes/subscribeRoutes');
 const employeeRoutes = require('./routes/employeeRoutes');
@@ -130,6 +131,9 @@ app.use('/api/faq', publicCache, faqRoutes);
 app.use('/api/service-pages', publicCache, servicePageRoutes);
 app.use('/api/contact', contactRoutes);   // write route — no cache
 app.use('/api/leads', leadRoutes);         // write route — no cache
+// Mounted before the publicCache-wrapped settingsRoutes below: these are
+// cookie-authenticated GETs, which publicCache would mark publicly cacheable.
+app.use('/api/admin/lead-forms', leadFormRoutes);
 app.use('/api/subscribe', subscribeRoutes);
 app.use('/api/employees', employeeRoutes);
 app.use('/api/performance', performanceRoutes);
