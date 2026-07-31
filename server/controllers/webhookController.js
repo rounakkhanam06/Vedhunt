@@ -120,8 +120,21 @@ async function processFacebookLead(leadData) {
       fetchFn = fetchModule.default;
     }
 
+    // Request campaign/platform metadata alongside the answers. The leadgen
+    // webhook payload only carries ad_id/adgroup_id/form_id — campaign details
+    // and the fb-vs-ig platform flag are only available on the lead object.
+    const leadFields = [
+      'field_data',
+      'campaign_id',
+      'campaign_name',
+      'adset_id',
+      'ad_name',
+      'platform',
+      'is_organic'
+    ].join(',');
+
     const response = await fetchFn(
-      `https://graph.facebook.com/v19.0/${fbLeadId}?fields=field_data&access_token=${pageAccessToken}`
+      `https://graph.facebook.com/v19.0/${fbLeadId}?fields=${leadFields}&access_token=${pageAccessToken}`
     );
     const data = await response.json();
 
@@ -176,15 +189,27 @@ async function processFacebookLead(leadData) {
     }
 
     // ── Platform Detection: Facebook vs Instagram ──────────────────────────────
-    // Instagram Lead Ads go through the same Facebook webhook.
-    // The ad_id from Instagram campaigns typically contains a source hint,
-    // but the most reliable signal is the page_id passed from the entry.
-    // We store it as 'Instagram' if the _pageId is an Instagram page object.
-    // For now we use the presence of adId to check via Graph API ad object — 
-    // simpler: keep as Facebook (both share the same pipeline), log for clarity.
-    const platform = 'Facebook'; // Instagram leads also route here; both use FB infrastructure
-    const utmSource = 'facebook';
-    const sourceLabel = `Facebook Lead Ad (Ad: ${adId})`;
+    // Instagram Lead Ads are delivered through the same page webhook, so the
+    // payload alone cannot tell them apart. The lead object's `platform` field
+    // is the authoritative signal: 'ig' for Instagram, 'fb' for Facebook.
+    const isInstagram = data.platform === 'ig' || data.platform === 'instagram';
+    const platform = isInstagram ? 'Instagram' : 'Facebook';
+    const utmSource = isInstagram ? 'instagram' : 'facebook';
+
+    // ── Campaign Attribution ───────────────────────────────────────────────────
+    const campaignId   = data.campaign_id || '';
+    const campaignName = data.campaign_name || '';
+    const adName       = data.ad_name || '';
+
+    const sourceLabel = campaignName
+      ? `${platform} Lead Ad (Campaign: ${campaignName})`
+      : `${platform} Lead Ad (Ad: ${adId})`;
+
+    // Prefer a human-readable campaign name in the admin UTM column, falling
+    // back to the raw id when the token lacks ads-read permission.
+    const utmCampaign = campaignName || campaignId;
+
+    if (adName) service = adName;
 
     // ── Create Lead ────────────────────────────────────────────────────────────
     const lead = await Lead.create({
@@ -196,15 +221,16 @@ async function processFacebookLead(leadData) {
       service,
       platform,
       fbLeadId,
-      adCampaignId: leadData.campaign_id || '',
+      adCampaignId: campaignId,
       source: sourceLabel,
       consent: true,
       utmSource,
-      utmMedium: 'cpc',
-      utmCampaign: leadData.campaign_id || ''
+      utmMedium: data.is_organic ? 'organic' : 'cpc',
+      utmCampaign,
+      utmContent: adName
     });
 
-    logger.info(`New FB lead saved: ${lead.leadId} — ${fullName} (${phone})`);
+    logger.info(`New ${platform} lead saved: ${lead.leadId} — ${fullName} (${phone})`);
 
     // ── Admin Email Notification ───────────────────────────────────────────────
     let hrEmail = process.env.HR_EMAIL || 'hr@vedhunt.in';
@@ -218,26 +244,27 @@ async function processFacebookLead(leadData) {
     }
 
     const emailContent = `
-      <h3>New Lead from Facebook Lead Ad</h3>
+      <h3>New Lead from ${platform} Lead Ad</h3>
       <p><strong>Lead ID:</strong> ${lead.leadId}</p>
       <p><strong>Name:</strong> ${fullName}</p>
       <p><strong>Phone:</strong> ${phone}</p>
       <p><strong>Email:</strong> ${email}</p>
       <p><strong>City:</strong> ${city || 'Not provided'}</p>
       <p><strong>Business:</strong> ${businessName || 'Not provided'}</p>
-      <p><strong>Platform:</strong> Facebook Lead Ad</p>
+      <p><strong>Platform:</strong> ${platform} Lead Ad</p>
       <p><strong>Form ID:</strong> ${formId}</p>
-      <p><strong>Campaign ID:</strong> ${leadData.campaign_id || 'N/A'}</p>
+      <p><strong>Campaign:</strong> ${campaignName || campaignId || 'N/A'}</p>
+      <p><strong>Ad:</strong> ${adName || adId || 'N/A'}</p>
     `;
 
     try {
       await sendEmail({
         email: hrEmail,
-        subject: `FB Lead: ${fullName} — ${phone}`,
+        subject: `${platform} Lead: ${fullName} — ${phone}`,
         html: emailContent
       });
     } catch (e) {
-      logger.error('Failed to send admin email for FB lead (lead was still saved):', e);
+      logger.error(`Failed to send admin email for ${platform} lead (lead was still saved):`, e);
     }
 
   } catch (error) {
@@ -256,9 +283,19 @@ async function processFacebookLead(leadData) {
  */
 exports.receiveGoogleLead = async (req, res) => {
   try {
-    const { google_key, lead_id, user_column_data, campaign_id } = req.body;
+    const { google_key, lead_id, user_column_data, campaign_id } = req.body || {};
 
-    // Verify secret key (configured in Google Ads UI)
+    // Verify secret key (configured in Google Ads UI). Fail closed when the key
+    // is not configured at all, rather than comparing against undefined.
+    if (!process.env.GOOGLE_WEBHOOK_KEY) {
+      logger.error(
+        'GOOGLE_WEBHOOK_KEY is missing from environment variables. ' +
+        'Every Google Ads lead will be rejected until it is set and the same ' +
+        'value is entered in the Google Ads lead form delivery settings.'
+      );
+      return res.status(401).json({ success: false, message: 'Unauthorized' });
+    }
+
     if (google_key !== process.env.GOOGLE_WEBHOOK_KEY) {
       logger.error('Google webhook key mismatch');
       return res.status(401).json({ success: false, message: 'Unauthorized' });

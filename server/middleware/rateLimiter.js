@@ -6,6 +6,11 @@ const globalLimiter = rateLimit({
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
   message: { success: false, message: 'Too many requests from this IP, please try again after 15 minutes' },
+  // Ad-platform webhooks must never be rate limited. Facebook delivers leads in
+  // bursts from a small pool of IPs; a 429 makes it retry and, if failures
+  // persist, Facebook disables the webhook subscription entirely — silently
+  // losing every lead until it is manually re-enabled.
+  skip: (req) => req.path.startsWith('/api/leads/webhook'),
 });
 
 const authLimiter = rateLimit({

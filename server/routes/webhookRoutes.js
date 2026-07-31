@@ -3,7 +3,9 @@ const router = express.Router();
 const { verifyFacebookWebhook, receiveFacebookLead, receiveGoogleLead } = require('../controllers/webhookController');
 
 // Google Ads Webhook (Uses standard JSON)
-router.post('/google', receiveGoogleLead);
+// This router is mounted BEFORE the global express.json() in server.js (the FB
+// route needs a raw body), so the Google route must parse its own JSON body.
+router.post('/google', express.json(), receiveGoogleLead);
 
 // Facebook Webhook Verification (GET)
 router.get('/facebook', verifyFacebookWebhook);
