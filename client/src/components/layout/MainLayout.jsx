@@ -6,6 +6,7 @@ import Footer from './Footer';
 import ScrollToTop from '../common/ScrollToTop';
 import WhatsAppWidget from '../common/WhatsAppWidget';
 import CookieConsent from '../common/CookieConsent';
+import RouteSeo from '../seo/RouteSeo';
 import { initTracking } from '../../utils/tracking';
 
 const GA4_ID = 'G-9JFTTEVSL0';
@@ -30,6 +31,9 @@ export default function MainLayout() {
   return (
     <ReactLenis root options={{ autoRaf: true, duration: 0.9, lerp: 0.1 }}>
       <div className="min-h-screen bg-app-bg text-app-text-muted flex flex-col relative overflow-x-hidden">
+        {/* Canonical URL + per-route title/description */}
+        <RouteSeo />
+
         {/* Scroll Restorer */}
         <ScrollToTop />
 

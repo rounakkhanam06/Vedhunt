@@ -215,8 +215,58 @@ if (process.env.NODE_ENV === 'production') {
     }
   });
 
-  app.get('*all', (req, res) => {
-    res.sendFile(path.resolve(clientBuildPath, 'index.html'));
+  // ── 404 handling ───────────────────────────────────────────────────────────
+  // Serving index.html with a 200 for every unmatched path made every URL look
+  // like a real page to search engines. Google indexed paths that have never
+  // existed (/case-studies among them) and could not drop them, because the
+  // server kept insisting they were fine. The SPA still renders its own 404
+  // screen — the difference is the status code crawlers see.
+  const Blog = require('./models/Blog');
+
+  // Public routes declared in client/src/routes/index.jsx
+  const STATIC_ROUTES = new Set([
+    '/', '/about', '/services', '/portfolio', '/get-quote', '/pricing',
+    '/career', '/career/success', '/blog', '/faq', '/thank-you',
+    '/privacy-policy', '/terms-and-conditions', '/refund-and-billing-policy',
+    '/cookie-policy', '/data-processing-agreement'
+  ]);
+
+  // Prefixes whose sub-paths are app-internal (authenticated areas, landing
+  // pages, tokenised links). Never 404 these — they are not crawlable content
+  // and their validity is decided client-side.
+  const PASSTHROUGH_PREFIXES = ['/admin', '/client', '/employee', '/lp/', '/unsubscribe/'];
+
+  const routeExists = async (pathname) => {
+    const clean = pathname.replace(/\/+$/, '') || '/';
+
+    if (STATIC_ROUTES.has(clean)) return true;
+    if (PASSTHROUGH_PREFIXES.some((p) => clean === p.replace(/\/$/, '') || clean.startsWith(p))) return true;
+
+    // Detail pages are only real if the underlying record is
+    const service = clean.match(/^\/services?\/([^/]+)$/);
+    if (service) return !!(await Service.exists({ slug: service[1], isActive: true }));
+
+    // Blog links are usually slugs but the route also accepts an id
+    const blog = clean.match(/^\/blog\/([^/]+)$/);
+    if (blog) {
+      const query = mongoose.isValidObjectId(blog[1])
+        ? { $or: [{ slug: blog[1] }, { _id: blog[1] }] }
+        : { slug: blog[1] };
+      return !!(await Blog.exists({ ...query, isPublished: true }));
+    }
+
+    return false;
+  };
+
+  app.get('*all', async (req, res) => {
+    let status = 200;
+    try {
+      if (!(await routeExists(req.path))) status = 404;
+    } catch (err) {
+      // A database hiccup must not turn a real page into a 404
+      logger.error('Error resolving route for 404 check:', err);
+    }
+    res.status(status).sendFile(path.resolve(clientBuildPath, 'index.html'));
   });
 }
 
