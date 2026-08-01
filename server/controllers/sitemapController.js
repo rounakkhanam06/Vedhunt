@@ -6,6 +6,12 @@ const BASE_URL = 'https://vedhunt.in';
 exports.generateSitemap = async (req, res, next) => {
   try {
     // 1. Define Static Core Pages
+    //
+    // Every entry must correspond to a real route in
+    // client/src/routes/index.jsx. This list previously advertised /videos,
+    // /contact, /terms, /dpa and /refund-policy, none of which exist — the
+    // server answered 200 for them anyway, so Google indexed five pages that
+    // were never there and ranked them ahead of the ones that matter.
     const staticPages = [
       { url: '/', priority: 1.0, changefreq: 'weekly' },
       { url: '/services', priority: 0.9, changefreq: 'weekly' },
@@ -14,15 +20,13 @@ exports.generateSitemap = async (req, res, next) => {
       { url: '/about', priority: 0.8, changefreq: 'monthly' },
       { url: '/blog', priority: 0.8, changefreq: 'weekly' },
       { url: '/career', priority: 0.8, changefreq: 'monthly' },
-      { url: '/videos', priority: 0.8, changefreq: 'monthly' },
       { url: '/faq', priority: 0.8, changefreq: 'monthly' },
-      { url: '/contact', priority: 0.8, changefreq: 'yearly' }, // adding contact
       { url: '/get-quote', priority: 0.8, changefreq: 'monthly' },
       { url: '/privacy-policy', priority: 0.5, changefreq: 'yearly' },
-      { url: '/terms', priority: 0.5, changefreq: 'yearly' },
+      { url: '/terms-and-conditions', priority: 0.5, changefreq: 'yearly' },
       { url: '/cookie-policy', priority: 0.5, changefreq: 'yearly' },
-      { url: '/dpa', priority: 0.5, changefreq: 'yearly' },
-      { url: '/refund-policy', priority: 0.5, changefreq: 'yearly' }
+      { url: '/data-processing-agreement', priority: 0.5, changefreq: 'yearly' },
+      { url: '/refund-and-billing-policy', priority: 0.5, changefreq: 'yearly' }
     ];
 
     // 2. Fetch Active Dynamic Content
