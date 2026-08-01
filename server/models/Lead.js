@@ -205,10 +205,13 @@ leadSchema.pre('save', async function() {
     const day = ('0' + date.getDate()).slice(-2);
     const dateStr = `${year}${month}${day}`;
 
-    // Find the last lead created today to increment the counter
+    // Find the highest counter issued for this date. Sorting by leadId rather
+    // than createdAt matters for imported leads, which carry their original
+    // submission date — sorting by createdAt would reissue a used counter and
+    // trip the unique index.
     const lastLead = await this.constructor.findOne({
       leadId: new RegExp(`^VH-${dateStr}-`)
-    }).sort({ createdAt: -1 });
+    }).sort({ leadId: -1 });
 
     let counter = 1;
     if (lastLead && lastLead.leadId) {
