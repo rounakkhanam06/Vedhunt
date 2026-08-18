@@ -1,9 +1,9 @@
 const crypto = require('crypto');
 const Lead = require('../models/Lead');
-const LeadForm = require('../models/LeadForm');
 const Settings = require('../models/Settings');
 const { sendEmail } = require('../utils/sendEmail');
 const logger = require('../utils/logger');
+const { GRAPH, LEAD_FIELDS, prettifyKey, saveFacebookLead } = require('../services/facebookLeads');
 
 // ==========================================
 // FACEBOOK LEAD ADS WEBHOOK
@@ -111,64 +111,27 @@ exports.receiveFacebookLead = async (req, res) => {
   }
 };
 
-/**
- * Facebook's prefilled question keys, which vary between forms — the same
- * phone field arrives as `phone_number` on one form and `phone` on another.
- * Matching only one spelling silently drops the answer, so every known
- * spelling is listed. Anything not in here is treated as a custom question
- * and kept in the lead's message.
- */
-const STANDARD_FIELDS = {
-  fullName:    ['full_name', 'name'],
-  firstName:   ['first_name'],
-  lastName:    ['last_name'],
-  email:       ['email', 'email_address', 'work_email'],
-  phone:       ['phone_number', 'phone', 'mobile_number', 'work_phone_number'],
-  city:        ['city'],
-  companyName: ['company_name'],
-  jobTitle:    ['job_title']
-};
-
-/** Turn a question key like `what's_your_timeline?` into a readable label. */
-function prettifyKey(key) {
-  const text = String(key || '').replace(/_/g, ' ').trim();
-  return text ? text.charAt(0).toUpperCase() + text.slice(1) : 'Answer';
-}
-
 async function processFacebookLead(leadData) {
   try {
     const fbLeadId = leadData.leadgen_id;
-    const adId    = leadData.ad_id;
-    const formId  = leadData.form_id;
+    const formId   = leadData.form_id;
 
     // Check if duplicate before making any API calls
-    const existingLead = await Lead.findOne({ fbLeadId });
-    if (existingLead) {
+    if (await Lead.exists({ fbLeadId })) {
       logger.info(`Duplicate FB Lead ID ignored: ${fbLeadId}`);
       return;
     }
 
-    // Fetch full lead details using Graph API
     const pageAccessToken = process.env.FB_PAGE_ACCESS_TOKEN;
     if (!pageAccessToken) {
       logger.error('FB_PAGE_ACCESS_TOKEN is missing from environment variables. Cannot fetch lead data.');
       return;
     }
 
-    // Request campaign/platform metadata alongside the answers. The leadgen
-    // webhook payload only carries ad_id/adgroup_id/form_id — campaign details
-    // and the fb-vs-ig platform flag are only available on the lead object.
-    const leadFields = [
-      'field_data',
-      'campaign_id',
-      'campaign_name',
-      'adset_id',
-      'ad_name',
-      'platform',
-      'is_organic'
-    ].join(',');
-
-    const url = `https://graph.facebook.com/v19.0/${fbLeadId}?fields=${leadFields}&access_token=${pageAccessToken}`;
+    // The leadgen webhook payload only carries ad_id/adgroup_id/form_id —
+    // the answers, campaign details and the fb-vs-ig platform flag all live
+    // on the lead object itself.
+    const url = `${GRAPH}/${fbLeadId}?fields=${LEAD_FIELDS}&access_token=${pageAccessToken}`;
 
     // We already returned 200 to Facebook, so it will never redeliver this
     // lead. A transient network blip or Graph API 5xx would lose it for good —
@@ -209,7 +172,7 @@ async function processFacebookLead(leadData) {
         logger.error(
           `FB_PAGE_ACCESS_TOKEN is EXPIRED or INVALID (code 190). ` +
           `Renew it in Facebook Business Manager → Pages → Page Settings → Advanced. ` +
-          `Lead ID ${fbLeadId} was NOT saved.`
+          `Lead ID ${fbLeadId} was NOT saved. The lead sync will pick it up once the token is fixed.`
         );
       } else {
         logger.error(`Graph API error for lead ${fbLeadId}: [${data.error.code}] ${data.error.message}`);
@@ -217,220 +180,14 @@ async function processFacebookLead(leadData) {
       return;
     }
 
-    // ── Platform Detection: Facebook vs Instagram ──────────────────────────────
-    // Instagram Lead Ads are delivered through the same page webhook, so the
-    // payload alone cannot tell them apart. The lead object's `platform` field
-    // is the authoritative signal: 'ig' for Instagram, 'fb' for Facebook.
-    const isInstagram = data.platform === 'ig' || data.platform === 'instagram';
-    const platform = isInstagram ? 'Instagram' : 'Facebook';
-    const utmSource = isInstagram ? 'instagram' : 'facebook';
-
-    // ── Form Routing ───────────────────────────────────────────────────────────
-    // Every form on the page delivers to this one webhook, so the form is what
-    // tells a BD hiring lead apart from a service enquiry. Resolved before the
-    // field mapping because it carries the question labels used below.
-    const form = await resolveLeadForm(formId, platform, pageAccessToken);
-    const formName = form?.name || `FB Form ${formId}`;
-    const leadType = form?.leadType || 'Sales';
-
-    const questionLabels = new Map(
-      (form?.questions || []).filter((q) => q.label).map((q) => [q.key, q.label])
-    );
-
-    // ── Field Mapping ──────────────────────────────────────────────────────────
-    let fullName     = 'Unknown';
-    let email        = '';
-    let phone        = 'Not provided';
-    let city         = '';
-    let businessName = '';
-
-    // Answers to the form's own questions — budget, timeline, years of
-    // experience, expected CTC. These are the whole point of a lead form and
-    // used to be discarded outright, so they are kept verbatim.
-    const extraAnswers = [];
-
-    if (data.field_data) {
-      for (const field of data.field_data) {
-        const values = (field.values || []).map((v) => String(v).trim()).filter(Boolean);
-        if (!values.length) continue;
-
-        const val = values.join(', '); // multi-select questions return several
-        const key = String(field.name || '').toLowerCase();
-
-        if (STANDARD_FIELDS.fullName.includes(key)) {
-          fullName = val;
-        } else if (STANDARD_FIELDS.firstName.includes(key)) {
-          fullName = fullName === 'Unknown' ? val : `${val} ${(fullName.split(' ')[1] || '')}`.trim();
-        } else if (STANDARD_FIELDS.lastName.includes(key)) {
-          fullName = fullName === 'Unknown' ? val : `${(fullName.split(' ')[0] || '')} ${val}`.trim();
-        } else if (STANDARD_FIELDS.email.includes(key)) {
-          email = val;
-        } else if (STANDARD_FIELDS.phone.includes(key)) {
-          phone = val;
-        } else if (STANDARD_FIELDS.city.includes(key)) {
-          city = val;
-        } else if (STANDARD_FIELDS.companyName.includes(key)) {
-          businessName = val;
-        } else if (STANDARD_FIELDS.jobTitle.includes(key)) {
-          businessName = businessName ? `${businessName} (${val})` : val;
-        } else {
-          // Anything else is a question this form asked. Prefer the real label
-          // from the form definition, falling back to the slugified key.
-          extraAnswers.push({ label: questionLabels.get(field.name) || prettifyKey(field.name), value: val });
-        }
-      }
-    }
-
-    const message = extraAnswers.map(({ label, value }) => `${label}: ${value}`).join('\n');
-
-    // Sanitize required fields
-    fullName = fullName.trim() || 'Unknown';
-    phone    = phone.trim()    || 'Not provided';
-
-    // Email validation — fallback to synthetic address if missing/invalid
-    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-    if (!email || !emailRegex.test(email)) {
-      email = `fb_${fbLeadId}@facebook.com`;
-    }
-
-    // ── Campaign Attribution ───────────────────────────────────────────────────
-    const campaignId   = data.campaign_id || '';
-    const campaignName = data.campaign_name || '';
-    const adName       = data.ad_name || '';
-
-    const sourceLabel = campaignName
-      ? `${platform} Lead Ad (Campaign: ${campaignName})`
-      : `${platform} Lead Ad (Ad: ${adId})`;
-
-    // Prefer a human-readable campaign name in the admin UTM column, falling
-    // back to the raw id when the token lacks ads-read permission.
-    const utmCampaign = campaignName || campaignId;
-
-    // ── Create Lead ────────────────────────────────────────────────────────────
-    // `service` is the sales team's editable "what do they want" column. The
-    // form name describes that far better than an ad name does.
-    const lead = await Lead.create({
-      fullName,
-      email,
-      phone,
-      city,
-      businessName,
-      message,
-      service: formName,
-      platform,
-      fbLeadId,
-      fbFormId: formId,
-      fbFormName: formName,
-      leadType,
-      adCampaignId: campaignId,
-      source: sourceLabel,
-      consent: true,
-      utmSource,
-      utmMedium: data.is_organic ? 'organic' : 'cpc',
-      utmCampaign,
-      utmContent: adName
-    });
-
-    logger.info(
-      `New ${platform} ${leadType} lead saved: ${lead.leadId} — ${fullName} (${phone}) [form: ${formName}]`
-    );
-
-    // ── Admin Email Notification ───────────────────────────────────────────────
-    let hrEmail = process.env.HR_EMAIL || 'hr@vedhunt.in';
-    try {
-      const emailSettings = await Settings.findOne({ key: 'email_settings' });
-      if (emailSettings?.value?.hrEmail) {
-        hrEmail = emailSettings.value.hrEmail;
-      }
-    } catch (err) {
-      logger.error('Error fetching email settings for FB lead notification:', err);
-    }
-
-    const emailContent = `
-      <h3>New ${leadType} Lead from ${platform} Lead Ad</h3>
-      <p><strong>Lead ID:</strong> ${lead.leadId}</p>
-      <p><strong>Form:</strong> ${formName}</p>
-      <p><strong>Type:</strong> ${leadType}</p>
-      <p><strong>Name:</strong> ${fullName}</p>
-      <p><strong>Phone:</strong> ${phone}</p>
-      <p><strong>Email:</strong> ${email}</p>
-      <p><strong>City:</strong> ${city || 'Not provided'}</p>
-      <p><strong>Business:</strong> ${businessName || 'Not provided'}</p>
-      <p><strong>Platform:</strong> ${platform} Lead Ad</p>
-      <p><strong>Campaign:</strong> ${campaignName || campaignId || 'N/A'}</p>
-      <p><strong>Ad:</strong> ${adName || adId || 'N/A'}</p>
-    `;
-
-    try {
-      await sendEmail({
-        email: hrEmail,
-        subject: `${platform} ${leadType} Lead: ${fullName} — ${phone} (${formName})`,
-        html: emailContent
-      });
-    } catch (e) {
-      logger.error(`Failed to send admin email for ${platform} lead (lead was still saved):`, e);
-    }
+    // Mapping, form routing and persistence are shared with the polling sync
+    // so a lead looks the same however it reached us.
+    data.id = data.id || fbLeadId;
+    data.ad_id = data.ad_id || leadData.ad_id || '';
+    await saveFacebookLead({ fbLead: data, formId, pageAccessToken, notify: true });
 
   } catch (error) {
     logger.error('Error processing Facebook lead:', error);
-  }
-}
-
-/**
- * Look up the Instant Form a lead came from, registering it on first sight.
- *
- * A page can run any number of forms and marketing adds new ones without
- * telling anyone, so the registry is populated from live traffic rather than
- * configured up front. A newly seen form defaults to 'Sales' and is flagged
- * unclassified until an admin sets its type in the Facebook Integration page.
- *
- * Never throws — a failure here must not cost us the lead.
- */
-async function resolveLeadForm(formId, platform, pageAccessToken) {
-  if (!formId) return null;
-
-  try {
-    let form = await LeadForm.findOne({ formId });
-
-    if (!form) {
-      // The lead object does not carry the form name, so fetch it separately.
-      // Only ever runs once per form.
-      let name = '';
-      let questions = [];
-      try {
-        const res = await fetch(
-          `https://graph.facebook.com/v19.0/${formId}?fields=name,questions{key,label}&access_token=${pageAccessToken}`
-        );
-        const formData = await res.json();
-        if (formData.error) {
-          logger.warn(`Could not fetch details for form ${formId}: ${formData.error.message}`);
-        } else {
-          name = formData.name || '';
-          questions = (formData.questions || [])
-            .filter((q) => q.key)
-            .map((q) => ({ key: q.key, label: q.label || '' }));
-        }
-      } catch (err) {
-        logger.warn(`Could not fetch details for form ${formId}: ${err.message}`);
-      }
-
-      form = await LeadForm.create({ formId, name, platform, questions });
-      logger.warn(
-        `New Facebook lead form registered: "${name || formId}" (${formId}). ` +
-        'It defaults to Sales — classify it in Admin → Facebook Integration.'
-      );
-    }
-
-    // Fire-and-forget stats; a failure here is not worth losing the lead over.
-    LeadForm.updateOne(
-      { _id: form._id },
-      { $inc: { leadCount: 1 }, $set: { lastLeadAt: new Date() } }
-    ).catch((err) => logger.warn(`Could not update stats for form ${formId}: ${err.message}`));
-
-    return form;
-  } catch (error) {
-    logger.error(`Error resolving lead form ${formId}:`, error);
-    return null;
   }
 }
 
