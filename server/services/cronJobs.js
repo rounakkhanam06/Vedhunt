@@ -2,6 +2,7 @@ const cron = require('node-cron');
 const Employee = require('../models/Employee');
 const WorkLog = require('../models/WorkLog');
 const logger = require('../utils/logger');
+const { syncFacebookLeads } = require('./leadSync');
 
 const startCronJobs = () => {
   // 1. Check for Active Timers running for more than 12 hours (Run every hour)
@@ -116,6 +117,26 @@ const startCronJobs = () => {
       logger.error('Error in Productivity cron:', error);
     }
   });
+
+  // 4. Pull any Facebook leads the webhook did not deliver.
+  //
+  // Webhook delivery can stop without producing a single error on our side —
+  // it has done so twice, costing 44 leads over 17 days before anyone noticed.
+  // This makes a delivery failure cost one interval instead of going unseen.
+  // Set LEAD_SYNC_ENABLED=false to turn it off.
+  if (process.env.LEAD_SYNC_ENABLED !== 'false') {
+    const schedule = process.env.LEAD_SYNC_CRON || '*/10 * * * *';
+    cron.schedule(schedule, async () => {
+      try {
+        await syncFacebookLeads({ lookbackHours: 24, notify: true });
+      } catch (error) {
+        logger.error('Error in Facebook lead sync cron:', error);
+      }
+    });
+    logger.info(`Facebook lead sync scheduled (${schedule}).`);
+  } else {
+    logger.warn('Facebook lead sync is DISABLED (LEAD_SYNC_ENABLED=false).');
+  }
 
   logger.info('Timesheet Cron Jobs Initialized.');
 };
