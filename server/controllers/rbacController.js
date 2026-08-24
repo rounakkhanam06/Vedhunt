@@ -13,6 +13,7 @@ const PERMISSIONS = [
   'careers.manage',
   'legal.manage',
   'leads.view',
+  'leads.assign',
   'settings.manage'
 ];
 

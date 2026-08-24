@@ -1,8 +1,13 @@
 const express = require('express');
+const mongoose = require('mongoose');
 const Employee = require('../models/Employee');
 const WorkLog = require('../models/WorkLog');
 const LeaveRequest = require('../models/LeaveRequest');
 const SupportTicket = require('../models/SupportTicket');
+const Lead = require('../models/Lead');
+const { getMyNotifications, markRead, markAllRead } = require('../controllers/notificationController');
+const { findLeadRaw } = require('../utils/leadLookup');
+const { validateFollowUpRules } = require('../utils/followUpRules');
 const employeeAuthMiddleware = require('../middleware/employeeAuthMiddleware');
 const { encrypt, decrypt } = require('../utils/encryption');
 const logger = require('../utils/logger');
@@ -445,5 +450,101 @@ router.post('/ess/tickets/:id/messages', async (req, res) => {
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
+
+// ==========================================
+// ASSIGNED LEADS (BDs) — Employee Portal is the BD's only workspace now
+// (see server/routes/auth.js's PORTAL_ONLY_ROLES check), so this covers
+// both viewing and working the lead. Reassigning ownership stays out of
+// reach here — that only happens through the audited POST
+// /api/leads/:id/assign flow on the admin side.
+// ==========================================
+
+// Get leads assigned to this employee
+router.get('/ess/leads', async (req, res) => {
+  try {
+    const employee = await Employee.findOne({ adminId: req.user._id });
+    if (!employee) return res.status(404).json({ success: false, message: 'Employee not found' });
+
+    const leads = await Lead.find({ assignedTo: req.user._id }).sort({ createdAt: -1 });
+    res.json({ success: true, leads });
+  } catch (error) {
+    logger.error('Error fetching employee leads:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// Call-tracking / pipeline fields only — same set the admin panel already
+// lets a non-Super-Admin touch, plus dealValue so a Won lead's revenue
+// actually gets recorded.
+const LEAD_UPDATE_FIELDS = [
+  'status', 'city', 'country', 'callStartTime', 'callEndTime', 'callDuration',
+  'callDate', 'connected', 'notConnectedReason', 'interestLevel',
+  'notConvertedReason', 'remark', 'nextFollowUpDate', 'leadAgeAtCall', 'touchNumber',
+  'dealValue'
+];
+
+// Update a lead assigned to this employee. Writes through the raw driver
+// (findLeadRaw + updateOne), not lead.save() — some legacy leads have a
+// String _id instead of ObjectId, which breaks Mongoose's version-checked
+// save with a spurious VersionError (see utils/leadLookup.js).
+router.put('/ess/leads/:id', async (req, res) => {
+  try {
+    const lead = await findLeadRaw(req.params.id, { assignedTo: req.user._id });
+    if (!lead) return res.status(404).json({ success: false, message: 'Lead not found or not assigned to you' });
+
+    const updates = {};
+    for (const key of Object.keys(req.body)) {
+      if (LEAD_UPDATE_FIELDS.includes(key)) updates[key] = req.body[key];
+    }
+
+    const followUpError = validateFollowUpRules(lead, updates);
+    if (followUpError) {
+      return res.status(400).json({ success: false, message: followUpError });
+    }
+
+    // Every field change worth surfacing in the lead's Activity Timeline
+    // (not just status) gets its own pipelineHistory entry.
+    const pipelineEntries = [];
+    if (updates.status && updates.status !== lead.status) {
+      let note = '';
+      if (updates.status === 'Won' && updates.dealValue) note = `Closed with value ₹${updates.dealValue}`;
+      else if ((updates.status === 'Lost' || updates.status === 'Dropped') && updates.notConvertedReason) note = `Reason: ${updates.notConvertedReason}`;
+      pipelineEntries.push({ status: updates.status, date: new Date(), updatedBy: req.user._id, note });
+    }
+    if (updates.connected && updates.connected !== lead.connected) {
+      pipelineEntries.push({
+        status: updates.connected === 'Yes' ? 'Call connected' : 'Call not connected',
+        date: new Date(),
+        updatedBy: req.user._id,
+        note: updates.connected === 'No' ? (updates.notConnectedReason || '') : ''
+      });
+    }
+    if (updates.interestLevel && updates.interestLevel !== lead.interestLevel) {
+      pipelineEntries.push({ status: `Interest set: ${updates.interestLevel}`, date: new Date(), updatedBy: req.user._id, note: '' });
+    }
+
+    const updateQuery = { $set: { ...updates, updatedAt: new Date() } };
+    if (pipelineEntries.length > 0) {
+      updateQuery.$push = { pipelineHistory: { $each: pipelineEntries } };
+    }
+
+    await mongoose.connection.db.collection('leads').updateOne({ _id: lead._id }, updateQuery);
+    const updatedLead = { ...lead, ...updates };
+
+    res.json({ success: true, message: 'Lead updated', lead: updatedLead });
+  } catch (error) {
+    logger.error('Error updating employee lead:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// ==========================================
+// NOTIFICATIONS — same recipient-scoped logic as the admin panel's
+// /api/notifications (notificationController.js only ever reads
+// req.user._id, so it works identically under either auth middleware).
+// ==========================================
+router.get('/ess/notifications', getMyNotifications);
+router.put('/ess/notifications/read-all', markAllRead);
+router.put('/ess/notifications/:id/read', markRead);
 
 module.exports = router;

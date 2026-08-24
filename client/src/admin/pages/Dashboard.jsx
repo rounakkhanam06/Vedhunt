@@ -1,12 +1,28 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { UserPlus, LineChart, Megaphone, Activity, TrendingUp, IndianRupee, Clock, Briefcase } from 'lucide-react';
+import { UserPlus, LineChart, Megaphone, Activity, TrendingUp, IndianRupee, Clock, Briefcase, AlertTriangle } from 'lucide-react';
 import analyticsService from '../../services/analyticsService';
+import api from '../../services/api';
 import toast from 'react-hot-toast';
+import { usePermissions } from '../hooks/usePermissions';
+
+// firstName/lastName aren't guaranteed on every Admin account (the original
+// legacy seed account predates those fields being required) — fall back
+// gracefully instead of rendering "undefined undefined".
+function displayName(person) {
+  if (!person) return 'Unknown';
+  const name = [person.firstName, person.lastName].filter(Boolean).join(' ').trim();
+  return name || person.email || 'Unknown';
+}
 
 const Dashboard = () => {
+  const { can } = usePermissions();
+  const canSeeCompliance = can('leads.assign');
+
   const [financialData, setFinancialData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [compliance, setCompliance] = useState(null);
+  const [complianceLoading, setComplianceLoading] = useState(true);
 
   useEffect(() => {
     const fetchAnalytics = async () => {
@@ -23,6 +39,17 @@ const Dashboard = () => {
     };
     fetchAnalytics();
   }, []);
+
+  useEffect(() => {
+    if (!canSeeCompliance) {
+      setComplianceLoading(false);
+      return;
+    }
+    api.get('/admin/activity/followup-compliance')
+      .then((res) => { if (res.data.success) setCompliance(res.data); })
+      .catch(() => toast.error('Failed to load follow-up compliance'))
+      .finally(() => setComplianceLoading(false));
+  }, [canSeeCompliance]);
 
   const fmt = (n) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(n || 0);
 
@@ -75,6 +102,75 @@ const Dashboard = () => {
           </div>
         )}
       </section>
+
+      {/* Follow-up Compliance — Manager/CEO view, gated to those who can assign leads */}
+      {canSeeCompliance && (
+        <section className="bg-admin-glass border border-white/5 rounded-xl overflow-hidden">
+          <div className="p-6 border-b border-white/5 flex items-center justify-between flex-wrap gap-3">
+            <div>
+              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-secondary" /> Follow-up Compliance
+              </h3>
+              <p className="text-xs text-on-primary-container mt-1">Live snapshot across the BD team</p>
+            </div>
+            {compliance && compliance.totals.total > 0 && (
+              <div className="text-right">
+                <div className="text-2xl font-bold text-white">{compliance.totals.onTrackPct}%</div>
+                <div className="text-[10px] text-on-primary-container uppercase tracking-wider">On Track</div>
+              </div>
+            )}
+          </div>
+
+          {complianceLoading ? (
+            <div className="flex items-center justify-center h-24">
+              <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+            </div>
+          ) : !compliance || compliance.totals.total === 0 ? (
+            <div className="p-6 text-center text-on-primary-container text-sm">No active follow-ups scheduled right now.</div>
+          ) : (
+            <>
+              <div className="grid grid-cols-3 divide-x divide-white/5 border-b border-white/5">
+                <div className="p-4 text-center">
+                  <div className="text-2xl font-bold text-red-400">{compliance.totals.overdue}</div>
+                  <div className="text-[10px] text-on-primary-container uppercase tracking-wider mt-1">Overdue</div>
+                </div>
+                <div className="p-4 text-center">
+                  <div className="text-2xl font-bold text-orange-400">{compliance.totals.dueToday}</div>
+                  <div className="text-[10px] text-on-primary-container uppercase tracking-wider mt-1">Due Today</div>
+                </div>
+                <div className="p-4 text-center">
+                  <div className="text-2xl font-bold text-emerald-400">{compliance.totals.upcoming}</div>
+                  <div className="text-[10px] text-on-primary-container uppercase tracking-wider mt-1">Upcoming</div>
+                </div>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-white/5 text-xs text-[#9CA3AF] uppercase tracking-wider">
+                      <th className="px-6 py-3 font-medium">BD</th>
+                      <th className="px-6 py-3 font-medium text-center">Overdue</th>
+                      <th className="px-6 py-3 font-medium text-center">Due Today</th>
+                      <th className="px-6 py-3 font-medium text-center">Upcoming</th>
+                      <th className="px-6 py-3 font-medium text-right">On Track</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                    {compliance.byBd.map((row) => (
+                      <tr key={row.bd._id} className="hover:bg-white/[0.02] transition-colors">
+                        <td className="px-6 py-3 text-sm text-white font-medium">{displayName(row.bd)}</td>
+                        <td className="px-6 py-3 text-sm text-center text-red-400 font-bold">{row.overdue}</td>
+                        <td className="px-6 py-3 text-sm text-center text-orange-400 font-bold">{row.dueToday}</td>
+                        <td className="px-6 py-3 text-sm text-center text-emerald-400 font-bold">{row.upcoming}</td>
+                        <td className="px-6 py-3 text-sm text-right font-semibold text-white">{row.onTrackPct}%</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+        </section>
+      )}
 
       {/* Project Financial Breakdown */}
       {financialData?.projectStats?.length > 0 && (

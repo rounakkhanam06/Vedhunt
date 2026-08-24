@@ -1,15 +1,22 @@
 const mongoose = require('mongoose');
 const Lead = require('../models/Lead');
+const Admin = require('../models/Admin');
 const Settings = require('../models/Settings');
 const { sendEmail } = require('../utils/sendEmail');
 const logger = require('../utils/logger');
+const { findDuplicateLead } = require('../services/leadDedup');
+const { normalizePhone, normalizeEmail } = require('../utils/normalize');
+const AssignmentLog = require('../models/AssignmentLog');
+const { manualAssign, autoAssignLead } = require('../services/leadAssignment');
+const { findLeadRaw } = require('../utils/leadLookup');
+const { validateFollowUpRules } = require('../utils/followUpRules');
 
 // @desc    Submit a new lead from a landing page
 // @route   POST /api/leads
 // @access  Public
 exports.createLead = async (req, res, next) => {
   try {
-    const { fullName, phone, email, service, businessName, message, source, consent, city, country, platform, userSource, utmSource, utmMedium, utmCampaign, utmContent, utmTerm } = req.body;
+    const { fullName, phone, altPhone, email, service, businessName, message, source, consent, city, country, platform, userSource, utmSource, utmMedium, utmCampaign, utmContent, utmTerm } = req.body;
 
     if (!fullName || !phone || !email || !source) {
       return res.status(400).json({ success: false, message: 'Please provide all required fields' });
@@ -36,10 +43,21 @@ exports.createLead = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Please enter a valid phone number' });
     }
 
+    // Someone resubmitting (double-click, retried form, already reached us
+    // through another channel) should see the same success screen without
+    // creating a second Lead or paging HR again — so this returns success
+    // and stops here rather than surfacing an error to a real customer.
+    const duplicate = await findDuplicateLead({ phone, altPhone, email });
+    if (duplicate) {
+      logger.info(`Duplicate lead ignored (matches ${duplicate.leadId} by phone/email): ${fullName} — ${phone}`);
+      return res.status(200).json({ success: true, message: 'Lead submitted successfully', data: duplicate });
+    }
+
     // Save lead to database
     const lead = await Lead.create({
       fullName,
       phone,
+      altPhone,
       email,
       service: service || 'Not specified',
       businessName,
@@ -60,6 +78,9 @@ exports.createLead = async (req, res, next) => {
         note: 'Lead Received'
       }]
     });
+
+    // Never throws — logs and leaves the lead Unassigned on any failure.
+    await autoAssignLead(lead);
 
     // Send email to HR/Admin
     // Send email to HR/Admin
@@ -146,6 +167,16 @@ exports.getLeads = async (req, res, next) => {
       query.fbFormId = req.query.fbFormId;
     }
 
+    // Visibility: BDs (anyone without the '*' wildcard) only ever see leads
+    // assigned to them, however they filter. Admins additionally get an
+    // "Assigned BD" filter (a specific BD, or 'Unassigned').
+    const isSuperAdmin = req.user?.permissions?.includes('*');
+    if (!isSuperAdmin) {
+      query.assignedTo = req.user._id;
+    } else if (req.query.assignedTo && req.query.assignedTo !== 'All') {
+      query.assignedTo = req.query.assignedTo === 'Unassigned' ? null : req.query.assignedTo;
+    }
+
     // Search by text (using $text index or regex if $text doesn't cover partial well)
     // Note: MongoDB $text search is word-based. For partial matching (e.g. typing part of an email), 
     // regex is often more intuitive for admin panels, though less scalable than raw $text.
@@ -167,9 +198,9 @@ exports.getLeads = async (req, res, next) => {
     }
 
     const totalLeads = await Lead.countDocuments(query);
-    
-    let leadsQuery = Lead.find(query).sort(sort);
-    
+
+    let leadsQuery = Lead.find(query).sort(sort).populate('assignedTo', 'firstName lastName email');
+
     if (!isExport) {
       leadsQuery = leadsQuery.skip(startIndex).limit(limit);
     }
@@ -190,22 +221,104 @@ exports.getLeads = async (req, res, next) => {
   }
 };
 
+// @desc    Get a single lead
+// @route   GET /api/leads/:id
+// @access  Private (Admin) — used by the notification deep link
+exports.getLeadById = async (req, res, next) => {
+  try {
+    const isSuperAdmin = req.user?.permissions?.includes('*');
+    const lead = await findLeadRaw(req.params.id);
+    if (!lead || (!isSuperAdmin && String(lead.assignedTo || '') !== String(req.user._id))) {
+      return res.status(404).json({ success: false, message: 'Lead not found' });
+    }
+
+    let assignedTo = null;
+    if (lead.assignedTo) {
+      const admin = await Admin.findById(lead.assignedTo).select('firstName lastName email');
+      if (admin) assignedTo = { _id: admin._id, firstName: admin.firstName, lastName: admin.lastName, email: admin.email };
+    }
+
+    res.status(200).json({ success: true, data: { ...lead, assignedTo } });
+  } catch (error) {
+    logger.error('Error fetching lead:', error);
+    next(error);
+  }
+};
+
+// @desc    Assign, reassign, or unassign a lead to a BD
+// @route   POST /api/leads/:id/assign
+// @access  Private (leads.assign)
+exports.assignLead = async (req, res, next) => {
+  try {
+    const { assignedTo, reason } = req.body;
+
+    if (assignedTo) {
+      const targetAdmin = await Admin.findById(assignedTo);
+      if (!targetAdmin) {
+        return res.status(400).json({ success: false, message: 'That BD account does not exist' });
+      }
+    }
+
+    const lead = await manualAssign({
+      leadId: req.params.id,
+      toAdmin: assignedTo || null,
+      assignedBy: req.user._id,
+      reason: reason || ''
+    });
+
+    if (!lead) {
+      return res.status(404).json({ success: false, message: 'Lead not found' });
+    }
+
+    res.status(200).json({ success: true, data: lead });
+  } catch (error) {
+    logger.error('Error assigning lead:', error);
+    next(error);
+  }
+};
+
+// @desc    Assignment/reassignment audit trail for one lead
+// @route   GET /api/leads/:id/assignment-history
+// @access  Private (Admin)
+exports.getAssignmentHistory = async (req, res, next) => {
+  try {
+    const isSuperAdmin = req.user?.permissions?.includes('*');
+    const lead = await findLeadRaw(req.params.id);
+    if (!lead || (!isSuperAdmin && String(lead.assignedTo || '') !== String(req.user._id))) {
+      return res.status(404).json({ success: false, message: 'Lead not found' });
+    }
+
+    const history = await AssignmentLog.find({ lead: lead._id })
+      .sort({ createdAt: -1 })
+      .populate('fromAdmin', 'firstName lastName')
+      .populate('toAdmin', 'firstName lastName')
+      .populate('assignedBy', 'firstName lastName');
+
+    res.status(200).json({ success: true, data: history });
+  } catch (error) {
+    logger.error('Error fetching assignment history:', error);
+    next(error);
+  }
+};
+
 // @desc    Update lead
 // @route   PUT /api/leads/:id
 // @access  Private (Admin)
 exports.updateLead = async (req, res, next) => {
   try {
+    // 'bd'/'assignedTo' are intentionally excluded — ownership changes must
+    // go through POST /leads/:id/assign so every change is audit-logged.
     let allowedUpdates = [
-      'status', 'bd', 'city', 'country', 'callStartTime', 'callEndTime', 'callDuration', 
-      'callDate', 'connected', 'notConnectedReason', 'interestLevel', 
+      'status', 'city', 'country', 'callStartTime', 'callEndTime', 'callDuration',
+      'callDate', 'connected', 'notConnectedReason', 'interestLevel',
       'notConvertedReason', 'remark', 'nextFollowUpDate', 'leadAgeAtCall', 'touchNumber',
-      'fullName', 'email', 'phone', 'businessName', 'service'
+      'fullName', 'email', 'phone', 'altPhone', 'businessName', 'service'
     ];
 
     // Field-level access control: Only Super Admins can edit core fields
     const isSuperAdmin = req.user?.permissions?.includes('*');
     if (!isSuperAdmin) {
-      const protectedFields = ['fullName', 'email', 'phone', 'city', 'country', 'businessName', 'platform'];
+      const protectedFields = ['fullName', 'email', 'phone', 'altPhone', 'city', 'country', 'businessName', 'platform'];
       allowedUpdates = allowedUpdates.filter(field => !protectedFields.includes(field));
     }
 
@@ -215,6 +328,14 @@ exports.updateLead = async (req, res, next) => {
         updates[key] = req.body[key];
       }
     }
+
+    // This update goes through the raw driver below (to bypass ObjectId
+    // casting), which skips the Mongoose pre-save hook that normally keeps
+    // phone/altPhone/email normalized — so recompute them here whenever the
+    // admin edits one, or duplicate-lead lookups would go stale for this lead.
+    if ('phone' in updates) updates.phoneNormalized = normalizePhone(updates.phone);
+    if ('altPhone' in updates) updates.altPhoneNormalized = normalizePhone(updates.altPhone);
+    if ('email' in updates) updates.emailNormalized = normalizeEmail(updates.email);
 
     // Bypass Mongoose casting to find the lead (handles both String and ObjectId)
     const db = mongoose.connection.db;
@@ -227,20 +348,35 @@ exports.updateLead = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Lead not found' });
     }
 
-    let pushUpdate = null;
+    const followUpError = validateFollowUpRules(existingLead, updates);
+    if (followUpError) {
+      return res.status(400).json({ success: false, message: followUpError });
+    }
+
+    // Every field change worth surfacing in the lead's Activity Timeline
+    // (not just status) gets its own pipelineHistory entry.
+    const pipelineEntries = [];
     if (updates.status && updates.status !== existingLead.status) {
       let note = '';
       if (updates.status === 'Won' && req.body.dealValue) note = `Closed with value ₹${req.body.dealValue}`;
       else if ((updates.status === 'Lost' || updates.status === 'Dropped') && req.body.notConvertedReason) note = `Reason: ${req.body.notConvertedReason}`;
-      
-      pushUpdate = {
-        pipelineHistory: {
-          status: updates.status,
-          date: new Date(),
-          updatedBy: req.user ? req.user._id : undefined,
-          note
-        }
-      };
+      pipelineEntries.push({ status: updates.status, date: new Date(), updatedBy: req.user ? req.user._id : undefined, note });
+    }
+    if (updates.connected && updates.connected !== existingLead.connected) {
+      pipelineEntries.push({
+        status: updates.connected === 'Yes' ? 'Call connected' : 'Call not connected',
+        date: new Date(),
+        updatedBy: req.user ? req.user._id : undefined,
+        note: updates.connected === 'No' ? (updates.notConnectedReason || '') : ''
+      });
+    }
+    if (updates.interestLevel && updates.interestLevel !== existingLead.interestLevel) {
+      pipelineEntries.push({
+        status: `Interest set: ${updates.interestLevel}`,
+        date: new Date(),
+        updatedBy: req.user ? req.user._id : undefined,
+        note: ''
+      });
     }
 
     // Set updated At
@@ -248,8 +384,8 @@ exports.updateLead = async (req, res, next) => {
 
     // Use raw findOneAndUpdate to bypass ObjectId casting
     const updateQuery = { $set: updates };
-    if (pushUpdate) {
-      updateQuery.$push = pushUpdate;
+    if (pipelineEntries.length > 0) {
+      updateQuery.$push = { pipelineHistory: { $each: pipelineEntries } };
     }
 
     const result = await db.collection('leads').findOneAndUpdate(

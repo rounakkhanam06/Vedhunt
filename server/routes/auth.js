@@ -39,10 +39,13 @@ router.post('/login', ...loginMiddleware, async (req, res) => {
         return res.status(401).json({ success: false, message: 'Account is inactive' });
       }
 
-      // Prevent Employee-only accounts from logging into Admin portal
-      const hasEmployeeRole = admin.roles?.some(role => role.name === 'EMPLOYEE');
-      const hasAdminRole = admin.roles?.some(role => role.name !== 'EMPLOYEE');
-      if (hasEmployeeRole && !hasAdminRole) {
+      // Prevent portal-only accounts (plain employees, and BDs who hold BDE
+      // for lead visibility but no actual admin capability) from logging
+      // into the Admin portal — they work entirely from the Employee Portal.
+      const PORTAL_ONLY_ROLES = ['EMPLOYEE', 'BDE'];
+      const hasPortalOnlyRole = admin.roles?.some(role => PORTAL_ONLY_ROLES.includes(role.name));
+      const hasAdminRole = admin.roles?.some(role => !PORTAL_ONLY_ROLES.includes(role.name));
+      if (hasPortalOnlyRole && !hasAdminRole) {
         return res.status(403).json({ success: false, message: 'Access Denied: Please use the Employee Portal.' });
       }
 

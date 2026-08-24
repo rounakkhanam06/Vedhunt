@@ -43,5 +43,9 @@
     "slugify": "^1.6.9",
     "winston": "^3.19.0",
     "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.5",
+    "nodemon": "^3.1.14"
   }
 }

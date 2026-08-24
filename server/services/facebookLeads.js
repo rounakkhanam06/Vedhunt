@@ -3,6 +3,8 @@ const LeadForm = require('../models/LeadForm');
 const Settings = require('../models/Settings');
 const { sendEmail } = require('../utils/sendEmail');
 const logger = require('../utils/logger');
+const { findDuplicateLead } = require('./leadDedup');
+const { autoAssignLead } = require('./leadAssignment');
 
 const GRAPH = 'https://graph.facebook.com/v19.0';
 
@@ -234,6 +236,18 @@ async function saveFacebookLead({ fbLead, formId, pageAccessToken, notify = true
 
   const mapped = mapFieldData(fbLead.field_data, questionLabels);
 
+  // Cross-channel duplicate check — same person via a different form, ad, or
+  // platform (website, Google) shares a phone/email with a lead we already
+  // hold. Checked against the real submitted phone/email, before the
+  // synthetic placeholder email below would make every lead look unique.
+  const duplicate = await findDuplicateLead({ phone: mapped.phone, email: mapped.email });
+  if (duplicate) {
+    logger.info(
+      `${platform} lead ${fbLeadId} matches existing lead ${duplicate.leadId} by phone/email — skipping duplicate.`
+    );
+    return { created: false, reason: 'duplicate-contact', duplicateOf: duplicate._id };
+  }
+
   // Fall back to a synthetic address when the form did not ask for one, or
   // the answer is not a usable address — email is required on the model.
   const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
@@ -283,6 +297,9 @@ async function saveFacebookLead({ fbLead, formId, pageAccessToken, notify = true
   logger.info(
     `New ${platform} ${leadType} lead saved: ${lead.leadId} — ${lead.fullName} (${lead.phone}) [form: ${formName}]`
   );
+
+  // Never throws — logs and leaves the lead Unassigned on any failure.
+  await autoAssignLead(lead);
 
   if (notify) {
     await notifyAdmin(lead, { platform, leadType, formName, campaignName, campaignId, adName, adId });

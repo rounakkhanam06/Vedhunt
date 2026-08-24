@@ -32,8 +32,12 @@ router.post('/login', ...loginMiddleware, async (req, res) => {
         return res.status(401).json({ success: false, message: 'Account is inactive' });
       }
       
-      const hasEmployeeRole = admin.roles?.some(role => role.name === 'EMPLOYEE');
-      if (!hasEmployeeRole) {
+      // Mirrors PORTAL_ONLY_ROLES in server/routes/auth.js — anyone confined
+      // to the Employee Portal there (plain employees, and BDs) must be able
+      // to actually reach it here, regardless of which of those roles they hold.
+      const PORTAL_ROLES = ['EMPLOYEE', 'BDE'];
+      const hasPortalRole = admin.roles?.some(role => PORTAL_ROLES.includes(role.name));
+      if (!hasPortalRole) {
         return res.status(403).json({ success: false, message: 'Access Denied: Standard administrators cannot login to the Employee Portal.' });
       }
 

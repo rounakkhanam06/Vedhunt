@@ -1,20 +1,111 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import api from '../../services/api';
 import { motion } from 'framer-motion';
-import { Mail, Phone, Clock, Globe, Briefcase, FileText, CheckCircle2, Search, Filter, ChevronDown, ChevronLeft, ChevronRight, Eye, X, Play, Square, Save, Download, LayoutGrid, Table } from 'lucide-react';
+import { Mail, Phone, Clock, FileText, CheckCircle2, Search, ChevronDown, ChevronLeft, ChevronRight, Eye, X, Play, Square, Save, Download, LayoutGrid, Table, UserCheck, MessageCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { usePermissions } from '../hooks/usePermissions';
 import LeadsPipelineView from '../components/LeadsPipelineView';
 
+// firstName/lastName aren't guaranteed on every Admin account (the original
+// legacy seed account predates those fields being required) — fall back
+// gracefully instead of rendering "undefined undefined".
+function displayName(person, fallback = 'Unknown') {
+  if (!person) return null;
+  const name = [person.firstName, person.lastName].filter(Boolean).join(' ').trim();
+  return name || person.email || fallback;
+}
+
+/** Merges pipelineHistory + assignment history + a synthetic "captured" event into one sorted feed, newest first. */
+function buildActivityTimeline(lead, assignmentHistory) {
+  if (!lead) return [];
+  const events = [];
+
+  events.push({
+    key: 'captured',
+    title: `Lead captured via ${lead.platform || 'Website'}`,
+    date: lead.createdAt,
+    actor: null
+  });
+
+  (lead.pipelineHistory || []).forEach((h, idx) => {
+    events.push({
+      key: `pipeline-${idx}`,
+      title: h.status,
+      date: h.date,
+      note: h.note,
+      actor: null
+    });
+  });
+
+  (assignmentHistory || []).forEach((entry) => {
+    const toName = displayName(entry.toAdmin);
+    events.push({
+      key: entry._id,
+      title: toName ? `Assigned to ${toName}` : 'Unassigned',
+      date: entry.createdAt,
+      note: entry.reason,
+      actor: entry.mode === 'Auto-RoundRobin' ? 'Round-robin' : (displayName(entry.assignedBy) || 'Admin')
+    });
+  });
+
+  return events.sort((a, b) => new Date(b.date) - new Date(a.date));
+}
+
+/** WhatsApp deep link — Indian 10-digit numbers get the country code prefixed. */
+function toWhatsAppHref(phone) {
+  const digits = String(phone || '').replace(/\D/g, '');
+  if (!digits) return null;
+  return `https://wa.me/${digits.length === 10 ? `91${digits}` : digits}`;
+}
+
+/** Truncated page list, e.g. [1, '...', 5, 6, 7, '...', 72] — keeps the Prev/Next controls reachable regardless of page count. */
+function getPaginationRange(current, total, delta = 1) {
+  const range = [];
+  for (let i = 1; i <= total; i++) {
+    if (i === 1 || i === total || (i >= current - delta && i <= current + delta)) {
+      range.push(i);
+    }
+  }
+  const withDots = [];
+  let last = null;
+  for (const page of range) {
+    if (last !== null) {
+      if (page - last === 2) withDots.push(last + 1);
+      else if (page - last !== 1) withDots.push('...');
+    }
+    withDots.push(page);
+    last = page;
+  }
+  return withDots;
+}
+
+// Mirrors server/utils/followUpRules.js's INTEREST_LEVELS — no shared
+// import path between server and client in this repo.
+const INTEREST_LEVELS = ['Hot', 'Warm', 'Cold', 'Interested', 'Not Interested', 'Asked to Call Later'];
+const FOLLOWUP_TRIGGER_INTEREST_LEVELS = ['Hot', 'Warm', 'Interested', 'Asked to Call Later'];
+
+const STATUS_BADGE_CLASSES = {
+  Won: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+  Lost: 'bg-red-500/10 text-red-400 border-red-500/20',
+  Dropped: 'bg-red-500/10 text-red-400 border-red-500/20',
+  New: 'bg-blue-500/10 text-blue-400 border-blue-500/20'
+};
+
 export default function LeadsManager() {
   const { can } = usePermissions();
   const isSuperAdmin = can('*');
-  
+  const canAssign = can('leads.assign');
+  const [searchParams, setSearchParams] = useSearchParams();
+
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedLead, setSelectedLead] = useState(null);
   const [viewMode, setViewMode] = useState(() => localStorage.getItem('leadsViewMode') || 'table');
-  
+  const [bds, setBds] = useState([]);
+  const [assignmentHistory, setAssignmentHistory] = useState([]);
+  const [assignReason, setAssignReason] = useState('');
+
   // Pagination & Filters state
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
@@ -25,6 +116,7 @@ export default function LeadsManager() {
   // sales pipeline/revenue fields are meaningless for job applicants.
   const [leadTypeFilter, setLeadTypeFilter] = useState('Sales');
   const [formFilter, setFormFilter] = useState('All');
+  const [assignedBdFilter, setAssignedBdFilter] = useState('All');
   const [leadForms, setLeadForms] = useState([]);
   const [sortBy, setSortBy] = useState('createdAt');
   const [sortOrder, setSortOrder] = useState('desc');
@@ -70,6 +162,7 @@ export default function LeadsManager() {
           userSource: sourceFilter,
           leadType: leadTypeFilter,
           fbFormId: formFilter,
+          assignedTo: assignedBdFilter,
           search: debouncedSearchTerm,
           sortBy,
           sortOrder
@@ -86,7 +179,7 @@ export default function LeadsManager() {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, statusFilter, platformFilter, sourceFilter, leadTypeFilter, formFilter, debouncedSearchTerm, sortBy, sortOrder]);
+  }, [currentPage, statusFilter, platformFilter, sourceFilter, leadTypeFilter, formFilter, assignedBdFilter, debouncedSearchTerm, sortBy, sortOrder]);
 
   useEffect(() => {
     fetchLeads();
@@ -99,6 +192,58 @@ export default function LeadsManager() {
       .then((res) => setLeadForms(res.data?.data || []))
       .catch(() => { /* filter just stays empty — not worth a toast */ });
   }, []);
+
+  // BD roster for the "Assigned BD" filter and the assign control — only
+  // fetchable by users who can actually assign (BDs get a 403, harmlessly skipped).
+  useEffect(() => {
+    if (!canAssign) return;
+    api.get('/admin/assignment/bds')
+      .then((res) => setBds(res.data?.data || []))
+      .catch(() => { /* filter/assign control just stays empty */ });
+  }, [canAssign]);
+
+  // Deep link from a notification — /admin/leads?leadId=... opens that
+  // lead's detail modal directly.
+  useEffect(() => {
+    const leadId = searchParams.get('leadId');
+    if (!leadId) return;
+    api.get(`/leads/${leadId}`)
+      .then((res) => {
+        if (res.data?.success) setSelectedLead(res.data.data);
+      })
+      .catch(() => toast.error('That lead could not be found'))
+      .finally(() => {
+        const next = new URLSearchParams(searchParams);
+        next.delete('leadId');
+        setSearchParams(next, { replace: true });
+      });
+    // Only run once on mount — the leadId param is consumed and removed above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Fetch this lead's audit trail whenever the detail modal opens.
+  useEffect(() => {
+    if (!selectedLead?._id) {
+      setAssignmentHistory([]);
+      return;
+    }
+    api.get(`/leads/${selectedLead._id}/assignment-history`)
+      .then((res) => setAssignmentHistory(res.data?.data || []))
+      .catch(() => setAssignmentHistory([]));
+  }, [selectedLead?._id]);
+
+  const handleAssign = async (leadId, assignedTo, reason = '') => {
+    try {
+      const response = await api.post(`/leads/${leadId}/assign`, { assignedTo: assignedTo || null, reason });
+      const updated = response.data.data;
+      setLeads(leads.map(l => l._id === leadId ? updated : l));
+      if (selectedLead?._id === leadId) setSelectedLead(updated);
+      setAssignReason('');
+      toast.success(assignedTo ? 'Lead assigned' : 'Lead unassigned');
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to assign lead');
+    }
+  };
 
   const deleteLead = async (id) => {
     if (window.confirm('Are you sure you want to delete this lead?')) {
@@ -118,7 +263,7 @@ export default function LeadsManager() {
       setLeads(leads.map(l => l._id === id ? { ...l, [field]: value } : l));
       toast.success('Auto-saved', { duration: 1000, position: 'bottom-right' });
     } catch (error) {
-      toast.error('Failed to update field');
+      toast.error(error.response?.data?.message || 'Failed to update field');
     }
   };
 
@@ -222,183 +367,211 @@ export default function LeadsManager() {
 
   const [showExportDropdown, setShowExportDropdown] = useState(false);
 
+  const compactSelectClass = "bg-app-bg border border-app-border rounded-lg pl-3 pr-8 py-2 text-sm text-app-text focus:outline-none focus:border-primary transition-colors appearance-none cursor-pointer";
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
+      {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-app-text font-heading">Lead Manager</h1>
-          <p className="text-sm text-app-text-muted mt-1">Manage and track leads like a spreadsheet</p>
+          <p className="text-sm text-app-text-muted mt-1">
+            {leadTypeFilter === 'All' ? 'Total' : leadTypeFilter} leads:{' '}
+            <span className="font-semibold text-app-text">{totalLeads}</span>
+          </p>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="bg-primary/10 text-primary px-4 py-2 rounded-lg font-bold text-sm whitespace-nowrap text-center">
-            {leadTypeFilter === 'All' ? 'Total Leads' : `${leadTypeFilter} Leads`}: {totalLeads}
-          </div>
-          <div className="relative">
-            <button
-              onClick={() => setShowExportDropdown(!showExportDropdown)}
-              className="flex items-center gap-2 bg-app-card border border-app-border hover:border-primary px-4 py-2 rounded-lg font-bold text-sm text-app-text transition-colors"
-            >
-              <Download className="w-4 h-4" />
-              <span>Export</span>
-              <ChevronDown className="w-4 h-4" />
-            </button>
-            {showExportDropdown && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setShowExportDropdown(false)} />
-                <div className="absolute right-0 mt-2 w-48 bg-app-card border border-app-border rounded-xl shadow-lg z-50 overflow-hidden">
-                  <button
-                    onClick={() => {
-                      setShowExportDropdown(false);
-                      handleExport('csv');
-                    }}
-                    className="w-full text-left px-4 py-3 text-sm text-app-text hover:bg-surface-variant hover:text-primary transition-colors flex items-center gap-2"
-                  >
-                    <FileText className="w-4 h-4" />
-                    Export as CSV
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
+        <div className="relative">
+          <button
+            onClick={() => setShowExportDropdown(!showExportDropdown)}
+            className="flex items-center gap-2 bg-app-card border border-app-border hover:border-primary px-4 py-2 rounded-lg font-semibold text-sm text-app-text transition-colors"
+          >
+            <Download className="w-4 h-4" />
+            <span>Export</span>
+            <ChevronDown className="w-4 h-4" />
+          </button>
+          {showExportDropdown && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setShowExportDropdown(false)} />
+              <div className="absolute right-0 mt-2 w-48 bg-app-card border border-app-border rounded-xl shadow-lg z-50 overflow-hidden">
+                <button
+                  onClick={() => {
+                    setShowExportDropdown(false);
+                    handleExport('csv');
+                  }}
+                  className="w-full text-left px-4 py-3 text-sm text-app-text hover:bg-surface-variant hover:text-primary transition-colors flex items-center gap-2"
+                >
+                  <FileText className="w-4 h-4" />
+                  Export as CSV
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
-      {/* Sales / Hiring split — Facebook delivers both through one webhook */}
-      <div className="flex bg-app-card border border-app-border p-1 rounded-lg w-max">
-        {['Sales', 'Hiring', 'All'].map((type) => (
+      {/* Toolbar: type split + view toggle, one row */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex bg-app-card border border-app-border p-1 rounded-lg w-max">
+          {['Sales', 'Hiring', 'All'].map((type) => (
+            <button
+              key={type}
+              onClick={() => {
+                setLeadTypeFilter(type);
+                setCurrentPage(1);
+              }}
+              className={`px-4 py-1.5 rounded-md text-sm font-semibold transition-all ${
+                leadTypeFilter === type ? 'bg-primary text-black' : 'text-app-text-muted hover:text-app-text'
+              }`}
+            >
+              {type === 'All' ? 'All Leads' : `${type} Leads`}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex bg-app-card border border-app-border p-1 rounded-lg w-max">
           <button
-            key={type}
-            onClick={() => {
-              setLeadTypeFilter(type);
-              setCurrentPage(1);
-            }}
-            className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${
-              leadTypeFilter === type ? 'bg-primary text-black' : 'text-app-text-muted hover:text-app-text'
+            onClick={() => handleViewModeChange('table')}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-semibold transition-all ${
+              viewMode === 'table' ? 'bg-primary text-black' : 'text-app-text-muted hover:text-app-text'
             }`}
           >
-            {type === 'All' ? 'All Leads' : `${type} Leads`}
+            <Table size={15} /> Table
           </button>
-        ))}
+          <button
+            onClick={() => handleViewModeChange('pipeline')}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-semibold transition-all ${
+              viewMode === 'pipeline' ? 'bg-primary text-black' : 'text-app-text-muted hover:text-app-text'
+            }`}
+          >
+            <LayoutGrid size={15} /> Pipeline
+          </button>
+        </div>
       </div>
-
-      {/* View Toggle */}
-      <div className="flex bg-app-card border border-app-border p-1 rounded-lg w-max">
-        <button
-          onClick={() => handleViewModeChange('table')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-bold transition-all ${
-            viewMode === 'table' ? 'bg-primary text-black' : 'text-app-text-muted hover:text-app-text'
-          }`}
-        >
-          <Table size={16} /> Table
-        </button>
-        <button
-          onClick={() => handleViewModeChange('pipeline')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-bold transition-all ${
-            viewMode === 'pipeline' ? 'bg-primary text-black' : 'text-app-text-muted hover:text-app-text'
-          }`}
-        >
-          <LayoutGrid size={16} /> Pipeline
-        </button>
-      </div>
-
 
       {/* Filters & Search */}
-      <div className="flex flex-col sm:flex-row gap-4 bg-app-card p-4 rounded-xl border border-app-border">
-        <div className="relative flex-grow">
+      <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 bg-app-card p-3 rounded-xl border border-app-border">
+        <div className="relative flex-grow min-w-[220px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-app-text-muted w-4 h-4" />
           <input
             type="text"
-            placeholder="Search by name, email, phone or Lead ID..."
+            placeholder="Search name, email, phone or Lead ID..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full bg-app-bg border border-app-border rounded-lg pl-10 pr-4 py-2.5 text-sm text-app-text focus:outline-none focus:border-primary transition-colors"
+            className="w-full bg-app-bg border border-app-border rounded-lg pl-10 pr-4 py-2 text-sm text-app-text focus:outline-none focus:border-primary transition-colors"
           />
         </div>
-        <div className="relative min-w-[200px]">
-          <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-app-text-muted w-4 h-4 pointer-events-none" />
-          <select
-            value={statusFilter}
-            onChange={(e) => {
-              setStatusFilter(e.target.value);
-              setCurrentPage(1);
-            }}
-            className="w-full bg-app-bg border border-app-border rounded-lg pl-10 pr-10 py-2.5 text-sm text-app-text focus:outline-none focus:border-primary transition-colors appearance-none cursor-pointer"
-          >
-            <option className="bg-app-bg text-app-text" value="All">All Statuses</option>
-            <option className="bg-app-bg text-app-text" value="New">New</option>
-            <option className="bg-app-bg text-app-text" value="Contacted">Contacted</option>
-            <option className="bg-app-bg text-app-text" value="Qualified">Qualified</option>
-            <option className="bg-app-bg text-app-text" value="Proposal Sent">Proposal Sent</option>
-            <option className="bg-app-bg text-app-text" value="Negotiation">Negotiation</option>
-            <option className="bg-app-bg text-app-text" value="Won">Won</option>
-            <option className="bg-app-bg text-app-text" value="Lost">Lost</option>
-            <option className="bg-app-bg text-app-text" value="Dropped">Dropped</option>
-          </select>
-          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-app-text-muted w-4 h-4 pointer-events-none" />
-        </div>
-        <div className="relative min-w-[160px]">
-          <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-app-text-muted w-4 h-4 pointer-events-none" />
-          <select
-            value={platformFilter}
-            onChange={(e) => {
-              setPlatformFilter(e.target.value);
-              setCurrentPage(1);
-            }}
-            className="w-full bg-app-bg border border-app-border rounded-lg pl-10 pr-10 py-2.5 text-sm text-app-text focus:outline-none focus:border-primary transition-colors appearance-none cursor-pointer"
-          >
-            <option className="bg-app-bg text-app-text" value="All">All Platforms</option>
-            <option className="bg-app-bg text-app-text" value="Website">Website</option>
-            <option className="bg-app-bg text-app-text" value="Facebook">Facebook</option>
-            <option className="bg-app-bg text-app-text" value="Google Ads">Google Ads</option>
-            <option className="bg-app-bg text-app-text" value="Instagram">Instagram</option>
-            <option className="bg-app-bg text-app-text" value="Manual">Manual</option>
-          </select>
-          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-app-text-muted w-4 h-4 pointer-events-none" />
-        </div>
-        <div className="relative min-w-[160px]">
-          <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-app-text-muted w-4 h-4 pointer-events-none" />
-          <select
-            value={sourceFilter}
-            onChange={(e) => {
-              setSourceFilter(e.target.value);
-              setCurrentPage(1);
-            }}
-            className="w-full bg-app-bg border border-app-border rounded-lg pl-10 pr-10 py-2.5 text-sm text-app-text focus:outline-none focus:border-primary transition-colors appearance-none cursor-pointer"
-          >
-            <option className="bg-app-bg text-app-text" value="All">All Sources</option>
-            <option className="bg-app-bg text-app-text" value="Google">Google</option>
-            <option className="bg-app-bg text-app-text" value="Facebook">Facebook</option>
-            <option className="bg-app-bg text-app-text" value="LinkedIn">LinkedIn</option>
-            <option className="bg-app-bg text-app-text" value="Instagram">Instagram</option>
-            <option className="bg-app-bg text-app-text" value="WhatsApp">WhatsApp</option>
-            <option className="bg-app-bg text-app-text" value="Twitter/X">Twitter/X</option>
-            <option className="bg-app-bg text-app-text" value="YouTube">YouTube</option>
-            <option className="bg-app-bg text-app-text" value="Referral">Referral</option>
-            <option className="bg-app-bg text-app-text" value="Direct">Direct</option>
-          </select>
-          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-app-text-muted w-4 h-4 pointer-events-none" />
-        </div>
-        {leadForms.length > 0 && (
-          <div className="relative min-w-[180px]">
-            <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-app-text-muted w-4 h-4 pointer-events-none" />
+
+        <div className="hidden sm:block w-px h-6 bg-app-border" />
+
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative">
             <select
-              value={formFilter}
+              value={statusFilter}
               onChange={(e) => {
-                setFormFilter(e.target.value);
+                setStatusFilter(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-full bg-app-bg border border-app-border rounded-lg pl-10 pr-10 py-2.5 text-sm text-app-text focus:outline-none focus:border-primary transition-colors appearance-none cursor-pointer"
+              className={compactSelectClass}
             >
-              <option className="bg-app-bg text-app-text" value="All">All Forms</option>
-              {leadForms.map((form) => (
-                <option key={form._id} className="bg-app-bg text-app-text" value={form.formId}>
-                  {form.name || form.formId}
-                </option>
-              ))}
+              <option className="bg-app-bg text-app-text" value="All">All Statuses</option>
+              <option className="bg-app-bg text-app-text" value="New">New</option>
+              <option className="bg-app-bg text-app-text" value="Contacted">Contacted</option>
+              <option className="bg-app-bg text-app-text" value="Qualified">Qualified</option>
+              <option className="bg-app-bg text-app-text" value="Proposal Sent">Proposal Sent</option>
+              <option className="bg-app-bg text-app-text" value="Negotiation">Negotiation</option>
+              <option className="bg-app-bg text-app-text" value="Won">Won</option>
+              <option className="bg-app-bg text-app-text" value="Lost">Lost</option>
+              <option className="bg-app-bg text-app-text" value="Dropped">Dropped</option>
             </select>
-            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-app-text-muted w-4 h-4 pointer-events-none" />
+            <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 text-app-text-muted w-3.5 h-3.5 pointer-events-none" />
           </div>
-        )}
+
+          <div className="relative">
+            <select
+              value={platformFilter}
+              onChange={(e) => {
+                setPlatformFilter(e.target.value);
+                setCurrentPage(1);
+              }}
+              className={compactSelectClass}
+            >
+              <option className="bg-app-bg text-app-text" value="All">All Platforms</option>
+              <option className="bg-app-bg text-app-text" value="Website">Website</option>
+              <option className="bg-app-bg text-app-text" value="Facebook">Facebook</option>
+              <option className="bg-app-bg text-app-text" value="Google Ads">Google Ads</option>
+              <option className="bg-app-bg text-app-text" value="Instagram">Instagram</option>
+              <option className="bg-app-bg text-app-text" value="Manual">Manual</option>
+            </select>
+            <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 text-app-text-muted w-3.5 h-3.5 pointer-events-none" />
+          </div>
+
+          <div className="relative">
+            <select
+              value={sourceFilter}
+              onChange={(e) => {
+                setSourceFilter(e.target.value);
+                setCurrentPage(1);
+              }}
+              className={compactSelectClass}
+            >
+              <option className="bg-app-bg text-app-text" value="All">All Sources</option>
+              <option className="bg-app-bg text-app-text" value="Google">Google</option>
+              <option className="bg-app-bg text-app-text" value="Facebook">Facebook</option>
+              <option className="bg-app-bg text-app-text" value="LinkedIn">LinkedIn</option>
+              <option className="bg-app-bg text-app-text" value="Instagram">Instagram</option>
+              <option className="bg-app-bg text-app-text" value="WhatsApp">WhatsApp</option>
+              <option className="bg-app-bg text-app-text" value="Twitter/X">Twitter/X</option>
+              <option className="bg-app-bg text-app-text" value="YouTube">YouTube</option>
+              <option className="bg-app-bg text-app-text" value="Referral">Referral</option>
+              <option className="bg-app-bg text-app-text" value="Direct">Direct</option>
+            </select>
+            <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 text-app-text-muted w-3.5 h-3.5 pointer-events-none" />
+          </div>
+
+          {leadForms.length > 0 && (
+            <div className="relative">
+              <select
+                value={formFilter}
+                onChange={(e) => {
+                  setFormFilter(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className={compactSelectClass}
+              >
+                <option className="bg-app-bg text-app-text" value="All">All Forms</option>
+                {leadForms.map((form) => (
+                  <option key={form._id} className="bg-app-bg text-app-text" value={form.formId}>
+                    {form.name || form.formId}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 text-app-text-muted w-3.5 h-3.5 pointer-events-none" />
+            </div>
+          )}
+
+          {canAssign && (
+            <div className="relative">
+              <select
+                value={assignedBdFilter}
+                onChange={(e) => {
+                  setAssignedBdFilter(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className={`${compactSelectClass} pl-8`}
+              >
+                <option className="bg-app-bg text-app-text" value="All">All BDs</option>
+                <option className="bg-app-bg text-app-text" value="Unassigned">Unassigned</option>
+                {bds.map((bd) => (
+                  <option key={bd._id} className="bg-app-bg text-app-text" value={bd._id}>
+                    {bd.firstName} {bd.lastName}
+                  </option>
+                ))}
+              </select>
+              <UserCheck className="absolute left-2.5 top-1/2 -translate-y-1/2 text-app-text-muted w-3.5 h-3.5 pointer-events-none" />
+              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 text-app-text-muted w-3.5 h-3.5 pointer-events-none" />
+            </div>
+          )}
+        </div>
       </div>
 
       {loading ? (
@@ -424,9 +597,9 @@ export default function LeadsManager() {
             ) : (
               <div className="overflow-x-auto bg-app-card border border-app-border rounded-xl shadow-sm pb-4">
                 <table className="w-full text-left text-sm whitespace-nowrap min-w-[2650px]">
-                  <thead className="bg-app-bg border-b border-app-border text-app-text-muted text-xs uppercase tracking-wider sticky top-0">
+                  <thead className="bg-app-bg border-b border-app-border text-app-text-muted text-[11px] uppercase tracking-wider sticky top-0 z-20">
                     <tr>
-                      <th onClick={() => handleSort('leadId')} className="px-3 py-3 font-semibold sticky left-0 bg-app-bg z-10 border-r border-app-border cursor-pointer select-none hover:text-primary transition-colors">
+                      <th onClick={() => handleSort('leadId')} className="px-3 py-3 font-semibold sticky left-0 bg-app-bg z-30 border-r border-app-border cursor-pointer select-none hover:text-primary transition-colors">
                         <div className="flex items-center gap-1">
                           <span>Lead ID</span>
                           <span className="text-[9px] opacity-70">{sortBy === 'leadId' ? (sortOrder === 'asc' ? '▲' : '▼') : '↕'}</span>
@@ -447,7 +620,7 @@ export default function LeadsManager() {
                       <th className="px-3 py-3 font-semibold">Phone</th>
                       <th className="px-3 py-3 font-semibold">Email</th>
                       <th className="px-3 py-3 font-semibold">City</th>
-                      <th className="px-3 py-3 font-semibold">Country</th>
+                      <th className="px-3 py-3 font-semibold border-r-2 border-app-border">Country</th>
                       <th onClick={() => handleSort('platform')} className="px-3 py-3 font-semibold cursor-pointer select-none hover:text-primary transition-colors">
                         <div className="flex items-center gap-1">
                           <span>Platform</span>
@@ -473,7 +646,7 @@ export default function LeadsManager() {
                           <span className="text-[9px] opacity-70">{sortBy === 'service' ? (sortOrder === 'asc' ? '▲' : '▼') : '↕'}</span>
                         </div>
                       </th>
-                      <th className="px-3 py-3 font-semibold">BD</th>
+                      <th className="px-3 py-3 font-semibold border-r-2 border-app-border">BD</th>
                       <th className="px-3 py-3 font-semibold text-center">Start Call</th>
                       <th className="px-3 py-3 font-semibold">Call Start Time</th>
                       <th className="px-3 py-3 font-semibold text-center">End Call</th>
@@ -481,26 +654,28 @@ export default function LeadsManager() {
                       <th className="px-3 py-3 font-semibold">Duration (min)</th>
                       <th className="px-3 py-3 font-semibold">Call Date</th>
                       <th className="px-3 py-3 font-semibold">Connected?</th>
-                      <th className="px-3 py-3 font-semibold">Not Connected Reason</th>
+                      <th className="px-3 py-3 font-semibold border-r-2 border-app-border">Not Connected Reason</th>
                       <th className="px-3 py-3 font-semibold">Interest Level</th>
                       <th className="px-3 py-3 font-semibold">Stage</th>
                       <th className="px-3 py-3 font-semibold">Not Converted Reason</th>
                       <th className="px-3 py-3 font-semibold">Remark</th>
-                      <th className="px-3 py-3 font-semibold">Next Follow-up</th>
+                      <th className="px-3 py-3 font-semibold border-r-2 border-app-border">Next Follow-up</th>
                       <th className="px-3 py-3 font-semibold">Age @ Call</th>
                       <th className="px-3 py-3 font-semibold">Touch #</th>
                       <th className="px-3 py-3 font-semibold text-right">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-app-border text-xs">
-                    {leads.map((lead) => (
-                      <motion.tr 
+                  <tbody className="divide-y divide-app-border/70 text-[13px]">
+                    {leads.map((lead, rowIdx) => {
+                      const rowStripeClass = rowIdx % 2 === 1 ? 'bg-app-bg/30' : 'bg-app-card';
+                      return (
+                      <motion.tr
                         key={lead._id}
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
-                        className="hover:bg-surface-variant transition-colors group"
+                        className={`hover:bg-surface-variant transition-colors group ${rowStripeClass}`}
                       >
-                        <td className="px-3 py-2 align-middle font-mono font-medium text-primary sticky left-0 bg-app-card group-hover:bg-surface-variant border-r border-app-border">
+                        <td className={`px-3 py-2 align-middle font-mono font-semibold text-primary sticky left-0 ${rowStripeClass} group-hover:bg-surface-variant border-r border-app-border z-10`}>
                           {lead.leadId || '-'}
                         </td>
                         <td className="px-3 py-2 align-middle text-app-text-muted min-w-[150px]">
@@ -513,13 +688,13 @@ export default function LeadsManager() {
                             hour12: true
                           }) : '-'}
                         </td>
-                        <td className="px-3 py-2 align-middle font-medium text-app-text min-w-[150px]">
+                        <td className="px-3 py-2 align-middle font-semibold text-app-text min-w-[150px]">
                           {isSuperAdmin ? (
                             <input 
                               type="text" 
                               defaultValue={lead.fullName} 
                               onBlur={(e) => { if(e.target.value !== lead.fullName) handleFieldChange(lead._id, 'fullName', e.target.value) }}
-                              className="bg-transparent border border-transparent hover:border-app-border focus:border-primary px-2 py-1 rounded w-full focus:outline-none"
+                              className="border border-white/5 bg-white/[0.02] hover:border-app-border focus:border-primary px-2 py-1 rounded w-full focus:outline-none"
                             />
                           ) : (
                             <span className="px-2 py-1">{lead.fullName || '-'}</span>
@@ -531,7 +706,7 @@ export default function LeadsManager() {
                               type="text" 
                               defaultValue={lead.phone} 
                               onBlur={(e) => { if(e.target.value !== lead.phone) handleFieldChange(lead._id, 'phone', e.target.value) }}
-                              className="bg-transparent border border-transparent hover:border-app-border focus:border-primary px-2 py-1 rounded w-full focus:outline-none"
+                              className="border border-white/5 bg-white/[0.02] hover:border-app-border focus:border-primary px-2 py-1 rounded w-full focus:outline-none"
                             />
                           ) : (
                             <span className="px-2 py-1">{lead.phone || '-'}</span>
@@ -543,7 +718,7 @@ export default function LeadsManager() {
                               type="email" 
                               defaultValue={lead.email} 
                               onBlur={(e) => { if(e.target.value !== lead.email) handleFieldChange(lead._id, 'email', e.target.value) }}
-                              className="bg-transparent border border-transparent hover:border-app-border focus:border-primary px-2 py-1 rounded w-full focus:outline-none text-app-text-muted"
+                              className="border border-white/5 bg-white/[0.02] hover:border-app-border focus:border-primary px-2 py-1 rounded w-full focus:outline-none text-app-text-muted"
                             />
                           ) : (
                             <span className="px-2 py-1 text-app-text-muted">{lead.email || '-'}</span>
@@ -556,20 +731,20 @@ export default function LeadsManager() {
                               defaultValue={lead.city || ''} 
                               placeholder="Add city..."
                               onBlur={(e) => { if(e.target.value !== lead.city) handleFieldChange(lead._id, 'city', e.target.value) }}
-                              className="bg-transparent border border-transparent hover:border-app-border focus:border-primary px-2 py-1 rounded w-full focus:outline-none"
+                              className="border border-white/5 bg-white/[0.02] hover:border-app-border focus:border-primary px-2 py-1 rounded w-full focus:outline-none"
                             />
                           ) : (
                             <span className="px-2 py-1">{lead.city || '-'}</span>
                           )}
                         </td>
-                        <td className="px-3 py-2 align-middle min-w-[120px]">
+                        <td className="px-3 py-2 align-middle min-w-[120px] border-r-2 border-app-border/60">
                           {isSuperAdmin ? (
-                            <input 
-                              type="text" 
-                              defaultValue={lead.country || ''} 
+                            <input
+                              type="text"
+                              defaultValue={lead.country || ''}
                               placeholder="Add country..."
                               onBlur={(e) => { if(e.target.value !== lead.country) handleFieldChange(lead._id, 'country', e.target.value) }}
-                              className="bg-transparent border border-transparent hover:border-app-border focus:border-primary px-2 py-1 rounded w-full focus:outline-none"
+                              className="border border-white/5 bg-white/[0.02] hover:border-app-border focus:border-primary px-2 py-1 rounded w-full focus:outline-none"
                             />
                           ) : (
                             <span className="px-2 py-1">{lead.country || '-'}</span>
@@ -605,7 +780,7 @@ export default function LeadsManager() {
                               defaultValue={lead.businessName || ''} 
                               placeholder="Add business..."
                               onBlur={(e) => { if(e.target.value !== lead.businessName) handleFieldChange(lead._id, 'businessName', e.target.value) }}
-                              className="bg-transparent border border-transparent hover:border-app-border focus:border-primary px-2 py-1 rounded w-full focus:outline-none"
+                              className="border border-white/5 bg-white/[0.02] hover:border-app-border focus:border-primary px-2 py-1 rounded w-full focus:outline-none"
                             />
                           ) : (
                             <span className="px-2 py-1">{lead.businessName || '-'}</span>
@@ -625,14 +800,25 @@ export default function LeadsManager() {
                             {lead.service}
                           </span>
                         </td>
-                        <td className="px-3 py-2 align-middle min-w-[120px]">
-                          <input 
-                            type="text" 
-                            defaultValue={lead.bd || ''} 
-                            placeholder="Assign BD..."
-                            onBlur={(e) => { if(e.target.value !== lead.bd) handleFieldChange(lead._id, 'bd', e.target.value) }}
-                            className="bg-transparent border border-transparent hover:border-app-border focus:border-primary px-2 py-1 rounded w-full focus:outline-none"
-                          />
+                        <td className="px-3 py-2 align-middle min-w-[120px] border-r-2 border-app-border/60">
+                          {canAssign ? (
+                            <select
+                              value={lead.assignedTo?._id || ''}
+                              onChange={(e) => handleAssign(lead._id, e.target.value || null)}
+                              className="border border-white/5 bg-white/[0.02] hover:border-app-border focus:border-primary px-2 py-1 rounded w-full focus:outline-none cursor-pointer text-xs"
+                            >
+                              <option className="bg-app-bg text-app-text" value="">Unassigned</option>
+                              {bds.map((bd) => (
+                                <option key={bd._id} className="bg-app-bg text-app-text" value={bd._id}>
+                                  {bd.firstName} {bd.lastName}
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            <span className="px-2 py-1 text-xs">
+                              {lead.assignedTo ? displayName(lead.assignedTo) : (lead.bd || 'Unassigned')}
+                            </span>
+                          )}
                         </td>
                         <td className="px-3 py-2 align-middle text-center">
                           <button onClick={() => startCall(lead._id)} className="p-1.5 bg-green-500/10 text-green-500 hover:bg-green-500/20 rounded-md transition-colors" title="Start Call">
@@ -660,18 +846,18 @@ export default function LeadsManager() {
                           <select 
                             value={lead.connected || ''}
                             onChange={(e) => handleFieldChange(lead._id, 'connected', e.target.value)}
-                            className={`bg-transparent border border-transparent hover:border-app-border focus:border-primary px-2 py-1 rounded w-full focus:outline-none cursor-pointer ${lead.connected === 'Yes' ? 'text-green-500 font-bold' : lead.connected === 'No' ? 'text-red-500 font-bold' : 'text-app-text'}`}
+                            className={`border border-white/5 bg-white/[0.02] hover:border-app-border focus:border-primary px-2 py-1 rounded w-full focus:outline-none cursor-pointer ${lead.connected === 'Yes' ? 'text-green-500 font-bold' : lead.connected === 'No' ? 'text-red-500 font-bold' : 'text-app-text'}`}
                           >
                             <option className="bg-app-bg text-app-text" value="">-Select-</option>
                             <option className="bg-app-bg text-app-text" value="Yes">Yes</option>
                             <option className="bg-app-bg text-app-text" value="No">No</option>
                           </select>
                         </td>
-                        <td className="px-3 py-2 align-middle min-w-[150px]">
-                          <select 
-                            value={lead.notConnectedReason || ''} 
+                        <td className="px-3 py-2 align-middle min-w-[150px] border-r-2 border-app-border/60">
+                          <select
+                            value={lead.notConnectedReason || ''}
                             onChange={(e) => handleFieldChange(lead._id, 'notConnectedReason', e.target.value)}
-                            className="bg-transparent hover:bg-app-bg border border-transparent hover:border-app-border px-2 py-1 rounded text-app-text focus:outline-none focus:border-primary cursor-pointer w-full"
+                            className="bg-white/[0.02] hover:bg-app-bg border border-white/5 hover:border-app-border px-2 py-1 rounded text-app-text focus:outline-none focus:border-primary cursor-pointer w-full"
                             disabled={lead.connected === 'Yes'}
                           >
                             <option className="bg-app-bg text-app-text" value="">-Select Reason-</option>
@@ -685,19 +871,22 @@ export default function LeadsManager() {
                           </select>
                         </td>
                         <td className="px-3 py-2 align-middle min-w-[120px]">
-                          <input 
-                            type="text" 
-                            defaultValue={lead.interestLevel || ''} 
-                            placeholder="Interest..."
-                            onBlur={(e) => { if(e.target.value !== lead.interestLevel) handleFieldChange(lead._id, 'interestLevel', e.target.value) }}
-                            className="bg-transparent border border-transparent hover:border-app-border focus:border-primary px-2 py-1 rounded w-full focus:outline-none text-yellow-500 font-medium"
-                          />
+                          <select
+                            value={lead.interestLevel || ''}
+                            onChange={(e) => handleFieldChange(lead._id, 'interestLevel', e.target.value)}
+                            className="border border-white/5 bg-white/[0.02] hover:border-app-border focus:border-primary px-2 py-1 rounded w-full focus:outline-none text-yellow-500 font-medium cursor-pointer text-xs"
+                          >
+                            <option className="bg-app-bg text-app-text" value="">—</option>
+                            {INTEREST_LEVELS.map((level) => (
+                              <option key={level} className="bg-app-bg text-app-text" value={level}>{level}</option>
+                            ))}
+                          </select>
                         </td>
                         <td className="px-3 py-2 align-middle min-w-[130px]">
                           <select 
                             value={lead.status}
                             onChange={(e) => handleFieldChange(lead._id, 'status', e.target.value)}
-                            className="bg-transparent hover:bg-app-bg border border-transparent hover:border-app-border text-xs px-2 py-1 rounded text-app-text focus:outline-none focus:border-primary cursor-pointer w-full font-medium"
+                            className="bg-white/[0.02] hover:bg-app-bg border border-white/5 hover:border-app-border text-xs px-2 py-1 rounded text-app-text focus:outline-none focus:border-primary cursor-pointer w-full font-medium"
                           >
                             <option className="bg-app-bg text-app-text" value="New">New</option>
                             <option className="bg-app-bg text-app-text" value="Contacted">Contacted</option>
@@ -713,7 +902,7 @@ export default function LeadsManager() {
                           <select 
                             value={lead.notConvertedReason || ''} 
                             onChange={(e) => handleFieldChange(lead._id, 'notConvertedReason', e.target.value)}
-                            className="bg-transparent hover:bg-app-bg border border-transparent hover:border-app-border px-2 py-1 rounded text-app-text focus:outline-none focus:border-primary cursor-pointer w-full"
+                            className="bg-white/[0.02] hover:bg-app-bg border border-white/5 hover:border-app-border px-2 py-1 rounded text-app-text focus:outline-none focus:border-primary cursor-pointer w-full"
                           >
                             <option className="bg-app-bg text-app-text" value="">-Why not converted?-</option>
                             <option className="bg-app-bg text-app-text" value="Too Expensive">Too Expensive</option>
@@ -731,15 +920,25 @@ export default function LeadsManager() {
                             defaultValue={lead.remark || ''} 
                             placeholder="Add remark..."
                             onBlur={(e) => { if(e.target.value !== lead.remark) handleFieldChange(lead._id, 'remark', e.target.value) }}
-                            className="bg-transparent border border-transparent hover:border-app-border focus:border-primary px-2 py-1 rounded w-full focus:outline-none"
+                            className="border border-white/5 bg-white/[0.02] hover:border-app-border focus:border-primary px-2 py-1 rounded w-full focus:outline-none"
                           />
                         </td>
-                        <td className="px-3 py-2 align-middle min-w-[150px]">
-                          <input 
-                            type="date" 
-                            defaultValue={lead.nextFollowUpDate ? lead.nextFollowUpDate.split('T')[0] : ''} 
-                            onBlur={(e) => { if(e.target.value !== (lead.nextFollowUpDate?.split('T')[0] || '')) handleFieldChange(lead._id, 'nextFollowUpDate', e.target.value) }}
-                            className="bg-transparent border border-transparent hover:border-app-border focus:border-primary px-2 py-1 rounded w-full focus:outline-none cursor-text [color-scheme:dark]"
+                        <td className="px-3 py-2 align-middle min-w-[150px] border-r-2 border-app-border/60">
+                          <input
+                            type="datetime-local"
+                            defaultValue={lead.nextFollowUpDate ? new Date(lead.nextFollowUpDate).toISOString().slice(0, 16) : ''}
+                            title={FOLLOWUP_TRIGGER_INTEREST_LEVELS.includes(lead.interestLevel) ? 'Required for this interest level' : undefined}
+                            onBlur={(e) => {
+                              const current = lead.nextFollowUpDate ? new Date(lead.nextFollowUpDate).toISOString().slice(0, 16) : '';
+                              if (e.target.value === current) return;
+                              const value = e.target.value ? new Date(e.target.value).toISOString() : null;
+                              handleFieldChange(lead._id, 'nextFollowUpDate', value);
+                            }}
+                            className={`bg-transparent border px-2 py-1 rounded w-full focus:outline-none cursor-text [color-scheme:dark] text-xs ${
+                              FOLLOWUP_TRIGGER_INTEREST_LEVELS.includes(lead.interestLevel) && !lead.nextFollowUpDate
+                                ? 'border-red-500/40 hover:border-red-500 focus:border-red-500'
+                                : 'border-transparent hover:border-app-border focus:border-primary'
+                            }`}
                           />
                         </td>
                         <td className="px-3 py-2 align-middle min-w-[80px]">
@@ -747,7 +946,7 @@ export default function LeadsManager() {
                             type="number" 
                             defaultValue={lead.leadAgeAtCall ?? ''} 
                             onBlur={(e) => { if(Number(e.target.value) !== lead.leadAgeAtCall) handleFieldChange(lead._id, 'leadAgeAtCall', Number(e.target.value)) }}
-                            className="bg-transparent border border-transparent hover:border-app-border focus:border-primary px-2 py-1 rounded w-full focus:outline-none text-center"
+                            className="border border-white/5 bg-white/[0.02] hover:border-app-border focus:border-primary px-2 py-1 rounded w-full focus:outline-none text-center"
                           />
                         </td>
                         <td className="px-3 py-2 align-middle min-w-[80px]">
@@ -755,11 +954,11 @@ export default function LeadsManager() {
                             type="number" 
                             defaultValue={lead.touchNumber ?? 0} 
                             onBlur={(e) => { if(Number(e.target.value) !== lead.touchNumber) handleFieldChange(lead._id, 'touchNumber', Number(e.target.value)) }}
-                            className="bg-transparent border border-transparent hover:border-app-border focus:border-primary px-2 py-1 rounded w-full focus:outline-none text-center"
+                            className="border border-white/5 bg-white/[0.02] hover:border-app-border focus:border-primary px-2 py-1 rounded w-full focus:outline-none text-center"
                           />
                         </td>
-                        <td className="px-3 py-2 align-middle text-right whitespace-nowrap sticky right-0 bg-app-card group-hover:bg-surface-variant border-l border-app-border z-10 flex items-center justify-end gap-2">
-                          <button 
+                        <td className={`px-3 py-2 align-middle text-right whitespace-nowrap sticky right-0 ${rowStripeClass} group-hover:bg-surface-variant border-l border-app-border z-10 flex items-center justify-end gap-2`}>
+                          <button
                             onClick={() => setSelectedLead(lead)}
                             className="p-1.5 text-primary hover:bg-primary/10 rounded transition-colors cursor-pointer"
                             title="View Details"
@@ -767,7 +966,7 @@ export default function LeadsManager() {
                             <Eye className="w-4 h-4" />
                           </button>
                           {isSuperAdmin && (
-                            <button 
+                            <button
                               onClick={() => deleteLead(lead._id)}
                               className="text-xs text-red-500 hover:text-red-400 transition-colors font-medium px-2 py-1 cursor-pointer"
                             >
@@ -776,7 +975,8 @@ export default function LeadsManager() {
                           )}
                         </td>
                       </motion.tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -785,37 +985,41 @@ export default function LeadsManager() {
 
           {/* Pagination Controls */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-between bg-app-card border border-app-border p-4 rounded-xl mt-4">
-              <span className="text-sm text-app-text-muted">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-app-card border border-app-border p-4 rounded-xl mt-4">
+              <span className="text-sm text-app-text-muted whitespace-nowrap">
                 Showing page <span className="font-bold text-app-text">{currentPage}</span> of <span className="font-bold text-app-text">{totalPages}</span>
               </span>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 max-w-full overflow-x-auto">
                 <button
                   onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                   disabled={currentPage === 1}
-                  className="p-2 bg-app-bg border border-app-border rounded-lg text-app-text hover:bg-surface-variant disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="p-2 shrink-0 bg-app-bg border border-app-border rounded-lg text-app-text hover:bg-surface-variant disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   <ChevronLeft className="w-5 h-5" />
                 </button>
                 <div className="flex gap-1">
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                    <button
-                      key={page}
-                      onClick={() => setCurrentPage(page)}
-                      className={`w-9 h-9 rounded-lg text-sm font-medium transition-colors ${
-                        currentPage === page 
-                          ? 'bg-primary text-black' 
-                          : 'bg-app-bg border border-app-border text-app-text hover:bg-surface-variant'
-                      }`}
-                    >
-                      {page}
-                    </button>
+                  {getPaginationRange(currentPage, totalPages).map((page, idx) => (
+                    page === '...' ? (
+                      <span key={`dots-${idx}`} className="w-9 h-9 flex items-center justify-center text-sm text-app-text-muted">…</span>
+                    ) : (
+                      <button
+                        key={page}
+                        onClick={() => setCurrentPage(page)}
+                        className={`w-9 h-9 shrink-0 rounded-lg text-sm font-medium transition-colors ${
+                          currentPage === page
+                            ? 'bg-primary text-black'
+                            : 'bg-app-bg border border-app-border text-app-text hover:bg-surface-variant'
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    )
                   ))}
                 </div>
                 <button
                   onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                   disabled={currentPage === totalPages}
-                  className="p-2 bg-app-bg border border-app-border rounded-lg text-app-text hover:bg-surface-variant disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="p-2 shrink-0 bg-app-bg border border-app-border rounded-lg text-app-text hover:bg-surface-variant disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   <ChevronRight className="w-5 h-5" />
                 </button>
@@ -842,99 +1046,147 @@ export default function LeadsManager() {
               </button>
             </div>
             <div className="p-6 space-y-6">
-              {/* Info Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                <div>
-                  <label className="text-xs text-app-text-muted uppercase tracking-wider">Full Name</label>
-                  <p className="font-medium text-app-text text-lg">{selectedLead.fullName}</p>
-                </div>
-                <div>
-                  <label className="text-xs text-app-text-muted uppercase tracking-wider">Date Created</label>
-                  <p className="font-medium text-app-text flex items-center gap-2 mt-1">
-                    <Clock size={16} className="text-app-text-muted" />
-                    {new Date(selectedLead.createdAt).toLocaleString()}
-                  </p>
-                </div>
-                <div>
-                  <label className="text-xs text-app-text-muted uppercase tracking-wider">Email Address</label>
-                  <p className="font-medium text-app-text flex items-center gap-2 mt-1">
-                    <Mail size={16} className="text-primary" />
-                    <a href={`mailto:${selectedLead.email}`} className="hover:text-primary hover:underline">{selectedLead.email}</a>
-                  </p>
-                </div>
-                <div>
-                  <label className="text-xs text-app-text-muted uppercase tracking-wider">Phone Number</label>
-                  <p className="font-medium text-app-text flex items-center gap-2 mt-1">
-                    <Phone size={16} className="text-primary" />
-                    <a href={`tel:${selectedLead.phone}`} className="hover:text-primary hover:underline">{selectedLead.phone}</a>
-                  </p>
-                </div>
-                {selectedLead.businessName && (
-                  <div>
-                    <label className="text-xs text-app-text-muted uppercase tracking-wider">Business Name</label>
-                    <p className="font-medium text-app-text flex items-center gap-2 mt-1">
-                      <Briefcase size={16} className="text-primary" />
-                      {selectedLead.businessName}
-                    </p>
-                  </div>
-                )}
-                {selectedLead.city && (
-                  <div>
-                    <label className="text-xs text-app-text-muted uppercase tracking-wider">City</label>
-                    <p className="font-medium text-app-text flex items-center gap-2 mt-1">
-                      <Globe size={16} className="text-primary" />
-                      {selectedLead.city}
-                    </p>
-                  </div>
-                )}
-                <div>
-                  <label className="text-xs text-app-text-muted uppercase tracking-wider">Service Requested</label>
-                  <p className="font-medium text-app-text mt-1">
-                    <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-primary/10 text-primary border border-primary/20">
-                      {selectedLead.service}
+              {/* Header */}
+              <div>
+                <h3 className="text-2xl font-bold text-app-text">{selectedLead.fullName}</h3>
+                <p className="text-sm text-app-text-muted mt-1">
+                  {[selectedLead.businessName, selectedLead.leadId, selectedLead.phone].filter(Boolean).join(' · ')}
+                </p>
+                <div className="flex flex-wrap gap-2 mt-3">
+                  <span className={`px-2.5 py-1 rounded-md text-xs font-semibold border ${STATUS_BADGE_CLASSES[selectedLead.status] || 'bg-amber-500/10 text-amber-400 border-amber-500/20'}`}>
+                    {selectedLead.status}
+                  </span>
+                  {selectedLead.interestLevel && (
+                    <span className="px-2.5 py-1 rounded-md text-xs font-semibold bg-primary/10 text-primary border border-primary/20">
+                      {selectedLead.interestLevel}
                     </span>
-                  </p>
+                  )}
+                  <span className="px-2.5 py-1 rounded-md text-xs font-semibold bg-app-bg text-app-text-muted border border-app-border">
+                    {selectedLead.platform || 'Website'}
+                  </span>
                 </div>
-                {/* UTM and Campaign details */}
-                <div className="sm:col-span-2 grid grid-cols-2 md:grid-cols-5 gap-4 bg-app-bg border border-app-border p-4 rounded-xl mt-2">
-                  <div>
-                    <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">Platform</label>
-                    <p className="text-sm font-medium text-app-text truncate">{selectedLead.platform || 'Website'}</p>
+              </div>
+
+              {/* Quick Actions */}
+              <div className="grid grid-cols-3 gap-3">
+                <a
+                  href={`tel:${selectedLead.phone}`}
+                  className="flex items-center justify-center gap-2 py-3 rounded-lg bg-primary text-black font-bold text-sm hover:opacity-90 transition-opacity"
+                >
+                  <Phone size={16} /> Call
+                </a>
+                {toWhatsAppHref(selectedLead.phone) ? (
+                  <a
+                    href={toWhatsAppHref(selectedLead.phone)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2 py-3 rounded-lg border border-app-border text-app-text font-bold text-sm hover:border-primary hover:text-primary transition-colors"
+                  >
+                    <MessageCircle size={16} /> WhatsApp
+                  </a>
+                ) : <div />}
+                <a
+                  href={`mailto:${selectedLead.email}`}
+                  className="flex items-center justify-center gap-2 py-3 rounded-lg border border-app-border text-app-text font-bold text-sm hover:border-primary hover:text-primary transition-colors"
+                >
+                  <Mail size={16} /> Email
+                </a>
+              </div>
+
+              {/* Next Follow-up */}
+              <div className="bg-primary/5 border border-primary/20 rounded-xl p-4">
+                <label className="text-xs text-primary font-bold uppercase tracking-wider">Next Follow-up</label>
+                <p className="text-sm font-medium text-app-text mt-1">
+                  {selectedLead.nextFollowUpDate
+                    ? new Date(selectedLead.nextFollowUpDate).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+                    : 'Not scheduled'}
+                </p>
+                <input
+                  type="datetime-local"
+                  value={selectedLead.nextFollowUpDate ? new Date(selectedLead.nextFollowUpDate).toISOString().slice(0, 16) : ''}
+                  onChange={(e) => {
+                    const value = e.target.value ? new Date(e.target.value).toISOString() : null;
+                    handleFieldChange(selectedLead._id, 'nextFollowUpDate', value);
+                    setSelectedLead({ ...selectedLead, nextFollowUpDate: value });
+                  }}
+                  className="mt-2 w-full bg-app-card border border-app-border rounded-lg px-3 py-2 text-sm text-app-text focus:outline-none focus:border-primary"
+                  style={{ colorScheme: 'dark' }}
+                />
+              </div>
+
+              {/* Lead Details */}
+              <div className="bg-app-bg border border-app-border rounded-xl p-4">
+                <label className="text-xs text-primary font-bold uppercase tracking-wider mb-3 block">Lead Details</label>
+                <div className="divide-y divide-app-border">
+                  <div className="flex items-center justify-between py-2.5 gap-4 flex-wrap">
+                    <span className="text-sm text-app-text-muted">Assigned to</span>
+                    {canAssign ? (
+                      <select
+                        value={selectedLead.assignedTo?._id || ''}
+                        onChange={(e) => handleAssign(selectedLead._id, e.target.value || null, assignReason)}
+                        className="bg-app-card border border-app-border text-sm px-3 py-1.5 rounded-lg text-app-text focus:outline-none focus:border-primary cursor-pointer"
+                      >
+                        <option className="bg-app-bg text-app-text" value="">Unassigned</option>
+                        {bds.map((bd) => (
+                          <option key={bd._id} className="bg-app-bg text-app-text" value={bd._id}>
+                            {bd.firstName} {bd.lastName}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className="text-sm font-medium text-app-text">
+                        {selectedLead.assignedTo ? displayName(selectedLead.assignedTo) : (selectedLead.bd || 'Unassigned')}
+                      </span>
+                    )}
                   </div>
-                  <div>
-                    <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">Attribution Source</label>
-                    <p className="text-sm font-medium text-primary truncate">{selectedLead.userSource || 'Direct'}</p>
+                  {canAssign && (
+                    <div className="py-2.5">
+                      <input
+                        type="text"
+                        value={assignReason}
+                        onChange={(e) => setAssignReason(e.target.value)}
+                        placeholder="Reason for (re)assignment (optional)"
+                        className="bg-app-card border border-app-border text-sm px-3 py-2 rounded-lg text-app-text focus:outline-none focus:border-primary w-full"
+                      />
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between py-2.5">
+                    <span className="text-sm text-app-text-muted">Assigned on</span>
+                    <span className="text-sm font-medium text-app-text">
+                      {selectedLead.assignedAt ? new Date(selectedLead.assignedAt).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '-'}
+                    </span>
                   </div>
-                  <div>
-                    <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">Campaign</label>
-                    <p className="text-sm font-medium text-app-text truncate">{selectedLead.utmCampaign || selectedLead.adCampaignId || '-'}</p>
+                  <div className="flex items-center justify-between py-2.5">
+                    <span className="text-sm text-app-text-muted">Service required</span>
+                    <span className="text-sm font-medium text-app-text">{selectedLead.service}</span>
                   </div>
-                  <div>
-                    <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">Source/Medium</label>
-                    <p className="text-sm font-medium text-app-text truncate">
-                      {selectedLead.utmSource || '-'}{selectedLead.utmMedium ? ` / ${selectedLead.utmMedium}` : ''}
-                    </p>
+                  <div className="flex items-center justify-between py-2.5">
+                    <span className="text-sm text-app-text-muted">Source platform</span>
+                    <span className="text-sm font-medium text-app-text">{selectedLead.platform || 'Website'}</span>
                   </div>
-                  <div>
-                    <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">Term/Content</label>
-                    <p className="text-sm font-medium text-app-text truncate">
-                      {selectedLead.utmTerm || '-'}{selectedLead.utmContent ? ` / ${selectedLead.utmContent}` : ''}
-                    </p>
+                  {selectedLead.city && (
+                    <div className="flex items-center justify-between py-2.5">
+                      <span className="text-sm text-app-text-muted">City</span>
+                      <span className="text-sm font-medium text-app-text">{selectedLead.city}</span>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between py-2.5">
+                    <span className="text-sm text-app-text-muted">Connected</span>
+                    <span className="text-sm font-medium text-app-text">{selectedLead.connected || '-'}</span>
                   </div>
-                </div>
-                <div className="sm:col-span-2 bg-app-bg border border-app-border rounded-xl p-4 flex items-center justify-between flex-wrap gap-4 mt-2">
-                  <div>
-                    <label className="text-xs text-app-text-muted uppercase tracking-wider">Current Status</label>
-                    <p className="text-xs text-app-text-muted mt-0.5">Update the status of this lead</p>
+                  <div className="flex items-center justify-between py-2.5">
+                    <span className="text-sm text-app-text-muted">Estimated deal value</span>
+                    <span className="text-sm font-medium text-app-text">₹{(selectedLead.dealValue || 0).toLocaleString('en-IN')}</span>
                   </div>
-                  <div className="w-40 min-w-[150px]">
-                    <select 
+                  <div className="flex items-center justify-between py-2.5">
+                    <span className="text-sm text-app-text-muted">Status</span>
+                    <select
                       value={selectedLead.status}
                       onChange={(e) => {
                         handleFieldChange(selectedLead._id, 'status', e.target.value);
-                        setSelectedLead({...selectedLead, status: e.target.value});
+                        setSelectedLead({ ...selectedLead, status: e.target.value });
                       }}
-                      className="bg-app-card border border-app-border text-sm px-3 py-2 rounded-lg text-app-text focus:outline-none focus:border-primary cursor-pointer w-full"
+                      className="bg-app-card border border-app-border text-sm px-3 py-1.5 rounded-lg text-app-text focus:outline-none focus:border-primary cursor-pointer"
                     >
                       <option className="bg-app-bg text-app-text" value="New">New</option>
                       <option className="bg-app-bg text-app-text" value="Contacted">Contacted</option>
@@ -949,16 +1201,6 @@ export default function LeadsManager() {
                 </div>
               </div>
 
-              {/* Source Highlight */}
-              <div className="bg-primary/5 border border-primary/20 rounded-xl p-4">
-                <label className="text-xs text-primary font-bold uppercase tracking-wider mb-2 flex items-center gap-2">
-                  <Globe size={14} /> Source Link
-                </label>
-                <a href={selectedLead.source} target="_blank" rel="noopener noreferrer" className="text-sm text-app-text hover:text-primary hover:underline break-all font-medium">
-                  {selectedLead.source}
-                </a>
-              </div>
-
               {/* Message */}
               {selectedLead.message && (
                 <div className="bg-app-bg border border-app-border rounded-xl p-4">
@@ -971,50 +1213,57 @@ export default function LeadsManager() {
                 </div>
               )}
 
-              {/* Pipeline Journey */}
+              {/* Campaign / UTM details — kept for reference, lower priority */}
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4 bg-app-bg border border-app-border p-4 rounded-xl">
+                <div>
+                  <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">Attribution Source</label>
+                  <p className="text-sm font-medium text-primary truncate">{selectedLead.userSource || 'Direct'}</p>
+                </div>
+                <div>
+                  <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">Campaign</label>
+                  <p className="text-sm font-medium text-app-text truncate">{selectedLead.utmCampaign || selectedLead.adCampaignId || '-'}</p>
+                </div>
+                <div>
+                  <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">Source/Medium</label>
+                  <p className="text-sm font-medium text-app-text truncate">
+                    {selectedLead.utmSource || '-'}{selectedLead.utmMedium ? ` / ${selectedLead.utmMedium}` : ''}
+                  </p>
+                </div>
+                <div>
+                  <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">Term/Content</label>
+                  <p className="text-sm font-medium text-app-text truncate">
+                    {selectedLead.utmTerm || '-'}{selectedLead.utmContent ? ` / ${selectedLead.utmContent}` : ''}
+                  </p>
+                </div>
+                <div>
+                  <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">Source Link</label>
+                  <a href={selectedLead.source} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-app-text hover:text-primary hover:underline truncate block">
+                    {selectedLead.source || '-'}
+                  </a>
+                </div>
+              </div>
+
+              {/* Activity Timeline — merges status/call/interest changes with assignment history */}
               <div className="bg-app-bg border border-app-border rounded-xl p-4">
                 <label className="text-xs text-primary font-bold uppercase tracking-wider mb-4 flex items-center gap-2">
-                  <Clock size={14} /> Pipeline Journey
+                  <Clock size={14} /> Activity Timeline
                 </label>
-                <div className="space-y-0">
-                  {(selectedLead.pipelineHistory && selectedLead.pipelineHistory.length > 0) ? (
-                    selectedLead.pipelineHistory.map((history, idx) => (
-                      <div key={idx} className="flex gap-4">
-                        <div className="flex flex-col items-center">
-                          <div className={`w-3 h-3 rounded-full mt-1 ${history.status === 'Won' ? 'bg-green-500' : (history.status === 'Lost' || history.status === 'Dropped') ? 'bg-red-500' : 'bg-primary'}`} />
-                          {idx !== selectedLead.pipelineHistory.length - 1 && (
-                            <div className="w-0.5 h-full bg-app-border my-1" />
-                          )}
-                        </div>
-                        <div className="pb-4">
-                          <p className="text-sm font-bold text-app-text">{history.status}</p>
-                          <p className="text-xs text-app-text-muted mt-0.5">{new Date(history.date).toLocaleString()}</p>
-                          {history.note && (
-                            <p className="text-xs text-app-text-muted mt-1 italic border-l-2 border-primary/30 pl-2 py-0.5">{history.note}</p>
-                          )}
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="flex gap-4">
-                      <div className="flex flex-col items-center">
-                        <div className="w-3 h-3 rounded-full mt-1 bg-primary" />
-                        <div className="w-0.5 h-12 bg-app-border my-1" />
-                        <div className={`w-3 h-3 rounded-full ${selectedLead.status === 'Won' ? 'bg-green-500' : (selectedLead.status === 'Lost' || selectedLead.status === 'Dropped') ? 'bg-red-500' : 'bg-primary'}`} />
-                      </div>
+                <div className="space-y-4">
+                  {buildActivityTimeline(selectedLead, assignmentHistory).map((event) => (
+                    <div key={event.key} className="flex gap-3">
+                      <div className="w-2 h-2 rounded-full bg-primary mt-1.5 shrink-0" />
                       <div>
-                        <div className="pb-4">
-                          <p className="text-sm font-bold text-app-text">New</p>
-                          <p className="text-xs text-app-text-muted mt-0.5">{new Date(selectedLead.createdAt).toLocaleString()}</p>
-                          <p className="text-xs text-app-text-muted mt-1 italic border-l-2 border-primary/30 pl-2 py-0.5">Lead Received (Legacy)</p>
-                        </div>
-                        <div className="pb-2">
-                          <p className="text-sm font-bold text-app-text">{selectedLead.status}</p>
-                          <p className="text-xs text-app-text-muted mt-0.5">Current Status</p>
-                        </div>
+                        <p className="text-sm font-medium text-app-text">{event.title}</p>
+                        <p className="text-xs text-app-text-muted mt-0.5">
+                          {new Date(event.date).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                          {event.actor ? ` · ${event.actor}` : ''}
+                        </p>
+                        {event.note && (
+                          <p className="text-xs text-app-text-muted mt-1 italic border-l-2 border-primary/30 pl-2 py-0.5">{event.note}</p>
+                        )}
                       </div>
                     </div>
-                  )}
+                  ))}
                 </div>
               </div>
             </div>

@@ -52,6 +52,8 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
   const navItems = [
     { name: 'Overview', path: '/admin/dashboard', icon: LayoutDashboard },
     { name: 'Lead Manager (Ads)', path: '/admin/leads', icon: Users, requiredPermission: 'leads.view' },
+    { name: 'Lead Activity', path: '/admin/lead-activity', icon: Activity, requiredPermission: 'leads.assign' },
+    { name: 'Follow-ups', path: '/admin/follow-ups', icon: Clock, requiredPermission: 'leads.assign' },
     { name: 'Subscribers', path: '/admin/subscribers', icon: Mail, requiredPermission: 'leads.view' },
     {
       name: 'Client Portal (CRM)',

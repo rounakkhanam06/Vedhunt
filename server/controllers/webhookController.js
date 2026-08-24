@@ -4,6 +4,8 @@ const Settings = require('../models/Settings');
 const { sendEmail } = require('../utils/sendEmail');
 const logger = require('../utils/logger');
 const { GRAPH, LEAD_FIELDS, prettifyKey, saveFacebookLead } = require('../services/facebookLeads');
+const { findDuplicateLead } = require('../services/leadDedup');
+const { autoAssignLead } = require('../services/leadAssignment');
 
 // ==========================================
 // FACEBOOK LEAD ADS WEBHOOK
@@ -258,6 +260,19 @@ exports.receiveGoogleLead = async (req, res) => {
       }
     });
 
+    // Checked against the raw scraped phone/email (still 'Unknown' /
+    // 'unknown@example.com' at this point for a form that didn't ask) so a
+    // second lead lacking a real email never matches the first one's
+    // placeholder and gets wrongly dropped as a duplicate.
+    const contactDuplicate = await findDuplicateLead({
+      phone: phone === 'Unknown' ? '' : phone,
+      email: email === 'unknown@example.com' ? '' : email
+    });
+    if (contactDuplicate) {
+      logger.info(`Google lead ${lead_id} matches existing lead ${contactDuplicate.leadId} by phone/email — skipping duplicate.`);
+      return res.status(200).send('OK');
+    }
+
     const lead = await Lead.create({
       fullName,
       email,
@@ -275,6 +290,9 @@ exports.receiveGoogleLead = async (req, res) => {
       utmMedium: 'cpc',
       utmCampaign: campaign_id || ''
     });
+
+    // Never throws — logs and leaves the lead Unassigned on any failure.
+    await autoAssignLead(lead);
 
     // Send Admin Email
     let hrEmail = process.env.HR_EMAIL || 'hr@vedhunt.in';

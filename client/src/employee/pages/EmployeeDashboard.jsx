@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import employeeApi from '../../services/employeeApi';
 import toast from 'react-hot-toast';
-import { Clock, ShieldAlert, Trophy, Star, Target, AlertTriangle, TrendingUp, ChevronDown, ChevronUp } from 'lucide-react';
+import { Clock, ShieldAlert, Trophy, Star, Target, AlertTriangle, TrendingUp, ChevronDown, ChevronUp, Phone, Mail, Play, Square } from 'lucide-react';
 import employeeAvatar from '../../assets/033a13e9af4efbb035a04c3777c4934d-removebg-preview.png';
 
 import RealTimeTimer from '../components/RealTimeTimer';
@@ -14,6 +14,22 @@ const StarRating = ({ value }) => (
     ))}
   </div>
 );
+
+// Mirrors server/utils/followUpRules.js's INTEREST_LEVELS — no shared
+// import path between server and client in this repo.
+const INTEREST_LEVELS = ['Hot', 'Warm', 'Cold', 'Interested', 'Not Interested', 'Asked to Call Later'];
+
+/** Buckets a lead's nextFollowUpDate as overdue / today / upcoming, mirroring LeadsPipelineView.jsx's getFollowUpColor day-diff logic. */
+function followUpBucket(dateString) {
+  if (!dateString) return null;
+  const due = new Date(dateString);
+  const now = new Date();
+  const todayStart = new Date(now); todayStart.setHours(0, 0, 0, 0);
+  const todayEnd = new Date(now); todayEnd.setHours(23, 59, 59, 999);
+  if (due < todayStart) return 'overdue';
+  if (due <= todayEnd) return 'today';
+  return 'upcoming';
+}
 
 const EmployeeDashboard = () => {
   const [searchParams] = useSearchParams();
@@ -42,6 +58,15 @@ const EmployeeDashboard = () => {
   const [newMessage, setNewMessage] = useState('');
   const [updatingTicketId, setUpdatingTicketId] = useState(null);
   const [ticketFilter, setTicketFilter] = useState('All');
+
+  // My Leads state
+  const [leads, setLeads] = useState([]);
+  const [isLeadsLoading, setIsLeadsLoading] = useState(false);
+  const [expandedLeadId, setExpandedLeadId] = useState(null);
+  const [updatingLeadId, setUpdatingLeadId] = useState(null);
+  const [leadFilter, setLeadFilter] = useState('All');
+  const [leadDrafts, setLeadDrafts] = useState({});
+  const [followUpBucketFilter, setFollowUpBucketFilter] = useState('All');
   const [leaveBalancePeriod, setLeaveBalancePeriod] = useState('Year');
   const [showLeaveModal, setShowLeaveModal] = useState(false);
 
@@ -183,6 +208,297 @@ const EmployeeDashboard = () => {
     }
   };
 
+  const fetchLeads = async () => {
+    try {
+      setIsLeadsLoading(true);
+      const res = await employeeApi.get('/employee-portal/ess/leads');
+      if (res.data.success) {
+        setLeads(res.data.leads || []);
+      }
+    } catch {
+      toast.error('Failed to load your assigned leads');
+    } finally {
+      setIsLeadsLoading(false);
+    }
+  };
+
+  const handleUpdateLeadStatus = async (leadId, status) => {
+    try {
+      setUpdatingLeadId(leadId);
+      const res = await employeeApi.put(`/employee-portal/ess/leads/${leadId}`, { status });
+      if (res.data.success) {
+        toast.success('Status updated');
+        fetchLeads();
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to update status');
+    } finally {
+      setUpdatingLeadId(null);
+    }
+  };
+
+  const handleStartLeadCall = async (leadId) => {
+    try {
+      const now = new Date();
+      await employeeApi.put(`/employee-portal/ess/leads/${leadId}`, { callStartTime: now, callDate: now });
+      toast.success('Call started');
+      fetchLeads();
+    } catch {
+      toast.error('Failed to start call');
+    }
+  };
+
+  const handleEndLeadCall = async (lead) => {
+    if (!lead.callStartTime) {
+      toast.error('Please start the call first');
+      return;
+    }
+    try {
+      const now = new Date();
+      const diffMs = now.getTime() - new Date(lead.callStartTime).getTime();
+      const durationMin = Math.max(1, Math.round(diffMs / 60000));
+      await employeeApi.put(`/employee-portal/ess/leads/${lead._id}`, { callEndTime: now, callDuration: durationMin });
+      toast.success(`Call ended (${durationMin} min)`);
+      fetchLeads();
+    } catch {
+      toast.error('Failed to end call');
+    }
+  };
+
+  const toggleLeadExpand = (lead, forceExpand = false) => {
+    const isExpanding = forceExpand || expandedLeadId !== lead._id;
+    setExpandedLeadId(isExpanding ? lead._id : null);
+    if (isExpanding && !leadDrafts[lead._id]) {
+      setLeadDrafts((prev) => ({
+        ...prev,
+        [lead._id]: {
+          connected: lead.connected || '',
+          interestLevel: lead.interestLevel || '',
+          notConnectedReason: lead.notConnectedReason || '',
+          remark: lead.remark || '',
+          nextFollowUpDate: lead.nextFollowUpDate ? new Date(lead.nextFollowUpDate).toISOString() : '',
+          dealValue: lead.dealValue || '',
+          notConvertedReason: lead.notConvertedReason || ''
+        }
+      }));
+    }
+  };
+
+  // Used by the Follow-ups Today / Overdue cards — jumps to and expands the
+  // matching card in the full list below, clearing any status filter that
+  // might be hiding it.
+  const jumpToLead = (lead) => {
+    setLeadFilter('All');
+    toggleLeadExpand(lead, true);
+    setTimeout(() => {
+      document.getElementById(`lead-card-${lead._id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 50);
+  };
+
+  const updateLeadDraft = (leadId, field, value) => {
+    setLeadDrafts((prev) => ({ ...prev, [leadId]: { ...prev[leadId], [field]: value } }));
+  };
+
+  const handleSaveLeadDetails = async (leadId) => {
+    const draft = leadDrafts[leadId];
+    if (!draft) return;
+    try {
+      setUpdatingLeadId(leadId);
+      const res = await employeeApi.put(`/employee-portal/ess/leads/${leadId}`, draft);
+      if (res.data.success) {
+        toast.success('Lead updated');
+        fetchLeads();
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to update lead');
+    } finally {
+      setUpdatingLeadId(null);
+    }
+  };
+
+  // Shared between the "My Leads" full list and the "Follow-ups" tab so both
+  // views get the exact same working card (status, call buttons, outcome
+  // form) instead of drifting apart.
+  const renderLeadCard = (lead) => {
+    const isExpanded = expandedLeadId === lead._id;
+    const draft = leadDrafts[lead._id] || {};
+    return (
+      <div key={lead._id} id={`lead-card-${lead._id}`} className="bg-[#141416] border border-white/5 rounded-xl p-6 hover:border-orange-500/20 transition-all overflow-hidden scroll-mt-4">
+        <div className="flex flex-wrap justify-between items-start gap-4 mb-4 cursor-pointer" onClick={() => toggleLeadExpand(lead)}>
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs font-mono text-orange-500">{lead.leadId}</span>
+              <span className="text-white font-bold">{lead.fullName}</span>
+              {isExpanded ? <ChevronUp size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              {lead.service} · {lead.platform}
+            </p>
+          </div>
+          <div className="flex gap-2 items-center" onClick={(e) => e.stopPropagation()}>
+            <select
+              value={lead.status}
+              onChange={(e) => handleUpdateLeadStatus(lead._id, e.target.value)}
+              disabled={updatingLeadId === lead._id}
+              className={`px-2.5 py-1 text-[10px] uppercase font-bold tracking-wider rounded border cursor-pointer outline-none appearance-none ${
+                lead.status === 'Won' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
+                (lead.status === 'Lost' || lead.status === 'Dropped') ? 'bg-red-500/10 text-red-400 border-red-500/20' :
+                lead.status === 'New' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
+                'bg-amber-500/10 text-amber-400 border-amber-500/20'
+              }`}
+            >
+              <option value="New" className="bg-black text-white">NEW</option>
+              <option value="Contacted" className="bg-black text-white">CONTACTED</option>
+              <option value="Qualified" className="bg-black text-white">QUALIFIED</option>
+              <option value="Proposal Sent" className="bg-black text-white">PROPOSAL SENT</option>
+              <option value="Negotiation" className="bg-black text-white">NEGOTIATION</option>
+              <option value="Won" className="bg-black text-white">WON</option>
+              <option value="Lost" className="bg-black text-white">LOST</option>
+              <option value="Dropped" className="bg-black text-white">DROPPED</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-4 text-sm text-gray-300 bg-black/20 p-4 rounded-lg">
+          <a href={`tel:${lead.phone}`} className="flex items-center gap-1.5 hover:text-orange-400" onClick={(e) => e.stopPropagation()}>
+            <Phone size={14} /> {lead.phone}
+          </a>
+          <a href={`mailto:${lead.email}`} className="flex items-center gap-1.5 hover:text-orange-400" onClick={(e) => e.stopPropagation()}>
+            <Mail size={14} /> {lead.email}
+          </a>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3 mt-4" onClick={(e) => e.stopPropagation()}>
+          <button
+            onClick={() => handleStartLeadCall(lead._id)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 rounded-lg text-xs font-medium transition-colors"
+          >
+            <Play size={12} /> Start Call
+          </button>
+          <button
+            onClick={() => handleEndLeadCall(lead)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-lg text-xs font-medium transition-colors"
+          >
+            <Square size={12} /> End Call
+          </button>
+          {lead.callStartTime && (
+            <span className="text-xs text-gray-500">
+              Started {new Date(lead.callStartTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </span>
+          )}
+          {lead.callDuration && (
+            <span className="text-xs text-gray-500">Duration: {lead.callDuration} min</span>
+          )}
+        </div>
+
+        {isExpanded && (
+          <div className="mt-4 pt-4 border-t border-white/5 space-y-4" onClick={(e) => e.stopPropagation()}>
+            {lead.message && (
+              <p className="text-sm text-gray-300 bg-black/20 p-4 rounded-lg whitespace-pre-wrap">{lead.message}</p>
+            )}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-[10px] font-medium text-gray-500 mb-1 uppercase tracking-wider">Connected?</label>
+                <select
+                  value={draft.connected || ''}
+                  onChange={(e) => updateLeadDraft(lead._id, 'connected', e.target.value)}
+                  className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500/50"
+                >
+                  <option value="" className="bg-black text-white">—</option>
+                  <option value="Yes" className="bg-black text-white">Yes</option>
+                  <option value="No" className="bg-black text-white">No</option>
+                </select>
+              </div>
+              {draft.connected === 'No' && (
+                <div>
+                  <label className="block text-[10px] font-medium text-gray-500 mb-1 uppercase tracking-wider">Not Connected Reason</label>
+                  <input
+                    type="text"
+                    value={draft.notConnectedReason || ''}
+                    onChange={(e) => updateLeadDraft(lead._id, 'notConnectedReason', e.target.value)}
+                    className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500/50"
+                  />
+                </div>
+              )}
+              <div>
+                <label className="block text-[10px] font-medium text-gray-500 mb-1 uppercase tracking-wider">Interest Level</label>
+                <select
+                  value={draft.interestLevel || ''}
+                  onChange={(e) => updateLeadDraft(lead._id, 'interestLevel', e.target.value)}
+                  className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500/50"
+                >
+                  <option value="" className="bg-black text-white">—</option>
+                  {INTEREST_LEVELS.map((level) => (
+                    <option key={level} value={level} className="bg-black text-white">{level}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[10px] font-medium text-gray-500 mb-1 uppercase tracking-wider">
+                  Next Follow-Up Date &amp; Time
+                  {['Hot', 'Warm', 'Interested', 'Asked to Call Later'].includes(draft.interestLevel) && (
+                    <span className="text-orange-400"> *required</span>
+                  )}
+                </label>
+                <input
+                  type="datetime-local"
+                  value={draft.nextFollowUpDate ? new Date(draft.nextFollowUpDate).toISOString().slice(0, 16) : ''}
+                  onChange={(e) => updateLeadDraft(lead._id, 'nextFollowUpDate', e.target.value ? new Date(e.target.value).toISOString() : '')}
+                  className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500/50"
+                  style={{ colorScheme: 'dark' }}
+                />
+              </div>
+              {lead.status === 'Won' && (
+                <div>
+                  <label className="block text-[10px] font-medium text-gray-500 mb-1 uppercase tracking-wider">Deal Value (₹)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={draft.dealValue || ''}
+                    onChange={(e) => updateLeadDraft(lead._id, 'dealValue', e.target.value)}
+                    className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500/50"
+                  />
+                </div>
+              )}
+              {(lead.status === 'Lost' || lead.status === 'Dropped') && (
+                <div>
+                  <label className="block text-[10px] font-medium text-gray-500 mb-1 uppercase tracking-wider">Reason</label>
+                  <input
+                    type="text"
+                    value={draft.notConvertedReason || ''}
+                    onChange={(e) => updateLeadDraft(lead._id, 'notConvertedReason', e.target.value)}
+                    className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500/50"
+                  />
+                </div>
+              )}
+            </div>
+            <div>
+              <label className="block text-[10px] font-medium text-gray-500 mb-1 uppercase tracking-wider">Remark</label>
+              <textarea
+                rows={2}
+                value={draft.remark || ''}
+                onChange={(e) => updateLeadDraft(lead._id, 'remark', e.target.value)}
+                className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500/50"
+              />
+            </div>
+            <button
+              onClick={() => handleSaveLeadDetails(lead._id)}
+              disabled={updatingLeadId === lead._id}
+              className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white text-sm font-bold rounded-lg transition-colors disabled:opacity-50"
+            >
+              {updatingLeadId === lead._id ? 'Saving...' : 'Save Updates'}
+            </button>
+          </div>
+        )}
+
+        <div className="flex justify-between items-center text-xs text-gray-500 mt-4 border-t border-white/5 pt-4">
+          <span>Source: <span className="text-gray-400 font-medium">{lead.userSource || 'Direct'}</span></span>
+          <span>Created: {new Date(lead.createdAt).toLocaleDateString()}</span>
+        </div>
+      </div>
+    );
+  };
+
   const handleSendTicketMessage = async (e, ticketId) => {
     e.preventDefault();
     if (!newMessage.trim()) return;
@@ -247,7 +563,22 @@ const EmployeeDashboard = () => {
     if (activeTab === 'tickets') {
       fetchTickets();
     }
+    if (activeTab === 'leads' || activeTab === 'followups') {
+      fetchLeads();
+    }
   }, [activeTab]);
+
+  // Deep link from a notification — ?tab=leads&leadId=... expands that
+  // lead's card once the list has loaded.
+  useEffect(() => {
+    const leadId = searchParams.get('leadId');
+    if (!leadId || leads.length === 0) return;
+    const target = leads.find((l) => l._id === leadId);
+    if (target) toggleLeadExpand(target);
+    // Only run once the leads list has data — re-running on every leads
+    // refresh would re-expand a card the user deliberately collapsed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [leads.length]);
 
   const handleUpdateBank = async (e) => {
     e.preventDefault();
@@ -571,6 +902,149 @@ const EmployeeDashboard = () => {
                 })}
               </div>
             )}
+          </div>
+        )}
+
+        {/* MY LEADS PANEL */}
+        {activeTab === 'leads' && (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <div>
+                <h2 className="text-xl font-bold text-white">My Leads</h2>
+                <p className="text-gray-400 text-xs mt-1">Leads assigned to you — work them here, ownership changes only happen from Admin</p>
+              </div>
+              <select
+                value={leadFilter}
+                onChange={(e) => setLeadFilter(e.target.value)}
+                className="bg-[#141416] border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-orange-500/50 cursor-pointer"
+              >
+                <option value="All">All Statuses</option>
+                <option value="New">New</option>
+                <option value="Contacted">Contacted</option>
+                <option value="Qualified">Qualified</option>
+                <option value="Proposal Sent">Proposal Sent</option>
+                <option value="Negotiation">Negotiation</option>
+                <option value="Won">Won</option>
+                <option value="Lost">Lost</option>
+                <option value="Dropped">Dropped</option>
+              </select>
+            </div>
+
+            {isLeadsLoading ? (
+              <div className="flex justify-center items-center py-12">
+                <div className="w-8 h-8 rounded-full border-2 border-orange-500/20 border-t-orange-500 animate-spin" />
+              </div>
+            ) : leads.length === 0 ? (
+              <div className="bg-[#141416] border border-white/5 rounded-xl p-8 text-center text-gray-500">
+                No leads assigned to you currently.
+              </div>
+            ) : (
+              <>
+                {(() => {
+                  const overdueLeads = leads
+                    .filter((l) => followUpBucket(l.nextFollowUpDate) === 'overdue')
+                    .sort((a, b) => new Date(a.nextFollowUpDate) - new Date(b.nextFollowUpDate));
+                  const todayLeads = leads
+                    .filter((l) => followUpBucket(l.nextFollowUpDate) === 'today')
+                    .sort((a, b) => new Date(a.nextFollowUpDate) - new Date(b.nextFollowUpDate));
+
+                  if (overdueLeads.length === 0 && todayLeads.length === 0) return null;
+
+                  const FollowUpCard = (lead, tone) => (
+                    <button
+                      key={lead._id}
+                      onClick={() => jumpToLead(lead)}
+                      className={`w-full flex items-center justify-between gap-3 px-4 py-2.5 rounded-lg border text-left transition-colors bg-black/20 ${
+                        tone === 'overdue' ? 'border-red-500/10 hover:border-red-500/30' : 'border-orange-500/10 hover:border-orange-500/30'
+                      }`}
+                    >
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-white truncate">{lead.fullName}</p>
+                        <p className="text-xs text-gray-500 truncate">{lead.phone} · {lead.service}</p>
+                      </div>
+                      <span className={`text-xs font-mono shrink-0 ${tone === 'overdue' ? 'text-red-400' : 'text-orange-400'}`}>
+                        {new Date(lead.nextFollowUpDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </button>
+                  );
+
+                  return (
+                    <div className="space-y-4">
+                      {overdueLeads.length > 0 && (
+                        <div className="bg-red-500/5 border border-red-500/20 rounded-xl p-4">
+                          <h3 className="text-sm font-bold text-red-400 flex items-center gap-2 mb-3">
+                            <AlertTriangle size={16} /> Overdue Follow-ups ({overdueLeads.length})
+                          </h3>
+                          <div className="space-y-2">{overdueLeads.map((lead) => FollowUpCard(lead, 'overdue'))}</div>
+                        </div>
+                      )}
+                      {todayLeads.length > 0 && (
+                        <div className="bg-orange-500/5 border border-orange-500/20 rounded-xl p-4">
+                          <h3 className="text-sm font-bold text-orange-400 flex items-center gap-2 mb-3">
+                            <Clock size={16} /> Follow-ups Today ({todayLeads.length})
+                          </h3>
+                          <div className="space-y-2">{todayLeads.map((lead) => FollowUpCard(lead, 'today'))}</div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
+              <div className="grid grid-cols-1 gap-4">
+                {leads.filter(l => leadFilter === 'All' || l.status === leadFilter).map(renderLeadCard)}
+              </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* FOLLOW-UPS PANEL — dedicated, filterable view across all buckets, reusing the same working card as My Leads */}
+        {activeTab === 'followups' && (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center flex-wrap gap-3">
+              <div>
+                <h2 className="text-xl font-bold text-white">Follow-ups</h2>
+                <p className="text-gray-400 text-xs mt-1">Every lead of yours with a scheduled follow-up</p>
+              </div>
+              <div className="flex bg-[#141416] border border-white/10 p-1 rounded-lg">
+                {['All', 'Overdue', 'Today', 'Upcoming'].map((tab) => (
+                  <button
+                    key={tab}
+                    onClick={() => setFollowUpBucketFilter(tab)}
+                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${
+                      followUpBucketFilter === tab ? 'bg-orange-500 text-white' : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    {tab}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {isLeadsLoading ? (
+              <div className="flex justify-center items-center py-12">
+                <div className="w-8 h-8 rounded-full border-2 border-orange-500/20 border-t-orange-500 animate-spin" />
+              </div>
+            ) : (() => {
+              const withFollowUp = leads.filter((l) => followUpBucket(l.nextFollowUpDate) !== null);
+              const filtered = followUpBucketFilter === 'All'
+                ? withFollowUp
+                : withFollowUp.filter((l) => followUpBucket(l.nextFollowUpDate) === followUpBucketFilter.toLowerCase());
+              const sorted = [...filtered].sort((a, b) => new Date(a.nextFollowUpDate) - new Date(b.nextFollowUpDate));
+
+              if (sorted.length === 0) {
+                return (
+                  <div className="bg-[#141416] border border-white/5 rounded-xl p-8 text-center text-gray-500">
+                    No {followUpBucketFilter !== 'All' ? followUpBucketFilter.toLowerCase() + ' ' : ''}follow-ups right now.
+                  </div>
+                );
+              }
+              return (
+                <div className="grid grid-cols-1 gap-4">
+                  {sorted.map(renderLeadCard)}
+                </div>
+              );
+            })()}
           </div>
         )}
 

@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { normalizePhone, normalizeEmail } = require('../utils/normalize');
 
 const leadSchema = new mongoose.Schema({
   fullName: {
@@ -9,6 +10,26 @@ const leadSchema = new mongoose.Schema({
   phone: {
     type: String,
     required: [true, 'Please provide phone number'],
+    trim: true
+  },
+  altPhone: {
+    type: String,
+    trim: true
+  },
+  // Digits-only, country-code-stripped copies of phone/altPhone/email, kept in
+  // sync by the pre-save hook below. Duplicate-lead lookups match against
+  // these instead of the raw fields so "+91 98765 43210" and "9876543210"
+  // are recognized as the same person.
+  phoneNormalized: {
+    type: String,
+    trim: true
+  },
+  altPhoneNormalized: {
+    type: String,
+    trim: true
+  },
+  emailNormalized: {
+    type: String,
     trim: true
   },
   email: {
@@ -109,9 +130,26 @@ const leadSchema = new mongoose.Schema({
     unique: true,
     sparse: true
   },
+  // Free-text display copy of the assigned BD's name, kept in sync by
+  // server/services/leadAssignment.js. Not directly editable — ownership
+  // changes must go through POST /leads/:id/assign so every change is
+  // logged. Kept only so existing consumers (CSV export, Kanban card) that
+  // read this plain string keep working.
   bd: {
     type: String,
     trim: true
+  },
+  // Source of truth for ownership, visibility scoping, and round-robin.
+  // null = Unassigned.
+  assignedTo: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Admin',
+    default: null,
+    index: true
+  },
+  assignedAt: {
+    type: Date,
+    default: null
   },
   callStartTime: {
     type: Date
@@ -133,8 +171,11 @@ const leadSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+  // Real enforcement lives in server/utils/followUpRules.js — both update
+  // paths write through the raw driver and bypass this schema validation.
   interestLevel: {
     type: String,
+    enum: ['Hot', 'Warm', 'Cold', 'Interested', 'Not Interested', 'Asked to Call Later', '', null],
     trim: true
   },
   notConvertedReason: {
@@ -196,6 +237,15 @@ const leadSchema = new mongoose.Schema({
   }
 }, { timestamps: true });
 
+// Keep the normalized contact fields in sync so duplicate-lead lookups
+// (see server/services/leadDedup.js) stay accurate whenever phone/altPhone/
+// email change, however the document was saved.
+leadSchema.pre('save', function() {
+  if (this.isModified('phone')) this.phoneNormalized = normalizePhone(this.phone);
+  if (this.isModified('altPhone')) this.altPhoneNormalized = normalizePhone(this.altPhone);
+  if (this.isModified('email')) this.emailNormalized = normalizeEmail(this.email);
+});
+
 // Add pre-save hook for auto-generating leadId
 leadSchema.pre('save', async function() {
   if (!this.leadId) {
@@ -231,6 +281,13 @@ leadSchema.index({ createdAt: -1 });
 leadSchema.index({ leadId: 1 });
 leadSchema.index({ leadType: 1, createdAt: -1 });
 leadSchema.index({ fbFormId: 1 });
+
+// Duplicate-detection lookups (see server/services/leadDedup.js) filter by
+// these on every incoming lead, so they need real indexes rather than falling
+// back to the text index below.
+leadSchema.index({ phoneNormalized: 1 });
+leadSchema.index({ altPhoneNormalized: 1 });
+leadSchema.index({ emailNormalized: 1 });
 
 // Add compound text index for scalable backend searching
 leadSchema.index({ fullName: 'text', email: 'text', phone: 'text', leadId: 'text' });

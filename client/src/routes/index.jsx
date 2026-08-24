@@ -62,6 +62,8 @@ const DPAManager = lazy(() => import('../admin/pages/DPAManager'));
 const RefundPolicyManager = lazy(() => import('../admin/pages/RefundPolicyManager'));
 const ServiceAgreementManager = lazy(() => import('../admin/pages/ManageAgreement'));
 const LeadsManager = lazy(() => import('../admin/pages/LeadsManager'));
+const LeadActivity = lazy(() => import('../admin/pages/LeadActivity'));
+const FollowUpsManager = lazy(() => import('../admin/pages/FollowUpsManager'));
 const FacebookIntegrationManager = lazy(() => import('../admin/pages/FacebookIntegrationManager'));
 const SubscriberManager = lazy(() => import('../admin/pages/SubscriberManager'));
 
@@ -475,6 +477,14 @@ export const router = createBrowserRouter([
           {
             path: 'leads',
             element: withSuspense(LeadsManager)
+          },
+          {
+            path: 'lead-activity',
+            element: withPermission(LeadActivity, 'leads.assign')
+          },
+          {
+            path: 'follow-ups',
+            element: withPermission(FollowUpsManager, 'leads.assign')
           },
           {
             path: 'facebook-integration',

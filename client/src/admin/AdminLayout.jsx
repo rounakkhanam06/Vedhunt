@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
-import { Menu, Search, Bell, User } from 'lucide-react';
+import { Menu, Search, User } from 'lucide-react';
 import Sidebar from './components/Sidebar';
+import NotificationBell from './components/NotificationBell';
 import { Toaster } from 'react-hot-toast';
 import { useAdminStore } from '../store/useAdminStore';
 
@@ -52,10 +53,8 @@ const AdminLayout = () => {
           </div>
 
           <div className="flex items-center gap-3 sm:gap-4 relative">
-            <button className="w-10 h-10 flex items-center justify-center text-on-surface-variant hover:text-secondary transition-colors">
-              <Bell size={20} />
-            </button>
-            
+            <NotificationBell />
+
             {/* Profile Dropdown */}
             <div className="relative">
               <button 

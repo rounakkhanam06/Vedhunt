@@ -1,20 +1,23 @@
 import { Outlet, useNavigate, useLocation, Link } from 'react-router-dom';
 import { useState } from 'react';
 import { useEmployeeStore } from '../store/useEmployeeStore';
-import { 
-  LayoutDashboard, 
-  Clock, 
-  CheckSquare, 
-  FileSpreadsheet, 
-  CreditCard, 
-  Award, 
-  User, 
+import {
+  LayoutDashboard,
+  Clock,
+  CheckSquare,
+  FileSpreadsheet,
+  CreditCard,
+  Award,
+  User,
   LifeBuoy,
-  LogOut, 
-  X, 
-  Menu 
+  UserCheck,
+  AlertTriangle,
+  LogOut,
+  X,
+  Menu
 } from 'lucide-react';
 import darkLogo from '../assets/logo_Square.jpg__1_-removebg-preview.png';
+import NotificationBell from './components/NotificationBell';
 
 const EmployeeLayout = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -30,6 +33,8 @@ const EmployeeLayout = () => {
 
   const navItems = [
     { name: 'Dashboard', path: '/employee/dashboard?tab=dashboard', icon: LayoutDashboard },
+    { name: 'My Leads', path: '/employee/dashboard?tab=leads', icon: UserCheck },
+    { name: 'Follow-ups', path: '/employee/dashboard?tab=followups', icon: AlertTriangle },
     { name: 'Attendance & Leave', path: '/employee/dashboard?tab=attendance', icon: Clock },
     { name: 'My Tasks', path: '/employee/dashboard?tab=tasks', icon: CheckSquare },
     { name: 'My Timesheet', path: '/employee/dashboard?tab=timesheet', icon: FileSpreadsheet },
@@ -106,13 +111,16 @@ const EmployeeLayout = () => {
               </p>
             </div>
           </div>
-          <button
-            onClick={() => setShowLogoutModal(true)}
-            className="text-white/80 hover:text-white transition-colors p-2"
-            title="Logout"
-          >
-            <LogOut size={20} />
-          </button>
+          <div className="flex items-center shrink-0">
+            <NotificationBell />
+            <button
+              onClick={() => setShowLogoutModal(true)}
+              className="text-white/80 hover:text-white transition-colors p-2"
+              title="Logout"
+            >
+              <LogOut size={20} />
+            </button>
+          </div>
         </div>
       </aside>
 

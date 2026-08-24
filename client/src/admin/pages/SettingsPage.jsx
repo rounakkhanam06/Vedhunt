@@ -4,9 +4,11 @@ import { useAdminStore } from '../../store/useAdminStore';
 import { settingsService } from '../../services/settingsService';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
+import { usePermissions } from '../hooks/usePermissions';
 
 const SettingsPage = () => {
   const { admin } = useAdminStore();
+  const { can } = usePermissions();
   const [activeTab, setActiveTab] = useState('contact');
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -66,6 +68,13 @@ const SettingsPage = () => {
       bankName: '',
     },
   });
+
+  const [autoAssignEnabled, setAutoAssignEnabled] = useState(false);
+  const [assignmentRules, setAssignmentRules] = useState([]);
+  const [bdRoster, setBdRoster] = useState([]);
+  const emptyRuleForm = { name: '', matchService: '', matchSource: '', bdPool: [], maxActiveLeads: '', priority: 0 };
+  const [ruleForm, setRuleForm] = useState(emptyRuleForm);
+  const [editingRuleId, setEditingRuleId] = useState(null);
 
   const fetchContactData = async () => {
     try {
@@ -175,6 +184,110 @@ const SettingsPage = () => {
     }
   };
 
+  const fetchAssignmentSettings = async () => {
+    try {
+      const res = await api.get('/admin/assignment/settings');
+      if (res.data.success) setAutoAssignEnabled(!!res.data.data.autoAssignEnabled);
+    } catch (error) {
+      toast.error('Failed to load assignment settings');
+      console.error(error);
+    }
+  };
+
+  const fetchAssignmentRules = async () => {
+    try {
+      setLoading(true);
+      const res = await api.get('/admin/assignment/rules');
+      if (res.data.success) setAssignmentRules(res.data.data);
+    } catch (error) {
+      toast.error('Failed to load assignment rules');
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchBdRoster = async () => {
+    try {
+      const res = await api.get('/admin/assignment/bds');
+      if (res.data.success) setBdRoster(res.data.data);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const handleToggleAutoAssign = async () => {
+    const next = !autoAssignEnabled;
+    try {
+      await api.put('/admin/assignment/settings', { autoAssignEnabled: next });
+      setAutoAssignEnabled(next);
+      toast.success(next ? 'Automated round-robin enabled' : 'Automated round-robin disabled');
+    } catch (error) {
+      toast.error('Failed to update assignment settings');
+    }
+  };
+
+  const toggleBdInPool = (bdId) => {
+    setRuleForm((prev) => ({
+      ...prev,
+      bdPool: prev.bdPool.includes(bdId) ? prev.bdPool.filter((id) => id !== bdId) : [...prev.bdPool, bdId]
+    }));
+  };
+
+  const handleEditRule = (rule) => {
+    setEditingRuleId(rule._id);
+    setRuleForm({
+      name: rule.name,
+      matchService: rule.matchService || '',
+      matchSource: rule.matchSource || '',
+      bdPool: (rule.bdPool || []).map((bd) => bd._id),
+      maxActiveLeads: rule.maxActiveLeads ?? '',
+      priority: rule.priority || 0
+    });
+  };
+
+  const handleSubmitRule = async (e) => {
+    e.preventDefault();
+    if (!ruleForm.name.trim()) return toast.error('Please name this rule');
+    try {
+      setSaving(true);
+      if (editingRuleId) {
+        await api.put(`/admin/assignment/rules/${editingRuleId}`, ruleForm);
+        toast.success('Rule updated');
+      } else {
+        await api.post('/admin/assignment/rules', ruleForm);
+        toast.success('Rule created');
+      }
+      setRuleForm(emptyRuleForm);
+      setEditingRuleId(null);
+      fetchAssignmentRules();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to save rule');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleToggleRuleActive = async (rule) => {
+    try {
+      await api.put(`/admin/assignment/rules/${rule._id}`, { active: !rule.active });
+      fetchAssignmentRules();
+    } catch (error) {
+      toast.error('Failed to update rule');
+    }
+  };
+
+  const handleDeleteRule = async (id) => {
+    if (!window.confirm('Delete this assignment rule?')) return;
+    try {
+      await api.delete(`/admin/assignment/rules/${id}`);
+      toast.success('Rule deleted');
+      fetchAssignmentRules();
+    } catch (error) {
+      toast.error('Failed to delete rule');
+    }
+  };
+
   const handleSavePaymentSettings = async () => {
     setSaving(true);
     try {
@@ -222,6 +335,11 @@ const SettingsPage = () => {
     if (activeTab === 'attendanceRules') fetchAttendanceRules();
     if (activeTab === 'holidays') fetchHolidays();
     if (activeTab === 'payment') fetchPaymentSettings();
+    if (activeTab === 'assignmentRules') {
+      fetchAssignmentSettings();
+      fetchAssignmentRules();
+      fetchBdRoster();
+    }
   }, [activeTab, selectedYear]);
 
   const handleContactChange = (e) => {
@@ -437,6 +555,7 @@ const SettingsPage = () => {
     { id: 'officeTimings', label: 'Office Timings', icon: Clock },
     { id: 'attendanceRules', label: 'Attendance Rules', icon: Clock },
     { id: 'holidays', label: 'Holiday Calendar', icon: Database },
+    ...(can('leads.assign') ? [{ id: 'assignmentRules', label: 'Assignment Rules', icon: Share2 }] : []),
     { id: 'integrations', label: 'Integrations', icon: Plug },
     { id: 'campaigns', label: 'Campaign Control', icon: BarChart2 },
     { id: 'payment', label: 'Payment Settings', icon: CreditCard },
@@ -1130,6 +1249,136 @@ const SettingsPage = () => {
           </div>
         )}
 
+        {/* Assignment Rules Tab */}
+        {activeTab === 'assignmentRules' && (
+          <div className="max-w-3xl animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <h3 className="text-2xl font-bold text-white mb-2">Lead Assignment Rules</h3>
+            <p className="text-gray-400 text-sm mb-8">
+              Manual assignment is always available from the Leads page. Turn on automated round-robin here to have new leads assigned automatically per the rules below.
+            </p>
+
+            <div className="bg-[#121215] border border-[#2D2D33] p-6 rounded-xl mb-8 flex items-center justify-between">
+              <div>
+                <h4 className="text-sm font-semibold text-white">Automated Round-Robin</h4>
+                <p className="text-xs text-gray-400 mt-1">When off, new leads are left Unassigned for manual assignment.</p>
+              </div>
+              <button
+                onClick={handleToggleAutoAssign}
+                className={`relative w-12 h-6 rounded-full transition-colors ${autoAssignEnabled ? 'bg-[#FF6B00]' : 'bg-[#2D2D33]'}`}
+              >
+                <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform ${autoAssignEnabled ? 'translate-x-6' : 'translate-x-0.5'}`} />
+              </button>
+            </div>
+
+            <div className="bg-[#121215] border border-[#2D2D33] p-6 rounded-xl mb-8">
+              <h4 className="text-sm font-semibold text-[#FF6B00] uppercase tracking-widest mb-4">
+                {editingRuleId ? 'Edit Rule' : 'New Rule'}
+              </h4>
+              <form onSubmit={handleSubmitRule} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className={labelClasses}>Rule Name</label>
+                    <input type="text" required placeholder="e.g. SEO leads" value={ruleForm.name} onChange={e => setRuleForm({ ...ruleForm, name: e.target.value })} className={inputClasses} />
+                  </div>
+                  <div>
+                    <label className={labelClasses}>Priority (lower runs first)</label>
+                    <input type="number" value={ruleForm.priority} onChange={e => setRuleForm({ ...ruleForm, priority: Number(e.target.value) })} className={inputClasses} />
+                  </div>
+                  <div>
+                    <label className={labelClasses}>Match Service (blank = any)</label>
+                    <input type="text" placeholder="e.g. SEO" value={ruleForm.matchService} onChange={e => setRuleForm({ ...ruleForm, matchService: e.target.value })} className={inputClasses} />
+                  </div>
+                  <div>
+                    <label className={labelClasses}>Match Source (blank = any)</label>
+                    <input type="text" placeholder="e.g. Website, Facebook" value={ruleForm.matchSource} onChange={e => setRuleForm({ ...ruleForm, matchSource: e.target.value })} className={inputClasses} />
+                  </div>
+                  <div>
+                    <label className={labelClasses}>Max Active Leads per BD (blank = unlimited)</label>
+                    <input type="number" min="0" placeholder="Unlimited" value={ruleForm.maxActiveLeads} onChange={e => setRuleForm({ ...ruleForm, maxActiveLeads: e.target.value })} className={inputClasses} />
+                  </div>
+                </div>
+                <div>
+                  <label className={labelClasses}>BD Pool (rotation order)</label>
+                  {bdRoster.length === 0 ? (
+                    <p className="text-xs text-gray-500">No BD accounts found yet — create BD team members first.</p>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {bdRoster.map((bd) => (
+                        <button
+                          type="button"
+                          key={bd._id}
+                          onClick={() => toggleBdInPool(bd._id)}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                            ruleForm.bdPool.includes(bd._id)
+                              ? 'bg-[#FF6B00]/10 border-[#FF6B00] text-[#FF6B00]'
+                              : 'bg-transparent border-[#2D2D33] text-gray-400 hover:text-white'
+                          }`}
+                        >
+                          {bd.firstName} {bd.lastName} ({bd.activeLeadCount} active)
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="flex gap-3">
+                  <button type="submit" disabled={saving} className="bg-[#FF6B00] hover:bg-[#EA580C] text-white px-4 py-2 rounded-lg font-bold transition-all">
+                    {editingRuleId ? 'Update Rule' : 'Add Rule'}
+                  </button>
+                  {editingRuleId && (
+                    <button type="button" onClick={() => { setEditingRuleId(null); setRuleForm(emptyRuleForm); }} className="px-4 py-2 rounded-lg font-bold text-gray-400 hover:text-white transition-all">
+                      Cancel
+                    </button>
+                  )}
+                </div>
+              </form>
+            </div>
+
+            {loading ? (
+              <div className="text-gray-400">Loading...</div>
+            ) : (
+              <div className="bg-[#121215] border border-[#2D2D33] rounded-xl overflow-x-auto">
+                <table className="w-full text-left text-sm text-gray-300 min-w-[600px]">
+                  <thead className="bg-[#1A1A1E] text-xs uppercase text-gray-400 border-b border-[#2D2D33]">
+                    <tr>
+                      <th className="px-6 py-4">Name</th>
+                      <th className="px-6 py-4">Match</th>
+                      <th className="px-6 py-4">BD Pool</th>
+                      <th className="px-6 py-4">Cap</th>
+                      <th className="px-6 py-4">Active</th>
+                      <th className="px-6 py-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#2D2D33]">
+                    {assignmentRules.length === 0 ? (
+                      <tr><td colSpan="6" className="px-6 py-8 text-center text-gray-500">No rules yet — new leads stay Unassigned until you add one.</td></tr>
+                    ) : (
+                      assignmentRules.map(rule => (
+                        <tr key={rule._id} className="hover:bg-white/[0.02]">
+                          <td className="px-6 py-4 font-semibold text-white">{rule.name}</td>
+                          <td className="px-6 py-4 text-xs text-gray-400">
+                            {rule.matchService || 'Any service'} · {rule.matchSource || 'Any source'}
+                          </td>
+                          <td className="px-6 py-4 text-xs text-gray-400">{(rule.bdPool || []).length} BD(s)</td>
+                          <td className="px-6 py-4 text-xs text-gray-400">{rule.maxActiveLeads ?? 'Unlimited'}</td>
+                          <td className="px-6 py-4">
+                            <button onClick={() => handleToggleRuleActive(rule)} className={`px-2 py-1 rounded text-[10px] uppercase font-bold tracking-wider ${rule.active ? 'bg-green-500/10 text-green-500' : 'bg-gray-500/10 text-gray-400'}`}>
+                              {rule.active ? 'Active' : 'Paused'}
+                            </button>
+                          </td>
+                          <td className="px-6 py-4 text-right space-x-3 whitespace-nowrap">
+                            <button onClick={() => handleEditRule(rule)} className="text-[#FF6B00] hover:text-[#EA580C] font-medium text-xs">Edit</button>
+                            <button onClick={() => handleDeleteRule(rule._id)} className="text-red-500 hover:text-red-400 font-medium text-xs">Delete</button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
       </div>
 
       {/* Sticky Floating Action Button */}
@@ -1143,6 +1392,7 @@ const SettingsPage = () => {
             if (activeTab === 'attendanceRules') handleSaveAttendanceRules();
             if (activeTab === 'holidays') fetchHolidays();
             if (activeTab === 'payment') handleSavePaymentSettings();
+            if (activeTab === 'assignmentRules') fetchAssignmentRules();
           }}
           disabled={saving}
           className={`flex items-center gap-2 bg-[#FF6B00] hover:bg-[#EA580C] text-white px-6 py-3 rounded-full font-bold shadow-[0_4px_20px_rgba(255,107,0,0.4)] transition-all ${saving ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105 active:scale-95'}`}
