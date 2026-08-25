@@ -10,7 +10,7 @@ import RealTimeTimer from '../components/RealTimeTimer';
 const StarRating = ({ value }) => (
   <div className="flex gap-0.5">
     {[1, 2, 3, 4, 5].map(i => (
-      <Star key={i} size={12} className={i <= value ? 'text-yellow-400 fill-yellow-400' : 'text-gray-600'} />
+      <Star key={i} size={12} className={i <= value ? 'text-yellow-400 fill-yellow-400' : 'text-app-text-muted'} />
     ))}
   </div>
 );
@@ -323,15 +323,15 @@ const EmployeeDashboard = () => {
     const isExpanded = expandedLeadId === lead._id;
     const draft = leadDrafts[lead._id] || {};
     return (
-      <div key={lead._id} id={`lead-card-${lead._id}`} className="bg-[#141416] border border-white/5 rounded-xl p-6 hover:border-orange-500/20 transition-all overflow-hidden scroll-mt-4">
+      <div key={lead._id} id={`lead-card-${lead._id}`} className="bg-app-card border border-app-border rounded-xl p-6 hover:border-primary/20 transition-all overflow-hidden scroll-mt-4">
         <div className="flex flex-wrap justify-between items-start gap-4 mb-4 cursor-pointer" onClick={() => toggleLeadExpand(lead)}>
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs font-mono text-orange-500">{lead.leadId}</span>
-              <span className="text-white font-bold">{lead.fullName}</span>
-              {isExpanded ? <ChevronUp size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
+              <span className="text-xs font-mono text-primary">{lead.leadId}</span>
+              <span className="text-app-text font-bold">{lead.fullName}</span>
+              {isExpanded ? <ChevronUp size={16} className="text-app-text-muted" /> : <ChevronDown size={16} className="text-app-text-muted" />}
             </div>
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-app-text-muted mt-1">
               {lead.service} · {lead.platform}
             </p>
           </div>
@@ -347,23 +347,23 @@ const EmployeeDashboard = () => {
                 'bg-amber-500/10 text-amber-400 border-amber-500/20'
               }`}
             >
-              <option value="New" className="bg-black text-white">NEW</option>
-              <option value="Contacted" className="bg-black text-white">CONTACTED</option>
-              <option value="Qualified" className="bg-black text-white">QUALIFIED</option>
-              <option value="Proposal Sent" className="bg-black text-white">PROPOSAL SENT</option>
-              <option value="Negotiation" className="bg-black text-white">NEGOTIATION</option>
-              <option value="Won" className="bg-black text-white">WON</option>
-              <option value="Lost" className="bg-black text-white">LOST</option>
-              <option value="Dropped" className="bg-black text-white">DROPPED</option>
+              <option value="New" className="bg-app-card text-app-text">NEW</option>
+              <option value="Contacted" className="bg-app-card text-app-text">CONTACTED</option>
+              <option value="Qualified" className="bg-app-card text-app-text">QUALIFIED</option>
+              <option value="Proposal Sent" className="bg-app-card text-app-text">PROPOSAL SENT</option>
+              <option value="Negotiation" className="bg-app-card text-app-text">NEGOTIATION</option>
+              <option value="Won" className="bg-app-card text-app-text">WON</option>
+              <option value="Lost" className="bg-app-card text-app-text">LOST</option>
+              <option value="Dropped" className="bg-app-card text-app-text">DROPPED</option>
             </select>
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-4 text-sm text-gray-300 bg-black/20 p-4 rounded-lg">
-          <a href={`tel:${lead.phone}`} className="flex items-center gap-1.5 hover:text-orange-400" onClick={(e) => e.stopPropagation()}>
+        <div className="flex flex-wrap gap-4 text-sm text-app-text bg-form-input-bg p-4 rounded-lg">
+          <a href={`tel:${lead.phone}`} className="flex items-center gap-1.5 hover:text-primary" onClick={(e) => e.stopPropagation()}>
             <Phone size={14} /> {lead.phone}
           </a>
-          <a href={`mailto:${lead.email}`} className="flex items-center gap-1.5 hover:text-orange-400" onClick={(e) => e.stopPropagation()}>
+          <a href={`mailto:${lead.email}`} className="flex items-center gap-1.5 hover:text-primary" onClick={(e) => e.stopPropagation()}>
             <Mail size={14} /> {lead.email}
           </a>
         </div>
@@ -382,117 +382,117 @@ const EmployeeDashboard = () => {
             <Square size={12} /> End Call
           </button>
           {lead.callStartTime && (
-            <span className="text-xs text-gray-500">
+            <span className="text-xs text-app-text-muted">
               Started {new Date(lead.callStartTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </span>
           )}
           {lead.callDuration && (
-            <span className="text-xs text-gray-500">Duration: {lead.callDuration} min</span>
+            <span className="text-xs text-app-text-muted">Duration: {lead.callDuration} min</span>
           )}
         </div>
 
         {isExpanded && (
-          <div className="mt-4 pt-4 border-t border-white/5 space-y-4" onClick={(e) => e.stopPropagation()}>
+          <div className="mt-4 pt-4 border-t border-app-border space-y-4" onClick={(e) => e.stopPropagation()}>
             {lead.message && (
-              <p className="text-sm text-gray-300 bg-black/20 p-4 rounded-lg whitespace-pre-wrap">{lead.message}</p>
+              <p className="text-sm text-app-text bg-form-input-bg p-4 rounded-lg whitespace-pre-wrap">{lead.message}</p>
             )}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-[10px] font-medium text-gray-500 mb-1 uppercase tracking-wider">Connected?</label>
+                <label className="block text-[10px] font-medium text-app-text-muted mb-1 uppercase tracking-wider">Connected?</label>
                 <select
                   value={draft.connected || ''}
                   onChange={(e) => updateLeadDraft(lead._id, 'connected', e.target.value)}
-                  className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500/50"
+                  className="w-full bg-form-input-bg border border-app-border rounded-lg px-3 py-2 text-sm text-app-text focus:outline-none focus:border-primary/50"
                 >
-                  <option value="" className="bg-black text-white">—</option>
-                  <option value="Yes" className="bg-black text-white">Yes</option>
-                  <option value="No" className="bg-black text-white">No</option>
+                  <option value="" className="bg-app-card text-app-text">—</option>
+                  <option value="Yes" className="bg-app-card text-app-text">Yes</option>
+                  <option value="No" className="bg-app-card text-app-text">No</option>
                 </select>
               </div>
               {draft.connected === 'No' && (
                 <div>
-                  <label className="block text-[10px] font-medium text-gray-500 mb-1 uppercase tracking-wider">Not Connected Reason</label>
+                  <label className="block text-[10px] font-medium text-app-text-muted mb-1 uppercase tracking-wider">Not Connected Reason</label>
                   <input
                     type="text"
                     value={draft.notConnectedReason || ''}
                     onChange={(e) => updateLeadDraft(lead._id, 'notConnectedReason', e.target.value)}
-                    className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500/50"
+                    className="w-full bg-form-input-bg border border-app-border rounded-lg px-3 py-2 text-sm text-app-text focus:outline-none focus:border-primary/50"
                   />
                 </div>
               )}
               <div>
-                <label className="block text-[10px] font-medium text-gray-500 mb-1 uppercase tracking-wider">Interest Level</label>
+                <label className="block text-[10px] font-medium text-app-text-muted mb-1 uppercase tracking-wider">Interest Level</label>
                 <select
                   value={draft.interestLevel || ''}
                   onChange={(e) => updateLeadDraft(lead._id, 'interestLevel', e.target.value)}
-                  className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500/50"
+                  className="w-full bg-form-input-bg border border-app-border rounded-lg px-3 py-2 text-sm text-app-text focus:outline-none focus:border-primary/50"
                 >
-                  <option value="" className="bg-black text-white">—</option>
+                  <option value="" className="bg-app-card text-app-text">—</option>
                   {INTEREST_LEVELS.map((level) => (
-                    <option key={level} value={level} className="bg-black text-white">{level}</option>
+                    <option key={level} value={level} className="bg-app-card text-app-text">{level}</option>
                   ))}
                 </select>
               </div>
               <div>
-                <label className="block text-[10px] font-medium text-gray-500 mb-1 uppercase tracking-wider">
+                <label className="block text-[10px] font-medium text-app-text-muted mb-1 uppercase tracking-wider">
                   Next Follow-Up Date &amp; Time
                   {['Hot', 'Warm', 'Interested', 'Asked to Call Later'].includes(draft.interestLevel) && (
-                    <span className="text-orange-400"> *required</span>
+                    <span className="text-primary"> *required</span>
                   )}
                 </label>
                 <input
                   type="datetime-local"
                   value={draft.nextFollowUpDate ? new Date(draft.nextFollowUpDate).toISOString().slice(0, 16) : ''}
                   onChange={(e) => updateLeadDraft(lead._id, 'nextFollowUpDate', e.target.value ? new Date(e.target.value).toISOString() : '')}
-                  className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500/50"
+                  className="w-full bg-form-input-bg border border-app-border rounded-lg px-3 py-2 text-sm text-app-text focus:outline-none focus:border-primary/50"
                   style={{ colorScheme: 'dark' }}
                 />
               </div>
               {lead.status === 'Won' && (
                 <div>
-                  <label className="block text-[10px] font-medium text-gray-500 mb-1 uppercase tracking-wider">Deal Value (₹)</label>
+                  <label className="block text-[10px] font-medium text-app-text-muted mb-1 uppercase tracking-wider">Deal Value (₹)</label>
                   <input
                     type="number"
                     min="0"
                     value={draft.dealValue || ''}
                     onChange={(e) => updateLeadDraft(lead._id, 'dealValue', e.target.value)}
-                    className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500/50"
+                    className="w-full bg-form-input-bg border border-app-border rounded-lg px-3 py-2 text-sm text-app-text focus:outline-none focus:border-primary/50"
                   />
                 </div>
               )}
               {(lead.status === 'Lost' || lead.status === 'Dropped') && (
                 <div>
-                  <label className="block text-[10px] font-medium text-gray-500 mb-1 uppercase tracking-wider">Reason</label>
+                  <label className="block text-[10px] font-medium text-app-text-muted mb-1 uppercase tracking-wider">Reason</label>
                   <input
                     type="text"
                     value={draft.notConvertedReason || ''}
                     onChange={(e) => updateLeadDraft(lead._id, 'notConvertedReason', e.target.value)}
-                    className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500/50"
+                    className="w-full bg-form-input-bg border border-app-border rounded-lg px-3 py-2 text-sm text-app-text focus:outline-none focus:border-primary/50"
                   />
                 </div>
               )}
             </div>
             <div>
-              <label className="block text-[10px] font-medium text-gray-500 mb-1 uppercase tracking-wider">Remark</label>
+              <label className="block text-[10px] font-medium text-app-text-muted mb-1 uppercase tracking-wider">Remark</label>
               <textarea
                 rows={2}
                 value={draft.remark || ''}
                 onChange={(e) => updateLeadDraft(lead._id, 'remark', e.target.value)}
-                className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500/50"
+                className="w-full bg-form-input-bg border border-app-border rounded-lg px-3 py-2 text-sm text-app-text focus:outline-none focus:border-primary/50"
               />
             </div>
             <button
               onClick={() => handleSaveLeadDetails(lead._id)}
               disabled={updatingLeadId === lead._id}
-              className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white text-sm font-bold rounded-lg transition-colors disabled:opacity-50"
+              className="px-4 py-2 bg-primary hover:bg-primary-hover text-white text-sm font-bold rounded-lg transition-colors disabled:opacity-50"
             >
               {updatingLeadId === lead._id ? 'Saving...' : 'Save Updates'}
             </button>
           </div>
         )}
 
-        <div className="flex justify-between items-center text-xs text-gray-500 mt-4 border-t border-white/5 pt-4">
-          <span>Source: <span className="text-gray-400 font-medium">{lead.userSource || 'Direct'}</span></span>
+        <div className="flex justify-between items-center text-xs text-app-text-muted mt-4 border-t border-app-border pt-4">
+          <span>Source: <span className="text-app-text-muted font-medium">{lead.userSource || 'Direct'}</span></span>
           <span>Created: {new Date(lead.createdAt).toLocaleDateString()}</span>
         </div>
       </div>
@@ -650,18 +650,18 @@ const EmployeeDashboard = () => {
 
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center py-20 bg-[#0d0d0f] text-white">
-        <div className="w-10 h-10 rounded-full border-2 border-orange-500/20 border-t-orange-500 animate-spin" />
+      <div className="flex justify-center items-center py-20 bg-app-bg text-app-text">
+        <div className="w-10 h-10 rounded-full border-2 border-primary/20 border-t-orange-500 animate-spin" />
       </div>
     );
   }
 
   if (!employee) {
     return (
-      <div className="text-center py-20 bg-[#0d0d0f] text-white flex flex-col justify-center items-center gap-4">
-        <ShieldAlert size={48} className="text-orange-500" />
+      <div className="text-center py-20 bg-app-bg text-app-text flex flex-col justify-center items-center gap-4">
+        <ShieldAlert size={48} className="text-primary" />
         <h2 className="text-xl font-bold">No Employee Link Found</h2>
-        <p className="text-gray-400">Please contact HR to map your login account to your operational employee ID.</p>
+        <p className="text-app-text-muted">Please contact HR to map your login account to your operational employee ID.</p>
       </div>
     );
   }
@@ -679,10 +679,12 @@ const EmployeeDashboard = () => {
   const isClockedOut = todayLog && todayLog.clockOut;
 
   return (
-    <div className="bg-[#0d0d0f] text-white p-2 sm:p-6 space-y-6">
+    <div className="bg-app-bg text-app-text p-2 sm:p-6 space-y-6">
       {/* Welcome Banner */}
+      {/* Fixed brand-orange gradient in both themes — text/buttons here stay
+          fixed white/dark rather than theme-reactive. */}
       <div className="relative overflow-hidden bg-gradient-to-r from-[#FF8533] to-[#FF6B00] p-5 sm:p-6 rounded-2xl border-none shadow-lg mb-6 flex flex-col md:flex-row justify-between items-start md:items-center">
-        
+
         <div className="relative z-10 max-w-lg space-y-1.5">
           <p className="text-white/90 text-xs font-medium tracking-wide">
             {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
@@ -693,17 +695,17 @@ const EmployeeDashboard = () => {
           <p className="text-white/90 text-xs sm:text-sm font-medium">
             Always stay updated in your employee portal
           </p>
-          
+
           <div className="pt-3">
             <button
               onClick={handleClockInOut}
               disabled={isClockedOut}
               className={`px-5 py-2 rounded-full font-bold text-xs transition-all shadow-md active:scale-95 cursor-pointer flex items-center gap-2 ${
                 isClockedOut
-                  ? 'bg-white/20 text-white/50 cursor-not-allowed border border-white/10'
+                  ? 'bg-white/20 text-white/60 cursor-not-allowed border border-white/30'
                   : isClockedIn
                   ? 'bg-white text-rose-600 hover:bg-rose-50'
-                  : 'bg-white text-[#FF8533] hover:bg-orange-50'
+                  : 'bg-white text-primary hover:bg-orange-50'
               }`}
             >
               <Clock size={16} />
@@ -733,17 +735,17 @@ const EmployeeDashboard = () => {
               
               {/* Quick Summary Cards */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="bg-[#141416] p-5 rounded-xl border border-white/5 space-y-1">
-                  <div className="text-gray-400 text-xs uppercase tracking-wider">Pending Tasks</div>
-                  <div className="text-3xl font-extrabold text-white">{pendingTasks} / {totalTasks}</div>
+                <div className="bg-app-card p-5 rounded-xl border border-app-border space-y-1">
+                  <div className="text-app-text-muted text-xs uppercase tracking-wider">Pending Tasks</div>
+                  <div className="text-3xl font-extrabold text-app-text">{pendingTasks} / {totalTasks}</div>
                 </div>
-                <div className="bg-[#141416] p-5 rounded-xl border border-white/5 space-y-1">
-                  <div className="text-gray-400 text-xs uppercase tracking-wider">Performance Goals</div>
-                  <div className="text-3xl font-extrabold text-white">{achievedGoals} / {totalGoals}</div>
+                <div className="bg-app-card p-5 rounded-xl border border-app-border space-y-1">
+                  <div className="text-app-text-muted text-xs uppercase tracking-wider">Performance Goals</div>
+                  <div className="text-3xl font-extrabold text-app-text">{achievedGoals} / {totalGoals}</div>
                 </div>
-                <div className="bg-[#141416] p-5 rounded-xl border border-white/5 space-y-1">
-                  <div className="text-gray-400 text-xs uppercase tracking-wider">Latest Attendance Status</div>
-                  <div className="text-lg font-bold text-orange-500 mt-1">
+                <div className="bg-app-card p-5 rounded-xl border border-app-border space-y-1">
+                  <div className="text-app-text-muted text-xs uppercase tracking-wider">Latest Attendance Status</div>
+                  <div className="text-lg font-bold text-primary mt-1">
                     {todayLog ? (
                       <div className="flex flex-col gap-1 items-start">
                         <span>{todayLog.status} ({todayLog.clockIn} - {todayLog.clockOut || 'Now'})</span>
@@ -759,24 +761,24 @@ const EmployeeDashboard = () => {
               </div>
 
               {/* Tasks overview */}
-              <div className="bg-[#141416] p-6 rounded-xl border border-white/5 space-y-4">
+              <div className="bg-app-card p-6 rounded-xl border border-app-border space-y-4">
                 <h3 className="text-lg font-bold">Assigned Tasks Summary</h3>
                 <div className="divide-y divide-white/5">
                   {employee.tasks?.slice(0, 3).map(task => (
                     <div key={task._id} className="py-3 flex justify-between items-center">
                       <div>
                         <div className="font-bold text-sm">{task.title}</div>
-                        <div className="text-xs text-gray-400 mt-0.5">Due: {new Date(task.dueDate).toLocaleDateString()}</div>
+                        <div className="text-xs text-app-text-muted mt-0.5">Due: {new Date(task.dueDate).toLocaleDateString()}</div>
                       </div>
                       <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider ${
-                        task.status === 'Completed' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-orange-500/10 text-orange-400'
+                        task.status === 'Completed' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-primary/10 text-primary'
                       }`}>
                         {task.status}
                       </span>
                     </div>
                   ))}
                   {(!employee.tasks || employee.tasks.length === 0) && (
-                    <div className="text-center py-4 text-gray-500 text-sm">No tasks assigned to you currently.</div>
+                    <div className="text-center py-4 text-app-text-muted text-sm">No tasks assigned to you currently.</div>
                   )}
                 </div>
               </div>
@@ -786,15 +788,15 @@ const EmployeeDashboard = () => {
             {/* Sidebar Cards */}
             <div className="space-y-6">
               {/* Profile Overview */}
-              <div className="bg-[#141416] p-6 rounded-xl border border-white/5 text-center space-y-4">
-                <div className="w-16 h-16 rounded-full bg-orange-600/10 text-orange-500 flex items-center justify-center font-bold text-xl mx-auto border border-orange-500/15">
+              <div className="bg-app-card p-6 rounded-xl border border-app-border text-center space-y-4">
+                <div className="w-16 h-16 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xl mx-auto border border-primary/15">
                   {employee.firstName.charAt(0)}{employee.lastName.charAt(0)}
                 </div>
                 <div>
                   <h3 className="font-bold text-lg">{employee.firstName} {employee.lastName}</h3>
-                  <p className="text-xs text-gray-400">{employee.email}</p>
+                  <p className="text-xs text-app-text-muted">{employee.email}</p>
                 </div>
-                <div className="text-xs text-left bg-white/[0.02] p-3 rounded-lg border border-white/5 space-y-2 text-gray-300">
+                <div className="text-xs text-left bg-white/[0.02] p-3 rounded-lg border border-app-border space-y-2 text-app-text">
                   <div className="flex justify-between"><span>Joining Date:</span><span>{new Date(employee.joinDate).toLocaleDateString()}</span></div>
                   <div className="flex justify-between"><span>Department/Role:</span><span>{employee.roleDept}</span></div>
                   <div className="flex justify-between"><span>Employment Status:</span><span>Active</span></div>
@@ -810,13 +812,13 @@ const EmployeeDashboard = () => {
           <div className="space-y-6">
             <div className="flex justify-between items-center">
               <div>
-                <h2 className="text-xl font-bold text-white">Assigned Tickets</h2>
-                <p className="text-gray-400 text-xs mt-1">Manage and resolve tickets assigned to you</p>
+                <h2 className="text-xl font-bold text-app-text">Assigned Tickets</h2>
+                <p className="text-app-text-muted text-xs mt-1">Manage and resolve tickets assigned to you</p>
               </div>
               <select 
                 value={ticketFilter}
                 onChange={(e) => setTicketFilter(e.target.value)}
-                className="bg-[#141416] border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-orange-500/50 cursor-pointer"
+                className="bg-app-card border border-app-border rounded-lg px-3 py-1.5 text-sm text-app-text focus:outline-none focus:border-primary/50 cursor-pointer"
               >
                 <option value="All">All Statuses</option>
                 <option value="Open">Open</option>
@@ -832,10 +834,10 @@ const EmployeeDashboard = () => {
 
             {isTicketsLoading ? (
               <div className="flex justify-center items-center py-12">
-                <div className="w-8 h-8 rounded-full border-2 border-orange-500/20 border-t-orange-500 animate-spin" />
+                <div className="w-8 h-8 rounded-full border-2 border-primary/20 border-t-orange-500 animate-spin" />
               </div>
             ) : tickets.length === 0 ? (
-              <div className="bg-[#141416] border border-white/5 rounded-xl p-8 text-center text-gray-500">
+              <div className="bg-app-card border border-app-border rounded-xl p-8 text-center text-app-text-muted">
                 No tickets assigned to you currently.
               </div>
             ) : (
@@ -843,24 +845,24 @@ const EmployeeDashboard = () => {
                 {tickets.filter(t => ticketFilter === 'All' || t.status === ticketFilter).map(ticket => {
                   const isExpanded = expandedTicketId === ticket._id;
                   return (
-                  <div key={ticket._id} className="bg-[#141416] border border-white/5 rounded-xl p-6 hover:border-orange-500/20 transition-all overflow-hidden">
+                  <div key={ticket._id} className="bg-app-card border border-app-border rounded-xl p-6 hover:border-primary/20 transition-all overflow-hidden">
                     <div className="flex flex-wrap justify-between items-start gap-4 mb-4 cursor-pointer" onClick={() => setExpandedTicketId(isExpanded ? null : ticket._id)}>
                       <div>
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-xs font-mono text-orange-500">#{ticket.ticketId}</span>
-                          <span className="text-white font-bold">{ticket.subject}</span>
-                          {isExpanded ? <ChevronUp size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
+                          <span className="text-xs font-mono text-primary">#{ticket.ticketId}</span>
+                          <span className="text-app-text font-bold">{ticket.subject}</span>
+                          {isExpanded ? <ChevronUp size={16} className="text-app-text-muted" /> : <ChevronDown size={16} className="text-app-text-muted" />}
                         </div>
-                        <p className="text-xs text-gray-500 mt-1">
-                          Client: <span className="text-gray-400">{ticket.client_ref?.businessName || 'N/A'}</span> ({ticket.client_ref?.contactName || 'N/A'})
+                        <p className="text-xs text-app-text-muted mt-1">
+                          Client: <span className="text-app-text-muted">{ticket.client_ref?.businessName || 'N/A'}</span> ({ticket.client_ref?.contactName || 'N/A'})
                         </p>
                       </div>
                       <div className="flex gap-2 items-center" onClick={(e) => e.stopPropagation()}>
                         <span className={`px-2.5 py-1 text-[10px] uppercase font-bold tracking-wider rounded border ${
                           ticket.priority === 'Critical' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
-                          ticket.priority === 'High' ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' :
+                          ticket.priority === 'High' ? 'bg-primary/10 text-primary border-primary/20' :
                           ticket.priority === 'Medium' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
-                          'bg-gray-500/10 text-gray-400 border-gray-500/20'
+                          'bg-gray-500/10 text-app-text-muted border-gray-500/20'
                         }`}>
                           {ticket.priority}
                         </span>
@@ -872,29 +874,29 @@ const EmployeeDashboard = () => {
                           className={`px-2.5 py-1 text-[10px] uppercase font-bold tracking-wider rounded border cursor-pointer outline-none appearance-none ${
                             ticket.status === 'Resolved' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
                             ticket.status === 'In Progress' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
-                            ticket.status === 'Closed' ? 'bg-gray-500/10 text-gray-400 border-gray-500/20' :
+                            ticket.status === 'Closed' ? 'bg-gray-500/10 text-app-text-muted border-gray-500/20' :
                             'bg-blue-500/10 text-blue-400 border-blue-500/20'
                           }`}
                         >
-                          <option value="Open" className="bg-black text-white">OPEN</option>
-                          <option value="In Progress" className="bg-black text-white">IN PROGRESS</option>
-                          <option value="Pending Client" className="bg-black text-white">PENDING CLIENT</option>
-                          <option value="Resolved" className="bg-black text-white">RESOLVED</option>
-                          <option value="Closed" className="bg-black text-white">CLOSED</option>
+                          <option value="Open" className="bg-app-card text-app-text">OPEN</option>
+                          <option value="In Progress" className="bg-app-card text-app-text">IN PROGRESS</option>
+                          <option value="Pending Client" className="bg-app-card text-app-text">PENDING CLIENT</option>
+                          <option value="Resolved" className="bg-app-card text-app-text">RESOLVED</option>
+                          <option value="Closed" className="bg-app-card text-app-text">CLOSED</option>
                         </select>
                       </div>
                     </div>
                     
-                    <p className="text-sm text-gray-300 bg-black/20 p-4 rounded-lg whitespace-pre-wrap">{ticket.description}</p>
+                    <p className="text-sm text-app-text bg-form-input-bg p-4 rounded-lg whitespace-pre-wrap">{ticket.description}</p>
                     
                     {isExpanded && (
-                      <div className="mt-4 pt-4 border-t border-white/5 space-y-4">
+                      <div className="mt-4 pt-4 border-t border-app-border space-y-4">
                         {/* Status updates only, messages removed per user request */}
                       </div>
                     )}
                     
-                    <div className="flex justify-between items-center text-xs text-gray-500 mt-4 border-t border-white/5 pt-4">
-                      <span>Category: <span className="text-gray-400 font-medium">{ticket.category}</span></span>
+                    <div className="flex justify-between items-center text-xs text-app-text-muted mt-4 border-t border-app-border pt-4">
+                      <span>Category: <span className="text-app-text-muted font-medium">{ticket.category}</span></span>
                       <span>Created: {new Date(ticket.createdAt).toLocaleDateString()}</span>
                     </div>
                   </div>
@@ -910,13 +912,13 @@ const EmployeeDashboard = () => {
           <div className="space-y-6">
             <div className="flex justify-between items-center">
               <div>
-                <h2 className="text-xl font-bold text-white">My Leads</h2>
-                <p className="text-gray-400 text-xs mt-1">Leads assigned to you — work them here, ownership changes only happen from Admin</p>
+                <h2 className="text-xl font-bold text-app-text">My Leads</h2>
+                <p className="text-app-text-muted text-xs mt-1">Leads assigned to you — work them here, ownership changes only happen from Admin</p>
               </div>
               <select
                 value={leadFilter}
                 onChange={(e) => setLeadFilter(e.target.value)}
-                className="bg-[#141416] border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-orange-500/50 cursor-pointer"
+                className="bg-app-card border border-app-border rounded-lg px-3 py-1.5 text-sm text-app-text focus:outline-none focus:border-primary/50 cursor-pointer"
               >
                 <option value="All">All Statuses</option>
                 <option value="New">New</option>
@@ -932,10 +934,10 @@ const EmployeeDashboard = () => {
 
             {isLeadsLoading ? (
               <div className="flex justify-center items-center py-12">
-                <div className="w-8 h-8 rounded-full border-2 border-orange-500/20 border-t-orange-500 animate-spin" />
+                <div className="w-8 h-8 rounded-full border-2 border-primary/20 border-t-orange-500 animate-spin" />
               </div>
             ) : leads.length === 0 ? (
-              <div className="bg-[#141416] border border-white/5 rounded-xl p-8 text-center text-gray-500">
+              <div className="bg-app-card border border-app-border rounded-xl p-8 text-center text-app-text-muted">
                 No leads assigned to you currently.
               </div>
             ) : (
@@ -954,15 +956,15 @@ const EmployeeDashboard = () => {
                     <button
                       key={lead._id}
                       onClick={() => jumpToLead(lead)}
-                      className={`w-full flex items-center justify-between gap-3 px-4 py-2.5 rounded-lg border text-left transition-colors bg-black/20 ${
-                        tone === 'overdue' ? 'border-red-500/10 hover:border-red-500/30' : 'border-orange-500/10 hover:border-orange-500/30'
+                      className={`w-full flex items-center justify-between gap-3 px-4 py-2.5 rounded-lg border text-left transition-colors bg-form-input-bg ${
+                        tone === 'overdue' ? 'border-red-500/10 hover:border-red-500/30' : 'border-primary/10 hover:border-primary/30'
                       }`}
                     >
                       <div className="min-w-0">
-                        <p className="text-sm font-medium text-white truncate">{lead.fullName}</p>
-                        <p className="text-xs text-gray-500 truncate">{lead.phone} · {lead.service}</p>
+                        <p className="text-sm font-medium text-app-text truncate">{lead.fullName}</p>
+                        <p className="text-xs text-app-text-muted truncate">{lead.phone} · {lead.service}</p>
                       </div>
-                      <span className={`text-xs font-mono shrink-0 ${tone === 'overdue' ? 'text-red-400' : 'text-orange-400'}`}>
+                      <span className={`text-xs font-mono shrink-0 ${tone === 'overdue' ? 'text-red-400' : 'text-primary'}`}>
                         {new Date(lead.nextFollowUpDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     </button>
@@ -979,8 +981,8 @@ const EmployeeDashboard = () => {
                         </div>
                       )}
                       {todayLeads.length > 0 && (
-                        <div className="bg-orange-500/5 border border-orange-500/20 rounded-xl p-4">
-                          <h3 className="text-sm font-bold text-orange-400 flex items-center gap-2 mb-3">
+                        <div className="bg-primary/5 border border-primary/20 rounded-xl p-4">
+                          <h3 className="text-sm font-bold text-primary flex items-center gap-2 mb-3">
                             <Clock size={16} /> Follow-ups Today ({todayLeads.length})
                           </h3>
                           <div className="space-y-2">{todayLeads.map((lead) => FollowUpCard(lead, 'today'))}</div>
@@ -1003,16 +1005,16 @@ const EmployeeDashboard = () => {
           <div className="space-y-6">
             <div className="flex justify-between items-center flex-wrap gap-3">
               <div>
-                <h2 className="text-xl font-bold text-white">Follow-ups</h2>
-                <p className="text-gray-400 text-xs mt-1">Every lead of yours with a scheduled follow-up</p>
+                <h2 className="text-xl font-bold text-app-text">Follow-ups</h2>
+                <p className="text-app-text-muted text-xs mt-1">Every lead of yours with a scheduled follow-up</p>
               </div>
-              <div className="flex bg-[#141416] border border-white/10 p-1 rounded-lg">
+              <div className="flex bg-app-card border border-app-border p-1 rounded-lg">
                 {['All', 'Overdue', 'Today', 'Upcoming'].map((tab) => (
                   <button
                     key={tab}
                     onClick={() => setFollowUpBucketFilter(tab)}
                     className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${
-                      followUpBucketFilter === tab ? 'bg-orange-500 text-white' : 'text-gray-400 hover:text-white'
+                      followUpBucketFilter === tab ? 'bg-primary text-white' : 'text-app-text-muted hover:text-app-text'
                     }`}
                   >
                     {tab}
@@ -1023,7 +1025,7 @@ const EmployeeDashboard = () => {
 
             {isLeadsLoading ? (
               <div className="flex justify-center items-center py-12">
-                <div className="w-8 h-8 rounded-full border-2 border-orange-500/20 border-t-orange-500 animate-spin" />
+                <div className="w-8 h-8 rounded-full border-2 border-primary/20 border-t-orange-500 animate-spin" />
               </div>
             ) : (() => {
               const withFollowUp = leads.filter((l) => followUpBucket(l.nextFollowUpDate) !== null);
@@ -1034,7 +1036,7 @@ const EmployeeDashboard = () => {
 
               if (sorted.length === 0) {
                 return (
-                  <div className="bg-[#141416] border border-white/5 rounded-xl p-8 text-center text-gray-500">
+                  <div className="bg-app-card border border-app-border rounded-xl p-8 text-center text-app-text-muted">
                     No {followUpBucketFilter !== 'All' ? followUpBucketFilter.toLowerCase() + ' ' : ''}follow-ups right now.
                   </div>
                 );
@@ -1050,46 +1052,46 @@ const EmployeeDashboard = () => {
 
         {activeTab === 'profile' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 bg-[#141416] p-6 rounded-xl border border-white/5 space-y-6">
+            <div className="lg:col-span-2 bg-app-card p-6 rounded-xl border border-app-border space-y-6">
               <h2 className="text-xl font-bold">Personal & Operational Details</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 text-sm">
                 <div>
-                  <div className="text-gray-400 text-xs">First Name</div>
-                  <div className="font-bold text-white mt-1">{employee.firstName}</div>
+                  <div className="text-app-text-muted text-xs">First Name</div>
+                  <div className="font-bold text-app-text mt-1">{employee.firstName}</div>
                 </div>
                 <div>
-                  <div className="text-gray-400 text-xs">Last Name</div>
-                  <div className="font-bold text-white mt-1">{employee.lastName}</div>
+                  <div className="text-app-text-muted text-xs">Last Name</div>
+                  <div className="font-bold text-app-text mt-1">{employee.lastName}</div>
                 </div>
                 <div>
-                  <div className="text-gray-400 text-xs">Registered Email</div>
-                  <div className="font-bold text-white mt-1">{employee.email}</div>
+                  <div className="text-app-text-muted text-xs">Registered Email</div>
+                  <div className="font-bold text-app-text mt-1">{employee.email}</div>
                 </div>
                 <div>
-                  <div className="text-gray-400 text-xs">Joining Date</div>
-                  <div className="font-bold text-white mt-1">{new Date(employee.joinDate).toLocaleDateString()}</div>
+                  <div className="text-app-text-muted text-xs">Joining Date</div>
+                  <div className="font-bold text-app-text mt-1">{new Date(employee.joinDate).toLocaleDateString()}</div>
                 </div>
                 <div>
-                  <div className="text-gray-400 text-xs">PAN Document</div>
-                  <div className="font-mono text-orange-500 mt-1">{employee.panNumber || 'VAULT-SECURE'}</div>
+                  <div className="text-app-text-muted text-xs">PAN Document</div>
+                  <div className="font-mono text-primary mt-1">{employee.panNumber || 'VAULT-SECURE'}</div>
                 </div>
                 <div>
-                  <div className="text-gray-400 text-xs">Aadhaar Document</div>
-                  <div className="font-mono text-orange-500 mt-1">{employee.aadhaarNumber || 'VAULT-SECURE'}</div>
+                  <div className="text-app-text-muted text-xs">Aadhaar Document</div>
+                  <div className="font-mono text-primary mt-1">{employee.aadhaarNumber || 'VAULT-SECURE'}</div>
                 </div>
               </div>
             </div>
 
             {/* Bank details update */}
-            <div className="bg-[#141416] p-6 rounded-xl border border-white/5 space-y-4">
+            <div className="bg-app-card p-6 rounded-xl border border-app-border space-y-4">
               <h2 className="text-xl font-bold">Bank Details Setup</h2>
               <form onSubmit={handleUpdateBank} className="space-y-4">
                 <div>
-                  <label className="block text-xs text-gray-400 mb-1">Account Holder Name</label>
+                  <label className="block text-xs text-app-text-muted mb-1">Account Holder Name</label>
                   <input
                     type="text"
                     required
-                    className={`w-full text-sm rounded-lg border ${bankErrors.accountName ? 'border-rose-500' : 'border-white/10'} bg-[#1e1e21] px-4 py-2 text-white`}
+                    className={`w-full text-sm rounded-lg border ${bankErrors.accountName ? 'border-rose-500' : 'border-app-border'} bg-form-input-bg px-4 py-2 text-app-text`}
                     placeholder="Rahul Kumar"
                     value={accountName}
                     onChange={(e) => {
@@ -1100,11 +1102,11 @@ const EmployeeDashboard = () => {
                   {bankErrors.accountName && <p className="text-rose-500 text-xs mt-1">{bankErrors.accountName}</p>}
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-400 mb-1">Bank Name</label>
+                  <label className="block text-xs text-app-text-muted mb-1">Bank Name</label>
                   <input
                     type="text"
                     required
-                    className={`w-full text-sm rounded-lg border ${bankErrors.bankName ? 'border-rose-500' : 'border-white/10'} bg-[#1e1e21] px-4 py-2 text-white`}
+                    className={`w-full text-sm rounded-lg border ${bankErrors.bankName ? 'border-rose-500' : 'border-app-border'} bg-form-input-bg px-4 py-2 text-app-text`}
                     placeholder="HDFC Bank"
                     value={bankName}
                     onChange={(e) => {
@@ -1115,11 +1117,11 @@ const EmployeeDashboard = () => {
                   {bankErrors.bankName && <p className="text-rose-500 text-xs mt-1">{bankErrors.bankName}</p>}
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-400 mb-1">Account Number</label>
+                  <label className="block text-xs text-app-text-muted mb-1">Account Number</label>
                   <input
                     type="text"
                     required
-                    className={`w-full text-sm rounded-lg border ${bankErrors.accountNumber ? 'border-rose-500' : 'border-white/10'} bg-[#1e1e21] px-4 py-2 text-white`}
+                    className={`w-full text-sm rounded-lg border ${bankErrors.accountNumber ? 'border-rose-500' : 'border-app-border'} bg-form-input-bg px-4 py-2 text-app-text`}
                     placeholder="5010029384729"
                     value={accountNumber}
                     onChange={(e) => {
@@ -1130,11 +1132,11 @@ const EmployeeDashboard = () => {
                   {bankErrors.accountNumber && <p className="text-rose-500 text-xs mt-1">{bankErrors.accountNumber}</p>}
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-400 mb-1">IFSC Code</label>
+                  <label className="block text-xs text-app-text-muted mb-1">IFSC Code</label>
                   <input
                     type="text"
                     required
-                    className={`w-full text-sm rounded-lg border ${bankErrors.ifscCode ? 'border-rose-500' : 'border-white/10'} bg-[#1e1e21] px-4 py-2 text-white uppercase`}
+                    className={`w-full text-sm rounded-lg border ${bankErrors.ifscCode ? 'border-rose-500' : 'border-app-border'} bg-form-input-bg px-4 py-2 text-app-text uppercase`}
                     placeholder="HDFC0000123"
                     value={ifscCode}
                     onChange={(e) => {
@@ -1146,7 +1148,7 @@ const EmployeeDashboard = () => {
                 </div>
                 <button
                   type="submit"
-                  className="w-full py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-xs font-bold transition-all cursor-pointer"
+                  className="w-full py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-xs font-bold transition-all cursor-pointer"
                 >
                   Save Bank Details
                 </button>
@@ -1158,44 +1160,44 @@ const EmployeeDashboard = () => {
         {/* ATTENDANCE & LEAVE PANEL */}
         {activeTab === 'attendance' && (
           <div className="space-y-6">
-            <h2 className="text-lg font-bold text-gray-300">Leave Balances (Per {leaveBalancePeriod})</h2>
+            <h2 className="text-lg font-bold text-app-text">Leave Balances (Per {leaveBalancePeriod})</h2>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="bg-[#141416] p-4 rounded-xl border border-white/5 flex flex-col justify-between items-center text-center">
-                <div className="text-gray-400 text-xs font-bold uppercase">Casual Leave (CL)</div>
-                <div className="text-2xl font-black text-orange-500 font-mono mt-2">
-                  {(leaveBalances.CL || 0) - (leavesUsed.CL || 0)} <span className="text-sm text-gray-400 font-normal">/ {leaveBalances.CL || 0}</span>
+              <div className="bg-app-card p-4 rounded-xl border border-app-border flex flex-col justify-between items-center text-center">
+                <div className="text-app-text-muted text-xs font-bold uppercase">Casual Leave (CL)</div>
+                <div className="text-2xl font-black text-primary font-mono mt-2">
+                  {(leaveBalances.CL || 0) - (leavesUsed.CL || 0)} <span className="text-sm text-app-text-muted font-normal">/ {leaveBalances.CL || 0}</span>
                 </div>
               </div>
-              <div className="bg-[#141416] p-4 rounded-xl border border-white/5 flex flex-col justify-between items-center text-center">
-                <div className="text-gray-400 text-xs font-bold uppercase">Sick Leave (SL)</div>
-                <div className="text-2xl font-black text-orange-500 font-mono mt-2">
-                  {(leaveBalances.SL || 0) - (leavesUsed.SL || 0)} <span className="text-sm text-gray-400 font-normal">/ {leaveBalances.SL || 0}</span>
+              <div className="bg-app-card p-4 rounded-xl border border-app-border flex flex-col justify-between items-center text-center">
+                <div className="text-app-text-muted text-xs font-bold uppercase">Sick Leave (SL)</div>
+                <div className="text-2xl font-black text-primary font-mono mt-2">
+                  {(leaveBalances.SL || 0) - (leavesUsed.SL || 0)} <span className="text-sm text-app-text-muted font-normal">/ {leaveBalances.SL || 0}</span>
                 </div>
               </div>
-              <div className="bg-[#141416] p-4 rounded-xl border border-white/5 flex flex-col justify-between items-center text-center">
-                <div className="text-gray-400 text-xs font-bold uppercase">Paid Leave (PL)</div>
-                <div className="text-2xl font-black text-orange-500 font-mono mt-2">
-                  {(leaveBalances.PL || 0) - (leavesUsed.PL || 0)} <span className="text-sm text-gray-400 font-normal">/ {leaveBalances.PL || 0}</span>
+              <div className="bg-app-card p-4 rounded-xl border border-app-border flex flex-col justify-between items-center text-center">
+                <div className="text-app-text-muted text-xs font-bold uppercase">Paid Leave (PL)</div>
+                <div className="text-2xl font-black text-primary font-mono mt-2">
+                  {(leaveBalances.PL || 0) - (leavesUsed.PL || 0)} <span className="text-sm text-app-text-muted font-normal">/ {leaveBalances.PL || 0}</span>
                 </div>
               </div>
-              <div className="bg-[#141416] p-4 rounded-xl border border-white/5 flex items-center justify-center">
+              <div className="bg-app-card p-4 rounded-xl border border-app-border flex items-center justify-center">
                 <button
                   onClick={() => setShowLeaveModal(true)}
-                  className="w-full py-3 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-sm font-bold transition-all cursor-pointer shadow-lg"
+                  className="w-full py-3 bg-primary hover:bg-primary-hover text-white rounded-lg text-sm font-bold transition-all cursor-pointer shadow-lg"
                 >
                   Request Leave
                 </button>
               </div>
             </div>
 
-            <div className="bg-[#141416] p-6 rounded-xl border border-white/5 space-y-6">
-              <div className="flex justify-between items-center border-b border-white/5 pb-4">
+            <div className="bg-app-card p-6 rounded-xl border border-app-border space-y-6">
+              <div className="flex justify-between items-center border-b border-app-border pb-4">
                 <h2 className="text-xl font-bold">My Leave Requests</h2>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-left">
                   <thead>
-                    <tr className="border-b border-white/5 text-xs text-gray-400 uppercase">
+                    <tr className="border-b border-app-border text-xs text-app-text-muted uppercase">
                       <th className="py-3 px-4">Type</th>
                       <th className="py-3 px-4">Start Date</th>
                       <th className="py-3 px-4">End Date</th>
@@ -1211,12 +1213,12 @@ const EmployeeDashboard = () => {
                         <td className="py-3 px-4 font-mono">{new Date(req.startDate).toLocaleDateString()}</td>
                         <td className="py-3 px-4 font-mono">{new Date(req.endDate).toLocaleDateString()}</td>
                         <td className="py-3 px-4 max-w-[200px] truncate" title={req.reason}>{req.reason}</td>
-                        <td className="py-3 px-4 text-gray-400 text-xs italic max-w-[200px] truncate">{req.adminComment || '--'}</td>
+                        <td className="py-3 px-4 text-app-text-muted text-xs italic max-w-[200px] truncate">{req.adminComment || '--'}</td>
                         <td className="py-3 px-4 text-right">
                           <span className={`px-2 py-0.5 rounded text-xs font-bold ${
                             req.status === 'Approved' ? 'bg-emerald-500/10 text-emerald-400' :
                             req.status === 'Rejected' ? 'bg-rose-500/10 text-rose-400' :
-                            'bg-orange-500/10 text-orange-400'
+                            'bg-primary/10 text-primary'
                           }`}>
                             {req.status}
                           </span>
@@ -1225,7 +1227,7 @@ const EmployeeDashboard = () => {
                     ))}
                     {leaveRequests.length === 0 && (
                       <tr>
-                        <td colSpan="5" className="text-center py-6 text-gray-500">No leave requests submitted yet.</td>
+                        <td colSpan="5" className="text-center py-6 text-app-text-muted">No leave requests submitted yet.</td>
                       </tr>
                     )}
                   </tbody>
@@ -1233,15 +1235,15 @@ const EmployeeDashboard = () => {
               </div>
             </div>
 
-            <div className="bg-[#141416] p-6 rounded-xl border border-white/5 space-y-6">
-              <div className="flex justify-between items-center border-b border-white/5 pb-4">
+            <div className="bg-app-card p-6 rounded-xl border border-app-border space-y-6">
+              <div className="flex justify-between items-center border-b border-app-border pb-4">
                 <h2 className="text-xl font-bold">Attendance Log</h2>
-                <div className="text-sm text-gray-400">Total days present: {employee.attendance?.filter(a => a.status === 'Present').length || 0}</div>
+                <div className="text-sm text-app-text-muted">Total days present: {employee.attendance?.filter(a => a.status === 'Present').length || 0}</div>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-left">
                   <thead>
-                    <tr className="border-b border-white/5 text-xs text-gray-400 uppercase">
+                    <tr className="border-b border-app-border text-xs text-app-text-muted uppercase">
                       <th className="py-3 px-4">Date</th>
                       <th className="py-3 px-4">Clock In</th>
                       <th className="py-3 px-4">Clock Out</th>
@@ -1252,7 +1254,7 @@ const EmployeeDashboard = () => {
                     {employee.attendance?.map((log, idx) => (
                       <tr key={idx} className="hover:bg-white/[0.01]">
                         <td className="py-3 px-4">{new Date(log.date).toLocaleDateString()}</td>
-                        <td className="py-3 px-4 font-mono text-gray-300">
+                        <td className="py-3 px-4 font-mono text-app-text">
                           {log.clockIn || '--'}
                           {log.lateByMins > 0 && (
                             <span className="ml-2 text-[10px] bg-rose-500/10 text-rose-500 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider inline-flex items-center gap-1 border border-rose-500/20">
@@ -1260,7 +1262,7 @@ const EmployeeDashboard = () => {
                             </span>
                           )}
                         </td>
-                        <td className="py-3 px-4 font-mono text-gray-300">{log.clockOut || '--'}</td>
+                        <td className="py-3 px-4 font-mono text-app-text">{log.clockOut || '--'}</td>
                         <td className="py-3 px-4 text-right">
                           <span className={`px-2 py-0.5 rounded text-xs ${
                             log.status === 'Present' ? 'bg-emerald-500/10 text-emerald-400' :
@@ -1275,7 +1277,7 @@ const EmployeeDashboard = () => {
                     ))}
                     {(!employee.attendance || employee.attendance.length === 0) && (
                       <tr>
-                        <td colSpan="4" className="text-center py-6 text-gray-500">No attendance entries recorded yet.</td>
+                        <td colSpan="4" className="text-center py-6 text-app-text-muted">No attendance entries recorded yet.</td>
                       </tr>
                     )}
                   </tbody>
@@ -1286,18 +1288,18 @@ const EmployeeDashboard = () => {
             {/* Leave Request Modal */}
             {showLeaveModal && (
               <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-                <div className="bg-[#141416] border border-white/10 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl">
-                  <div className="p-5 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
+                <div className="bg-app-card border border-app-border rounded-2xl w-full max-w-md overflow-hidden shadow-2xl">
+                  <div className="p-5 border-b border-app-border flex justify-between items-center bg-white/[0.02]">
                     <h2 className="text-lg font-bold">Submit Leave Request</h2>
-                    <button onClick={() => setShowLeaveModal(false)} className="text-gray-400 hover:text-white cursor-pointer">✕</button>
+                    <button onClick={() => setShowLeaveModal(false)} className="text-app-text-muted hover:text-app-text cursor-pointer">✕</button>
                   </div>
                   <form onSubmit={handleRequestLeave} className="p-5 space-y-4">
                     <div>
-                      <label className="block text-xs text-gray-400 mb-1">Leave Type</label>
+                      <label className="block text-xs text-app-text-muted mb-1">Leave Type</label>
                       <select
                         value={leaveType}
                         onChange={(e) => setLeaveType(e.target.value)}
-                        className="w-full text-sm rounded-lg border border-white/10 bg-[#1e1e21] px-4 py-2 text-white outline-none focus:border-orange-500"
+                        className="w-full text-sm rounded-lg border border-app-border bg-form-input-bg px-4 py-2 text-app-text outline-none focus:border-primary"
                       >
                         <option value="CL">Casual Leave (CL)</option>
                         <option value="SL">Sick Leave (SL)</option>
@@ -1306,43 +1308,43 @@ const EmployeeDashboard = () => {
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-xs text-gray-400 mb-1">Start Date</label>
+                        <label className="block text-xs text-app-text-muted mb-1">Start Date</label>
                         <input
                           type="date"
                           required
                           min={new Date().toISOString().split('T')[0]}
                           value={leaveStartDate}
                           onChange={(e) => setLeaveStartDate(e.target.value)}
-                          className="w-full text-sm rounded-lg border border-white/10 bg-[#1e1e21] px-4 py-2 text-white"
+                          className="w-full text-sm rounded-lg border border-app-border bg-form-input-bg px-4 py-2 text-app-text"
                         />
                       </div>
                       <div>
-                        <label className="block text-xs text-gray-400 mb-1">End Date</label>
+                        <label className="block text-xs text-app-text-muted mb-1">End Date</label>
                         <input
                           type="date"
                           required
                           min={leaveStartDate || new Date().toISOString().split('T')[0]}
                           value={leaveEndDate}
                           onChange={(e) => setLeaveEndDate(e.target.value)}
-                          className="w-full text-sm rounded-lg border border-white/10 bg-[#1e1e21] px-4 py-2 text-white"
+                          className="w-full text-sm rounded-lg border border-app-border bg-form-input-bg px-4 py-2 text-app-text"
                         />
                       </div>
                     </div>
                     <div>
-                      <label className="block text-xs text-gray-400 mb-1">Reason for Leave</label>
+                      <label className="block text-xs text-app-text-muted mb-1">Reason for Leave</label>
                       <textarea
                         required
                         rows={3}
                         placeholder="Please provide a brief reason..."
                         value={leaveReason}
                         onChange={(e) => setLeaveReason(e.target.value)}
-                        className="w-full text-sm rounded-lg border border-white/10 bg-[#1e1e21] px-4 py-2 text-white resize-none"
+                        className="w-full text-sm rounded-lg border border-app-border bg-form-input-bg px-4 py-2 text-app-text resize-none"
                       />
                     </div>
                     <div className="pt-2">
                       <button
                         type="submit"
-                        className="w-full py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-sm font-bold transition-all cursor-pointer"
+                        className="w-full py-2.5 bg-primary hover:bg-primary-hover text-white rounded-lg text-sm font-bold transition-all cursor-pointer"
                       >
                         Submit Request
                       </button>
@@ -1356,19 +1358,19 @@ const EmployeeDashboard = () => {
 
         {/* MY TASKS PANEL */}
         {activeTab === 'tasks' && (
-          <div className="bg-[#141416] p-6 rounded-xl border border-white/5 space-y-6">
+          <div className="bg-app-card p-6 rounded-xl border border-app-border space-y-6">
             <h2 className="text-xl font-bold">Assigned Projects & Tasks</h2>
             <div className="divide-y divide-white/5">
               {employee.tasks?.map((task) => (
                 <div key={task._id} className="py-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                   <div>
-                    <h3 className="font-bold text-white text-base">{task.title}</h3>
-                    <p className="text-sm text-gray-400 mt-1">{task.description}</p>
-                    <div className="text-xs text-orange-500 font-mono mt-1">Deadline: {new Date(task.dueDate).toLocaleDateString()}</div>
+                    <h3 className="font-bold text-app-text text-base">{task.title}</h3>
+                    <p className="text-sm text-app-text-muted mt-1">{task.description}</p>
+                    <div className="text-xs text-primary font-mono mt-1">Deadline: {new Date(task.dueDate).toLocaleDateString()}</div>
                   </div>
                   <div>
                     <span className={`px-3 py-1 rounded text-xs uppercase font-bold tracking-wider ${
-                      task.status === 'Completed' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-orange-500/10 text-orange-400'
+                      task.status === 'Completed' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-primary/10 text-primary'
                     }`}>
                       {task.status}
                     </span>
@@ -1376,7 +1378,7 @@ const EmployeeDashboard = () => {
                 </div>
               ))}
               {(!employee.tasks || employee.tasks.length === 0) && (
-                <div className="text-center py-10 text-gray-500">No tasks assigned yet.</div>
+                <div className="text-center py-10 text-app-text-muted">No tasks assigned yet.</div>
               )}
             </div>
           </div>
@@ -1387,10 +1389,10 @@ const EmployeeDashboard = () => {
           <div className="space-y-6">
 
             {/* Date Picker Header */}
-            <div className="bg-[#141416] p-4 rounded-xl border border-white/5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div className="bg-app-card p-4 rounded-xl border border-app-border flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <div>
-                <div className="text-xs text-gray-400 uppercase tracking-wider mb-1">Viewing Productivity For</div>
-                <div className="text-white font-bold text-lg">
+                <div className="text-xs text-app-text-muted uppercase tracking-wider mb-1">Viewing Productivity For</div>
+                <div className="text-app-text font-bold text-lg">
                   {new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
                 </div>
               </div>
@@ -1403,14 +1405,14 @@ const EmployeeDashboard = () => {
                     setSelectedDate(prev);
                     fetchStatsAndLogs(prev);
                   }}
-                  className="px-3 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg text-sm transition-colors cursor-pointer border border-white/10"
+                  className="px-3 py-2 bg-app-border/20 hover:bg-app-border/30 text-app-text rounded-lg text-sm transition-colors cursor-pointer border border-app-border"
                 >← Prev</button>
                 <input
                   type="date"
                   value={selectedDate}
                   max={new Date().toISOString().split('T')[0]}
                   onChange={handleDateChange}
-                  className="bg-[#1e1e21] border border-white/10 text-white text-sm rounded-lg px-3 py-2 cursor-pointer"
+                  className="bg-form-input-bg border border-app-border text-app-text text-sm rounded-lg px-3 py-2 cursor-pointer"
                 />
                 <button
                   onClick={() => {
@@ -1424,7 +1426,7 @@ const EmployeeDashboard = () => {
                     }
                   }}
                   disabled={selectedDate >= new Date().toISOString().split('T')[0]}
-                  className="px-3 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg text-sm transition-colors cursor-pointer border border-white/10 disabled:opacity-30 disabled:cursor-not-allowed"
+                  className="px-3 py-2 bg-app-border/20 hover:bg-app-border/30 text-app-text rounded-lg text-sm transition-colors cursor-pointer border border-app-border disabled:opacity-30 disabled:cursor-not-allowed"
                 >Next →</button>
               </div>
             </div>
@@ -1432,31 +1434,31 @@ const EmployeeDashboard = () => {
             {/* Daily Dashboard Stats */}
             {dashboardStats && (
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="bg-[#141416] p-4 rounded-xl border border-white/5">
-                  <div className="text-gray-400 text-xs uppercase tracking-wider mb-1">Total Worked</div>
-                  <div className="text-2xl font-bold text-white font-mono">{dashboardStats.totalWorkedHours} <span className="text-sm text-gray-500">hrs</span></div>
+                <div className="bg-app-card p-4 rounded-xl border border-app-border">
+                  <div className="text-app-text-muted text-xs uppercase tracking-wider mb-1">Total Worked</div>
+                  <div className="text-2xl font-bold text-app-text font-mono">{dashboardStats.totalWorkedHours} <span className="text-sm text-app-text-muted">hrs</span></div>
                 </div>
-                <div className="bg-[#141416] p-4 rounded-xl border border-white/5">
+                <div className="bg-app-card p-4 rounded-xl border border-app-border">
                   <div className="text-emerald-500 text-xs uppercase tracking-wider mb-1">Productive</div>
-                  <div className="text-2xl font-bold text-white font-mono">{dashboardStats.productiveHours} <span className="text-sm text-gray-500">hrs</span></div>
+                  <div className="text-2xl font-bold text-app-text font-mono">{dashboardStats.productiveHours} <span className="text-sm text-app-text-muted">hrs</span></div>
                 </div>
-                <div className="bg-[#141416] p-4 rounded-xl border border-white/5">
-                  <div className="text-orange-500 text-xs uppercase tracking-wider mb-1">Non-Productive</div>
-                  <div className="text-2xl font-bold text-white font-mono">{dashboardStats.nonProductiveHours} <span className="text-sm text-gray-500">hrs</span></div>
+                <div className="bg-app-card p-4 rounded-xl border border-app-border">
+                  <div className="text-primary text-xs uppercase tracking-wider mb-1">Non-Productive</div>
+                  <div className="text-2xl font-bold text-app-text font-mono">{dashboardStats.nonProductiveHours} <span className="text-sm text-app-text-muted">hrs</span></div>
                 </div>
-                <div className="bg-[#141416] p-4 rounded-xl border border-white/5">
+                <div className="bg-app-card p-4 rounded-xl border border-app-border">
                   <div className="text-blue-500 text-xs uppercase tracking-wider mb-1">Productivity %</div>
-                  <div className="text-2xl font-bold text-white font-mono">{dashboardStats.productivityPercentage}%</div>
+                  <div className="text-2xl font-bold text-app-text font-mono">{dashboardStats.productivityPercentage}%</div>
                 </div>
               </div>
             )}
 
-            <div className="bg-[#141416] p-6 rounded-xl border border-white/5 space-y-6">
+            <div className="bg-app-card p-6 rounded-xl border border-app-border space-y-6">
               <h2 className="text-xl font-bold">Activity Timeline (Logs)</h2>
               <div className="overflow-x-auto">
                 <table className="w-full text-left">
                   <thead>
-                    <tr className="border-b border-white/5 text-xs text-gray-400 uppercase">
+                    <tr className="border-b border-app-border text-xs text-app-text-muted uppercase">
                       <th className="py-3 px-4 w-10">#</th>
                       <th className="py-3 px-4">Start Time</th>
                       <th className="py-3 px-4">Duration</th>
@@ -1468,34 +1470,34 @@ const EmployeeDashboard = () => {
                   <tbody className="divide-y divide-white/5 text-sm">
                     {workLogs.map((log, idx) => (
                       <tr key={log._id} className="hover:bg-white/[0.01]">
-                        <td className="py-3 px-4 text-gray-600 text-xs font-mono">
+                        <td className="py-3 px-4 text-app-text-muted text-xs font-mono">
                           {(logsPage - 1) * LOGS_PER_PAGE + idx + 1}
                         </td>
-                        <td className="py-3 px-4 text-gray-300 font-mono">
+                        <td className="py-3 px-4 text-app-text font-mono">
                           {new Date(log.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </td>
-                        <td className="py-3 px-4 font-mono font-bold text-white">
+                        <td className="py-3 px-4 font-mono font-bold text-app-text">
                           {Math.floor(log.duration / 60)}h {log.duration % 60}m
                         </td>
                         <td className="py-3 px-4">
-                          <div className="font-medium text-white">{log.task}</div>
-                          <div className="text-xs text-gray-500">{log.project}</div>
+                          <div className="font-medium text-app-text">{log.task}</div>
+                          <div className="text-xs text-app-text-muted">{log.project}</div>
                         </td>
-                        <td className="py-3 px-4 text-gray-300">
-                          <span className="px-2 py-1 bg-white/5 rounded text-xs">{log.activityType}</span>
+                        <td className="py-3 px-4 text-app-text">
+                          <span className="px-2 py-1 bg-app-border/20 rounded text-xs">{log.activityType}</span>
                         </td>
                         <td className="py-3 px-4">
                           {log.isProductive ? (
                             <span className="text-emerald-500 text-xs font-bold bg-emerald-500/10 px-2 py-1 rounded">PRODUCTIVE</span>
                           ) : (
-                            <span className="text-orange-500 text-xs font-bold bg-orange-500/10 px-2 py-1 rounded">NON-PRODUCTIVE</span>
+                            <span className="text-primary text-xs font-bold bg-primary/10 px-2 py-1 rounded">NON-PRODUCTIVE</span>
                           )}
                         </td>
                       </tr>
                     ))}
                     {(!workLogs || workLogs.length === 0) && (
                       <tr>
-                        <td colSpan="6" className="text-center py-10 text-gray-500">No work logged for this date.</td>
+                        <td colSpan="6" className="text-center py-10 text-app-text-muted">No work logged for this date.</td>
                       </tr>
                     )}
                   </tbody>
@@ -1504,15 +1506,15 @@ const EmployeeDashboard = () => {
 
               {/* Pagination Controls */}
               {logsTotalPages > 1 && (
-                <div className="flex flex-col sm:flex-row items-center justify-between pt-4 border-t border-white/5 gap-3">
-                  <div className="text-xs text-gray-500">
-                    Showing <span className="text-white font-bold">{(logsPage - 1) * LOGS_PER_PAGE + 1}–{Math.min(logsPage * LOGS_PER_PAGE, logsTotal)}</span> of <span className="text-white font-bold">{logsTotal}</span> entries
+                <div className="flex flex-col sm:flex-row items-center justify-between pt-4 border-t border-app-border gap-3">
+                  <div className="text-xs text-app-text-muted">
+                    Showing <span className="text-app-text font-bold">{(logsPage - 1) * LOGS_PER_PAGE + 1}–{Math.min(logsPage * LOGS_PER_PAGE, logsTotal)}</span> of <span className="text-app-text font-bold">{logsTotal}</span> entries
                   </div>
                   <div className="flex items-center gap-1.5">
                     <button
                       onClick={() => handleLogsPageChange(logsPage - 1)}
                       disabled={logsPage === 1}
-                      className="px-3 py-1.5 text-xs bg-white/5 hover:bg-white/10 text-white rounded-lg border border-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                      className="px-3 py-1.5 text-xs bg-app-border/20 hover:bg-app-border/30 text-app-text rounded-lg border border-app-border disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
                     >← Prev</button>
 
                     {Array.from({ length: logsTotalPages }, (_, i) => i + 1)
@@ -1524,15 +1526,15 @@ const EmployeeDashboard = () => {
                       }, [])
                       .map((p, i) =>
                         p === '...' ? (
-                          <span key={`dots-${i}`} className="px-2 text-gray-600 text-xs">…</span>
+                          <span key={`dots-${i}`} className="px-2 text-app-text-muted text-xs">…</span>
                         ) : (
                           <button
                             key={p}
                             onClick={() => handleLogsPageChange(p)}
                             className={`w-8 h-8 text-xs rounded-lg border transition-colors cursor-pointer ${
                               logsPage === p
-                                ? 'bg-orange-600 border-orange-500 text-white font-bold'
-                                : 'bg-white/5 border-white/10 text-gray-300 hover:bg-white/10'
+                                ? 'bg-primary border-primary text-white font-bold'
+                                : 'bg-app-border/20 border-app-border text-app-text hover:bg-app-border/30'
                             }`}
                           >{p}</button>
                         )
@@ -1542,7 +1544,7 @@ const EmployeeDashboard = () => {
                     <button
                       onClick={() => handleLogsPageChange(logsPage + 1)}
                       disabled={logsPage === logsTotalPages}
-                      className="px-3 py-1.5 text-xs bg-white/5 hover:bg-white/10 text-white rounded-lg border border-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                      className="px-3 py-1.5 text-xs bg-app-border/20 hover:bg-app-border/30 text-app-text rounded-lg border border-app-border disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
                     >Next →</button>
                   </div>
                 </div>
@@ -1553,12 +1555,12 @@ const EmployeeDashboard = () => {
 
         {/* MY PAYSLIPS PANEL */}
         {activeTab === 'payslips' && (
-          <div className="bg-[#141416] p-6 rounded-xl border border-white/5 space-y-6">
+          <div className="bg-app-card p-6 rounded-xl border border-app-border space-y-6">
             <h2 className="text-xl font-bold">Earnings & Payslips</h2>
             <div className="overflow-x-auto">
               <table className="w-full text-left">
                 <thead>
-                  <tr className="border-b border-white/5 text-xs text-gray-400 uppercase">
+                  <tr className="border-b border-app-border text-xs text-app-text-muted uppercase">
                     <th className="py-3 px-4">Period</th>
                     <th className="py-3 px-4">Basic Salary</th>
                     <th className="py-3 px-4">Allowance</th>
@@ -1570,16 +1572,16 @@ const EmployeeDashboard = () => {
                 <tbody className="divide-y divide-white/5 text-sm">
                   {employee.payslips?.map((slip, idx) => (
                     <tr key={idx} className="hover:bg-white/[0.01]">
-                      <td className="py-3 px-4 font-bold text-white">{slip.month} {slip.year}</td>
-                      <td className="py-3 px-4 text-gray-300">₹{slip.baseSalary.toLocaleString()}</td>
+                      <td className="py-3 px-4 font-bold text-app-text">{slip.month} {slip.year}</td>
+                      <td className="py-3 px-4 text-app-text">₹{slip.baseSalary.toLocaleString()}</td>
                       <td className="py-3 px-4 text-emerald-400">+₹{slip.allowance.toLocaleString()}</td>
                       <td className="py-3 px-4">
                         <div className="text-rose-400">-₹{slip.deduction.toLocaleString()}</div>
                         {slip.deduction > 0 && slip.deductionReason && (
-                          <div className="text-[10px] text-gray-500 mt-0.5 leading-tight">{slip.deductionReason}</div>
+                          <div className="text-[10px] text-app-text-muted mt-0.5 leading-tight">{slip.deductionReason}</div>
                         )}
                       </td>
-                      <td className="py-3 px-4 font-bold text-orange-500">₹{slip.netPay.toLocaleString()}</td>
+                      <td className="py-3 px-4 font-bold text-primary">₹{slip.netPay.toLocaleString()}</td>
                       <td className="py-3 px-4 text-right">
                         <span className="bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded text-xs">
                           {slip.status}
@@ -1589,7 +1591,7 @@ const EmployeeDashboard = () => {
                   ))}
                   {(!employee.payslips || employee.payslips.length === 0) && (
                     <tr>
-                      <td colSpan="6" className="text-center py-6 text-gray-500">No payslips issued yet.</td>
+                      <td colSpan="6" className="text-center py-6 text-app-text-muted">No payslips issued yet.</td>
                     </tr>
                   )}
                 </tbody>
@@ -1602,54 +1604,54 @@ const EmployeeDashboard = () => {
         {activeTab === 'performance' && (
           <div className="space-y-6">
             <h2 className="text-xl font-bold flex items-center gap-2">
-              <Trophy className="text-orange-500" />
+              <Trophy className="text-primary" />
               My Performance Scorecard
             </h2>
 
             {/* Top Stats & Active Cycle */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="md:col-span-2 bg-[#141416] p-6 rounded-xl border border-white/5 relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/10 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none" />
-                <h3 className="text-gray-400 text-sm font-bold uppercase tracking-wider mb-1">Current Cycle</h3>
-                <div className="text-xl md:text-2xl font-extrabold text-white mb-4 leading-tight">
+              <div className="md:col-span-2 bg-app-card p-6 rounded-xl border border-app-border relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none" />
+                <h3 className="text-app-text-muted text-sm font-bold uppercase tracking-wider mb-1">Current Cycle</h3>
+                <div className="text-xl md:text-2xl font-extrabold text-app-text mb-4 leading-tight">
                   {activeCycle ? activeCycle.title : 'No Active Cycle'}
                 </div>
                 {activeCycle ? (
                   <div className="flex flex-wrap gap-4 md:gap-6 text-sm">
                     <div>
-                      <div className="text-gray-500 text-xs uppercase tracking-wider mb-0.5">Start Date</div>
-                      <div className="font-bold text-gray-300">{new Date(activeCycle.startDate).toLocaleDateString()}</div>
+                      <div className="text-app-text-muted text-xs uppercase tracking-wider mb-0.5">Start Date</div>
+                      <div className="font-bold text-app-text">{new Date(activeCycle.startDate).toLocaleDateString()}</div>
                     </div>
                     <div>
-                      <div className="text-gray-500 text-xs uppercase tracking-wider mb-0.5">End Date</div>
-                      <div className="font-bold text-gray-300">{new Date(activeCycle.endDate).toLocaleDateString()}</div>
+                      <div className="text-app-text-muted text-xs uppercase tracking-wider mb-0.5">End Date</div>
+                      <div className="font-bold text-app-text">{new Date(activeCycle.endDate).toLocaleDateString()}</div>
                     </div>
                     <div>
-                      <div className="text-gray-500 text-xs uppercase tracking-wider mb-0.5">Status</div>
+                      <div className="text-app-text-muted text-xs uppercase tracking-wider mb-0.5">Status</div>
                       <div className="font-bold text-emerald-400">Active</div>
                     </div>
                   </div>
                 ) : (
-                  <div className="text-sm text-gray-500">Wait for your manager to activate a new review cycle.</div>
+                  <div className="text-sm text-app-text-muted">Wait for your manager to activate a new review cycle.</div>
                 )}
               </div>
 
               {scorecard && (
-                <div className="bg-[#141416] p-6 rounded-xl border border-white/5 flex flex-col justify-center items-center text-center relative overflow-hidden">
+                <div className="bg-app-card p-6 rounded-xl border border-app-border flex flex-col justify-center items-center text-center relative overflow-hidden">
                   {scorecard.isTopPerformer && (
                     <div className="absolute top-3 right-3 text-yellow-400 animate-pulse" title="Top Performer!">
                       <Trophy size={20} />
                     </div>
                   )}
-                  <h3 className="text-gray-400 text-xs font-bold uppercase tracking-wider mb-2">Final Weighted Score</h3>
-                  <div className={`text-5xl font-black mb-2 ${scorecard.finalScore >= 100 ? 'text-yellow-400' : scorecard.finalScore >= 75 ? 'text-emerald-400' : scorecard.finalScore >= 60 ? 'text-blue-400' : 'text-orange-400'}`}>
+                  <h3 className="text-app-text-muted text-xs font-bold uppercase tracking-wider mb-2">Final Weighted Score</h3>
+                  <div className={`text-5xl font-black mb-2 ${scorecard.finalScore >= 100 ? 'text-yellow-400' : scorecard.finalScore >= 75 ? 'text-emerald-400' : scorecard.finalScore >= 60 ? 'text-blue-400' : 'text-primary'}`}>
                     {scorecard.finalScore.toFixed(1)}
                   </div>
-                  <div className={`px-3 py-1 rounded-full text-xs font-bold border ${scorecard.finalScore >= 100 ? 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30' : scorecard.finalScore >= 75 ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' : scorecard.finalScore >= 60 ? 'bg-blue-500/15 text-blue-400 border-blue-500/30' : scorecard.finalScore >= 40 ? 'bg-orange-500/15 text-orange-400 border-orange-500/30' : 'bg-rose-500/15 text-rose-400 border-rose-500/30'}`}>
+                  <div className={`px-3 py-1 rounded-full text-xs font-bold border ${scorecard.finalScore >= 100 ? 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30' : scorecard.finalScore >= 75 ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' : scorecard.finalScore >= 60 ? 'bg-blue-500/15 text-blue-400 border-blue-500/30' : scorecard.finalScore >= 40 ? 'bg-primary/15 text-primary border-primary/30' : 'bg-rose-500/15 text-rose-400 border-rose-500/30'}`}>
                     {scorecard.performanceBand}
                   </div>
                   {scorecard.companyRank && (
-                    <div className="mt-3 text-xs text-gray-400">Company Rank: <span className="font-bold text-white">#{scorecard.companyRank}</span></div>
+                    <div className="mt-3 text-xs text-app-text-muted">Company Rank: <span className="font-bold text-app-text">#{scorecard.companyRank}</span></div>
                   )}
                 </div>
               )}
@@ -1657,33 +1659,33 @@ const EmployeeDashboard = () => {
 
             {/* KPI Gauges */}
             {kpiTargets.length > 0 && (
-              <div className="bg-[#141416] p-6 rounded-xl border border-white/5">
-                <h3 className="text-lg font-bold mb-6 flex items-center gap-2"><Target className="text-orange-500" size={20} /> KPI Targets & Progress</h3>
+              <div className="bg-app-card p-6 rounded-xl border border-app-border">
+                <h3 className="text-lg font-bold mb-6 flex items-center gap-2"><Target className="text-primary" size={20} /> KPI Targets & Progress</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {kpiTargets.map(t => (
-                    <div key={t._id} className="bg-white/[0.02] border border-white/5 rounded-xl p-4">
+                    <div key={t._id} className="bg-white/[0.02] border border-app-border rounded-xl p-4">
                       <div className="flex justify-between items-start mb-4">
-                        <div className="text-sm font-bold text-gray-300">{t.metricType}</div>
-                        <div className="text-xs text-gray-500 px-2 py-0.5 bg-white/5 rounded font-bold">wt: {t.weightage}%</div>
+                        <div className="text-sm font-bold text-app-text">{t.metricType}</div>
+                        <div className="text-xs text-app-text-muted px-2 py-0.5 bg-app-border/20 rounded font-bold">wt: {t.weightage}%</div>
                       </div>
                       
                       <div className="flex justify-between items-end mb-2">
                         <div>
-                          <div className="text-xs text-gray-500">Target: <span className="text-white font-bold">{t.targetValue.toLocaleString()} {t.unit}</span></div>
-                          <div className="text-xs text-gray-500">Actual: <span className={`font-bold ${t.actualValue >= t.targetValue ? 'text-emerald-400' : 'text-orange-400'}`}>{t.actualValue.toLocaleString()} {t.unit}</span></div>
+                          <div className="text-xs text-app-text-muted">Target: <span className="text-app-text font-bold">{t.targetValue.toLocaleString()} {t.unit}</span></div>
+                          <div className="text-xs text-app-text-muted">Actual: <span className={`font-bold ${t.actualValue >= t.targetValue ? 'text-emerald-400' : 'text-primary'}`}>{t.actualValue.toLocaleString()} {t.unit}</span></div>
                         </div>
-                        <div className={`text-2xl font-black ${t.achievementPct >= 100 ? 'text-emerald-400' : t.achievementPct >= 60 ? 'text-orange-400' : 'text-rose-400'}`}>
+                        <div className={`text-2xl font-black ${t.achievementPct >= 100 ? 'text-emerald-400' : t.achievementPct >= 60 ? 'text-primary' : 'text-rose-400'}`}>
                           {t.achievementPct}%
                         </div>
                       </div>
                       
-                      <div className="w-full bg-white/10 rounded-full h-1.5 mt-2">
+                      <div className="w-full bg-app-border/30 rounded-full h-1.5 mt-2">
                         <div
-                          className={`h-1.5 rounded-full ${t.achievementPct >= 100 ? 'bg-emerald-500' : t.achievementPct >= 60 ? 'bg-orange-500' : 'bg-rose-500'}`}
+                          className={`h-1.5 rounded-full ${t.achievementPct >= 100 ? 'bg-emerald-500' : t.achievementPct >= 60 ? 'bg-primary' : 'bg-rose-500'}`}
                           style={{ width: `${Math.min(t.achievementPct, 100)}%` }}
                         />
                       </div>
-                      <div className="text-[10px] text-gray-600 mt-2 text-right">
+                      <div className="text-[10px] text-app-text-muted mt-2 text-right">
                         Last updated: {t.lastSyncedAt ? new Date(t.lastSyncedAt).toLocaleString() : 'Never'}
                       </div>
                     </div>
@@ -1697,34 +1699,34 @@ const EmployeeDashboard = () => {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 
                 {/* Self Review Form/View */}
-                <div className="bg-[#141416] p-6 rounded-xl border border-white/5">
-                  <h3 className="text-lg font-bold mb-4 text-white">Self Review</h3>
+                <div className="bg-app-card p-6 rounded-xl border border-app-border">
+                  <h3 className="text-lg font-bold mb-4 text-app-text">Self Review</h3>
                   {scorecard.selfReview?.isSubmitted ? (
                     <div className="space-y-4">
                       <div className="flex items-center gap-2 mb-4">
-                        <span className="text-sm text-gray-400">Your Rating:</span>
+                        <span className="text-sm text-app-text-muted">Your Rating:</span>
                         <div className="flex gap-1">
                           {[1,2,3,4,5].map(i => (
-                            <Star key={i} size={16} className={i <= scorecard.selfReview.selfRating ? 'text-yellow-400 fill-yellow-400' : 'text-gray-600'} />
+                            <Star key={i} size={16} className={i <= scorecard.selfReview.selfRating ? 'text-yellow-400 fill-yellow-400' : 'text-app-text-muted'} />
                           ))}
                         </div>
                         <span className="ml-2 px-2 py-0.5 bg-blue-500/10 text-blue-400 text-[10px] rounded uppercase font-bold tracking-wider">Submitted</span>
                       </div>
                       
                       <div className="space-y-3 text-sm">
-                        {scorecard.selfReview.achievements && <div><span className="text-gray-500 block text-xs uppercase mb-0.5">Achievements</span><div className="text-gray-300 bg-white/[0.02] p-3 rounded-lg">{scorecard.selfReview.achievements}</div></div>}
-                        {scorecard.selfReview.challenges && <div><span className="text-gray-500 block text-xs uppercase mb-0.5">Challenges</span><div className="text-gray-300 bg-white/[0.02] p-3 rounded-lg">{scorecard.selfReview.challenges}</div></div>}
-                        {scorecard.selfReview.learning && <div><span className="text-gray-500 block text-xs uppercase mb-0.5">Learning</span><div className="text-gray-300 bg-white/[0.02] p-3 rounded-lg">{scorecard.selfReview.learning}</div></div>}
-                        {scorecard.selfReview.supportNeeded && <div><span className="text-gray-500 block text-xs uppercase mb-0.5">Support Needed</span><div className="text-gray-300 bg-white/[0.02] p-3 rounded-lg">{scorecard.selfReview.supportNeeded}</div></div>}
+                        {scorecard.selfReview.achievements && <div><span className="text-app-text-muted block text-xs uppercase mb-0.5">Achievements</span><div className="text-app-text bg-white/[0.02] p-3 rounded-lg">{scorecard.selfReview.achievements}</div></div>}
+                        {scorecard.selfReview.challenges && <div><span className="text-app-text-muted block text-xs uppercase mb-0.5">Challenges</span><div className="text-app-text bg-white/[0.02] p-3 rounded-lg">{scorecard.selfReview.challenges}</div></div>}
+                        {scorecard.selfReview.learning && <div><span className="text-app-text-muted block text-xs uppercase mb-0.5">Learning</span><div className="text-app-text bg-white/[0.02] p-3 rounded-lg">{scorecard.selfReview.learning}</div></div>}
+                        {scorecard.selfReview.supportNeeded && <div><span className="text-app-text-muted block text-xs uppercase mb-0.5">Support Needed</span><div className="text-app-text bg-white/[0.02] p-3 rounded-lg">{scorecard.selfReview.supportNeeded}</div></div>}
                       </div>
                     </div>
                   ) : (
                     <form onSubmit={handleSelfReviewSubmit} className="space-y-4">
-                      <div className="text-sm text-gray-400 mb-4 bg-orange-500/5 border border-orange-500/10 p-3 rounded-lg">
+                      <div className="text-sm text-app-text-muted mb-4 bg-primary/5 border border-primary/10 p-3 rounded-lg">
                         Submit your self-review for the current cycle. Once submitted, it cannot be edited.
                       </div>
                       <div>
-                        <label className="block text-xs text-gray-400 mb-1.5">Your Self Rating (1-5 Stars) <span className="text-orange-500">*</span></label>
+                        <label className="block text-xs text-app-text-muted mb-1.5">Your Self Rating (1-5 Stars) <span className="text-primary">*</span></label>
                         <div className="flex gap-2">
                           {[1, 2, 3, 4, 5].map(n => (
                             <button
@@ -1733,28 +1735,28 @@ const EmployeeDashboard = () => {
                               onClick={() => setSelfReviewForm(f => ({ ...f, selfRating: n }))}
                               className="cursor-pointer transition-transform hover:scale-110"
                             >
-                              <Star size={24} className={n <= selfReviewForm.selfRating ? 'text-yellow-400 fill-yellow-400' : 'text-gray-600 hover:text-gray-400'} />
+                              <Star size={24} className={n <= selfReviewForm.selfRating ? 'text-yellow-400 fill-yellow-400' : 'text-app-text-muted hover:text-app-text-muted'} />
                             </button>
                           ))}
                         </div>
                       </div>
                       <div>
-                        <label className="block text-xs text-gray-400 mb-1.5">Key Achievements</label>
-                        <textarea rows={2} className="w-full text-sm rounded-lg border border-white/10 bg-[#1e1e21] px-4 py-2.5 text-white focus:outline-none focus:ring-1 focus:ring-orange-500" value={selfReviewForm.achievements} onChange={e => setSelfReviewForm(f => ({ ...f, achievements: e.target.value }))} />
+                        <label className="block text-xs text-app-text-muted mb-1.5">Key Achievements</label>
+                        <textarea rows={2} className="w-full text-sm rounded-lg border border-app-border bg-form-input-bg px-4 py-2.5 text-app-text focus:outline-none focus:ring-1 focus:ring-primary" value={selfReviewForm.achievements} onChange={e => setSelfReviewForm(f => ({ ...f, achievements: e.target.value }))} />
                       </div>
                       <div>
-                        <label className="block text-xs text-gray-400 mb-1.5">Challenges Faced</label>
-                        <textarea rows={2} className="w-full text-sm rounded-lg border border-white/10 bg-[#1e1e21] px-4 py-2.5 text-white focus:outline-none focus:ring-1 focus:ring-orange-500" value={selfReviewForm.challenges} onChange={e => setSelfReviewForm(f => ({ ...f, challenges: e.target.value }))} />
+                        <label className="block text-xs text-app-text-muted mb-1.5">Challenges Faced</label>
+                        <textarea rows={2} className="w-full text-sm rounded-lg border border-app-border bg-form-input-bg px-4 py-2.5 text-app-text focus:outline-none focus:ring-1 focus:ring-primary" value={selfReviewForm.challenges} onChange={e => setSelfReviewForm(f => ({ ...f, challenges: e.target.value }))} />
                       </div>
                       <div>
-                        <label className="block text-xs text-gray-400 mb-1.5">What did you learn?</label>
-                        <textarea rows={2} className="w-full text-sm rounded-lg border border-white/10 bg-[#1e1e21] px-4 py-2.5 text-white focus:outline-none focus:ring-1 focus:ring-orange-500" value={selfReviewForm.learning} onChange={e => setSelfReviewForm(f => ({ ...f, learning: e.target.value }))} />
+                        <label className="block text-xs text-app-text-muted mb-1.5">What did you learn?</label>
+                        <textarea rows={2} className="w-full text-sm rounded-lg border border-app-border bg-form-input-bg px-4 py-2.5 text-app-text focus:outline-none focus:ring-1 focus:ring-primary" value={selfReviewForm.learning} onChange={e => setSelfReviewForm(f => ({ ...f, learning: e.target.value }))} />
                       </div>
                       <div>
-                        <label className="block text-xs text-gray-400 mb-1.5">Support Needed from Manager</label>
-                        <textarea rows={2} className="w-full text-sm rounded-lg border border-white/10 bg-[#1e1e21] px-4 py-2.5 text-white focus:outline-none focus:ring-1 focus:ring-orange-500" value={selfReviewForm.supportNeeded} onChange={e => setSelfReviewForm(f => ({ ...f, supportNeeded: e.target.value }))} />
+                        <label className="block text-xs text-app-text-muted mb-1.5">Support Needed from Manager</label>
+                        <textarea rows={2} className="w-full text-sm rounded-lg border border-app-border bg-form-input-bg px-4 py-2.5 text-app-text focus:outline-none focus:ring-1 focus:ring-primary" value={selfReviewForm.supportNeeded} onChange={e => setSelfReviewForm(f => ({ ...f, supportNeeded: e.target.value }))} />
                       </div>
-                      <button type="submit" disabled={isSubmittingReview || selfReviewForm.selfRating < 1} className="w-full py-2.5 rounded-lg bg-orange-600 hover:bg-orange-700 text-white font-bold transition-all cursor-pointer disabled:opacity-50 mt-2">
+                      <button type="submit" disabled={isSubmittingReview || selfReviewForm.selfRating < 1} className="w-full py-2.5 rounded-lg bg-primary hover:bg-primary-hover text-white font-bold transition-all cursor-pointer disabled:opacity-50 mt-2">
                         {isSubmittingReview ? 'Submitting...' : 'Submit Self Review'}
                       </button>
                     </form>
@@ -1762,15 +1764,15 @@ const EmployeeDashboard = () => {
                 </div>
 
                 {/* Manager Review Display */}
-                <div className="bg-[#141416] p-6 rounded-xl border border-white/5 flex flex-col">
-                  <h3 className="text-lg font-bold mb-4 text-white">Manager Review</h3>
+                <div className="bg-app-card p-6 rounded-xl border border-app-border flex flex-col">
+                  <h3 className="text-lg font-bold mb-4 text-app-text">Manager Review</h3>
                   {scorecard.managerReview?.isSubmitted ? (
                     <div className="space-y-4 flex-1">
                       <div className="flex items-center gap-2 mb-4">
-                        <span className="text-sm text-gray-400">Manager Rating:</span>
+                        <span className="text-sm text-app-text-muted">Manager Rating:</span>
                         <div className="flex gap-1">
                           {[1,2,3,4,5].map(i => (
-                            <Star key={i} size={16} className={i <= scorecard.managerReview.managerRating ? 'text-yellow-400 fill-yellow-400' : 'text-gray-600'} />
+                            <Star key={i} size={16} className={i <= scorecard.managerReview.managerRating ? 'text-yellow-400 fill-yellow-400' : 'text-app-text-muted'} />
                           ))}
                         </div>
                         <span className="ml-2 px-2 py-0.5 bg-emerald-500/10 text-emerald-400 text-[10px] rounded uppercase font-bold tracking-wider">Reviewed</span>
@@ -1781,18 +1783,18 @@ const EmployeeDashboard = () => {
                         {scorecard.managerReview.managerFeedback}
                       </div>
 
-                      <div className="text-xs text-gray-500 flex items-center justify-between border-t border-white/5 pt-4 mt-4">
-                        <span>Reviewed by: <span className="text-gray-300 font-bold">{scorecard.managerReview.reviewedBy?.firstName} {scorecard.managerReview.reviewedBy?.lastName}</span></span>
+                      <div className="text-xs text-app-text-muted flex items-center justify-between border-t border-app-border pt-4 mt-4">
+                        <span>Reviewed by: <span className="text-app-text font-bold">{scorecard.managerReview.reviewedBy?.firstName} {scorecard.managerReview.reviewedBy?.lastName}</span></span>
                         <span>{new Date(scorecard.managerReview.reviewDate).toLocaleDateString()}</span>
                       </div>
                     </div>
                   ) : (
-                    <div className="flex-1 flex flex-col items-center justify-center text-center text-gray-500 space-y-3 py-10">
-                      <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center">
-                        <Clock size={20} className="text-gray-400" />
+                    <div className="flex-1 flex flex-col items-center justify-center text-center text-app-text-muted space-y-3 py-10">
+                      <div className="w-12 h-12 rounded-full bg-app-border/20 flex items-center justify-center">
+                        <Clock size={20} className="text-app-text-muted" />
                       </div>
                       <p className="text-sm">Manager review is pending.</p>
-                      <p className="text-xs text-gray-600">Your manager will provide feedback and a final rating after the cycle ends.</p>
+                      <p className="text-xs text-app-text-muted">Your manager will provide feedback and a final rating after the cycle ends.</p>
                     </div>
                   )}
                 </div>
@@ -1801,12 +1803,12 @@ const EmployeeDashboard = () => {
 
             {/* Performance History */}
             {performanceHistory.length > 0 && (
-              <div className="bg-[#141416] p-6 rounded-xl border border-white/5">
-                <h3 className="text-lg font-bold mb-6 flex items-center gap-2"><TrendingUp className="text-orange-500" size={20} /> Past Performance History</h3>
+              <div className="bg-app-card p-6 rounded-xl border border-app-border">
+                <h3 className="text-lg font-bold mb-6 flex items-center gap-2"><TrendingUp className="text-primary" size={20} /> Past Performance History</h3>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left">
                     <thead>
-                      <tr className="border-b border-white/5 text-xs text-gray-400 uppercase">
+                      <tr className="border-b border-app-border text-xs text-app-text-muted uppercase">
                         <th className="py-3 px-4">Cycle</th>
                         <th className="py-3 px-4">Final Score</th>
                         <th className="py-3 px-4">Band</th>
@@ -1818,10 +1820,10 @@ const EmployeeDashboard = () => {
                     <tbody className="divide-y divide-white/5 text-sm">
                       {performanceHistory.map(hist => (
                         <tr key={hist._id} className="hover:bg-white/[0.01]">
-                          <td className="py-4 px-4 font-bold text-white">{hist.cycleId?.title || 'Unknown Cycle'}</td>
-                          <td className="py-4 px-4 font-black text-gray-300">{hist.finalScore}</td>
+                          <td className="py-4 px-4 font-bold text-app-text">{hist.cycleId?.title || 'Unknown Cycle'}</td>
+                          <td className="py-4 px-4 font-black text-app-text">{hist.finalScore}</td>
                           <td className="py-4 px-4">
-                            <span className="px-2.5 py-1 rounded-full text-xs font-bold border bg-white/5 border-white/10 text-gray-300">{hist.performanceBand}</span>
+                            <span className="px-2.5 py-1 rounded-full text-xs font-bold border bg-app-border/20 border-app-border text-app-text">{hist.performanceBand}</span>
                           </td>
                           <td className="py-4 px-4">
                             <div className="flex"><StarRating value={hist.selfReview?.selfRating || 0} /></div>
