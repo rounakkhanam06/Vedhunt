@@ -11,8 +11,8 @@ const EmployeePrivateRoute = () => {
 
   if (isInitializing) {
     return (
-      <div className="min-h-screen bg-[#0d0d0f] flex items-center justify-center">
-        <div className="w-10 h-10 rounded-full border-2 border-orange-500/20 border-t-orange-500 animate-spin" />
+      <div className="min-h-screen bg-app-bg flex items-center justify-center">
+        <div className="w-10 h-10 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
       </div>
     );
   }

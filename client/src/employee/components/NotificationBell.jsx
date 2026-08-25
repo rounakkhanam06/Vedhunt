@@ -53,7 +53,7 @@ export default function NotificationBell() {
     <div className="relative" ref={wrapperRef}>
       <button
         onClick={() => setOpen((o) => !o)}
-        className="relative text-white/80 hover:text-white transition-colors p-2"
+        className="relative text-app-text-muted hover:text-app-text transition-colors p-2 rounded-full hover:bg-app-border/30"
         title="Notifications"
       >
         <Bell size={20} />
@@ -63,25 +63,27 @@ export default function NotificationBell() {
       </button>
 
       {open && (
-        <div className="absolute right-0 bottom-full mb-2 w-80 max-h-96 overflow-y-auto bg-[#141416] border border-white/10 rounded-xl shadow-lg z-50">
-          <div className="px-4 py-3 border-b border-white/5 text-sm font-bold text-white">
+        <div className="absolute right-0 top-full mt-2 w-80 max-h-[calc(100vh-80px)] flex flex-col overflow-hidden bg-app-card border border-app-border rounded-xl shadow-lg z-50">
+          <div className="px-4 py-3 border-b border-app-border text-sm font-bold text-app-text shrink-0">
             Notifications
           </div>
-          {notifications.length === 0 ? (
-            <div className="px-4 py-6 text-sm text-gray-500 text-center">Nothing yet</div>
-          ) : (
+          <div className="overflow-y-auto flex-1">
+            {notifications.length === 0 ? (
+              <div className="px-4 py-6 text-sm text-app-text-muted text-center">Nothing yet</div>
+            ) : (
             notifications.map((n) => (
               <button
                 key={n._id}
                 onClick={() => handleClickNotification(n)}
-                className={`w-full text-left px-4 py-3 border-b border-white/5 last:border-b-0 hover:bg-white/5 transition-colors ${!n.read ? 'bg-orange-500/5' : ''}`}
+                className={`w-full text-left px-4 py-3 border-b border-app-border last:border-b-0 hover:bg-app-border/20 transition-colors ${!n.read ? 'bg-primary/5' : ''}`}
               >
-                <p className="text-sm font-medium text-white">{n.title}</p>
-                {n.message && <p className="text-xs text-gray-400 mt-0.5">{n.message}</p>}
-                <p className="text-[10px] text-gray-500 mt-1">{new Date(n.createdAt).toLocaleString()}</p>
+                <p className="text-sm font-medium text-app-text">{n.title}</p>
+                {n.message && <p className="text-xs text-app-text-muted mt-0.5">{n.message}</p>}
+                <p className="text-[10px] text-app-text-muted mt-1">{new Date(n.createdAt).toLocaleString()}</p>
               </button>
             ))
           )}
+          </div>
         </div>
       )}
     </div>
