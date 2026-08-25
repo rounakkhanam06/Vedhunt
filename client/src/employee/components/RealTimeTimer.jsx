@@ -100,7 +100,8 @@ const RealTimeTimer = ({ activeTimer, tasks = [], onTimerStart, onTimerStop }) =
       {/* Floating Timer Widget */}
       <div className="fixed bottom-6 right-6 z-30 flex flex-col items-end space-y-3">
         {activeTimer && activeTimer.startTime ? (
-          <div className="bg-[#FF6B00] text-white p-4 rounded-xl shadow-2xl flex items-center gap-4 border border-orange-400">
+          // Fixed brand-orange chip in both themes, so its text/icon stay fixed white.
+          <div className="bg-primary text-white p-4 rounded-xl shadow-2xl flex items-center gap-4 border border-white/20">
             <div className="animate-pulse">
               <Clock size={24} />
             </div>
@@ -109,7 +110,7 @@ const RealTimeTimer = ({ activeTimer, tasks = [], onTimerStart, onTimerStop }) =
               <div className="font-medium text-sm truncate max-w-[150px]">{activeTimer.task}</div>
             </div>
             <div className="text-xl font-mono font-bold w-[90px]">{elapsedTime}</div>
-            <button 
+            <button
               onClick={() => setIsStopModalOpen(true)}
               className="bg-black/20 hover:bg-black/40 p-2 rounded-lg transition-colors cursor-pointer"
             >
@@ -117,9 +118,9 @@ const RealTimeTimer = ({ activeTimer, tasks = [], onTimerStart, onTimerStop }) =
             </button>
           </div>
         ) : (
-          <button 
+          <button
             onClick={() => setIsStartModalOpen(true)}
-            className="bg-[#141416] hover:bg-[#1e1e21] border border-white/10 text-white p-4 rounded-xl shadow-xl flex items-center gap-3 transition-colors cursor-pointer group"
+            className="bg-app-card hover:bg-app-border/10 border border-app-border text-app-text p-4 rounded-xl shadow-xl flex items-center gap-3 transition-colors cursor-pointer group"
           >
             <div className="bg-emerald-500/20 text-emerald-500 p-2 rounded-lg group-hover:bg-emerald-500 group-hover:text-white transition-colors">
               <Play size={20} className="fill-current" />
@@ -132,26 +133,26 @@ const RealTimeTimer = ({ activeTimer, tasks = [], onTimerStart, onTimerStop }) =
       {/* Start Modal */}
       {isStartModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-[#141416] border border-white/10 rounded-2xl w-full max-w-md p-6">
-            <h2 className="text-xl font-bold text-white mb-4">Start Work Timer</h2>
+          <div className="bg-app-card border border-app-border rounded-2xl w-full max-w-md p-6">
+            <h2 className="text-xl font-bold text-app-text mb-4">Start Work Timer</h2>
             <form onSubmit={handleStart} className="space-y-4">
               <div>
-                <label className="block text-xs text-gray-400 mb-1">Project</label>
+                <label className="block text-xs text-app-text-muted mb-1">Project</label>
                 <input
                   type="text"
                   required
-                  className="w-full text-sm rounded-lg border border-white/10 bg-[#1e1e21] px-4 py-2 text-white"
+                  className="w-full text-sm rounded-lg border border-form-input-border bg-form-input-bg px-4 py-2 text-app-text"
                   placeholder="e.g. Vedhunt ERP"
                   value={project}
                   onChange={(e) => setProject(e.target.value)}
                 />
               </div>
               <div>
-                <label className="block text-xs text-gray-400 mb-1">Task</label>
+                <label className="block text-xs text-app-text-muted mb-1">Task</label>
                 {activityType === 'Vedhunt Task' ? (
                   <select
                     required
-                    className="w-full text-sm rounded-lg border border-white/10 bg-[#1e1e21] px-4 py-2 text-white"
+                    className="w-full text-sm rounded-lg border border-form-input-border bg-form-input-bg px-4 py-2 text-app-text"
                     value={task}
                     onChange={(e) => setTask(e.target.value)}
                   >
@@ -164,7 +165,7 @@ const RealTimeTimer = ({ activeTimer, tasks = [], onTimerStart, onTimerStop }) =
                   <input
                     type="text"
                     required
-                    className="w-full text-sm rounded-lg border border-white/10 bg-[#1e1e21] px-4 py-2 text-white"
+                    className="w-full text-sm rounded-lg border border-form-input-border bg-form-input-bg px-4 py-2 text-app-text"
                     placeholder="e.g. API Integration"
                     value={task}
                     onChange={(e) => setTask(e.target.value)}
@@ -172,9 +173,9 @@ const RealTimeTimer = ({ activeTimer, tasks = [], onTimerStart, onTimerStop }) =
                 )}
               </div>
               <div>
-                <label className="block text-xs text-gray-400 mb-1">Activity Type</label>
+                <label className="block text-xs text-app-text-muted mb-1">Activity Type</label>
                 <select 
-                  className="w-full text-sm rounded-lg border border-white/10 bg-[#1e1e21] px-4 py-2 text-white"
+                  className="w-full text-sm rounded-lg border border-form-input-border bg-form-input-bg px-4 py-2 text-app-text"
                   value={activityType}
                   onChange={(e) => setActivityType(e.target.value)}
                 >
@@ -182,7 +183,7 @@ const RealTimeTimer = ({ activeTimer, tasks = [], onTimerStart, onTimerStop }) =
                 </select>
               </div>
               <div className="flex gap-3 pt-4">
-                <button type="button" onClick={() => setIsStartModalOpen(false)} className="flex-1 py-2 rounded-lg bg-white/5 text-white hover:bg-white/10 transition-colors cursor-pointer text-sm font-medium">Cancel</button>
+                <button type="button" onClick={() => setIsStartModalOpen(false)} className="flex-1 py-2 rounded-lg bg-app-border/20 text-app-text hover:bg-app-border/30 transition-colors cursor-pointer text-sm font-medium">Cancel</button>
                 <button type="submit" className="flex-1 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors cursor-pointer text-sm font-medium flex justify-center items-center gap-2">
                   <Play size={16} className="fill-current"/> Start Timer
                 </button>
@@ -195,41 +196,41 @@ const RealTimeTimer = ({ activeTimer, tasks = [], onTimerStart, onTimerStop }) =
       {/* Stop Modal */}
       {isStopModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-[#141416] border border-white/10 rounded-2xl w-full max-w-md p-6">
-            <h2 className="text-xl font-bold text-white mb-2">Stop Work Timer</h2>
-            <p className="text-xs text-gray-400 mb-6 font-mono">Running time: {elapsedTime}</p>
+          <div className="bg-app-card border border-app-border rounded-2xl w-full max-w-md p-6">
+            <h2 className="text-xl font-bold text-app-text mb-2">Stop Work Timer</h2>
+            <p className="text-xs text-app-text-muted mb-6 font-mono">Running time: {elapsedTime}</p>
             <form onSubmit={handleStop} className="space-y-4">
               <div>
-                <label className="block text-xs text-gray-400 mb-1">Summary / Remarks</label>
+                <label className="block text-xs text-app-text-muted mb-1">Summary / Remarks</label>
                 <textarea
                   required
-                  className="w-full text-sm rounded-lg border border-white/10 bg-[#1e1e21] px-4 py-2 text-white h-24"
+                  className="w-full text-sm rounded-lg border border-form-input-border bg-form-input-bg px-4 py-2 text-app-text h-24"
                   placeholder="What did you accomplish?"
                   value={remarks}
                   onChange={(e) => setRemarks(e.target.value)}
                 />
               </div>
               <div className="flex gap-4">
-                <label className="flex items-center gap-2 text-sm text-white cursor-pointer">
-                  <input type="checkbox" checked={isProductive} onChange={(e) => setIsProductive(e.target.checked)} className="rounded border-white/20 bg-transparent text-orange-500 focus:ring-0 focus:ring-offset-0"/>
+                <label className="flex items-center gap-2 text-sm text-app-text cursor-pointer">
+                  <input type="checkbox" checked={isProductive} onChange={(e) => setIsProductive(e.target.checked)} className="rounded border-form-input-border bg-transparent text-primary focus:ring-0 focus:ring-offset-0"/>
                   Productive
                 </label>
-                <label className="flex items-center gap-2 text-sm text-white cursor-pointer">
-                  <input type="checkbox" checked={isBillable} onChange={(e) => setIsBillable(e.target.checked)} className="rounded border-white/20 bg-transparent text-orange-500 focus:ring-0 focus:ring-offset-0"/>
+                <label className="flex items-center gap-2 text-sm text-app-text cursor-pointer">
+                  <input type="checkbox" checked={isBillable} onChange={(e) => setIsBillable(e.target.checked)} className="rounded border-form-input-border bg-transparent text-primary focus:ring-0 focus:ring-offset-0"/>
                   Billable
                 </label>
               </div>
               {activeTimer && activeTimer.activityType === 'Vedhunt Task' && (
                 <div className="flex gap-4">
-                  <label className="flex items-center gap-2 text-sm text-white cursor-pointer">
-                    <input type="checkbox" checked={markTaskCompleted} onChange={(e) => setMarkTaskCompleted(e.target.checked)} className="rounded border-white/20 bg-transparent text-emerald-500 focus:ring-0 focus:ring-offset-0"/>
+                  <label className="flex items-center gap-2 text-sm text-app-text cursor-pointer">
+                    <input type="checkbox" checked={markTaskCompleted} onChange={(e) => setMarkTaskCompleted(e.target.checked)} className="rounded border-form-input-border bg-transparent text-emerald-500 focus:ring-0 focus:ring-offset-0"/>
                     Mark assigned task as Completed
                   </label>
                 </div>
               )}
               <div className="flex gap-3 pt-4">
-                <button type="button" onClick={() => setIsStopModalOpen(false)} className="flex-1 py-2 rounded-lg bg-white/5 text-white hover:bg-white/10 transition-colors cursor-pointer text-sm font-medium">Cancel</button>
-                <button type="submit" className="flex-1 py-2 rounded-lg bg-orange-600 text-white hover:bg-orange-700 transition-colors cursor-pointer text-sm font-medium flex justify-center items-center gap-2">
+                <button type="button" onClick={() => setIsStopModalOpen(false)} className="flex-1 py-2 rounded-lg bg-app-border/20 text-app-text hover:bg-app-border/30 transition-colors cursor-pointer text-sm font-medium">Cancel</button>
+                <button type="submit" className="flex-1 py-2 rounded-lg bg-primary text-white hover:bg-primary-hover transition-colors cursor-pointer text-sm font-medium flex justify-center items-center gap-2">
                   <Square size={16} className="fill-current"/> Stop & Log
                 </button>
               </div>

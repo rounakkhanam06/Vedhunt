@@ -44,6 +44,20 @@
   --scrollbar-track: #F1F5F9;
   --scrollbar-thumb: #CBD5E1;
   --mesh-opacity: radial-gradient(rgba(255, 90, 31, 0.05) 1.5px, transparent 1.5px);
+  
+  /* Admin Panel Theme (Light) */
+  --admin-bg: #FFFFFF;
+  --admin-surface: #FFFFFF;
+  --admin-surface-container-low: #FFFFFF;
+  --admin-surface-container-high: #F8FAFC;
+  --admin-surface-variant: #F1F5F9;
+  --admin-on-surface: #111111;
+  --admin-on-surface-variant: #475569;
+  --admin-outline-variant: #E2E8F0;
+  --admin-secondary: #FF6B00;
+  --admin-secondary-container: #FF6B00;
+  --admin-on-primary-container: #475569;
+  --admin-glass: rgba(255, 255, 255, 0.9);
 }
 
 .dark {
@@ -89,15 +103,29 @@
   --scrollbar-track: #0B0B14;
   --scrollbar-thumb: #1A1A2E;
   --mesh-opacity: radial-gradient(rgba(232, 71, 10, 0.04) 1px, transparent 1px);
+
+  /* Admin Panel Theme (Dark) */
+  --admin-bg: #0F0F12;
+  --admin-surface: #141313;
+  --admin-surface-container-low: #1c1b1b;
+  --admin-surface-container-high: #2b2a2a;
+  --admin-surface-variant: #353434;
+  --admin-on-surface: #e5e2e1;
+  --admin-on-surface-variant: #c4c7c7;
+  --admin-outline-variant: #444748;
+  --admin-secondary: #FF6B00;
+  --admin-secondary-container: #FF6B00;
+  --admin-on-primary-container: #848282;
+  --admin-glass: #16161A;
 }
 
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --color-primary: #FF5A1F;
-  --color-primary-hover: #E04610;
-  
-  --color-brand-orange: #FF5A1F;
+  --color-primary: #FF6B35;
+  --color-primary-hover: #FF7A47;
+
+  --color-brand-orange: #FF6B35;
   --color-brand-navy: #1A1A2E;
   --color-brand-lightOrange: #FFF2EB;
   --color-brand-grey: #5F6368;
@@ -105,18 +133,18 @@
   --color-brand-error: #CC0000;
 
   /* Admin Panel Theme Colors (AgencyOS) */
-  --color-admin-bg: #0F0F12;
-  --color-surface: #141313;
-  --color-surface-container-low: #1c1b1b;
-  --color-surface-container-high: #2b2a2a;
-  --color-surface-variant: #353434;
-  --color-on-surface: #e5e2e1;
-  --color-on-surface-variant: #c4c7c7;
-  --color-outline-variant: #444748;
-  --color-secondary: #FF6B00;
-  --color-secondary-container: #FF6B00;
-  --color-on-primary-container: #848282;
-  --color-admin-glass: #16161A;
+  --color-admin-bg: var(--admin-bg);
+  --color-surface: var(--admin-surface);
+  --color-surface-container-low: var(--admin-surface-container-low);
+  --color-surface-container-high: var(--admin-surface-container-high);
+  --color-surface-variant: var(--admin-surface-variant);
+  --color-on-surface: var(--admin-on-surface);
+  --color-on-surface-variant: var(--admin-on-surface-variant);
+  --color-outline-variant: var(--admin-outline-variant);
+  --color-secondary: var(--admin-secondary);
+  --color-secondary-container: var(--admin-secondary-container);
+  --color-on-primary-container: var(--admin-on-primary-container);
+  --color-admin-glass: var(--admin-glass);
 
   /* Legacy Backward Compatibility */
   --color-app-bg: var(--app-bg);

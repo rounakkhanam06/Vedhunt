@@ -45,27 +45,27 @@ const EmployeeLogin = () => {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#0d0d0f] px-4 py-12 sm:px-6 lg:px-8">
-      <div className="w-full max-w-md space-y-8 rounded-xl bg-[#141416] p-8 shadow-2xl border border-white/5">
+    <div className="flex min-h-screen items-center justify-center bg-app-bg px-4 py-12 sm:px-6 lg:px-8">
+      <div className="w-full max-w-md space-y-8 rounded-xl bg-app-card p-8 shadow-2xl border border-app-border">
         <div className="flex flex-col items-center">
           <img src={lightLogo} alt="Vedhunt Logo" className="h-28 w-auto mb-6 object-contain" />
-          <h2 className="text-center text-3xl font-extrabold tracking-tight text-white">
+          <h2 className="text-center text-3xl font-extrabold tracking-tight text-app-text">
             Employee Portal
           </h2>
-          <p className="mt-2 text-center text-sm text-gray-400">
+          <p className="mt-2 text-center text-sm text-app-text-muted">
             Sign in to access your employee workspace
           </p>
         </div>
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           {error && (
-            <div className="rounded-md bg-red-900/50 border border-red-500/50 p-4 text-sm text-red-200">
+            <div className="rounded-md bg-red-500/10 border border-red-500/30 p-4 text-sm text-red-500">
               {error}
             </div>
           )}
           <div className="-space-y-px rounded-md shadow-sm">
             <div className="relative">
               <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                <Mail className="h-5 w-5 text-gray-500" />
+                <Mail className="h-5 w-5 text-app-text-muted" />
               </div>
               <input
                 id="email-address"
@@ -73,7 +73,7 @@ const EmployeeLogin = () => {
                 type="email"
                 autoComplete="email"
                 required
-                className="relative block w-full appearance-none rounded-none rounded-t-md border border-white/10 bg-[#1e1e21] px-3 py-3 pl-10 text-white placeholder-gray-500 focus:z-10 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 sm:text-sm"
+                className="relative block w-full appearance-none rounded-none rounded-t-md border border-form-input-border bg-form-input-bg px-3 py-3 pl-10 text-app-text placeholder:text-app-text-muted focus:z-10 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary sm:text-sm"
                 placeholder="Email address"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -81,7 +81,7 @@ const EmployeeLogin = () => {
             </div>
             <div className="relative">
               <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                <Lock className="h-5 w-5 text-gray-500" />
+                <Lock className="h-5 w-5 text-app-text-muted" />
               </div>
               <input
                 id="password"
@@ -89,7 +89,7 @@ const EmployeeLogin = () => {
                 type={showPassword ? 'text' : 'password'}
                 autoComplete="current-password"
                 required
-                className="relative block w-full appearance-none rounded-none rounded-b-md border border-white/10 bg-[#1e1e21] px-3 py-3 pl-10 pr-10 text-white placeholder-gray-500 focus:z-10 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 sm:text-sm"
+                className="relative block w-full appearance-none rounded-none rounded-b-md border border-form-input-border bg-form-input-bg px-3 py-3 pl-10 pr-10 text-app-text placeholder:text-app-text-muted focus:z-10 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary sm:text-sm"
                 placeholder="Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -97,7 +97,7 @@ const EmployeeLogin = () => {
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-500 hover:text-gray-300 focus:outline-none z-20 cursor-pointer"
+                className="absolute inset-y-0 right-0 flex items-center pr-3 text-app-text-muted hover:text-app-text focus:outline-none z-20 cursor-pointer"
               >
                 {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
               </button>
@@ -108,7 +108,7 @@ const EmployeeLogin = () => {
             <button
               type="submit"
               disabled={isLoading}
-              className="group relative flex w-full justify-center rounded-md border border-transparent bg-orange-600 px-4 py-3 text-sm font-medium text-white hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 disabled:opacity-70 transition-colors duration-200 cursor-pointer"
+              className="group relative flex w-full justify-center rounded-md border border-transparent bg-primary px-4 py-3 text-sm font-medium text-white hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 disabled:opacity-70 transition-colors duration-200 cursor-pointer"
             >
               {isLoading ? 'Signing in...' : 'Sign in'}
             </button>

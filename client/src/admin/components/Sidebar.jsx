@@ -198,14 +198,14 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
       {/* Sidebar */}
       <aside className={`
         fixed inset-y-0 left-0 z-50 w-[280px] flex flex-col transition-transform duration-300 ease-in-out overflow-y-auto
-        ${isEmployeeOnly ? 'bg-[#FF8533] border-none py-6 pl-4 pr-0' : 'bg-surface-container-low border-r border-outline-variant p-6'}
+        ${isEmployeeOnly ? 'bg-[#FF8533] border-none py-6 pl-4 pr-0' : 'bg-app-card border-r border-app-border p-6'}
         ${isOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
         <div className={`mb-12 flex justify-between items-start shrink-0 ${isEmployeeOnly ? 'pr-6' : 'pl-1'}`}>
           <div className="relative flex items-start">
-            <img src={darkLogo} alt="Vedhunt Logo" className={`h-12 md:h-14 w-auto object-contain scale-[1.6] origin-left ${isEmployeeOnly ? 'brightness-0 invert' : ''}`} />
+            <img src={darkLogo} alt="Vedhunt Logo" className={`h-12 md:h-14 w-auto object-contain scale-[1.6] origin-left ${isEmployeeOnly ? 'brightness-0 invert' : 'dark:brightness-0 dark:invert-0'}`} />
           </div>
-          <button onClick={() => setIsOpen(false)} className={`${isEmployeeOnly ? 'text-white hover:text-white/80' : 'text-on-surface-variant hover:text-on-surface'} lg:hidden`} title="Close Sidebar">
+          <button onClick={() => setIsOpen(false)} className={`${isEmployeeOnly ? 'text-white hover:text-white/80' : 'text-app-text-muted hover:text-app-text'} lg:hidden transition-colors`} title="Close Sidebar">
             <X size={24} />
           </button>
         </div>
@@ -230,8 +230,8 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                     className={`
                       w-full flex items-center justify-between gap-4 px-4 py-2 rounded-lg text-sm transition-all duration-200 cursor-pointer
                       ${isOpen
-                        ? 'text-on-surface bg-surface-variant/30'
-                        : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-variant/50'
+                        ? 'text-app-text bg-app-border/30'
+                        : 'text-app-text-muted hover:text-app-text hover:bg-app-border/30'
                       }
                     `}
                   >
@@ -258,7 +258,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                               block px-4 py-2 rounded-lg text-sm transition-all duration-200
                               ${isSubActive
                                 ? 'bg-secondary-container/10 text-secondary font-bold shadow-[0_0_10px_rgba(255,107,0,0.15)] active:scale-[0.98]'
-                                : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-variant/30'
+                                : 'text-app-text-muted hover:text-app-text hover:bg-app-border/30'
                               }
                             `}
                           >
@@ -304,7 +304,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                   flex items-center gap-4 px-4 py-2 rounded-lg text-sm transition-all duration-200
                   ${isActive
                     ? 'bg-secondary-container/10 text-secondary font-bold shadow-[0_0_10px_rgba(255,107,0,0.15)] active:scale-[0.98]'
-                    : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-variant/50'
+                    : 'text-app-text-muted hover:text-app-text hover:bg-app-border/30'
                   }
                 `}
               >
@@ -337,21 +337,21 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
             </button>
           </div>
         ) : (
-          <div className="mt-6 flex items-center justify-between p-4 bg-surface-variant/30 hover:bg-surface-variant/50 rounded-xl shrink-0 mt-auto cursor-pointer transition-colors">
+          <div className="mt-6 flex items-center justify-between p-4 bg-app-border/20 hover:bg-app-border/40 rounded-xl shrink-0 mt-auto cursor-pointer transition-colors">
             <div className="flex items-center gap-4 overflow-hidden">
-              <div className="w-10 h-10 rounded-full bg-admin-primary/20 flex items-center justify-center text-admin-primary font-bold">
+              <div className="w-10 h-10 rounded-full bg-orange-500/10 flex items-center justify-center text-orange-500 font-bold">
                 {admin?.email?.charAt(0).toUpperCase()}
               </div>
               <div className="overflow-hidden">
-                <p className="text-sm font-bold text-on-surface truncate">{admin?.email}</p>
-                <p className="text-[10px] uppercase tracking-widest text-on-primary-container truncate">
+                <p className="text-sm font-bold text-app-text truncate">{admin?.email}</p>
+                <p className="text-[10px] uppercase tracking-widest text-app-text-muted truncate">
                   {admin?.roles?.map(r => r.name).join(', ') || admin?.role || 'User'}
                 </p>
               </div>
             </div>
             <button
               onClick={() => setShowLogoutModal(true)}
-              className="text-on-surface-variant hover:text-error transition-colors p-2"
+              className="text-app-text-muted hover:text-red-500 transition-colors p-2"
               title="Logout"
             >
               <LogOut size={18} />
@@ -363,19 +363,19 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
       {/* Logout Confirmation Modal */}
       {showLogoutModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-[#1A1A1A] border border-[#2D2D33] rounded-xl w-full max-w-sm overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
+          <div className="bg-app-card border border-app-border rounded-xl w-full max-w-sm overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
             <div className="p-6 text-center">
               <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center mx-auto mb-4 text-red-500">
                 <LogOut size={32} />
               </div>
-              <h3 className="text-xl font-bold text-white mb-2">Confirm Logout</h3>
-              <p className="text-gray-400 text-sm">Are you sure you want to log out of your admin account?</p>
+              <h3 className="text-xl font-bold text-app-text mb-2">Confirm Logout</h3>
+              <p className="text-app-text-muted text-sm">Are you sure you want to log out of your admin account?</p>
             </div>
             
-            <div className="p-6 border-t border-[#2D2D33] flex gap-3 bg-[#1A1A1A]">
+            <div className="p-6 border-t border-app-border flex gap-3 bg-app-card">
               <button 
                 onClick={() => setShowLogoutModal(false)}
-                className="flex-1 px-4 py-2.5 rounded-lg border border-[#2D2D33] text-gray-300 hover:bg-[#2D2D33] hover:text-white transition-colors cursor-pointer"
+                className="flex-1 px-4 py-2.5 rounded-lg border border-app-border text-app-text hover:bg-app-border/30 transition-colors cursor-pointer"
               >
                 Cancel
               </button>
