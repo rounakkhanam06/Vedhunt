@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import employeeApi from '../../services/employeeApi';
 import toast from 'react-hot-toast';
-import { Clock, ShieldAlert, Trophy, Star, Target, AlertTriangle, TrendingUp, ChevronDown, ChevronUp, Phone, Mail, Play, Square } from 'lucide-react';
+import { Clock, ShieldAlert, Trophy, Star, Target, AlertTriangle, TrendingUp, ChevronDown, ChevronUp, Phone, Mail, Eye } from 'lucide-react';
 import employeeAvatar from '../../assets/033a13e9af4efbb035a04c3777c4934d-removebg-preview.png';
 
 import RealTimeTimer from '../components/RealTimeTimer';
+import NoCopyText from '../components/NoCopyText';
 
 const StarRating = ({ value }) => (
   <div className="flex gap-0.5">
@@ -14,10 +15,6 @@ const StarRating = ({ value }) => (
     ))}
   </div>
 );
-
-// Mirrors server/utils/followUpRules.js's INTEREST_LEVELS — no shared
-// import path between server and client in this repo.
-const INTEREST_LEVELS = ['Hot', 'Warm', 'Cold', 'Interested', 'Not Interested', 'Asked to Call Later'];
 
 /** Buckets a lead's nextFollowUpDate as overdue / today / upcoming, mirroring LeadsPipelineView.jsx's getFollowUpColor day-diff logic. */
 function followUpBucket(dateString) {
@@ -33,6 +30,7 @@ function followUpBucket(dateString) {
 
 const EmployeeDashboard = () => {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const activeTab = searchParams.get('tab') || 'dashboard';
   
   const [employee, setEmployee] = useState(null);
@@ -62,10 +60,7 @@ const EmployeeDashboard = () => {
   // My Leads state
   const [leads, setLeads] = useState([]);
   const [isLeadsLoading, setIsLeadsLoading] = useState(false);
-  const [expandedLeadId, setExpandedLeadId] = useState(null);
-  const [updatingLeadId, setUpdatingLeadId] = useState(null);
   const [leadFilter, setLeadFilter] = useState('All');
-  const [leadDrafts, setLeadDrafts] = useState({});
   const [followUpBucketFilter, setFollowUpBucketFilter] = useState('All');
   const [leaveBalancePeriod, setLeaveBalancePeriod] = useState('Year');
   const [showLeaveModal, setShowLeaveModal] = useState(false);
@@ -222,282 +217,67 @@ const EmployeeDashboard = () => {
     }
   };
 
-  const handleUpdateLeadStatus = async (leadId, status) => {
-    try {
-      setUpdatingLeadId(leadId);
-      const res = await employeeApi.put(`/employee-portal/ess/leads/${leadId}`, { status });
-      if (res.data.success) {
-        toast.success('Status updated');
-        fetchLeads();
-      }
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to update status');
-    } finally {
-      setUpdatingLeadId(null);
-    }
-  };
-
-  const handleStartLeadCall = async (leadId) => {
-    try {
-      const now = new Date();
-      await employeeApi.put(`/employee-portal/ess/leads/${leadId}`, { callStartTime: now, callDate: now });
-      toast.success('Call started');
-      fetchLeads();
-    } catch {
-      toast.error('Failed to start call');
-    }
-  };
-
-  const handleEndLeadCall = async (lead) => {
-    if (!lead.callStartTime) {
-      toast.error('Please start the call first');
-      return;
-    }
-    try {
-      const now = new Date();
-      const diffMs = now.getTime() - new Date(lead.callStartTime).getTime();
-      const durationMin = Math.max(1, Math.round(diffMs / 60000));
-      await employeeApi.put(`/employee-portal/ess/leads/${lead._id}`, { callEndTime: now, callDuration: durationMin });
-      toast.success(`Call ended (${durationMin} min)`);
-      fetchLeads();
-    } catch {
-      toast.error('Failed to end call');
-    }
-  };
-
-  const toggleLeadExpand = (lead, forceExpand = false) => {
-    const isExpanding = forceExpand || expandedLeadId !== lead._id;
-    setExpandedLeadId(isExpanding ? lead._id : null);
-    if (isExpanding && !leadDrafts[lead._id]) {
-      setLeadDrafts((prev) => ({
-        ...prev,
-        [lead._id]: {
-          connected: lead.connected || '',
-          interestLevel: lead.interestLevel || '',
-          notConnectedReason: lead.notConnectedReason || '',
-          remark: lead.remark || '',
-          nextFollowUpDate: lead.nextFollowUpDate ? new Date(lead.nextFollowUpDate).toISOString() : '',
-          dealValue: lead.dealValue || '',
-          notConvertedReason: lead.notConvertedReason || ''
-        }
-      }));
-    }
-  };
-
-  // Used by the Follow-ups Today / Overdue cards — jumps to and expands the
-  // matching card in the full list below, clearing any status filter that
-  // might be hiding it.
+  // Used by the Follow-ups Today / Overdue cards — jumps straight to the
+  // lead's dedicated Workspace page, clearing any status filter that might
+  // be hiding it from the list underneath.
   const jumpToLead = (lead) => {
     setLeadFilter('All');
-    toggleLeadExpand(lead, true);
-    setTimeout(() => {
-      document.getElementById(`lead-card-${lead._id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }, 50);
+    navigate(`/employee/leads/${lead._id}`);
   };
 
-  const updateLeadDraft = (leadId, field, value) => {
-    setLeadDrafts((prev) => ({ ...prev, [leadId]: { ...prev[leadId], [field]: value } }));
-  };
-
-  const handleSaveLeadDetails = async (leadId) => {
-    const draft = leadDrafts[leadId];
-    if (!draft) return;
-    try {
-      setUpdatingLeadId(leadId);
-      const res = await employeeApi.put(`/employee-portal/ess/leads/${leadId}`, draft);
-      if (res.data.success) {
-        toast.success('Lead updated');
-        fetchLeads();
-      }
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to update lead');
-    } finally {
-      setUpdatingLeadId(null);
-    }
-  };
-
-  // Shared between the "My Leads" full list and the "Follow-ups" tab so both
-  // views get the exact same working card (status, call buttons, outcome
-  // form) instead of drifting apart.
-  const renderLeadCard = (lead) => {
-    const isExpanded = expandedLeadId === lead._id;
-    const draft = leadDrafts[lead._id] || {};
-    return (
-      <div key={lead._id} id={`lead-card-${lead._id}`} className="bg-app-card border border-app-border rounded-xl p-6 hover:border-primary/20 transition-all overflow-hidden scroll-mt-4">
-        <div className="flex flex-wrap justify-between items-start gap-4 mb-4 cursor-pointer" onClick={() => toggleLeadExpand(lead)}>
-          <div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs font-mono text-primary">{lead.leadId}</span>
-              <span className="text-app-text font-bold">{lead.fullName}</span>
-              {isExpanded ? <ChevronUp size={16} className="text-app-text-muted" /> : <ChevronDown size={16} className="text-app-text-muted" />}
-            </div>
-            <p className="text-xs text-app-text-muted mt-1">
-              {lead.service} · {lead.platform}
-            </p>
-          </div>
-          <div className="flex gap-2 items-center" onClick={(e) => e.stopPropagation()}>
-            <select
-              value={lead.status}
-              onChange={(e) => handleUpdateLeadStatus(lead._id, e.target.value)}
-              disabled={updatingLeadId === lead._id}
-              className={`px-2.5 py-1 text-[10px] uppercase font-bold tracking-wider rounded border cursor-pointer outline-none appearance-none ${
-                lead.status === 'Won' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
-                (lead.status === 'Lost' || lead.status === 'Dropped') ? 'bg-red-500/10 text-red-400 border-red-500/20' :
-                lead.status === 'New' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
-                'bg-amber-500/10 text-amber-400 border-amber-500/20'
-              }`}
-            >
-              <option value="New" className="bg-app-card text-app-text">NEW</option>
-              <option value="Contacted" className="bg-app-card text-app-text">CONTACTED</option>
-              <option value="Qualified" className="bg-app-card text-app-text">QUALIFIED</option>
-              <option value="Proposal Sent" className="bg-app-card text-app-text">PROPOSAL SENT</option>
-              <option value="Negotiation" className="bg-app-card text-app-text">NEGOTIATION</option>
-              <option value="Won" className="bg-app-card text-app-text">WON</option>
-              <option value="Lost" className="bg-app-card text-app-text">LOST</option>
-              <option value="Dropped" className="bg-app-card text-app-text">DROPPED</option>
-            </select>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap gap-4 text-sm text-app-text bg-form-input-bg p-4 rounded-lg">
-          <a href={`tel:${lead.phone}`} className="flex items-center gap-1.5 hover:text-primary" onClick={(e) => e.stopPropagation()}>
-            <Phone size={14} /> {lead.phone}
-          </a>
-          <a href={`mailto:${lead.email}`} className="flex items-center gap-1.5 hover:text-primary" onClick={(e) => e.stopPropagation()}>
-            <Mail size={14} /> {lead.email}
-          </a>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-3 mt-4" onClick={(e) => e.stopPropagation()}>
-          <button
-            onClick={() => handleStartLeadCall(lead._id)}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 rounded-lg text-xs font-medium transition-colors"
-          >
-            <Play size={12} /> Start Call
-          </button>
-          <button
-            onClick={() => handleEndLeadCall(lead)}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-lg text-xs font-medium transition-colors"
-          >
-            <Square size={12} /> End Call
-          </button>
-          {lead.callStartTime && (
-            <span className="text-xs text-app-text-muted">
-              Started {new Date(lead.callStartTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+  // Shared between the "My Leads" full list and the "Follow-ups" tab — a
+  // compact summary card with only the lead's raw, captured-at-creation
+  // fields. Call handling, outcome, stage, and remark all live on the
+  // dedicated Lead Workspace page (/employee/leads/:id) reached via "View".
+  const renderLeadCard = (lead) => (
+    <div key={lead._id} id={`lead-card-${lead._id}`} className="bg-app-card border border-app-border rounded-xl p-6 hover:border-primary/20 transition-all scroll-mt-4">
+      <div className="flex flex-wrap justify-between items-start gap-4">
+        <div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs font-mono text-primary">{lead.leadId}</span>
+            <NoCopyText className="text-app-text font-bold">{lead.fullName}</NoCopyText>
+            <span className={`px-2.5 py-1 text-[10px] uppercase font-bold tracking-wider rounded border ${
+              lead.status === 'Won' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
+              (lead.status === 'Lost' || lead.status === 'Dropped') ? 'bg-red-500/10 text-red-400 border-red-500/20' :
+              lead.status === 'New' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
+              'bg-amber-500/10 text-amber-400 border-amber-500/20'
+            }`}>
+              {lead.status}
             </span>
-          )}
-          {lead.callDuration && (
-            <span className="text-xs text-app-text-muted">Duration: {lead.callDuration} min</span>
-          )}
-        </div>
-
-        {isExpanded && (
-          <div className="mt-4 pt-4 border-t border-app-border space-y-4" onClick={(e) => e.stopPropagation()}>
-            {lead.message && (
-              <p className="text-sm text-app-text bg-form-input-bg p-4 rounded-lg whitespace-pre-wrap">{lead.message}</p>
-            )}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-[10px] font-medium text-app-text-muted mb-1 uppercase tracking-wider">Connected?</label>
-                <select
-                  value={draft.connected || ''}
-                  onChange={(e) => updateLeadDraft(lead._id, 'connected', e.target.value)}
-                  className="w-full bg-form-input-bg border border-app-border rounded-lg px-3 py-2 text-sm text-app-text focus:outline-none focus:border-primary/50"
-                >
-                  <option value="" className="bg-app-card text-app-text">—</option>
-                  <option value="Yes" className="bg-app-card text-app-text">Yes</option>
-                  <option value="No" className="bg-app-card text-app-text">No</option>
-                </select>
-              </div>
-              {draft.connected === 'No' && (
-                <div>
-                  <label className="block text-[10px] font-medium text-app-text-muted mb-1 uppercase tracking-wider">Not Connected Reason</label>
-                  <input
-                    type="text"
-                    value={draft.notConnectedReason || ''}
-                    onChange={(e) => updateLeadDraft(lead._id, 'notConnectedReason', e.target.value)}
-                    className="w-full bg-form-input-bg border border-app-border rounded-lg px-3 py-2 text-sm text-app-text focus:outline-none focus:border-primary/50"
-                  />
-                </div>
-              )}
-              <div>
-                <label className="block text-[10px] font-medium text-app-text-muted mb-1 uppercase tracking-wider">Interest Level</label>
-                <select
-                  value={draft.interestLevel || ''}
-                  onChange={(e) => updateLeadDraft(lead._id, 'interestLevel', e.target.value)}
-                  className="w-full bg-form-input-bg border border-app-border rounded-lg px-3 py-2 text-sm text-app-text focus:outline-none focus:border-primary/50"
-                >
-                  <option value="" className="bg-app-card text-app-text">—</option>
-                  {INTEREST_LEVELS.map((level) => (
-                    <option key={level} value={level} className="bg-app-card text-app-text">{level}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-[10px] font-medium text-app-text-muted mb-1 uppercase tracking-wider">
-                  Next Follow-Up Date &amp; Time
-                  {['Hot', 'Warm', 'Interested', 'Asked to Call Later'].includes(draft.interestLevel) && (
-                    <span className="text-primary"> *required</span>
-                  )}
-                </label>
-                <input
-                  type="datetime-local"
-                  value={draft.nextFollowUpDate ? new Date(draft.nextFollowUpDate).toISOString().slice(0, 16) : ''}
-                  onChange={(e) => updateLeadDraft(lead._id, 'nextFollowUpDate', e.target.value ? new Date(e.target.value).toISOString() : '')}
-                  className="w-full bg-form-input-bg border border-app-border rounded-lg px-3 py-2 text-sm text-app-text focus:outline-none focus:border-primary/50"
-                  style={{ colorScheme: 'dark' }}
-                />
-              </div>
-              {lead.status === 'Won' && (
-                <div>
-                  <label className="block text-[10px] font-medium text-app-text-muted mb-1 uppercase tracking-wider">Deal Value (₹)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={draft.dealValue || ''}
-                    onChange={(e) => updateLeadDraft(lead._id, 'dealValue', e.target.value)}
-                    className="w-full bg-form-input-bg border border-app-border rounded-lg px-3 py-2 text-sm text-app-text focus:outline-none focus:border-primary/50"
-                  />
-                </div>
-              )}
-              {(lead.status === 'Lost' || lead.status === 'Dropped') && (
-                <div>
-                  <label className="block text-[10px] font-medium text-app-text-muted mb-1 uppercase tracking-wider">Reason</label>
-                  <input
-                    type="text"
-                    value={draft.notConvertedReason || ''}
-                    onChange={(e) => updateLeadDraft(lead._id, 'notConvertedReason', e.target.value)}
-                    className="w-full bg-form-input-bg border border-app-border rounded-lg px-3 py-2 text-sm text-app-text focus:outline-none focus:border-primary/50"
-                  />
-                </div>
-              )}
-            </div>
-            <div>
-              <label className="block text-[10px] font-medium text-app-text-muted mb-1 uppercase tracking-wider">Remark</label>
-              <textarea
-                rows={2}
-                value={draft.remark || ''}
-                onChange={(e) => updateLeadDraft(lead._id, 'remark', e.target.value)}
-                className="w-full bg-form-input-bg border border-app-border rounded-lg px-3 py-2 text-sm text-app-text focus:outline-none focus:border-primary/50"
-              />
-            </div>
-            <button
-              onClick={() => handleSaveLeadDetails(lead._id)}
-              disabled={updatingLeadId === lead._id}
-              className="px-4 py-2 bg-primary hover:bg-primary-hover text-white text-sm font-bold rounded-lg transition-colors disabled:opacity-50"
-            >
-              {updatingLeadId === lead._id ? 'Saving...' : 'Save Updates'}
-            </button>
           </div>
-        )}
-
-        <div className="flex justify-between items-center text-xs text-app-text-muted mt-4 border-t border-app-border pt-4">
-          <span>Source: <span className="text-app-text-muted font-medium">{lead.userSource || 'Direct'}</span></span>
-          <span>Created: {new Date(lead.createdAt).toLocaleDateString()}</span>
+          <p className="text-xs text-app-text-muted mt-1">
+            {lead.service} · {lead.platform}
+          </p>
         </div>
+        <button
+          onClick={() => navigate(`/employee/leads/${lead._id}`)}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 text-primary hover:bg-primary/20 rounded-lg text-xs font-bold transition-colors shrink-0"
+        >
+          <Eye size={14} /> View
+        </button>
       </div>
-    );
-  };
+
+      <div className="flex flex-wrap gap-4 text-sm text-app-text bg-form-input-bg p-4 rounded-lg mt-4">
+        <NoCopyText className="flex items-center gap-1.5">
+          <Phone size={14} /> {lead.phone}
+        </NoCopyText>
+        <NoCopyText className="flex items-center gap-1.5">
+          <Mail size={14} /> {lead.email}
+        </NoCopyText>
+      </div>
+
+      {lead.nextFollowUpDate && (
+        <p className="text-xs text-app-text-muted mt-3">
+          Next follow-up: {new Date(lead.nextFollowUpDate).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+        </p>
+      )}
+
+      <div className="flex justify-between items-center text-xs text-app-text-muted mt-4 border-t border-app-border pt-4">
+        <span>Source: <span className="text-app-text-muted font-medium">{lead.userSource || 'Direct'}</span></span>
+        <span>Created: {new Date(lead.createdAt).toLocaleDateString()}</span>
+      </div>
+    </div>
+  );
 
   const handleSendTicketMessage = async (e, ticketId) => {
     e.preventDefault();
@@ -568,17 +348,15 @@ const EmployeeDashboard = () => {
     }
   }, [activeTab]);
 
-  // Deep link from a notification — ?tab=leads&leadId=... expands that
-  // lead's card once the list has loaded.
+  // Deep link from a notification — ?tab=leads&leadId=... jumps straight to
+  // that lead's Workspace page.
   useEffect(() => {
     const leadId = searchParams.get('leadId');
-    if (!leadId || leads.length === 0) return;
-    const target = leads.find((l) => l._id === leadId);
-    if (target) toggleLeadExpand(target);
-    // Only run once the leads list has data — re-running on every leads
-    // refresh would re-expand a card the user deliberately collapsed.
+    if (!leadId) return;
+    navigate(`/employee/leads/${leadId}`, { replace: true });
+    // Only run once on mount — the leadId param is consumed above.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [leads.length]);
+  }, []);
 
   const handleUpdateBank = async (e) => {
     e.preventDefault();

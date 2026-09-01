@@ -135,7 +135,7 @@ export default function LeadActivity() {
                   <tr key={`${entry.leadId}-${entry.date}-${idx}`} className="hover:bg-app-bg transition-colors">
                     <td className="px-4 py-3">
                       <button
-                        onClick={() => navigate(`/admin/leads?leadId=${entry.leadId}`)}
+                        onClick={() => navigate(`/admin/leads/${entry.leadId}`)}
                         className="font-medium text-app-text hover:text-primary hover:underline text-left"
                       >
                         {entry.leadName}

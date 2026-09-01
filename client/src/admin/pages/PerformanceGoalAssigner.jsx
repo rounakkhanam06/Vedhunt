@@ -172,7 +172,7 @@ const PerformanceGoalAssigner = () => {
 
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center py-20 bg-[#0d0d0f]">
+      <div className="flex justify-center items-center py-20">
         <div className="w-10 h-10 rounded-full border-2 border-orange-500/20 border-t-orange-500 animate-spin" />
       </div>
     );
@@ -181,14 +181,14 @@ const PerformanceGoalAssigner = () => {
   const selectedEmpObj = employees.find(e => e._id === selectedEmployee);
 
   return (
-    <div className="bg-[#0d0d0f] text-white p-6 space-y-6">
+    <div className="text-app-text space-y-6">
       {/* Header */}
       <div>
         <h1 className="text-3xl font-extrabold tracking-tight flex items-center gap-3">
           <Target className="text-orange-500" size={28} />
           KPI Goal Assigner
         </h1>
-        <p className="text-gray-400 text-sm mt-1">Assign weighted KPI targets to employees for a performance cycle.</p>
+        <p className="text-app-text-muted text-sm mt-1">Assign weighted KPI targets to employees for a performance cycle.</p>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-[380px_1fr] gap-6 items-start">
@@ -196,14 +196,14 @@ const PerformanceGoalAssigner = () => {
         {/* Left: Config Panel */}
         <div className="space-y-4">
           {/* Cycle Selector */}
-          <div className="bg-[#141416] border border-white/5 rounded-2xl p-5 space-y-4">
-            <h3 className="font-bold text-sm text-gray-300 uppercase tracking-wider">Step 1 — Select Cycle & Employee</h3>
+          <div className="bg-app-card border border-app-border rounded-2xl p-5 space-y-4">
+            <h3 className="font-bold text-sm text-app-text-muted uppercase tracking-wider">Step 1 — Select Cycle & Employee</h3>
             <div>
-              <label className="block text-xs text-gray-400 mb-1.5">Performance Cycle</label>
+              <label className="block text-xs text-app-text-muted mb-1.5">Performance Cycle</label>
               <select
                 value={selectedCycle}
                 onChange={e => setSelectedCycle(e.target.value)}
-                className="w-full text-sm rounded-lg border border-white/10 bg-[#1e1e21] px-4 py-2.5 text-white focus:outline-none focus:ring-1 focus:ring-orange-500"
+                className="w-full text-sm rounded-lg border border-app-border bg-form-input-bg px-4 py-2.5 text-app-text focus:outline-none focus:ring-1 focus:ring-orange-500"
               >
                 <option value="">Select cycle...</option>
                 {cycles.map(c => (
@@ -215,11 +215,11 @@ const PerformanceGoalAssigner = () => {
               )}
             </div>
             <div>
-              <label className="block text-xs text-gray-400 mb-1.5">Employee</label>
+              <label className="block text-xs text-app-text-muted mb-1.5">Employee</label>
               <select
                 value={selectedEmployee}
                 onChange={e => setSelectedEmployee(e.target.value)}
-                className="w-full text-sm rounded-lg border border-white/10 bg-[#1e1e21] px-4 py-2.5 text-white focus:outline-none focus:ring-1 focus:ring-orange-500"
+                className="w-full text-sm rounded-lg border border-app-border bg-form-input-bg px-4 py-2.5 text-app-text focus:outline-none focus:ring-1 focus:ring-orange-500"
               >
                 <option value="">Select employee...</option>
                 {employees.map(emp => (
@@ -230,20 +230,20 @@ const PerformanceGoalAssigner = () => {
           </div>
 
           {/* Role Presets */}
-          <div className="bg-[#141416] border border-white/5 rounded-2xl p-5 space-y-3">
+          <div className="bg-app-card border border-app-border rounded-2xl p-5 space-y-3">
             <div>
-              <h3 className="font-bold text-sm text-gray-300 uppercase tracking-wider">Step 2 — Load Preset</h3>
-              <p className="text-xs text-gray-500 mt-1">Load role-based default KPIs. You can edit after loading.</p>
+              <h3 className="font-bold text-sm text-app-text-muted uppercase tracking-wider">Step 2 — Load Preset</h3>
+              <p className="text-xs text-app-text-muted mt-1">Load role-based default KPIs. You can edit after loading.</p>
             </div>
             <div className="space-y-2">
               {Object.keys(presets).map(key => (
                 <button
                   key={key}
                   onClick={() => loadPreset(key)}
-                  className="w-full text-left px-4 py-2.5 rounded-lg bg-white/[0.03] hover:bg-orange-500/10 border border-white/5 hover:border-orange-500/20 text-sm text-gray-300 hover:text-orange-400 transition-all cursor-pointer"
+                  className="w-full text-left px-4 py-2.5 rounded-lg bg-app-bg hover:bg-orange-500/10 border border-app-border hover:border-orange-500/20 text-sm text-app-text-muted hover:text-orange-400 transition-all cursor-pointer"
                 >
                   <div className="font-bold">{key}</div>
-                  <div className="text-xs text-gray-500 mt-0.5">
+                  <div className="text-xs text-app-text-muted mt-0.5">
                     {presets[key].map(p => `${p.metricType} (${p.weightage}%)`).join(' · ')}
                   </div>
                 </button>
@@ -253,15 +253,15 @@ const PerformanceGoalAssigner = () => {
 
           {/* Employee Info */}
           {selectedEmpObj && (
-            <div className="bg-[#141416] border border-white/5 rounded-2xl p-5">
-              <h3 className="font-bold text-sm text-gray-300 uppercase tracking-wider mb-3">Selected Employee</h3>
+            <div className="bg-app-card border border-app-border rounded-2xl p-5">
+              <h3 className="font-bold text-sm text-app-text-muted uppercase tracking-wider mb-3">Selected Employee</h3>
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-orange-600/10 text-orange-500 flex items-center justify-center font-bold text-sm border border-orange-500/15">
                   {selectedEmpObj.firstName.charAt(0)}{selectedEmpObj.lastName.charAt(0)}
                 </div>
                 <div>
-                  <div className="font-bold text-white text-sm">{selectedEmpObj.firstName} {selectedEmpObj.lastName}</div>
-                  <div className="text-xs text-gray-400">{selectedEmpObj.roleDept} · {selectedEmpObj.employeeId}</div>
+                  <div className="font-bold text-app-text text-sm">{selectedEmpObj.firstName} {selectedEmpObj.lastName}</div>
+                  <div className="text-xs text-app-text-muted">{selectedEmpObj.roleDept} · {selectedEmpObj.employeeId}</div>
                 </div>
               </div>
               {existingTargets.length > 0 && (
@@ -274,9 +274,9 @@ const PerformanceGoalAssigner = () => {
         </div>
 
         {/* Right: KPI Builder */}
-        <div className="bg-[#141416] border border-white/5 rounded-2xl p-5 space-y-5">
+        <div className="bg-app-card border border-app-border rounded-2xl p-5 space-y-5">
           <div className="flex justify-between items-center">
-            <h3 className="font-bold text-sm text-gray-300 uppercase tracking-wider">Step 3 — Define KPI Targets</h3>
+            <h3 className="font-bold text-sm text-app-text-muted uppercase tracking-wider">Step 3 — Define KPI Targets</h3>
             <button
               onClick={addKPI}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-orange-500/10 text-orange-400 hover:bg-orange-500/20 text-xs font-bold transition-colors cursor-pointer border border-orange-500/20"
@@ -286,15 +286,15 @@ const PerformanceGoalAssigner = () => {
           </div>
 
           {/* Weightage meter */}
-          <div className="bg-white/[0.02] rounded-xl p-4 border border-white/5">
+          <div className="bg-app-bg rounded-xl p-4 border border-app-border">
             <div className="flex justify-between items-center mb-2">
-              <span className="text-xs text-gray-400 font-bold uppercase tracking-wider">Total Weightage</span>
+              <span className="text-xs text-app-text-muted font-bold uppercase tracking-wider">Total Weightage</span>
               <div className={`flex items-center gap-1.5 text-sm font-black ${weightOk ? 'text-emerald-400' : 'text-orange-400'}`}>
                 {weightOk ? <CheckCircle size={14} /> : <AlertCircle size={14} />}
                 {totalWeight}% {weightOk ? '✓ Ready' : `(need ${100 - totalWeight > 0 ? '+' : ''}${100 - totalWeight}%)`}
               </div>
             </div>
-            <div className="w-full bg-white/10 rounded-full h-2">
+            <div className="w-full bg-app-border rounded-full h-2">
               <div
                 className={`h-2 rounded-full transition-all ${weightOk ? 'bg-emerald-500' : totalWeight > 100 ? 'bg-rose-500' : 'bg-orange-500'}`}
                 style={{ width: `${Math.min(totalWeight, 100)}%` }}
@@ -305,44 +305,44 @@ const PerformanceGoalAssigner = () => {
           {/* KPI Rows */}
           <div className="space-y-3">
             {kpis.map((kpi, idx) => (
-              <div key={idx} className="bg-white/[0.02] border border-white/5 rounded-xl p-4 space-y-3">
+              <div key={idx} className="bg-app-bg border border-app-border rounded-xl p-4 space-y-3">
                 <div className="flex justify-between items-center">
-                  <div className="text-xs font-bold text-gray-400 uppercase tracking-wider">KPI #{idx + 1}</div>
+                  <div className="text-xs font-bold text-app-text-muted uppercase tracking-wider">KPI #{idx + 1}</div>
                   <button onClick={() => removeKPI(idx)} className="text-rose-400 hover:text-rose-300 cursor-pointer transition-colors">
                     <Trash2 size={14} />
                   </button>
                 </div>
 
                 <div>
-                  <label className="block text-xs text-gray-500 mb-1">Metric Type</label>
+                  <label className="block text-xs text-app-text-muted mb-1">Metric Type</label>
                   <select
                     value={kpi.metricType}
                     onChange={e => handleKPIChange(idx, 'metricType', e.target.value)}
-                    className="w-full text-sm rounded-lg border border-white/10 bg-[#1e1e21] px-3 py-2 text-white focus:outline-none focus:ring-1 focus:ring-orange-500"
+                    className="w-full text-sm rounded-lg border border-app-border bg-form-input-bg px-3 py-2 text-app-text focus:outline-none focus:ring-1 focus:ring-orange-500"
                   >
                     {metricTypes.map(m => (
                       <option key={m} value={m}>{METRIC_LABELS[m] || m}</option>
                     ))}
                   </select>
-                  <div className="flex items-center gap-1 mt-1.5 text-[10px] text-gray-600">
+                  <div className="flex items-center gap-1 mt-1.5 text-[10px] text-app-text-muted">
                     <Info size={10} /> {METRIC_SOURCE[kpi.metricType]}
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs text-gray-500 mb-1">Target Value ({METRIC_UNITS[kpi.metricType]})</label>
+                    <label className="block text-xs text-app-text-muted mb-1">Target Value ({METRIC_UNITS[kpi.metricType]})</label>
                     <input
                       type="number"
                       min="0"
                       value={kpi.targetValue}
                       onChange={e => handleKPIChange(idx, 'targetValue', e.target.value)}
                       placeholder="e.g. 600000"
-                      className="w-full text-sm rounded-lg border border-white/10 bg-[#1e1e21] px-3 py-2 text-white placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                      className="w-full text-sm rounded-lg border border-app-border bg-form-input-bg px-3 py-2 text-app-text placeholder-app-text-muted focus:outline-none focus:ring-1 focus:ring-orange-500"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs text-gray-500 mb-1">Weightage (%)</label>
+                    <label className="block text-xs text-app-text-muted mb-1">Weightage (%)</label>
                     <input
                       type="number"
                       min="1"
@@ -350,7 +350,7 @@ const PerformanceGoalAssigner = () => {
                       value={kpi.weightage}
                       onChange={e => handleKPIChange(idx, 'weightage', e.target.value)}
                       placeholder="e.g. 50"
-                      className="w-full text-sm rounded-lg border border-white/10 bg-[#1e1e21] px-3 py-2 text-white placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                      className="w-full text-sm rounded-lg border border-app-border bg-form-input-bg px-3 py-2 text-app-text placeholder-app-text-muted focus:outline-none focus:ring-1 focus:ring-orange-500"
                     />
                   </div>
                 </div>

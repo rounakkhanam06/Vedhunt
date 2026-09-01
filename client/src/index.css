@@ -1,6 +1,11 @@
 @import "tailwindcss";
 
 :root {
+  /* Tells the browser to render native controls (date/time pickers,
+     scrollbars, form widgets) in the theme that's actually active, instead
+     of always matching the OS preference. */
+  color-scheme: light;
+
   /* New Design System Variables - Light Theme */
   --bg-primary: #FFFFFF;
   --bg-secondary: #F8FAFC;
@@ -61,6 +66,8 @@
 }
 
 .dark {
+  color-scheme: dark;
+
   /* New Design System Variables - Dark Theme */
   --bg-primary: #0B0D12;
   --bg-secondary: #111827;

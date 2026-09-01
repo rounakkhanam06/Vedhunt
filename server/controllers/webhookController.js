@@ -288,7 +288,9 @@ exports.receiveGoogleLead = async (req, res) => {
       consent: true,
       utmSource: 'google',
       utmMedium: 'cpc',
-      utmCampaign: campaign_id || ''
+      utmCampaign: campaign_id || '',
+      // The untouched webhook body, captured before field mapping.
+      rawPayload: req.body
     });
 
     // Never throws — logs and leaves the lead Unassigned on any failure.

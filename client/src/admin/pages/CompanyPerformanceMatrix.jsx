@@ -9,12 +9,12 @@ const BAND_CONFIG = {
   'Meets Expectations':    { color: 'bg-blue-500/15 text-blue-400 border-blue-500/30',          dot: 'bg-blue-400' },
   'Needs Improvement':     { color: 'bg-orange-500/15 text-orange-400 border-orange-500/30',   dot: 'bg-orange-400' },
   'Poor':                  { color: 'bg-rose-500/15 text-rose-400 border-rose-500/30',          dot: 'bg-rose-400' },
-  'Pending':               { color: 'bg-white/5 text-gray-500 border-white/10',                 dot: 'bg-gray-600' },
+  'Pending':               { color: 'bg-surface-variant text-app-text-muted border-app-border',  dot: 'bg-app-text-muted' },
 };
 
 const StatusBadge = ({ status }) => {
   const s = {
-    Pending:         'bg-white/5 text-gray-500',
+    Pending:         'bg-surface-variant text-app-text-muted',
     SelfSubmitted:   'bg-blue-500/10 text-blue-400',
     ManagerReviewed: 'bg-emerald-500/10 text-emerald-400',
     Finalized:       'bg-orange-500/10 text-orange-400',
@@ -29,7 +29,7 @@ const StatusBadge = ({ status }) => {
 const StarRating = ({ value }) => (
   <div className="flex gap-0.5">
     {[1, 2, 3, 4, 5].map(i => (
-      <Star key={i} size={12} className={i <= value ? 'text-yellow-400 fill-yellow-400' : 'text-gray-600'} />
+      <Star key={i} size={12} className={i <= value ? 'text-yellow-400 fill-yellow-400' : 'text-app-text-muted'} />
     ))}
   </div>
 );
@@ -141,7 +141,7 @@ const CompanyPerformanceMatrix = () => {
   const selectedCycleObj = cycles.find(c => c._id === selectedCycle);
 
   return (
-    <div className="bg-[#0d0d0f] text-white p-6 space-y-6">
+    <div className="text-app-text space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
@@ -149,7 +149,7 @@ const CompanyPerformanceMatrix = () => {
             <BarChart2 className="text-orange-500" size={28} />
             Company Performance Matrix
           </h1>
-          <p className="text-gray-400 text-sm mt-1">
+          <p className="text-app-text-muted text-sm mt-1">
             {selectedCycleObj ? selectedCycleObj.title : 'Select a cycle to view rankings.'}
           </p>
         </div>
@@ -165,7 +165,7 @@ const CompanyPerformanceMatrix = () => {
           <button
             onClick={handleExportCSV}
             disabled={!matrix.length}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 font-medium transition-all cursor-pointer disabled:opacity-40 text-sm"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-surface-variant hover:bg-app-border border border-app-border font-medium transition-all cursor-pointer disabled:opacity-40 text-sm"
           >
             <Download size={16} /> Export
           </button>
@@ -173,11 +173,11 @@ const CompanyPerformanceMatrix = () => {
       </div>
 
       {/* Cycle Selector + Filters */}
-      <div className="flex flex-wrap gap-3 bg-[#141416] p-4 rounded-xl border border-white/5">
+      <div className="flex flex-wrap gap-3 bg-app-card p-4 rounded-xl border border-app-border">
         <select
           value={selectedCycle}
           onChange={e => setSelectedCycle(e.target.value)}
-          className="text-sm rounded-lg border border-white/10 bg-[#1e1e21] px-4 py-2 text-white focus:outline-none"
+          className="text-sm rounded-lg border border-app-border bg-form-input-bg px-4 py-2 text-app-text focus:outline-none"
         >
           <option value="">Select Cycle...</option>
           {cycles.map(c => <option key={c._id} value={c._id}>{c.title} [{c.status}]</option>)}
@@ -185,14 +185,14 @@ const CompanyPerformanceMatrix = () => {
         <select
           value={filterBand}
           onChange={e => setFilterBand(e.target.value)}
-          className="text-sm rounded-lg border border-white/10 bg-[#1e1e21] px-4 py-2 text-white focus:outline-none"
+          className="text-sm rounded-lg border border-app-border bg-form-input-bg px-4 py-2 text-app-text focus:outline-none"
         >
           {bands.map(b => <option key={b}>{b}</option>)}
         </select>
         <select
           value={filterDept}
           onChange={e => setFilterDept(e.target.value)}
-          className="text-sm rounded-lg border border-white/10 bg-[#1e1e21] px-4 py-2 text-white focus:outline-none"
+          className="text-sm rounded-lg border border-app-border bg-form-input-bg px-4 py-2 text-app-text focus:outline-none"
         >
           {depts.map(d => <option key={d}>{d}</option>)}
         </select>
@@ -205,12 +205,12 @@ const CompanyPerformanceMatrix = () => {
             const count = matrix.filter(m => m.review.performanceBand === band).length;
             const cfg = BAND_CONFIG[band];
             return (
-              <div key={band} className="bg-[#141416] rounded-xl border border-white/5 p-4">
+              <div key={band} className="bg-app-card rounded-xl border border-app-border p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <div className={`w-2.5 h-2.5 rounded-full ${cfg.dot}`} />
-                  <div className="text-xs text-gray-400">{band}</div>
+                  <div className="text-xs text-app-text-muted">{band}</div>
                 </div>
-                <div className="text-3xl font-black text-white">{count}</div>
+                <div className="text-3xl font-black text-app-text">{count}</div>
               </div>
             );
           })}
@@ -218,22 +218,22 @@ const CompanyPerformanceMatrix = () => {
       )}
 
       {/* Matrix Table */}
-      <div className="bg-[#141416] rounded-2xl border border-white/5 overflow-hidden">
+      <div className="bg-app-card rounded-2xl border border-app-border overflow-hidden">
         {isLoading ? (
           <div className="flex justify-center py-20">
             <div className="w-10 h-10 rounded-full border-2 border-orange-500/20 border-t-orange-500 animate-spin" />
           </div>
         ) : !selectedCycle ? (
-          <div className="text-center py-16 text-gray-600">Select a cycle to view the matrix.</div>
+          <div className="text-center py-16 text-app-text-muted">Select a cycle to view the matrix.</div>
         ) : filtered.length === 0 ? (
-          <div className="text-center py-16 text-gray-600">
+          <div className="text-center py-16 text-app-text-muted">
             {matrix.length === 0 ? 'No employees have KPI targets assigned for this cycle yet.' : 'No results match your filters.'}
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>
-                <tr className="border-b border-white/5 bg-white/[0.02] text-xs text-gray-400 uppercase tracking-wider">
+                <tr className="border-b border-app-border bg-app-bg text-xs text-app-text-muted uppercase tracking-wider">
                   <th className="py-4 px-5 w-14">Rank</th>
                   <th className="py-4 px-5">Employee</th>
                   <th className="py-4 px-5">Score</th>
@@ -244,7 +244,7 @@ const CompanyPerformanceMatrix = () => {
                   <th className="py-4 px-5 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/[0.04] text-sm">
+              <tbody className="divide-y divide-app-border text-sm">
                 {filtered.map(({ review, targets }) => {
                   const emp = review.employeeId;
                   const cfg = BAND_CONFIG[review.performanceBand] || BAND_CONFIG['Pending'];
@@ -252,14 +252,14 @@ const CompanyPerformanceMatrix = () => {
 
                   return (
                     <>
-                      <tr key={review._id} className="hover:bg-white/[0.015] transition-colors">
+                      <tr key={review._id} className="hover:bg-surface-variant transition-colors">
                         {/* Rank */}
                         <td className="py-4 px-5">
                           <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-sm ${
                             review.companyRank === 1 ? 'bg-yellow-500/20 text-yellow-400' :
-                            review.companyRank === 2 ? 'bg-gray-400/20 text-gray-300' :
+                            review.companyRank === 2 ? 'bg-slate-400/20 text-slate-500' :
                             review.companyRank === 3 ? 'bg-amber-700/20 text-amber-600' :
-                            'bg-white/5 text-gray-500'
+                            'bg-surface-variant text-app-text-muted'
                           }`}>
                             {review.companyRank || '—'}
                           </div>
@@ -272,11 +272,11 @@ const CompanyPerformanceMatrix = () => {
                               {emp?.firstName?.charAt(0)}{emp?.lastName?.charAt(0)}
                             </div>
                             <div>
-                              <div className="font-bold text-white flex items-center gap-2">
+                              <div className="font-bold text-app-text flex items-center gap-2">
                                 {emp?.firstName} {emp?.lastName}
                                 {review.isTopPerformer && <Trophy size={14} className="text-yellow-400" />}
                               </div>
-                              <div className="text-xs text-gray-500">{emp?.roleDept}</div>
+                              <div className="text-xs text-app-text-muted">{emp?.roleDept}</div>
                             </div>
                           </div>
                         </td>
@@ -286,7 +286,7 @@ const CompanyPerformanceMatrix = () => {
                           <div className={`text-2xl font-black ${review.finalScore >= 100 ? 'text-yellow-400' : review.finalScore >= 75 ? 'text-emerald-400' : review.finalScore >= 60 ? 'text-blue-400' : 'text-orange-400'}`}>
                             {review.finalScore > 0 ? review.finalScore.toFixed(1) : '—'}
                           </div>
-                          {review.finalScore > 0 && <div className="text-[10px] text-gray-600">weighted score</div>}
+                          {review.finalScore > 0 && <div className="text-[10px] text-app-text-muted">weighted score</div>}
                         </td>
 
                         {/* Band */}
@@ -301,10 +301,10 @@ const CompanyPerformanceMatrix = () => {
                           {review.selfReview?.isSubmitted ? (
                             <div>
                               <StarRating value={review.selfReview.selfRating} />
-                              <div className="text-[10px] text-gray-500 mt-1">Submitted</div>
+                              <div className="text-[10px] text-app-text-muted mt-1">Submitted</div>
                             </div>
                           ) : (
-                            <span className="text-[10px] text-gray-600 uppercase tracking-wider">Pending</span>
+                            <span className="text-[10px] text-app-text-muted uppercase tracking-wider">Pending</span>
                           )}
                         </td>
 
@@ -313,12 +313,12 @@ const CompanyPerformanceMatrix = () => {
                           {review.managerReview?.isSubmitted ? (
                             <div>
                               <StarRating value={review.managerReview.managerRating} />
-                              <div className="text-[10px] text-gray-500 mt-1">
+                              <div className="text-[10px] text-app-text-muted mt-1">
                                 By: {review.managerReview.reviewedBy?.firstName || 'Manager'}
                               </div>
                             </div>
                           ) : (
-                            <span className="text-[10px] text-gray-600 uppercase tracking-wider">Pending</span>
+                            <span className="text-[10px] text-app-text-muted uppercase tracking-wider">Pending</span>
                           )}
                         </td>
 
@@ -340,7 +340,7 @@ const CompanyPerformanceMatrix = () => {
                             )}
                             <button
                               onClick={() => setExpandedRow(isExpanded ? null : review._id)}
-                              className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors cursor-pointer"
+                              className="p-1.5 rounded-lg bg-surface-variant hover:bg-app-border text-app-text-muted hover:text-app-text transition-colors cursor-pointer"
                             >
                               {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                             </button>
@@ -350,25 +350,25 @@ const CompanyPerformanceMatrix = () => {
 
                       {/* Expanded KPI Detail Row */}
                       {isExpanded && (
-                        <tr key={`${review._id}-detail`} className="bg-white/[0.01]">
+                        <tr key={`${review._id}-detail`} className="bg-app-bg">
                           <td colSpan="8" className="px-5 pb-4 pt-2">
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                               {targets.map(t => (
-                                <div key={t._id} className="bg-[#1a1a1d] rounded-xl p-3 border border-white/5">
-                                  <div className="text-xs text-gray-500 mb-1">{t.metricType}</div>
+                                <div key={t._id} className="bg-app-card rounded-xl p-3 border border-app-border">
+                                  <div className="text-xs text-app-text-muted mb-1">{t.metricType}</div>
                                   <div className="flex justify-between items-end">
                                     <div>
-                                      <div className="text-xs text-gray-400">Target: <span className="text-white font-bold">{t.targetValue.toLocaleString()} {t.unit}</span></div>
-                                      <div className="text-xs text-gray-400">Actual: <span className={`font-bold ${t.actualValue >= t.targetValue ? 'text-emerald-400' : 'text-orange-400'}`}>{t.actualValue.toLocaleString()} {t.unit}</span></div>
+                                      <div className="text-xs text-app-text-muted">Target: <span className="text-app-text font-bold">{t.targetValue.toLocaleString()} {t.unit}</span></div>
+                                      <div className="text-xs text-app-text-muted">Actual: <span className={`font-bold ${t.actualValue >= t.targetValue ? 'text-emerald-400' : 'text-orange-400'}`}>{t.actualValue.toLocaleString()} {t.unit}</span></div>
                                     </div>
                                     <div className="text-right">
                                       <div className={`text-xl font-black ${t.achievementPct >= 100 ? 'text-emerald-400' : t.achievementPct >= 60 ? 'text-orange-400' : 'text-rose-400'}`}>
                                         {t.achievementPct}%
                                       </div>
-                                      <div className="text-[10px] text-gray-600">wt: {t.weightage}%</div>
+                                      <div className="text-[10px] text-app-text-muted">wt: {t.weightage}%</div>
                                     </div>
                                   </div>
-                                  <div className="mt-2 w-full bg-white/10 rounded-full h-1.5">
+                                  <div className="mt-2 w-full bg-app-border rounded-full h-1.5">
                                     <div
                                       className={`h-1.5 rounded-full ${t.achievementPct >= 100 ? 'bg-emerald-500' : t.achievementPct >= 60 ? 'bg-orange-500' : 'bg-rose-500'}`}
                                       style={{ width: `${Math.min(t.achievementPct, 100)}%` }}
@@ -378,21 +378,21 @@ const CompanyPerformanceMatrix = () => {
                               ))}
                             </div>
                             {review.selfReview?.isSubmitted && (
-                              <div className="mt-3 bg-[#1a1a1d] rounded-xl p-4 border border-white/5 text-xs space-y-2">
-                                <div className="font-bold text-gray-400 uppercase tracking-wider">Self Review</div>
-                                <div className="grid grid-cols-2 gap-3 text-gray-300">
-                                  {review.selfReview.achievements && <div><span className="text-gray-600">Achievements: </span>{review.selfReview.achievements}</div>}
-                                  {review.selfReview.challenges && <div><span className="text-gray-600">Challenges: </span>{review.selfReview.challenges}</div>}
-                                  {review.selfReview.learning && <div><span className="text-gray-600">Learning: </span>{review.selfReview.learning}</div>}
-                                  {review.selfReview.supportNeeded && <div><span className="text-gray-600">Support Needed: </span>{review.selfReview.supportNeeded}</div>}
+                              <div className="mt-3 bg-app-card rounded-xl p-4 border border-app-border text-xs space-y-2">
+                                <div className="font-bold text-app-text-muted uppercase tracking-wider">Self Review</div>
+                                <div className="grid grid-cols-2 gap-3 text-app-text">
+                                  {review.selfReview.achievements && <div><span className="text-app-text-muted">Achievements: </span>{review.selfReview.achievements}</div>}
+                                  {review.selfReview.challenges && <div><span className="text-app-text-muted">Challenges: </span>{review.selfReview.challenges}</div>}
+                                  {review.selfReview.learning && <div><span className="text-app-text-muted">Learning: </span>{review.selfReview.learning}</div>}
+                                  {review.selfReview.supportNeeded && <div><span className="text-app-text-muted">Support Needed: </span>{review.selfReview.supportNeeded}</div>}
                                 </div>
                               </div>
                             )}
                             {review.managerReview?.isSubmitted && (
                               <div className="mt-3 bg-emerald-500/5 rounded-xl p-4 border border-emerald-500/10 text-xs">
                                 <div className="font-bold text-emerald-400 uppercase tracking-wider mb-2">Manager Review</div>
-                                <div className="text-gray-300">{review.managerReview.managerFeedback}</div>
-                                <div className="text-gray-500 mt-1">Reviewed by: {review.managerReview.reviewedBy?.firstName} {review.managerReview.reviewedBy?.lastName} · {new Date(review.managerReview.reviewDate).toLocaleDateString()}</div>
+                                <div className="text-app-text">{review.managerReview.managerFeedback}</div>
+                                <div className="text-app-text-muted mt-1">Reviewed by: {review.managerReview.reviewedBy?.firstName} {review.managerReview.reviewedBy?.lastName} · {new Date(review.managerReview.reviewDate).toLocaleDateString()}</div>
                               </div>
                             )}
                           </td>
@@ -410,19 +410,19 @@ const CompanyPerformanceMatrix = () => {
       {/* Manager Review Modal */}
       {reviewModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-[#141416] border border-white/10 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
-            <div className="flex justify-between items-center p-5 border-b border-white/5">
+          <div className="bg-app-card border border-app-border rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+            <div className="flex justify-between items-center p-5 border-b border-app-border">
               <div>
                 <h2 className="text-lg font-bold">Manager Review</h2>
-                <p className="text-xs text-gray-400 mt-0.5">{reviewModal.empName}</p>
+                <p className="text-xs text-app-text-muted mt-0.5">{reviewModal.empName}</p>
               </div>
-              <button onClick={() => setReviewModal(null)} className="text-gray-400 hover:text-white cursor-pointer">
+              <button onClick={() => setReviewModal(null)} className="text-app-text-muted hover:text-app-text cursor-pointer">
                 <X size={20} />
               </button>
             </div>
             <div className="p-5 space-y-4">
               <div>
-                <label className="block text-xs text-gray-400 mb-3">Overall Rating <span className="text-orange-500">*</span></label>
+                <label className="block text-xs text-app-text-muted mb-3">Overall Rating <span className="text-orange-500">*</span></label>
                 <div className="flex gap-3">
                   {[1, 2, 3, 4, 5].map(n => (
                     <button
@@ -432,34 +432,34 @@ const CompanyPerformanceMatrix = () => {
                     >
                       <Star
                         size={28}
-                        className={n <= reviewForm.managerRating ? 'text-yellow-400 fill-yellow-400' : 'text-gray-600 hover:text-gray-400'}
+                        className={n <= reviewForm.managerRating ? 'text-yellow-400 fill-yellow-400' : 'text-app-text-muted hover:text-app-text'}
                       />
                     </button>
                   ))}
                   {reviewForm.managerRating > 0 && (
-                    <span className="text-sm text-gray-400 self-center ml-2">
+                    <span className="text-sm text-app-text-muted self-center ml-2">
                       {['', 'Poor', 'Below Average', 'Average', 'Good', 'Excellent'][reviewForm.managerRating]}
                     </span>
                   )}
                 </div>
               </div>
               <div>
-                <label className="block text-xs text-gray-400 mb-1.5">Feedback & Comments <span className="text-orange-500">*</span></label>
+                <label className="block text-xs text-app-text-muted mb-1.5">Feedback & Comments <span className="text-orange-500">*</span></label>
                 <textarea
                   rows={4}
                   placeholder="Provide constructive feedback on performance, achievements, and areas of improvement..."
                   value={reviewForm.managerFeedback}
                   onChange={e => setReviewForm(f => ({ ...f, managerFeedback: e.target.value }))}
-                  className="w-full text-sm rounded-lg border border-white/10 bg-[#1e1e21] px-4 py-2.5 text-white placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-orange-500 resize-none"
+                  className="w-full text-sm rounded-lg border border-app-border bg-form-input-bg px-4 py-2.5 text-app-text placeholder-app-text-muted focus:outline-none focus:ring-1 focus:ring-orange-500 resize-none"
                 />
               </div>
-              <div className="text-xs text-gray-600 bg-white/[0.02] rounded-lg p-3 border border-white/5">
+              <div className="text-xs text-app-text-muted bg-app-bg rounded-lg p-3 border border-app-border">
                 This review will be stored with your name and today&apos;s date as the reviewer.
               </div>
               <div className="flex gap-3">
                 <button
                   onClick={() => setReviewModal(null)}
-                  className="flex-1 py-2.5 rounded-lg border border-white/10 text-gray-300 hover:bg-white/5 transition-all cursor-pointer text-sm"
+                  className="flex-1 py-2.5 rounded-lg border border-app-border text-app-text-muted hover:bg-surface-variant transition-all cursor-pointer text-sm"
                 >
                   Cancel
                 </button>

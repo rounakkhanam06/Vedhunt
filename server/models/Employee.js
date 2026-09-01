@@ -12,8 +12,18 @@ const taskSchema = new mongoose.Schema({
   title: { type: String, required: true },
   description: { type: String },
   status: { type: String, enum: ['Pending', 'In Progress', 'Completed'], default: 'Pending' },
-  dueDate: { type: Date }
-});
+  dueDate: { type: Date },
+  // Who assigned it — for the Organization Tasks log, distinct from the
+  // employee it's assigned to.
+  assignedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Admin'
+  },
+  // Set the moment status flips to 'Completed' (and cleared if it's ever
+  // reopened) — this plus createdAt (assigned date, via timestamps below)
+  // is what lets the Organization Tasks page show delay/on-time-ness.
+  completedAt: { type: Date }
+}, { timestamps: true });
 
 const timesheetSchema = new mongoose.Schema({
   date: { type: Date, required: true },

@@ -62,7 +62,11 @@ const DPAManager = lazy(() => import('../admin/pages/DPAManager'));
 const RefundPolicyManager = lazy(() => import('../admin/pages/RefundPolicyManager'));
 const ServiceAgreementManager = lazy(() => import('../admin/pages/ManageAgreement'));
 const LeadsManager = lazy(() => import('../admin/pages/LeadsManager'));
+const LeadWorkspace = lazy(() => import('../admin/pages/LeadWorkspace'));
+const UnassignedLeadsManager = lazy(() => import('../admin/pages/UnassignedLeadsManager'));
 const LeadActivity = lazy(() => import('../admin/pages/LeadActivity'));
+const ActivityLog = lazy(() => import('../admin/pages/ActivityLog'));
+const AssignmentLogManager = lazy(() => import('../admin/pages/AssignmentLogManager'));
 const FollowUpsManager = lazy(() => import('../admin/pages/FollowUpsManager'));
 const FacebookIntegrationManager = lazy(() => import('../admin/pages/FacebookIntegrationManager'));
 const SubscriberManager = lazy(() => import('../admin/pages/SubscriberManager'));
@@ -91,6 +95,7 @@ const EmployeePrivateRoute = lazy(() => import('../employee/EmployeePrivateRoute
 const EmployeeLayout = lazy(() => import('../employee/EmployeeLayout'));
 const EmployeeLogin = lazy(() => import('../employee/pages/EmployeeLogin'));
 const EmployeeDashboard = lazy(() => import('../employee/pages/EmployeeDashboard'));
+const EmployeeLeadWorkspace = lazy(() => import('../employee/pages/LeadWorkspace'));
 
 // Client Portal
 const ClientThemeGuard = lazy(() => import('../client/ClientThemeGuard'));
@@ -102,7 +107,6 @@ const ClientForgotPassword = lazy(() => import('../client/pages/ClientForgotPass
 const ClientResetPassword = lazy(() => import('../client/pages/ClientResetPassword'));
 const ClientTempPasswordReset = lazy(() => import('../client/pages/ClientTempPasswordReset'));
 
-import AdminThemeGuard from '../admin/components/AdminThemeGuard';
 import ProtectedRoute from '../admin/components/ProtectedRoute';
 import { Outlet } from 'react-router-dom';
 
@@ -161,12 +165,9 @@ const withPermission = (Component, requiredPermission) => (
   </ProtectedRoute>
 );
 
-// Wraps all admin routes to force dark mode and isolate them from user panel theme toggles
-const AdminRoot = () => (
-  <AdminThemeGuard>
-    <Outlet />
-  </AdminThemeGuard>
-);
+// Admin routes follow the same light/dark theme toggle as the rest of the app
+// (see AdminLayout's header button) instead of being locked to dark mode.
+const AdminRoot = () => <Outlet />;
 
 export const router = createBrowserRouter([
   {
@@ -479,6 +480,22 @@ export const router = createBrowserRouter([
             element: withSuspense(LeadsManager)
           },
           {
+            path: 'leads/unassigned',
+            element: withSuspense(UnassignedLeadsManager)
+          },
+          {
+            path: 'leads/:id',
+            element: withSuspense(LeadWorkspace)
+          },
+          {
+            path: 'audit/activity',
+            element: withPermission(ActivityLog, '*')
+          },
+          {
+            path: 'audit/assignments',
+            element: withPermission(AssignmentLogManager, '*')
+          },
+          {
             path: 'lead-activity',
             element: withPermission(LeadActivity, 'leads.assign')
           },
@@ -531,6 +548,10 @@ export const router = createBrowserRouter([
               {
                 path: 'dashboard',
                 element: withSuspense(EmployeeDashboard)
+              },
+              {
+                path: 'leads/:id',
+                element: withSuspense(EmployeeLeadWorkspace)
               },
               {
                 path: '',

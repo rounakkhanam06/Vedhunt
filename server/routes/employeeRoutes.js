@@ -39,7 +39,9 @@ router.use(authMiddleware);
 // Get all employees (Admin/HR only)
 router.get('/', requirePermission('team.manage'), async (req, res) => {
   try {
-    const employees = await Employee.find({}).populate('adminId', 'isActive');
+    const employees = await Employee.find({})
+      .populate('adminId', 'isActive')
+      .populate('tasks.assignedBy', 'firstName lastName email');
     // Decrypt PAN and Aadhaar for administration view
     const decryptedEmployees = employees.map(emp => {
       const obj = emp.toObject();
@@ -237,6 +239,7 @@ router.put('/:id', requirePermission('team.manage'), async (req, res) => {
       aadhaarNumber,
       // Admin options to add tasks, goals, payslips
       newTask,
+      taskStatusUpdate,
       newGoal,
       newPayslip,
       leaveBalances
@@ -258,7 +261,15 @@ router.put('/:id', requirePermission('team.manage'), async (req, res) => {
     if (leaveBalances) employee.leaveBalances = leaveBalances;
 
     if (newTask) {
-      employee.tasks.push(newTask);
+      employee.tasks.push({ ...newTask, assignedBy: req.user._id });
+    }
+    if (taskStatusUpdate) {
+      const task = employee.tasks.id(taskStatusUpdate.taskId);
+      if (!task) {
+        return res.status(404).json({ success: false, message: 'Task not found' });
+      }
+      task.status = taskStatusUpdate.status;
+      task.completedAt = taskStatusUpdate.status === 'Completed' ? new Date() : undefined;
     }
     if (newGoal) {
       employee.performance.push(newGoal);

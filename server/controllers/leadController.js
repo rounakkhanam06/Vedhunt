@@ -1,4 +1,3 @@
-const mongoose = require('mongoose');
 const Lead = require('../models/Lead');
 const Admin = require('../models/Admin');
 const Settings = require('../models/Settings');
@@ -9,7 +8,8 @@ const { normalizePhone, normalizeEmail } = require('../utils/normalize');
 const AssignmentLog = require('../models/AssignmentLog');
 const { manualAssign, autoAssignLead } = require('../services/leadAssignment');
 const { findLeadRaw } = require('../utils/leadLookup');
-const { validateFollowUpRules } = require('../utils/followUpRules');
+const { LEAD_UPDATE_FIELDS } = require('../utils/leadStateMachine');
+const { applyLeadUpdate } = require('../services/leadLifecycle');
 
 // @desc    Submit a new lead from a landing page
 // @route   POST /api/leads
@@ -73,6 +73,9 @@ exports.createLead = async (req, res, next) => {
       utmCampaign,
       utmContent,
       utmTerm,
+      // Full original submission, captured before any dedup/assignment
+      // processing runs, so the raw request is always recoverable for audit.
+      rawPayload: req.body,
       pipelineHistory: [{
         status: 'New',
         note: 'Lead Received'
@@ -277,6 +280,51 @@ exports.assignLead = async (req, res, next) => {
   }
 };
 
+// @desc    Bulk assign leads to a BD
+// @route   POST /api/leads/bulk-assign
+// @access  Private (leads.assign)
+exports.bulkAssignLeads = async (req, res, next) => {
+  try {
+    const { leadIds, assignedTo, reason } = req.body;
+
+    if (!Array.isArray(leadIds) || leadIds.length === 0) {
+      return res.status(400).json({ success: false, message: 'No leads provided' });
+    }
+
+    if (assignedTo) {
+      const targetAdmin = await Admin.findById(assignedTo);
+      if (!targetAdmin) {
+        return res.status(400).json({ success: false, message: 'That BD account does not exist' });
+      }
+    }
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const leadId of leadIds) {
+      const lead = await manualAssign({
+        leadId,
+        toAdmin: assignedTo || null,
+        assignedBy: req.user._id,
+        reason: reason || 'Bulk Assignment'
+      });
+      if (lead) {
+        successCount++;
+      } else {
+        failCount++;
+      }
+    }
+
+    res.status(200).json({ 
+      success: true, 
+      message: `Successfully assigned ${successCount} leads. ${failCount > 0 ? `Failed to assign ${failCount} leads.` : ''}` 
+    });
+  } catch (error) {
+    logger.error('Error in bulk assigning leads:', error);
+    next(error);
+  }
+};
+
 // @desc    Assignment/reassignment audit trail for one lead
 // @route   GET /api/leads/:id/assignment-history
 // @access  Private (Admin)
@@ -301,6 +349,109 @@ exports.getAssignmentHistory = async (req, res, next) => {
   }
 };
 
+// @desc    Global assignment/reassignment audit trail (all leads)
+// @route   GET /api/leads/assignments/all
+// @access  Private (Super Admin)
+exports.getAllAssignmentLogs = async (req, res, next) => {
+  try {
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 20;
+    const startIndex = (page - 1) * limit;
+
+    const query = {};
+
+    if (req.query.leadId) {
+      // Find lead by leadId to get its ObjectId
+      const lead = await Lead.findOne({ leadId: req.query.leadId });
+      if (lead) {
+        query.lead = lead._id;
+      } else {
+        // Return empty if leadId filter doesn't match anything
+        return res.status(200).json({
+          success: true, count: 0, totalLogs: 0, totalPages: 0, currentPage: page, data: []
+        });
+      }
+    }
+
+    if (req.query.userId && req.query.userId !== 'All') {
+      query.$or = [
+        { fromAdmin: req.query.userId },
+        { toAdmin: req.query.userId },
+        { assignedBy: req.query.userId }
+      ];
+    }
+
+    const totalLogs = await AssignmentLog.countDocuments(query);
+    const logs = await AssignmentLog.find(query)
+      .sort({ createdAt: -1 })
+      .skip(startIndex)
+      .limit(limit)
+      .populate('lead', 'leadId fullName email phone')
+      .populate('fromAdmin', 'firstName lastName')
+      .populate('toAdmin', 'firstName lastName')
+      .populate('assignedBy', 'firstName lastName');
+
+    res.status(200).json({
+      success: true,
+      count: logs.length,
+      totalLogs,
+      totalPages: Math.ceil(totalLogs / limit),
+      currentPage: page,
+      data: logs
+    });
+  } catch (error) {
+    logger.error('Error fetching all assignment logs:', error);
+    next(error);
+  }
+};
+
+// @desc    Lock lead for active handling
+// @route   POST /api/leads/:id/lock
+// @access  Private
+exports.lockLead = async (req, res, next) => {
+  try {
+    const lead = await Lead.findById(req.params.id);
+    if (!lead) return res.status(404).json({ success: false, message: 'Lead not found' });
+
+    const LOCK_TIMEOUT_MS = 5 * 60 * 1000;
+    if (lead.lockedBy && String(lead.lockedBy) !== String(req.user._id)) {
+      if (lead.lockedAt && (Date.now() - new Date(lead.lockedAt).getTime()) < LOCK_TIMEOUT_MS) {
+        return res.status(409).json({ success: false, message: 'Lead is currently locked by another user.' });
+      }
+    }
+
+    lead.lockedBy = req.user._id;
+    lead.lockedAt = new Date();
+    await lead.save();
+
+    res.status(200).json({ success: true, message: 'Lead locked successfully' });
+  } catch (error) {
+    logger.error('Error locking lead:', error);
+    next(error);
+  }
+};
+
+// @desc    Unlock lead
+// @route   POST /api/leads/:id/unlock
+// @access  Private
+exports.unlockLead = async (req, res, next) => {
+  try {
+    const lead = await Lead.findById(req.params.id);
+    if (!lead) return res.status(404).json({ success: false, message: 'Lead not found' });
+
+    if (String(lead.lockedBy) === String(req.user._id) || req.user?.permissions?.includes('*')) {
+      lead.lockedBy = null;
+      lead.lockedAt = null;
+      await lead.save();
+    }
+
+    res.status(200).json({ success: true, message: 'Lead unlocked successfully' });
+  } catch (error) {
+    logger.error('Error unlocking lead:', error);
+    next(error);
+  }
+};
+
 // @desc    Update lead
 // @route   PUT /api/leads/:id
 // @access  Private (Admin)
@@ -308,12 +459,7 @@ exports.updateLead = async (req, res, next) => {
   try {
     // 'bd'/'assignedTo' are intentionally excluded — ownership changes must
     // go through POST /leads/:id/assign so every change is audit-logged.
-    let allowedUpdates = [
-      'status', 'city', 'country', 'callStartTime', 'callEndTime', 'callDuration',
-      'callDate', 'connected', 'notConnectedReason', 'interestLevel',
-      'notConvertedReason', 'remark', 'nextFollowUpDate', 'leadAgeAtCall', 'touchNumber',
-      'fullName', 'email', 'phone', 'altPhone', 'businessName', 'service'
-    ];
+    let allowedUpdates = [...LEAD_UPDATE_FIELDS, 'fullName', 'email', 'phone', 'altPhone', 'businessName', 'service'];
 
     // Field-level access control: Only Super Admins can edit core fields
     const isSuperAdmin = req.user?.permissions?.includes('*');
@@ -329,74 +475,20 @@ exports.updateLead = async (req, res, next) => {
       }
     }
 
-    // This update goes through the raw driver below (to bypass ObjectId
-    // casting), which skips the Mongoose pre-save hook that normally keeps
+    // This update goes through the raw driver (to bypass ObjectId casting),
+    // which skips the Mongoose pre-save hook that normally keeps
     // phone/altPhone/email normalized — so recompute them here whenever the
     // admin edits one, or duplicate-lead lookups would go stale for this lead.
     if ('phone' in updates) updates.phoneNormalized = normalizePhone(updates.phone);
     if ('altPhone' in updates) updates.altPhoneNormalized = normalizePhone(updates.altPhone);
     if ('email' in updates) updates.emailNormalized = normalizeEmail(updates.email);
 
-    // Bypass Mongoose casting to find the lead (handles both String and ObjectId)
-    const db = mongoose.connection.db;
-    let existingLead = await db.collection('leads').findOne({ _id: req.params.id });
-    if (!existingLead && mongoose.Types.ObjectId.isValid(req.params.id)) {
-      existingLead = await db.collection('leads').findOne({ _id: new mongoose.Types.ObjectId(req.params.id) });
+    const result = await applyLeadUpdate(req.params.id, updates, { id: req.user?._id, isSuperAdmin });
+    if (!result.ok) {
+      return res.status(result.status).json({ success: false, message: result.message });
     }
 
-    if (!existingLead) {
-      return res.status(404).json({ success: false, message: 'Lead not found' });
-    }
-
-    const followUpError = validateFollowUpRules(existingLead, updates);
-    if (followUpError) {
-      return res.status(400).json({ success: false, message: followUpError });
-    }
-
-    // Every field change worth surfacing in the lead's Activity Timeline
-    // (not just status) gets its own pipelineHistory entry.
-    const pipelineEntries = [];
-    if (updates.status && updates.status !== existingLead.status) {
-      let note = '';
-      if (updates.status === 'Won' && req.body.dealValue) note = `Closed with value ₹${req.body.dealValue}`;
-      else if ((updates.status === 'Lost' || updates.status === 'Dropped') && req.body.notConvertedReason) note = `Reason: ${req.body.notConvertedReason}`;
-      pipelineEntries.push({ status: updates.status, date: new Date(), updatedBy: req.user ? req.user._id : undefined, note });
-    }
-    if (updates.connected && updates.connected !== existingLead.connected) {
-      pipelineEntries.push({
-        status: updates.connected === 'Yes' ? 'Call connected' : 'Call not connected',
-        date: new Date(),
-        updatedBy: req.user ? req.user._id : undefined,
-        note: updates.connected === 'No' ? (updates.notConnectedReason || '') : ''
-      });
-    }
-    if (updates.interestLevel && updates.interestLevel !== existingLead.interestLevel) {
-      pipelineEntries.push({
-        status: `Interest set: ${updates.interestLevel}`,
-        date: new Date(),
-        updatedBy: req.user ? req.user._id : undefined,
-        note: ''
-      });
-    }
-
-    // Set updated At
-    updates.updatedAt = new Date();
-
-    // Use raw findOneAndUpdate to bypass ObjectId casting
-    const updateQuery = { $set: updates };
-    if (pipelineEntries.length > 0) {
-      updateQuery.$push = { pipelineHistory: { $each: pipelineEntries } };
-    }
-
-    const result = await db.collection('leads').findOneAndUpdate(
-      { _id: existingLead._id },
-      updateQuery,
-      { returnDocument: 'after' }
-    );
-    
-    const updatedLead = result.value || result;
-
-    res.status(200).json({ success: true, data: updatedLead });
+    res.status(200).json({ success: true, data: result.lead });
   } catch (error) {
     logger.error('Error updating lead:', error);
     next(error);

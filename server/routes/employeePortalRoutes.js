@@ -7,7 +7,8 @@ const SupportTicket = require('../models/SupportTicket');
 const Lead = require('../models/Lead');
 const { getMyNotifications, markRead, markAllRead } = require('../controllers/notificationController');
 const { findLeadRaw } = require('../utils/leadLookup');
-const { validateFollowUpRules } = require('../utils/followUpRules');
+const { LEAD_UPDATE_FIELDS } = require('../utils/leadStateMachine');
+const { applyLeadUpdate } = require('../services/leadLifecycle');
 const employeeAuthMiddleware = require('../middleware/employeeAuthMiddleware');
 const { encrypt, decrypt } = require('../utils/encryption');
 const logger = require('../utils/logger');
@@ -473,65 +474,40 @@ router.get('/ess/leads', async (req, res) => {
   }
 });
 
-// Call-tracking / pipeline fields only — same set the admin panel already
-// lets a non-Super-Admin touch, plus dealValue so a Won lead's revenue
-// actually gets recorded.
-const LEAD_UPDATE_FIELDS = [
-  'status', 'city', 'country', 'callStartTime', 'callEndTime', 'callDuration',
-  'callDate', 'connected', 'notConnectedReason', 'interestLevel',
-  'notConvertedReason', 'remark', 'nextFollowUpDate', 'leadAgeAtCall', 'touchNumber',
-  'dealValue'
-];
+// Get a single lead assigned to this employee — powers the Lead Workspace
+// page. Scoped to assignedTo so a BD can't fetch a lead that isn't theirs.
+router.get('/ess/leads/:id', async (req, res) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ success: false, message: 'Invalid lead id' });
+    }
+    const lead = await Lead.findOne({ _id: req.params.id, assignedTo: req.user._id });
+    if (!lead) return res.status(404).json({ success: false, message: 'Lead not found' });
 
-// Update a lead assigned to this employee. Writes through the raw driver
-// (findLeadRaw + updateOne), not lead.save() — some legacy leads have a
-// String _id instead of ObjectId, which breaks Mongoose's version-checked
-// save with a spurious VersionError (see utils/leadLookup.js).
+    res.json({ success: true, lead });
+  } catch (error) {
+    logger.error('Error fetching employee lead:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// Update a lead assigned to this employee. Goes through the shared state
+// machine in services/leadLifecycle.js (same one the admin panel's
+// leadController.updateLead uses), so gating is identical regardless of
+// which portal edits the lead.
 router.put('/ess/leads/:id', async (req, res) => {
   try {
-    const lead = await findLeadRaw(req.params.id, { assignedTo: req.user._id });
-    if (!lead) return res.status(404).json({ success: false, message: 'Lead not found or not assigned to you' });
-
     const updates = {};
     for (const key of Object.keys(req.body)) {
       if (LEAD_UPDATE_FIELDS.includes(key)) updates[key] = req.body[key];
     }
 
-    const followUpError = validateFollowUpRules(lead, updates);
-    if (followUpError) {
-      return res.status(400).json({ success: false, message: followUpError });
+    const result = await applyLeadUpdate(req.params.id, updates, { id: req.user._id }, { assignedTo: req.user._id });
+    if (!result.ok) {
+      return res.status(result.status).json({ success: false, message: result.message });
     }
 
-    // Every field change worth surfacing in the lead's Activity Timeline
-    // (not just status) gets its own pipelineHistory entry.
-    const pipelineEntries = [];
-    if (updates.status && updates.status !== lead.status) {
-      let note = '';
-      if (updates.status === 'Won' && updates.dealValue) note = `Closed with value ₹${updates.dealValue}`;
-      else if ((updates.status === 'Lost' || updates.status === 'Dropped') && updates.notConvertedReason) note = `Reason: ${updates.notConvertedReason}`;
-      pipelineEntries.push({ status: updates.status, date: new Date(), updatedBy: req.user._id, note });
-    }
-    if (updates.connected && updates.connected !== lead.connected) {
-      pipelineEntries.push({
-        status: updates.connected === 'Yes' ? 'Call connected' : 'Call not connected',
-        date: new Date(),
-        updatedBy: req.user._id,
-        note: updates.connected === 'No' ? (updates.notConnectedReason || '') : ''
-      });
-    }
-    if (updates.interestLevel && updates.interestLevel !== lead.interestLevel) {
-      pipelineEntries.push({ status: `Interest set: ${updates.interestLevel}`, date: new Date(), updatedBy: req.user._id, note: '' });
-    }
-
-    const updateQuery = { $set: { ...updates, updatedAt: new Date() } };
-    if (pipelineEntries.length > 0) {
-      updateQuery.$push = { pipelineHistory: { $each: pipelineEntries } };
-    }
-
-    await mongoose.connection.db.collection('leads').updateOne({ _id: lead._id }, updateQuery);
-    const updatedLead = { ...lead, ...updates };
-
-    res.json({ success: true, message: 'Lead updated', lead: updatedLead });
+    res.json({ success: true, message: 'Lead updated', lead: result.lead });
   } catch (error) {
     logger.error('Error updating employee lead:', error);
     res.status(500).json({ success: false, message: 'Server error' });

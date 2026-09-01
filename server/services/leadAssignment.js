@@ -68,10 +68,16 @@ async function applyAssignment(leadRef, { toAdmin, assignedBy = null, mode, reas
     }
   }
 
+  const updateFields = { assignedTo: toAdminObjectId, assignedAt, bd: bdName, updatedAt: new Date() };
+  // Clear SLA tracking if lead is now assigned
+  if (toAdminId) {
+    updateFields.unassignedSlaDeadline = null;
+  }
+
   const db = mongoose.connection.db;
   await db.collection('leads').updateOne(
     { _id: leadPlain._id },
-    { $set: { assignedTo: toAdminObjectId, assignedAt, bd: bdName, updatedAt: new Date() } }
+    { $set: updateFields }
   );
 
   await AssignmentLog.create({
@@ -113,6 +119,17 @@ async function applyAssignment(leadRef, { toAdmin, assignedBy = null, mode, reas
 async function manualAssign({ leadId, toAdmin, assignedBy, reason }) {
   const lead = await findLeadRaw(leadId);
   if (!lead) return null;
+
+  // Lock Enforcement (Temporary protection during active handling)
+  const LOCK_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+  if (lead.lockedBy && String(lead.lockedBy) !== String(assignedBy)) {
+    if (lead.lockedAt && (Date.now() - new Date(lead.lockedAt).getTime()) < LOCK_TIMEOUT_MS) {
+      const err = new Error('Lead is currently locked by another user for active handling.');
+      err.status = 409;
+      throw err;
+    }
+  }
+
   return applyAssignment(lead, { toAdmin, assignedBy, mode: 'Manual', reason });
 }
 

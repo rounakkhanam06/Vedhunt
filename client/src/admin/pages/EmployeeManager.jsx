@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
-import { Plus, Trash2, Eye, Shield, Key, FileText, Award, AlertCircle, CheckCircle, Search } from 'lucide-react';
+import { Plus, Trash2, Eye, Shield, FileText, Award, AlertCircle, CheckCircle, Search } from 'lucide-react';
 
 // ─── Validation Rules ────────────────────────────────────────────────────────
 const NAME_REGEX = /^[a-zA-Z\s'-]{2,50}$/;
@@ -55,7 +55,7 @@ function validateField(name, value) {
 // ─── Field Component ─────────────────────────────────────────────────────────
 const Field = ({ label, hint, error, touched, children }) => (
   <div>
-    <label className="block text-xs font-medium text-gray-400 mb-1">
+    <label className="block text-xs font-medium text-app-text-muted mb-1">
       {label} <span className="text-orange-500">*</span>
     </label>
     {children}
@@ -68,7 +68,7 @@ const Field = ({ label, hint, error, touched, children }) => (
         <CheckCircle size={11} className="flex-shrink-0" /> Looks good
       </p>
     ) : hint ? (
-      <p className="mt-1 text-[11px] text-gray-500">{hint}</p>
+      <p className="mt-1 text-[11px] text-app-text-muted">{hint}</p>
     ) : null}
   </div>
 );
@@ -93,9 +93,6 @@ const EmployeeManager = () => {
   const [touched, setTouched] = useState({});
 
   // Sub-action states
-  const [taskTitle, setTaskTitle] = useState('');
-  const [taskDesc, setTaskDesc] = useState('');
-  const [taskDue, setTaskDue] = useState('');
   const [payslipMonth, setPayslipMonth] = useState('June');
   const [payslipYear, setPayslipYear] = useState(new Date().getFullYear().toString());
   const [payslipBase, setPayslipBase] = useState('');
@@ -284,11 +281,7 @@ const EmployeeManager = () => {
     if (!selectedEmp) return;
     try {
       let payload = {};
-      if (type === 'task') {
-        if (!taskTitle.trim()) { toast.error('Task title is required.'); return; }
-        if (!taskDue) { toast.error('Task due date is required.'); return; }
-        payload.newTask = { title: taskTitle, description: taskDesc, dueDate: taskDue, status: 'Pending' };
-      } else if (type === 'goal') {
+      if (type === 'goal') {
         if (!goalText.trim()) { toast.error('Goal description is required.'); return; }
         if (!goalTargetDate) { toast.error('Goal target date is required.'); return; }
         payload.newGoal = { goal: goalText, targetDate: goalTargetDate, status: 'Pending' };
@@ -318,7 +311,6 @@ const EmployeeManager = () => {
         const found = updatedRes.data.employees.find(e => e._id === selectedEmp._id);
         setSelectedEmp(found);
         setEmployees(updatedRes.data.employees);
-        setTaskTitle(''); setTaskDesc(''); setTaskDue('');
         setGoalText(''); setGoalTargetDate('');
         setPayslipBase(''); setPayslipAllowance(''); setPayslipDeduction(''); setPayslipDeductionReason('');
       }
@@ -328,10 +320,10 @@ const EmployeeManager = () => {
   };
 
   const inputClass = (name) => {
-    const base = 'w-full text-sm rounded-lg border px-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:ring-1 bg-[#1e1e21] transition-colors';
+    const base = 'w-full text-sm rounded-lg border px-4 py-2.5 text-app-text placeholder-app-text-muted focus:outline-none focus:ring-1 bg-form-input-bg transition-colors';
     if (touched[name] && errors[name]) return `${base} border-rose-500/60 focus:ring-rose-500`;
     if (touched[name] && !errors[name]) return `${base} border-emerald-500/50 focus:ring-emerald-500`;
-    return `${base} border-white/10 focus:ring-orange-500`;
+    return `${base} border-app-border focus:ring-orange-500`;
   };
 
   const normalizeText = (text) => text?.toLowerCase().replace(/\s+/g, '') || '';
@@ -342,12 +334,12 @@ const EmployeeManager = () => {
   });
 
   return (
-    <div className="space-y-6 text-white bg-[#0d0d0f] p-6">
+    <div className="space-y-6 text-app-text">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-extrabold tracking-tight">HRMS Employee Directory</h1>
-          <p className="text-gray-400 text-sm mt-1">Module 15 · Create accounts, manage operations, vault documents, assign tasks.</p>
+          <p className="text-app-text-muted text-sm mt-1">Module 15 · Create accounts, manage operations, vault documents, assign tasks.</p>
         </div>
         <button
           onClick={openModal}
@@ -358,15 +350,15 @@ const EmployeeManager = () => {
       </div>
 
       {/* Filter / Search */}
-      <div className="flex items-center gap-4 bg-[#141416] p-4 rounded-xl border border-white/5">
+      <div className="flex items-center gap-4 bg-app-card p-4 rounded-xl border border-app-border">
         <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-app-text-muted" size={18} />
           <input
             type="text"
             placeholder="Search by employee name..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-[#1e1e21] border border-white/10 rounded-lg pl-10 pr-4 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-orange-500 transition-colors"
+            className="w-full bg-form-input-bg border border-app-border rounded-lg pl-10 pr-4 py-2 text-sm text-app-text placeholder-app-text-muted focus:outline-none focus:ring-1 focus:ring-orange-500 transition-colors"
           />
         </div>
       </div>
@@ -377,20 +369,20 @@ const EmployeeManager = () => {
           <div className="w-10 h-10 rounded-full border-2 border-orange-500/20 border-t-orange-500 animate-spin" />
         </div>
       ) : employees.length === 0 ? (
-        <div className="text-center py-20 bg-[#141416] rounded-xl border border-white/5">
-          <p className="text-gray-400">No employees registered yet. Click <strong>Add New Employee</strong> to get started.</p>
+        <div className="text-center py-20 bg-app-card rounded-xl border border-app-border">
+          <p className="text-app-text-muted">No employees registered yet. Click <strong>Add New Employee</strong> to get started.</p>
         </div>
       ) : filteredEmployees.length === 0 ? (
-        <div className="text-center py-20 bg-[#141416] rounded-xl border border-white/5">
-          <p className="text-gray-400">No matching employees found for "{searchQuery}".</p>
+        <div className="text-center py-20 bg-app-card rounded-xl border border-app-border">
+          <p className="text-app-text-muted">No matching employees found for "{searchQuery}".</p>
         </div>
       ) : (
         <div className="flex flex-col xl:flex-row gap-6 items-start">
           <div className="flex-1 w-full min-w-0">
-            <div className="bg-[#141416] rounded-xl border border-white/5 overflow-x-auto shadow-sm">
+            <div className="bg-app-card rounded-xl border border-app-border overflow-x-auto shadow-sm">
               <table className="w-full text-left border-collapse min-w-[600px]">
                 <thead>
-                  <tr className="border-b border-white/5 bg-[#18181b] text-gray-400 text-xs font-semibold uppercase tracking-wider">
+                  <tr className="border-b border-app-border bg-app-bg text-app-text-muted text-xs font-semibold uppercase tracking-wider">
                     <th className="px-6 py-4 whitespace-nowrap">Employee / ID</th>
                     <th className="px-6 py-4 whitespace-nowrap">Role & Dept</th>
                     <th className="px-6 py-4 whitespace-nowrap">Status</th>
@@ -398,27 +390,27 @@ const EmployeeManager = () => {
                     <th className="px-6 py-4 text-right whitespace-nowrap">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-white/5 text-sm">
+                <tbody className="divide-y divide-app-border text-sm">
                   {filteredEmployees.map(emp => (
-                    <tr key={emp._id} className="hover:bg-white/[0.02] transition-colors">
+                    <tr key={emp._id} className="hover:bg-surface-variant transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="font-bold text-white">{emp.firstName} {emp.lastName}</div>
+                        <div className="font-bold text-app-text">{emp.firstName} {emp.lastName}</div>
                         <div className="text-xs text-orange-500 font-mono mt-0.5">{emp.employeeId}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-white">{emp.roleDept}</div>
-                        <div className="text-xs text-gray-400">{emp.employmentType}</div>
+                        <div className="text-app-text">{emp.roleDept}</div>
+                        <div className="text-xs text-app-text-muted">{emp.employmentType}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium ${emp.adminId?.isActive ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>
                           {emp.adminId?.isActive ? 'Active' : 'Inactive'}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-gray-400 whitespace-nowrap">{new Date(emp.joinDate).toLocaleDateString()}</td>
+                      <td className="px-6 py-4 text-app-text-muted whitespace-nowrap">{new Date(emp.joinDate).toLocaleDateString()}</td>
                       <td className="px-6 py-4 text-right space-x-2 whitespace-nowrap">
                         <button
                           onClick={() => { setSelectedEmp(emp); setIsDetailOpen(true); }}
-                          className="p-2 bg-white/5 hover:bg-white/10 rounded-lg text-gray-300 hover:text-white transition-all cursor-pointer"
+                          className="p-2 bg-surface-variant hover:bg-app-border rounded-lg text-app-text-muted hover:text-app-text transition-all cursor-pointer"
                           title="Manage"
                         >
                           <Eye size={16} />
@@ -440,18 +432,18 @@ const EmployeeManager = () => {
 
           {/* Detail Panel */}
           {isDetailOpen && selectedEmp && (
-            <div className="w-full xl:w-[420px] flex-shrink-0 bg-[#141416] p-6 rounded-xl border border-white/5 space-y-6 overflow-y-auto max-h-[85vh] sticky top-6 shadow-xl">
-              <div className="flex justify-between items-start border-b border-white/5 pb-4">
+            <div className="w-full xl:w-[420px] flex-shrink-0 bg-app-card p-6 rounded-xl border border-app-border space-y-6 overflow-y-auto max-h-[85vh] sticky top-6 shadow-xl">
+              <div className="flex justify-between items-start border-b border-app-border pb-4">
                 <div>
                   <h2 className="text-xl font-bold">{selectedEmp.firstName} {selectedEmp.lastName}</h2>
                   <div className="text-xs text-orange-500 font-mono mt-0.5">{selectedEmp.employeeId}</div>
                 </div>
-                <button onClick={() => setIsDetailOpen(false)} className="text-gray-400 hover:text-white text-xs cursor-pointer">Close ✕</button>
+                <button onClick={() => setIsDetailOpen(false)} className="text-app-text-muted hover:text-app-text text-xs cursor-pointer">Close ✕</button>
               </div>
 
               <div className="bg-orange-500/5 border border-orange-500/10 rounded-xl p-4 space-y-2">
                 <div className="flex items-center gap-2 text-orange-500 font-bold text-sm"><Shield size={16} /> Credentials & Vault</div>
-                <div className="text-xs space-y-1 text-gray-300 font-mono">
+                <div className="text-xs space-y-1 text-app-text-muted font-mono">
                   {selectedEmp.tempPassword && (
                     <div className="mb-2 pb-2 border-b border-orange-500/10">
                       <span className="text-orange-400 font-semibold">Password:</span> {selectedEmp.tempPassword}
@@ -462,78 +454,60 @@ const EmployeeManager = () => {
                 </div>
               </div>
 
-              <div className="text-xs space-y-2 border-b border-white/5 pb-4 text-gray-400">
-                <div className="flex justify-between"><span>CTC:</span><span className="font-bold text-white">₹{selectedEmp.salaryCTC?.toLocaleString()}</span></div>
-                <div className="flex justify-between"><span>Type:</span><span className="font-bold text-white">{selectedEmp.employmentType}</span></div>
-                <div className="flex justify-between"><span>Email:</span><span className="font-bold text-white">{selectedEmp.email}</span></div>
-                <div className="flex justify-between"><span>Phone:</span><span className="font-bold text-white">{selectedEmp.phone || 'N/A'}</span></div>
-                <div className="flex justify-between"><span>Leaves Used:</span><span className="font-bold text-white">CL: {selectedEmp.leavesUsed?.CL || 0}, SL: {selectedEmp.leavesUsed?.SL || 0}, PL: {selectedEmp.leavesUsed?.PL || 0}</span></div>
+              <div className="text-xs space-y-2 border-b border-app-border pb-4 text-app-text-muted">
+                <div className="flex justify-between"><span>CTC:</span><span className="font-bold text-app-text">₹{selectedEmp.salaryCTC?.toLocaleString()}</span></div>
+                <div className="flex justify-between"><span>Type:</span><span className="font-bold text-app-text">{selectedEmp.employmentType}</span></div>
+                <div className="flex justify-between"><span>Email:</span><span className="font-bold text-app-text">{selectedEmp.email}</span></div>
+                <div className="flex justify-between"><span>Phone:</span><span className="font-bold text-app-text">{selectedEmp.phone || 'N/A'}</span></div>
+                <div className="flex justify-between"><span>Leaves Used:</span><span className="font-bold text-app-text">CL: {selectedEmp.leavesUsed?.CL || 0}, SL: {selectedEmp.leavesUsed?.SL || 0}, PL: {selectedEmp.leavesUsed?.PL || 0}</span></div>
               </div>
 
               {/* Update Leave Balance */}
               <div className="space-y-3">
-                <h3 className="text-sm font-bold text-gray-300 flex items-center gap-1.5">Update Leave Balances</h3>
+                <h3 className="text-sm font-bold text-app-text-muted flex items-center gap-1.5">Update Leave Balances</h3>
                 <div className="flex gap-2">
-                  <input type="number" placeholder="CL" title="Casual Leave" className="w-16 text-xs rounded-lg border border-white/10 bg-[#1e1e21] px-2 py-2 text-white placeholder-gray-500 focus:outline-none" value={newCL} onChange={e => setNewCL(e.target.value)} />
-                  <input type="number" placeholder="SL" title="Sick Leave" className="w-16 text-xs rounded-lg border border-white/10 bg-[#1e1e21] px-2 py-2 text-white placeholder-gray-500 focus:outline-none" value={newSL} onChange={e => setNewSL(e.target.value)} />
-                  <input type="number" placeholder="PL" title="Paid Leave" className="w-16 text-xs rounded-lg border border-white/10 bg-[#1e1e21] px-2 py-2 text-white placeholder-gray-500 focus:outline-none" value={newPL} onChange={e => setNewPL(e.target.value)} />
+                  <input type="number" placeholder="CL" title="Casual Leave" className="w-16 text-xs rounded-lg border border-app-border bg-form-input-bg px-2 py-2 text-app-text placeholder-app-text-muted focus:outline-none" value={newCL} onChange={e => setNewCL(e.target.value)} />
+                  <input type="number" placeholder="SL" title="Sick Leave" className="w-16 text-xs rounded-lg border border-app-border bg-form-input-bg px-2 py-2 text-app-text placeholder-app-text-muted focus:outline-none" value={newSL} onChange={e => setNewSL(e.target.value)} />
+                  <input type="number" placeholder="PL" title="Paid Leave" className="w-16 text-xs rounded-lg border border-app-border bg-form-input-bg px-2 py-2 text-app-text placeholder-app-text-muted focus:outline-none" value={newPL} onChange={e => setNewPL(e.target.value)} />
                   <button onClick={() => handleAddSubItem('leaveBalances')} className="px-4 rounded-lg bg-orange-600/20 text-orange-400 border border-orange-500/20 text-xs font-semibold hover:bg-orange-600 hover:text-white transition-all cursor-pointer">Update</button>
                 </div>
               </div>
 
-              {/* Issue Task */}
-              <div className="space-y-3">
-                <h3 className="text-sm font-bold text-gray-300 flex items-center gap-1.5"><Key size={14} /> Issue Task</h3>
-                <div>
-                  <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Task Title *</label>
-                  <input type="text" placeholder="e.g. Design Homepage" className="w-full text-xs rounded-lg border border-white/10 bg-[#1e1e21] px-3 py-2 text-white placeholder-gray-500 focus:outline-none" value={taskTitle} onChange={e => setTaskTitle(e.target.value)} />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Task Description</label>
-                  <textarea placeholder="Provide detailed instructions..." className="w-full text-xs rounded-lg border border-white/10 bg-[#1e1e21] px-3 py-2 text-white placeholder-gray-500 focus:outline-none h-16" value={taskDesc} onChange={e => setTaskDesc(e.target.value)} />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Due Date *</label>
-                  <input type="date" className="w-full text-xs rounded-lg border border-white/10 bg-[#1e1e21] px-3 py-2 text-white focus:outline-none" value={taskDue} onChange={e => setTaskDue(e.target.value)} />
-                </div>
-                <button onClick={() => handleAddSubItem('task')} className="w-full mt-1 py-1.5 rounded-lg bg-orange-600/20 text-orange-400 border border-orange-500/20 text-xs font-semibold hover:bg-orange-600 hover:text-white transition-all cursor-pointer">Assign Task</button>
-              </div>
-
               {/* Add Goal */}
               <div className="space-y-3">
-                <h3 className="text-sm font-bold text-gray-300 flex items-center gap-1.5"><Award size={14} /> Performance Goal</h3>
+                <h3 className="text-sm font-bold text-app-text-muted flex items-center gap-1.5"><Award size={14} /> Performance Goal</h3>
                 <div>
-                  <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Goal Description *</label>
-                  <input type="text" placeholder="e.g. Increase sales by 10%" className="w-full text-xs rounded-lg border border-white/10 bg-[#1e1e21] px-3 py-2 text-white placeholder-gray-500 focus:outline-none" value={goalText} onChange={e => setGoalText(e.target.value)} />
+                  <label className="block text-[10px] font-semibold text-app-text-muted uppercase tracking-wider mb-1">Goal Description *</label>
+                  <input type="text" placeholder="e.g. Increase sales by 10%" className="w-full text-xs rounded-lg border border-app-border bg-form-input-bg px-3 py-2 text-app-text placeholder-app-text-muted focus:outline-none" value={goalText} onChange={e => setGoalText(e.target.value)} />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Target Achievement Date *</label>
-                  <input type="date" className="w-full text-xs rounded-lg border border-white/10 bg-[#1e1e21] px-3 py-2 text-white focus:outline-none" value={goalTargetDate} onChange={e => setGoalTargetDate(e.target.value)} />
+                  <label className="block text-[10px] font-semibold text-app-text-muted uppercase tracking-wider mb-1">Target Achievement Date *</label>
+                  <input type="date" className="w-full text-xs rounded-lg border border-app-border bg-form-input-bg px-3 py-2 text-app-text focus:outline-none" value={goalTargetDate} onChange={e => setGoalTargetDate(e.target.value)} />
                 </div>
                 <button onClick={() => handleAddSubItem('goal')} className="w-full mt-1 py-1.5 rounded-lg bg-orange-600/20 text-orange-400 border border-orange-500/20 text-xs font-semibold hover:bg-orange-600 hover:text-white transition-all cursor-pointer">Assign Goal</button>
               </div>
 
               {/* Generate Payslip */}
               <div className="space-y-3">
-                <h3 className="text-sm font-bold text-gray-300 flex items-center gap-1.5"><FileText size={14} /> Generate Payslip</h3>
+                <h3 className="text-sm font-bold text-app-text-muted flex items-center gap-1.5"><FileText size={14} /> Generate Payslip</h3>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Month *</label>
-                    <select className="w-full text-xs rounded-lg border border-white/10 bg-[#1e1e21] p-2 text-white focus:outline-none" value={payslipMonth} onChange={e => setPayslipMonth(e.target.value)}>
+                    <label className="block text-[10px] font-semibold text-app-text-muted uppercase tracking-wider mb-1">Month *</label>
+                    <select className="w-full text-xs rounded-lg border border-app-border bg-form-input-bg p-2 text-app-text focus:outline-none" value={payslipMonth} onChange={e => setPayslipMonth(e.target.value)}>
                       {['January','February','March','April','May','June','July','August','September','October','November','December'].map(m => <option key={m}>{m}</option>)}
                     </select>
                   </div>
                   <div>
-                    <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Year *</label>
-                    <input type="number" placeholder="YYYY" className="w-full text-xs rounded-lg border border-white/10 bg-[#1e1e21] p-2 text-white placeholder-gray-500 focus:outline-none" value={payslipYear} onChange={e => setPayslipYear(e.target.value)} />
+                    <label className="block text-[10px] font-semibold text-app-text-muted uppercase tracking-wider mb-1">Year *</label>
+                    <input type="number" placeholder="YYYY" className="w-full text-xs rounded-lg border border-app-border bg-form-input-bg p-2 text-app-text placeholder-app-text-muted focus:outline-none" value={payslipYear} onChange={e => setPayslipYear(e.target.value)} />
                   </div>
                 </div>
                 <div className="flex justify-between items-end gap-2">
                   <div className="flex-1">
-                    <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Base Salary (₹) *</label>
-                    <input type="number" placeholder="e.g. 50000" className="w-full text-xs rounded-lg border border-white/10 bg-[#1e1e21] px-3 py-2 text-white placeholder-gray-500 focus:outline-none" value={payslipBase} onChange={e => setPayslipBase(e.target.value)} />
+                    <label className="block text-[10px] font-semibold text-app-text-muted uppercase tracking-wider mb-1">Base Salary (₹) *</label>
+                    <input type="number" placeholder="e.g. 50000" className="w-full text-xs rounded-lg border border-app-border bg-form-input-bg px-3 py-2 text-app-text placeholder-app-text-muted focus:outline-none" value={payslipBase} onChange={e => setPayslipBase(e.target.value)} />
                   </div>
-                  <button 
+                  <button
                     onClick={handleAutoCalculateSalary}
                     disabled={isCalculatingSalary}
                     className="py-2 px-3 rounded-lg bg-blue-600/20 text-blue-400 border border-blue-500/20 text-xs font-semibold hover:bg-blue-600 hover:text-white transition-all cursor-pointer whitespace-nowrap"
@@ -543,18 +517,18 @@ const EmployeeManager = () => {
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Allowances (₹)</label>
-                    <input type="number" placeholder="e.g. 2000" className="w-full text-xs rounded-lg border border-white/10 bg-[#1e1e21] px-3 py-2 text-white placeholder-gray-500 focus:outline-none" value={payslipAllowance} onChange={e => setPayslipAllowance(e.target.value)} />
+                    <label className="block text-[10px] font-semibold text-app-text-muted uppercase tracking-wider mb-1">Allowances (₹)</label>
+                    <input type="number" placeholder="e.g. 2000" className="w-full text-xs rounded-lg border border-app-border bg-form-input-bg px-3 py-2 text-app-text placeholder-app-text-muted focus:outline-none" value={payslipAllowance} onChange={e => setPayslipAllowance(e.target.value)} />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Deductions (₹)</label>
-                    <input type="number" placeholder="e.g. 500" className="w-full text-xs rounded-lg border border-white/10 bg-[#1e1e21] px-3 py-2 text-white placeholder-gray-500 focus:outline-none" value={payslipDeduction} onChange={e => setPayslipDeduction(e.target.value)} />
+                    <label className="block text-[10px] font-semibold text-app-text-muted uppercase tracking-wider mb-1">Deductions (₹)</label>
+                    <input type="number" placeholder="e.g. 500" className="w-full text-xs rounded-lg border border-app-border bg-form-input-bg px-3 py-2 text-app-text placeholder-app-text-muted focus:outline-none" value={payslipDeduction} onChange={e => setPayslipDeduction(e.target.value)} />
                   </div>
                 </div>
                 {Number(payslipDeduction) > 0 && (
                   <div>
-                    <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Deduction Reason *</label>
-                    <input type="text" placeholder="e.g. Leave without pay" className="w-full text-xs rounded-lg border border-white/10 bg-[#1e1e21] px-3 py-2 text-white placeholder-gray-500 focus:outline-none" value={payslipDeductionReason} onChange={e => setPayslipDeductionReason(e.target.value)} />
+                    <label className="block text-[10px] font-semibold text-app-text-muted uppercase tracking-wider mb-1">Deduction Reason *</label>
+                    <input type="text" placeholder="e.g. Leave without pay" className="w-full text-xs rounded-lg border border-app-border bg-form-input-bg px-3 py-2 text-app-text placeholder-app-text-muted focus:outline-none" value={payslipDeductionReason} onChange={e => setPayslipDeductionReason(e.target.value)} />
                   </div>
                 )}
                 {payslipBase && (
@@ -568,17 +542,17 @@ const EmployeeManager = () => {
 
               {/* Existing Payslips */}
               {selectedEmp.payslips && selectedEmp.payslips.length > 0 && (
-                <div className="space-y-3 mt-6 border-t border-white/10 pt-4">
-                  <h3 className="text-sm font-bold text-gray-300 flex items-center gap-1.5"><FileText size={14} /> Issued Payslips</h3>
+                <div className="space-y-3 mt-6 border-t border-app-border pt-4">
+                  <h3 className="text-sm font-bold text-app-text-muted flex items-center gap-1.5"><FileText size={14} /> Issued Payslips</h3>
                   <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
                     {selectedEmp.payslips.slice().reverse().map((slip, idx) => (
-                      <div key={idx} className="bg-[#1e1e21] p-3 rounded-lg border border-white/5 text-xs">
-                        <div className="flex justify-between items-center mb-2 border-b border-white/5 pb-2">
-                          <span className="font-bold text-white">{slip.month} {slip.year}</span>
+                      <div key={idx} className="bg-form-input-bg p-3 rounded-lg border border-app-border text-xs">
+                        <div className="flex justify-between items-center mb-2 border-b border-app-border pb-2">
+                          <span className="font-bold text-app-text">{slip.month} {slip.year}</span>
                           <span className="bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded font-medium">{slip.status}</span>
                         </div>
-                        <div className="grid grid-cols-2 gap-2 text-gray-400">
-                          <div>Basic: <span className="text-gray-200">₹{slip.baseSalary.toLocaleString()}</span></div>
+                        <div className="grid grid-cols-2 gap-2 text-app-text-muted">
+                          <div>Basic: <span className="text-app-text">₹{slip.baseSalary.toLocaleString()}</span></div>
                           <div>Net Pay: <span className="text-orange-400 font-bold">₹{slip.netPay.toLocaleString()}</span></div>
                           {slip.allowance > 0 && <div className="text-emerald-400">Allowance: +₹{slip.allowance.toLocaleString()}</div>}
                           {slip.deduction > 0 && <div className="col-span-2 text-rose-400">Deduction: -₹{slip.deduction.toLocaleString()} {slip.deductionReason ? `(${slip.deductionReason})` : ''}</div>}
@@ -599,15 +573,15 @@ const EmployeeManager = () => {
           className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
           onClick={(e) => { if (e.target === e.currentTarget) closeModal(); }}
         >
-          <div className="bg-[#141416] border border-white/8 rounded-2xl w-full max-w-lg shadow-2xl text-white flex flex-col max-h-[90vh]">
+          <div className="bg-app-card border border-app-border rounded-2xl w-full max-w-lg shadow-2xl text-app-text flex flex-col max-h-[90vh]">
 
             {/* Modal Header */}
-            <div className="flex justify-between items-center px-6 py-4 border-b border-white/5 bg-[#18181b] rounded-t-2xl flex-shrink-0">
+            <div className="flex justify-between items-center px-6 py-4 border-b border-app-border bg-app-bg rounded-t-2xl flex-shrink-0">
               <div>
-                <h2 className="text-lg font-bold text-white">Add New Employee</h2>
-                <p className="text-xs text-gray-400 mt-0.5">Fill all fields carefully. PAN & Aadhaar will be encrypted.</p>
+                <h2 className="text-lg font-bold text-app-text">Add New Employee</h2>
+                <p className="text-xs text-app-text-muted mt-0.5">Fill all fields carefully. PAN & Aadhaar will be encrypted.</p>
               </div>
-              <button onClick={closeModal} className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-all cursor-pointer text-lg leading-none">&times;</button>
+              <button onClick={closeModal} className="w-8 h-8 flex items-center justify-center rounded-lg text-app-text-muted hover:text-app-text hover:bg-surface-variant transition-all cursor-pointer text-lg leading-none">&times;</button>
             </div>
 
             {/* Scrollable Form Body */}
@@ -675,10 +649,10 @@ const EmployeeManager = () => {
                     />
                   </Field>
                   <div>
-                    <label className="block text-xs font-medium text-gray-400 mb-1">Employment Type <span className="text-orange-500">*</span></label>
+                    <label className="block text-xs font-medium text-app-text-muted mb-1">Employment Type <span className="text-orange-500">*</span></label>
                     <select
                       name="employmentType"
-                      className="w-full text-sm rounded-lg border border-white/10 bg-[#1e1e21] p-2.5 text-white focus:outline-none focus:ring-1 focus:ring-orange-500"
+                      className="w-full text-sm rounded-lg border border-app-border bg-form-input-bg p-2.5 text-app-text focus:outline-none focus:ring-1 focus:ring-orange-500"
                       value={form.employmentType}
                       onChange={handleChange}
                     >
@@ -752,11 +726,11 @@ const EmployeeManager = () => {
               </div>
 
               {/* Modal Footer */}
-              <div className="flex gap-3 px-6 py-4 border-t border-white/5 bg-[#18181b] rounded-b-2xl flex-shrink-0">
+              <div className="flex gap-3 px-6 py-4 border-t border-app-border bg-app-bg rounded-b-2xl flex-shrink-0">
                 <button
                   type="button"
                   onClick={closeModal}
-                  className="flex-1 px-4 py-2.5 rounded-lg border border-white/10 text-gray-300 hover:bg-white/5 hover:text-white transition-all cursor-pointer text-sm"
+                  className="flex-1 px-4 py-2.5 rounded-lg border border-app-border text-app-text-muted hover:bg-surface-variant hover:text-app-text transition-all cursor-pointer text-sm"
                 >
                   Cancel
                 </button>

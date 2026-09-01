@@ -1,30 +1,35 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mail, Phone, Clock, Globe, Briefcase, CheckCircle2, Play, Square, AlertCircle, X, Check, XCircle } from 'lucide-react';
+import { Mail, Phone, Clock, Globe, Briefcase, CheckCircle2, Play, Square, XCircle } from 'lucide-react';
+import StageDataModal from './StageDataModal';
 
 const COLUMNS = [
   { id: 'Received', title: 'Received', statuses: ['New'], color: 'border-blue-500/30 bg-blue-500/5', headerColor: 'text-blue-500' },
   { id: 'Calling', title: 'Calling', statuses: ['Contacted'], color: 'border-amber-500/30 bg-amber-500/5', headerColor: 'text-amber-500' },
   { id: 'Proposal', title: 'Proposal', statuses: ['Qualified', 'Proposal Sent'], color: 'border-purple-500/30 bg-purple-500/5', headerColor: 'text-purple-500' },
   { id: 'Negotiation', title: 'Negotiation', statuses: ['Negotiation'], color: 'border-pink-500/30 bg-pink-500/5', headerColor: 'text-pink-500' },
+  { id: 'Hold', title: 'Hold', statuses: ['Hold'], color: 'border-slate-500/30 bg-slate-500/5', headerColor: 'text-slate-400' },
   { id: 'WonLost', title: 'Won / Lost', statuses: ['Won', 'Lost', 'Dropped'], color: 'border-emerald-500/30 bg-emerald-500/5', headerColor: 'text-emerald-500' }
 ];
 
-export default function LeadsPipelineView({ 
-  leads, 
-  isSuperAdmin, 
-  handleFieldChange, 
-  startCall, 
-  endCall, 
-  setSelectedLead 
+export default function LeadsPipelineView({
+  leads,
+  isSuperAdmin,
+  handleFieldChange,
+  handleFieldsChange,
+  startCall,
+  endCall,
+  onOpenLead,
+  handleAssign,
+  bds,
+  canAssign
 }) {
   const [draggedLeadId, setDraggedLeadId] = useState(null);
-  
-  // Won/Lost Resolution Modal State
-  const [resolutionModal, setResolutionModal] = useState({
-    isOpen: false,
-    lead: null
-  });
+
+  // Two-step Won/Lost flow: pick which outcome first, then StageDataModal
+  // below collects that outcome's mandatory fields.
+  const [wonLostChoice, setWonLostChoice] = useState(null); // { lead } | null
+  const [stageModal, setStageModal] = useState(null); // { lead, targetStatus } | null
 
   const handleDragStart = (e, leadId) => {
     setDraggedLeadId(leadId);
@@ -50,9 +55,9 @@ export default function LeadsPipelineView({
     e.preventDefault();
     const leadId = e.dataTransfer.getData('leadId');
     const column = COLUMNS.find(c => c.id === columnId);
-    
+
     if (!leadId || !column) return;
-    
+
     const lead = leads.find(l => l._id === leadId);
     if (!lead) return;
 
@@ -62,37 +67,31 @@ export default function LeadsPipelineView({
       return;
     }
 
+    // Stages that need mandatory companion data (proposal value, deal value,
+    // a reason, a hold reason) open StageDataModal so it all travels in one
+    // combined update — server/utils/leadStateMachine.js rejects a bare
+    // status change into any of these. Stages with no extra data requirement
+    // (New/Contacted/Qualified) apply directly.
     if (columnId === 'WonLost') {
-      // Trigger the resolution modal instead of immediately changing status
-      setResolutionModal({ isOpen: true, lead });
+      setWonLostChoice({ lead });
+    } else if (columnId === 'Hold') {
+      setStageModal({ lead, targetStatus: 'Hold' });
+    } else if (columnId === 'Proposal' && lead.status === 'Qualified') {
+      setStageModal({ lead, targetStatus: 'Proposal Sent' });
     } else {
       // Default to the first status in the column mapping
       const newStatus = column.statuses[0];
       handleFieldChange(leadId, 'status', newStatus);
     }
-    
+
     setDraggedLeadId(null);
   };
 
-  const handleResolutionSubmit = async (outcome, dealValue, notConvertedReason) => {
-    const lead = resolutionModal.lead;
+  const handleStageModalSubmit = async (fields) => {
+    const lead = stageModal?.lead;
     if (!lead) return;
-
-    // Wait for the status change to ensure sequential updates if necessary, 
-    // but our handleFieldChange wraps standard api.put so it's asynchronous.
-    if (outcome === 'Won') {
-      await handleFieldChange(lead._id, 'status', 'Won');
-      if (dealValue) {
-         await handleFieldChange(lead._id, 'dealValue', Number(dealValue));
-      }
-    } else {
-      await handleFieldChange(lead._id, 'status', 'Lost');
-      if (notConvertedReason) {
-         await handleFieldChange(lead._id, 'notConvertedReason', notConvertedReason);
-      }
-    }
-    
-    setResolutionModal({ isOpen: false, lead: null });
+    await handleFieldsChange(lead._id, fields);
+    setStageModal(null);
   };
 
   // Group leads by column
@@ -174,7 +173,15 @@ export default function LeadsPipelineView({
                       {/* Card Header: ID & Platform */}
                       <div className="flex items-start justify-between mb-2">
                         <div className="flex flex-col">
-                          <span className="text-[10px] font-mono text-primary font-bold">{lead.leadId || 'N/A'}</span>
+                          <div className="flex items-center gap-1">
+                            <span className="text-[10px] font-mono text-primary font-bold">{lead.leadId || 'N/A'}</span>
+                            {!lead.assignedTo && lead.unassignedSlaDeadline && new Date(lead.unassignedSlaDeadline) < new Date() && (
+                              <span title="SLA Breached (Unassigned)" className="text-red-500 text-[10px]">⚠️</span>
+                            )}
+                            {lead.lockedBy && (
+                              <span title="Locked for active handling" className="text-amber-500 text-[10px]">🔒</span>
+                            )}
+                          </div>
                           <span className="text-[10px] text-app-text-muted">
                             {new Date(lead.createdAt).toLocaleDateString()}
                           </span>
@@ -194,7 +201,7 @@ export default function LeadsPipelineView({
                       <div className="mb-3">
                         <h4 
                           className="font-bold text-sm text-app-text cursor-pointer hover:text-primary transition-colors truncate"
-                          onClick={() => setSelectedLead(lead)}
+                          onClick={() => onOpenLead(lead)}
                         >
                           {lead.fullName}
                         </h4>
@@ -213,6 +220,21 @@ export default function LeadsPipelineView({
                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium bg-app-bg border border-app-border text-app-text-muted">
                             {lead.service}
                          </span>
+                         {lead.source && (
+                           <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium bg-app-bg border border-app-border text-app-text-muted">
+                              {lead.source}
+                           </span>
+                         )}
+                         {lead.interestLevel && (
+                           <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium bg-blue-500/10 border border-blue-500/20 text-blue-500">
+                              {lead.interestLevel}
+                           </span>
+                         )}
+                         {lead.dealValue > 0 && (
+                           <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium bg-emerald-500/10 border border-emerald-500/20 text-emerald-500">
+                              ₹{lead.dealValue.toLocaleString()}
+                           </span>
+                         )}
                          {lead.status === 'Won' && (
                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-green-500/10 border border-green-500/20 text-green-500">
                               Won
@@ -245,8 +267,22 @@ export default function LeadsPipelineView({
                              </button>
                            )}
                         </div>
-                        <div className="text-[10px] text-app-text-muted font-medium">
-                           {lead.bd ? `BD: ${lead.bd}` : 'Unassigned'}
+                        <div className="text-[10px] text-app-text-muted font-medium flex items-center">
+                           {canAssign && !lead.lockedBy && !['Won', 'Lost', 'Dropped'].includes(lead.status) ? (
+                             <select
+                               value={lead.assignedTo?._id || lead.assignedTo || ''}
+                               onClick={(e) => e.stopPropagation()}
+                               onChange={(e) => handleAssign(lead._id, e.target.value)}
+                               className="bg-app-bg border border-app-border rounded px-1.5 py-1 text-app-text focus:outline-none focus:border-primary cursor-pointer w-[100px] truncate"
+                             >
+                               <option value="">Unassigned</option>
+                               {bds?.map(bd => (
+                                 <option key={bd._id} value={bd._id}>{bd.firstName} {bd.lastName}</option>
+                               ))}
+                             </select>
+                           ) : (
+                             <span>{lead.bd ? `BD: ${lead.bd}` : 'Unassigned'}</span>
+                           )}
                         </div>
                       </div>
                     </motion.div>
@@ -258,130 +294,47 @@ export default function LeadsPipelineView({
         );
       })}
 
-      {/* Won/Lost Resolution Modal */}
-      {resolutionModal.isOpen && (
-        <ResolutionModal 
-          lead={resolutionModal.lead} 
-          onClose={() => setResolutionModal({ isOpen: false, lead: null })}
-          onSubmit={handleResolutionSubmit}
+      {/* Won/Lost: pick the outcome first, then StageDataModal below collects
+          that outcome's mandatory fields (deal value, or a reason). */}
+      {wonLostChoice && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            className="bg-app-card border border-app-border rounded-xl shadow-xl w-full max-w-md overflow-hidden p-5"
+          >
+            <p className="text-sm text-app-text-muted mb-4 text-center">
+              How did it go with <strong className="text-app-text">{wonLostChoice.lead.fullName}</strong>?
+            </p>
+            <div className="flex gap-3 justify-center mb-2">
+              <button
+                onClick={() => { setStageModal({ lead: wonLostChoice.lead, targetStatus: 'Won' }); setWonLostChoice(null); }}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-lg border-2 font-bold transition-all bg-app-bg border-app-border text-app-text-muted hover:border-green-500/50 hover:text-green-500"
+              >
+                <CheckCircle2 size={18} /> Mark as Won 🎉
+              </button>
+              <button
+                onClick={() => { setStageModal({ lead: wonLostChoice.lead, targetStatus: 'Lost' }); setWonLostChoice(null); }}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-lg border-2 font-bold transition-all bg-app-bg border-app-border text-app-text-muted hover:border-red-500/50 hover:text-red-500"
+              >
+                <XCircle size={18} /> Mark as Lost
+              </button>
+            </div>
+            <button onClick={() => setWonLostChoice(null)} className="w-full mt-2 px-4 py-2 text-sm font-medium text-app-text-muted hover:text-app-text transition-colors">
+              Cancel
+            </button>
+          </motion.div>
+        </div>
+      )}
+
+      {stageModal && (
+        <StageDataModal
+          lead={stageModal.lead}
+          targetStatus={stageModal.targetStatus}
+          onClose={() => setStageModal(null)}
+          onSubmit={handleStageModalSubmit}
         />
       )}
-    </div>
-  );
-}
-
-function ResolutionModal({ lead, onClose, onSubmit }) {
-  const [outcome, setOutcome] = useState('Won'); // 'Won' or 'Lost'
-  const [dealValue, setDealValue] = useState(lead?.dealValue || '');
-  const [notConvertedReason, setNotConvertedReason] = useState(lead?.notConvertedReason || '');
-
-  return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-       <motion.div 
-          initial={{ opacity: 0, scale: 0.95, y: 20 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          className="bg-app-card border border-app-border rounded-xl shadow-xl w-full max-w-md overflow-hidden"
-       >
-          <div className="p-4 border-b border-app-border flex justify-between items-center bg-app-card">
-            <h2 className="text-lg font-bold text-app-text flex items-center gap-2">
-              Resolve Lead
-            </h2>
-            <button onClick={onClose} className="p-1.5 text-app-text-muted hover:text-app-text hover:bg-app-bg rounded-lg transition-colors">
-              <X size={18} />
-            </button>
-          </div>
-          
-          <div className="p-5 space-y-6">
-             <div className="text-center">
-                <p className="text-sm text-app-text-muted mb-4">How did it go with <strong className="text-app-text">{lead?.fullName}</strong>?</p>
-                <div className="flex gap-3 justify-center">
-                   <button 
-                     onClick={() => setOutcome('Won')}
-                     className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border-2 font-bold transition-all ${
-                       outcome === 'Won' 
-                       ? 'bg-green-500/10 border-green-500 text-green-500' 
-                       : 'bg-app-bg border-app-border text-app-text-muted hover:border-green-500/50 hover:text-green-500'
-                     }`}
-                   >
-                     <CheckCircle2 size={18} /> Mark as Won 🎉
-                   </button>
-                   <button 
-                     onClick={() => setOutcome('Lost')}
-                     className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border-2 font-bold transition-all ${
-                       outcome === 'Lost' 
-                       ? 'bg-red-500/10 border-red-500 text-red-500' 
-                       : 'bg-app-bg border-app-border text-app-text-muted hover:border-red-500/50 hover:text-red-500'
-                     }`}
-                   >
-                     <XCircle size={18} /> Mark as Lost
-                   </button>
-                </div>
-             </div>
-
-             <div className="space-y-4">
-                <AnimatePresence mode="wait">
-                  {outcome === 'Won' ? (
-                    <motion.div
-                      key="won-form"
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                      className="space-y-2 overflow-hidden"
-                    >
-                       <label className="text-xs font-bold text-app-text-muted uppercase tracking-wider">Final Deal Value (₹)</label>
-                       <input 
-                         type="number"
-                         value={dealValue}
-                         onChange={(e) => setDealValue(e.target.value)}
-                         placeholder="e.g. 50000"
-                         className="w-full bg-app-bg border border-app-border rounded-lg px-4 py-2.5 text-sm text-app-text focus:outline-none focus:border-primary transition-colors"
-                       />
-                       <p className="text-[10px] text-emerald-500/80 mt-1">Awesome! Closing deals drives growth. 🚀</p>
-                    </motion.div>
-                  ) : (
-                    <motion.div
-                      key="lost-form"
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                      className="space-y-2 overflow-hidden"
-                    >
-                       <label className="text-xs font-bold text-app-text-muted uppercase tracking-wider">Reason for Loss</label>
-                       <select 
-                          value={notConvertedReason}
-                          onChange={(e) => setNotConvertedReason(e.target.value)}
-                          className="w-full bg-app-bg border border-app-border rounded-lg px-4 py-2.5 text-sm text-app-text focus:outline-none focus:border-primary transition-colors cursor-pointer appearance-none"
-                       >
-                          <option value="">-Select Reason-</option>
-                          <option value="Too Expensive">Too Expensive</option>
-                          <option value="Went with Competitor">Went with Competitor</option>
-                          <option value="No Longer Needs Service">No Longer Needs Service</option>
-                          <option value="Unresponsive">Unresponsive</option>
-                          <option value="Not a Fit">Not a Fit</option>
-                          <option value="Timing Not Right">Timing Not Right</option>
-                          <option value="Other">Other</option>
-                       </select>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-             </div>
-          </div>
-
-          <div className="p-4 border-t border-app-border flex justify-end gap-3 bg-app-bg/50">
-             <button 
-               onClick={onClose}
-               className="px-4 py-2 text-sm font-medium text-app-text hover:bg-surface-variant rounded-lg transition-colors"
-             >
-               Cancel
-             </button>
-             <button 
-               onClick={() => onSubmit(outcome, dealValue, notConvertedReason)}
-               className="px-6 py-2 text-sm font-bold text-black bg-primary hover:bg-primary/90 rounded-lg transition-colors shadow-lg shadow-primary/20"
-             >
-               Confirm
-             </button>
-          </div>
-       </motion.div>
     </div>
   );
 }

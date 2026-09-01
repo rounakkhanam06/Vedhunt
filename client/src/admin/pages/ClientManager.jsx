@@ -74,7 +74,18 @@ export default function ClientManager() {
     });
     setShowModal(true);
   };
-  const openPreview = (client) => { setPreviewClient(client); };
+  // Client 360: the list row doesn't carry the linked lead's pre-sale
+  // timeline, so preview fetches the full detail endpoint (which populates
+  // leadRef's pipelineHistory/callLogs + its assignment history).
+  const openPreview = async (client) => {
+    setPreviewClient(client);
+    try {
+      const res = await api.get(`/admin/clients/${client._id}`);
+      if (res.data.success) setPreviewClient(res.data.data);
+    } catch {
+      // Preview still shows the row's own fields even if the detail fetch fails.
+    }
+  };
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -445,6 +456,39 @@ export default function ClientManager() {
                   <p className="text-secondary text-xs font-mono select-all break-all">
                     {typeof previewClient.leadRef === 'object' ? previewClient.leadRef._id : previewClient.leadRef}
                   </p>
+                </div>
+              )}
+
+              {/* Client 360 — Pre-Sale Timeline: everything that happened on
+                  the lead this client converted from, so nothing is lost
+                  once a lead becomes a client record. */}
+              {previewClient.preSaleTimeline && (
+                <div className="space-y-2 border-t border-outline-variant pt-4">
+                  <p className="text-on-surface-variant text-[10px] uppercase font-bold tracking-wider">Pre-Sale Timeline</p>
+                  <div className="bg-admin-bg/60 border border-outline-variant rounded-xl p-3.5 max-h-64 overflow-y-auto space-y-3">
+                    {[
+                      ...(previewClient.preSaleTimeline.pipelineHistory || []).map((e) => ({ date: e.date, label: e.status, note: e.note })),
+                      ...(previewClient.preSaleTimeline.callLogs || []).map((c) => ({ date: c.callDate, label: `Call #${c.touchNumber} — ${c.connected === 'Yes' ? `Connected (${c.interestLevel || '-'})` : `Not Connected (${c.notConnectedReason || '-'})`}`, note: c.remark })),
+                      ...(previewClient.preSaleTimeline.assignmentHistory || []).map((a) => ({ date: a.createdAt, label: `Assigned to ${a.toAdmin ? [a.toAdmin.firstName, a.toAdmin.lastName].filter(Boolean).join(' ') : 'Unassigned'}`, note: a.reason }))
+                    ]
+                      .filter((e) => e.date)
+                      .sort((a, b) => new Date(b.date) - new Date(a.date))
+                      .map((event, idx) => (
+                        <div key={idx} className="flex gap-2">
+                          <div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0" />
+                          <div>
+                            <p className="text-on-surface text-xs font-medium">{event.label}</p>
+                            {event.note && <p className="text-on-surface-variant text-[11px] mt-0.5">{event.note}</p>}
+                            <p className="text-on-surface-variant text-[10px] mt-0.5">
+                              {new Date(event.date).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    {[...(previewClient.preSaleTimeline.pipelineHistory || []), ...(previewClient.preSaleTimeline.callLogs || [])].length === 0 && (
+                      <p className="text-on-surface-variant text-xs">No pre-sale activity recorded.</p>
+                    )}
+                  </div>
                 </div>
               )}
 

@@ -7,10 +7,10 @@ const Invoice = require('../models/Invoice');
 const Project = require('../models/Project');
 const Retainer = require('../models/Retainer');
 const SupportTicket = require('../models/SupportTicket');
-const Lead = require('../models/Lead');
+const AssignmentLog = require('../models/AssignmentLog');
 const logger = require('../utils/logger');
-const { sendEmail } = require('../utils/sendEmail');
 const { updateAgreement, getAgreement } = require('../controllers/agreementController');
+const { provisionClientAccount } = require('../services/clientProvisioning');
 
 const router = express.Router();
 
@@ -90,7 +90,7 @@ router.get('/clients/:id', async (req, res) => {
 
     const client = await Client.findById(req.params.id)
       .select('+notes +temporaryPasswordText -password -refreshToken -resetPasswordToken -resetPasswordExpire')
-      .populate('leadRef', 'fullName phone email status')
+      .populate('leadRef', 'fullName phone email status pipelineHistory callLogs dealValue createdAt')
       .lean();
 
     if (!client) {
@@ -98,11 +98,18 @@ router.get('/clients/:id', async (req, res) => {
     }
 
     // Fetch summary counts
-    const [invoiceCount, projectCount, retainerCount, ticketCount] = await Promise.all([
+    const [invoiceCount, projectCount, retainerCount, ticketCount, assignmentHistory] = await Promise.all([
       Invoice.countDocuments({ client_ref: client._id }),
       Project.countDocuments({ client_ref: client._id }),
       Retainer.countDocuments({ client_ref: client._id, status: 'Active' }),
       SupportTicket.countDocuments({ client_ref: client._id, status: { $in: ['Open', 'In Progress'] } }),
+      client.leadRef
+        ? AssignmentLog.find({ lead: client.leadRef._id })
+            .sort({ createdAt: -1 })
+            .populate('fromAdmin', 'firstName lastName')
+            .populate('toAdmin', 'firstName lastName')
+            .lean()
+        : [],
     ]);
 
     res.json({
@@ -110,6 +117,17 @@ router.get('/clients/:id', async (req, res) => {
       data: {
         ...client,
         summary: { invoiceCount, projectCount, activeRetainerCount: retainerCount, openTicketCount: ticketCount },
+        // Client 360: the full pre-sale timeline from the lead this client
+        // converted from — pipeline/stage history, every call attempt, and
+        // ownership changes — so nothing pre-sale is lost once a lead becomes
+        // a client record.
+        preSaleTimeline: client.leadRef
+          ? {
+              pipelineHistory: client.leadRef.pipelineHistory || [],
+              callLogs: client.leadRef.callLogs || [],
+              assignmentHistory,
+            }
+          : null,
       },
     });
   } catch (error) {
@@ -138,36 +156,20 @@ router.post('/clients', async (req, res) => {
       return res.status(409).json({ success: false, message: 'A client with this email already exists' });
     }
 
-    const clientData = {
+    // Lead status is no longer forced to Won from here — a lead reaches Won
+    // (and auto-provisions its own client account) only through the sales
+    // state machine in services/leadLifecycle.js. Linking an existing Won
+    // lead here just records the traceability pointer.
+    const client = await provisionClientAccount({
       businessName,
       contactName,
       email,
       phone,
       password,
-      temporaryPasswordText: password,
       notes,
-      isTemporaryPassword: true,
+      leadRef: leadRef && isValidId(leadRef) ? leadRef : undefined,
       createdBy: req.user._id,
-    };
-
-    if (leadRef && isValidId(leadRef)) {
-      clientData.leadRef = leadRef;
-      // Update the lead status to Won if not already
-      await Lead.findByIdAndUpdate(leadRef, { status: 'Won' });
-    }
-
-    const client = await Client.create(clientData);
-
-    // Send welcome email with temporary credentials
-    try {
-      await sendEmail({
-        email: client.email,
-        subject: 'Welcome to Vedhunt Client Portal',
-        message: `Hello ${client.contactName},\n\nYour client portal account has been created.\n\nLogin at: ${process.env.FRONTEND_URL || 'http://localhost:5173'}/client/login\nEmail: ${client.email}\nTemporary Password: ${password}\n\nPlease change your password upon first login.\n\n— Vedhunt Team`,
-      });
-    } catch (emailErr) {
-      logger.warn('Welcome email failed for new client:', emailErr.message);
-    }
+    });
 
     res.status(201).json({
       success: true,

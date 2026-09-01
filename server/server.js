@@ -41,6 +41,7 @@ const leadFormRoutes = require('./routes/leadFormRoutes');
 const assignmentRoutes = require('./routes/assignmentRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const activityRoutes = require('./routes/activityRoutes');
+const auditRoutes = require('./routes/auditRoutes');
 const webhookRoutes = require('./routes/webhookRoutes');
 const subscribeRoutes = require('./routes/subscribeRoutes');
 const employeeRoutes = require('./routes/employeeRoutes');
@@ -143,6 +144,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/subscribe', subscribeRoutes);
 app.use('/api/employees', employeeRoutes);
 app.use('/api/performance', performanceRoutes);
+app.use('/api/audit', auditRoutes);
 app.use('/api', publicCache, settingsRoutes);
 app.use('/api', paymentRoutes); // Non-cached payment routes
 

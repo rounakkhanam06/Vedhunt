@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import { motion } from 'framer-motion';
-import { Search, ChevronDown, ChevronLeft, ChevronRight, Eye, Download, LayoutGrid, Table, UserCheck, FileText } from 'lucide-react';
+import { Search, ChevronDown, ChevronLeft, ChevronRight, Eye, Download, LayoutGrid, Table, FileText } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { usePermissions } from '../hooks/usePermissions';
 import LeadsPipelineView from '../components/LeadsPipelineView';
@@ -45,7 +45,7 @@ const STATUS_BADGE_CLASSES = {
   Hold: 'bg-slate-500/10 text-slate-400 border-slate-500/20'
 };
 
-export default function LeadsManager() {
+export default function UnassignedLeadsManager() {
   const { can } = usePermissions();
   const isSuperAdmin = can('*');
   const canAssign = can('leads.assign');
@@ -54,6 +54,7 @@ export default function LeadsManager() {
 
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selectedLeads, setSelectedLeads] = useState([]);
   const [viewMode, setViewMode] = useState(() => localStorage.getItem('leadsViewMode') || 'table');
   const [bds, setBds] = useState([]);
 
@@ -67,8 +68,8 @@ export default function LeadsManager() {
   // sales pipeline/revenue fields are meaningless for job applicants.
   const [leadTypeFilter, setLeadTypeFilter] = useState('Sales');
   const [formFilter, setFormFilter] = useState('All');
-  const [assignedBdFilter, setAssignedBdFilter] = useState('All');
   const [leadForms, setLeadForms] = useState([]);
+  const [bulkAssignTo, setBulkAssignTo] = useState('');
   const [sortBy, setSortBy] = useState('createdAt');
   const [sortOrder, setSortOrder] = useState('desc');
   const [currentPage, setCurrentPage] = useState(1);
@@ -101,6 +102,44 @@ export default function LeadsManager() {
     setSearchTerm(''); // Clear search on mode switch for a clean view
   };
 
+  const toggleSelectAll = () => {
+    if (selectedLeads.length === leads.length) {
+      setSelectedLeads([]);
+    } else {
+      setSelectedLeads(leads.map(l => l._id));
+    }
+  };
+
+  const toggleLeadSelection = (leadId) => {
+    setSelectedLeads(prev => 
+      prev.includes(leadId) ? prev.filter(id => id !== leadId) : [...prev, leadId]
+    );
+  };
+
+  const handleBulkAssign = async () => {
+    if (!bulkAssignTo) {
+      toast.error('Please select a BD');
+      return;
+    }
+    
+    try {
+      const response = await api.post('/leads/bulk-assign', {
+        leadIds: selectedLeads,
+        assignedTo: bulkAssignTo,
+        reason: 'Bulk Assigned from Unassigned View'
+      });
+      if (response.data.success) {
+        toast.success(response.data.message);
+        setSelectedLeads([]);
+        setBulkAssignTo('');
+        fetchLeads();
+      }
+    } catch (error) {
+      console.error('Bulk assign error:', error);
+      toast.error(error.response?.data?.message || 'Failed to assign leads');
+    }
+  };
+
   // Fetch leads when dependencies change
   const fetchLeads = useCallback(async () => {
     setLoading(true);
@@ -114,7 +153,7 @@ export default function LeadsManager() {
           userSource: sourceFilter,
           leadType: leadTypeFilter,
           fbFormId: formFilter,
-          assignedTo: assignedBdFilter,
+          assignedTo: 'Unassigned',
           search: debouncedSearchTerm,
           sortBy,
           sortOrder
@@ -131,7 +170,7 @@ export default function LeadsManager() {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, statusFilter, platformFilter, sourceFilter, leadTypeFilter, formFilter, assignedBdFilter, debouncedSearchTerm, sortBy, sortOrder]);
+  }, [currentPage, statusFilter, platformFilter, sourceFilter, leadTypeFilter, formFilter, debouncedSearchTerm, sortBy, sortOrder]);
 
   useEffect(() => {
     fetchLeads();
@@ -205,36 +244,6 @@ export default function LeadsManager() {
   };
 
   const handleFieldChange = (id, field, value) => handleFieldsChange(id, { [field]: value });
-
-  // Used by the Pipeline (Kanban) view's per-card quick actions — the raw-field
-  // table itself no longer surfaces call handling; that lives on the Workspace page.
-  const startCall = async (id) => {
-    try {
-      const now = new Date();
-      await api.put(`/leads/${id}`, { callStartTime: now, callDate: now });
-      setLeads(leads.map(l => l._id === id ? { ...l, callStartTime: now, callDate: now } : l));
-      toast.success('Call started', { position: 'bottom-right' });
-    } catch {
-      toast.error('Failed to start call');
-    }
-  };
-
-  const endCall = async (lead) => {
-    if (!lead.callStartTime) {
-      toast.error('Please start the call first');
-      return;
-    }
-    try {
-      const now = new Date();
-      const diffMs = now.getTime() - new Date(lead.callStartTime).getTime();
-      const durationMin = Math.max(1, Math.round(diffMs / 60000));
-      await api.put(`/leads/${lead._id}`, { callEndTime: now, callDuration: durationMin });
-      setLeads(leads.map(l => l._id === lead._id ? { ...l, callEndTime: now, callDuration: durationMin } : l));
-      toast.success(`Call ended (${durationMin} min)`, { position: 'bottom-right' });
-    } catch {
-      toast.error('Failed to end call');
-    }
-  };
 
   const handleExport = async (format) => {
     try {
@@ -350,7 +359,34 @@ export default function LeadsManager() {
         </div>
       </div>
 
-      {/* Toolbar: type split + view toggle, one row */}
+      {/* Bulk Action Bar */}
+      {selectedLeads.length > 0 && (
+        <div className="bg-primary/10 border border-primary/30 p-3 rounded-xl flex items-center justify-between shadow-lg sticky top-0 z-30 mb-4 animate-in fade-in slide-in-from-top-4">
+          <div className="font-semibold text-primary">
+            {selectedLeads.length} lead(s) selected
+          </div>
+          <div className="flex items-center gap-3">
+            <select
+              value={bulkAssignTo}
+              onChange={(e) => setBulkAssignTo(e.target.value)}
+              className="bg-app-bg border border-app-border rounded-lg px-3 py-1.5 text-sm text-app-text focus:outline-none focus:border-primary"
+            >
+              <option value="">-Select BD to Assign-</option>
+              {bds.map(bd => (
+                <option key={bd._id} value={bd._id}>{bd.firstName} {bd.lastName}</option>
+              ))}
+            </select>
+            <button
+              onClick={handleBulkAssign}
+              className="px-4 py-1.5 bg-primary text-black font-bold rounded-lg text-sm hover:bg-primary/90 transition-colors"
+            >
+              Assign Selected
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Leads Table Toolbar: type split + view toggle, one row */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex bg-app-card border border-app-border p-1 rounded-lg w-max">
           {['Sales', 'Hiring', 'All'].map((type) => (
@@ -489,29 +525,6 @@ export default function LeadsManager() {
               <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 text-app-text-muted w-3.5 h-3.5 pointer-events-none" />
             </div>
           )}
-
-          {canAssign && (
-            <div className="relative">
-              <select
-                value={assignedBdFilter}
-                onChange={(e) => {
-                  setAssignedBdFilter(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className={`${compactSelectClass} pl-8`}
-              >
-                <option className="bg-app-bg text-app-text" value="All">All BDs</option>
-                <option className="bg-app-bg text-app-text" value="Unassigned">Unassigned</option>
-                {bds.map((bd) => (
-                  <option key={bd._id} className="bg-app-bg text-app-text" value={bd._id}>
-                    {bd.firstName} {bd.lastName}
-                  </option>
-                ))}
-              </select>
-              <UserCheck className="absolute left-2.5 top-1/2 -translate-y-1/2 text-app-text-muted w-3.5 h-3.5 pointer-events-none" />
-              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 text-app-text-muted w-3.5 h-3.5 pointer-events-none" />
-            </div>
-          )}
         </div>
       </div>
 
@@ -519,19 +532,6 @@ export default function LeadsManager() {
         <div className="flex items-center justify-center min-h-[400px]">
           <div className="w-8 h-8 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
         </div>
-      ) : viewMode === 'pipeline' ? (
-        <LeadsPipelineView
-          leads={leads}
-          isSuperAdmin={isSuperAdmin}
-          handleFieldChange={handleFieldChange}
-          handleFieldsChange={handleFieldsChange}
-          startCall={startCall}
-          endCall={endCall}
-          onOpenLead={(lead) => navigate(`/admin/leads/${lead._id}`)}
-          handleAssign={handleAssign}
-          bds={bds}
-          canAssign={canAssign}
-        />
       ) : (
         <>
           <div className="w-full">
@@ -541,10 +541,18 @@ export default function LeadsManager() {
               </div>
             ) : (
               <div className="overflow-x-auto bg-app-card border border-app-border rounded-xl shadow-sm pb-4">
-                <table className="w-full text-left text-sm whitespace-nowrap min-w-[1500px]">
+                <table className="w-full text-left text-sm whitespace-nowrap min-w-[1550px]">
                   <thead className="bg-app-bg border-b border-app-border text-app-text-muted text-[11px] uppercase tracking-wider sticky top-0 z-20">
                     <tr>
-                      <th onClick={() => handleSort('leadId')} className="px-3 py-3 font-semibold sticky left-0 bg-app-bg z-30 border-r border-app-border cursor-pointer select-none hover:text-primary transition-colors">
+                      <th className="px-3 py-3 sticky left-0 bg-app-bg z-30">
+                        <input
+                          type="checkbox"
+                          checked={selectedLeads.length > 0 && selectedLeads.length === leads.length}
+                          onChange={toggleSelectAll}
+                          className="w-4 h-4 rounded border-app-border text-primary focus:ring-primary/50"
+                        />
+                      </th>
+                      <th onClick={() => handleSort('leadId')} className="px-3 py-3 font-semibold sticky left-8 bg-app-bg z-30 border-r border-app-border cursor-pointer select-none hover:text-primary transition-colors">
                         <div className="flex items-center gap-1">
                           <span>Lead ID</span>
                           <span className="text-[9px] opacity-70">{sortBy === 'leadId' ? (sortOrder === 'asc' ? '▲' : '▼') : '↕'}</span>
@@ -606,7 +614,15 @@ export default function LeadsManager() {
                         animate={{ opacity: 1 }}
                         className={`hover:bg-surface-variant transition-colors group ${rowStripeClass}`}
                       >
-                        <td className={`px-3 py-2 align-middle font-mono font-semibold text-primary sticky left-0 ${rowStripeClass} group-hover:bg-surface-variant border-r border-app-border z-10`}>
+                        <td className={`px-3 py-2 align-middle sticky left-0 ${rowStripeClass} group-hover:bg-surface-variant z-10`}>
+                          <input
+                            type="checkbox"
+                            checked={selectedLeads.includes(lead._id)}
+                            onChange={() => toggleLeadSelection(lead._id)}
+                            className="w-4 h-4 rounded border-app-border text-primary focus:ring-primary/50 cursor-pointer"
+                          />
+                        </td>
+                        <td className={`px-3 py-2 align-middle font-mono font-semibold text-primary sticky left-8 ${rowStripeClass} group-hover:bg-surface-variant border-r border-app-border z-10`}>
                           <div className="flex items-center gap-2">
                             <span>{lead.leadId || '-'}</span>
                             {!lead.assignedTo && lead.unassignedSlaDeadline && new Date(lead.unassignedSlaDeadline) < new Date() && (

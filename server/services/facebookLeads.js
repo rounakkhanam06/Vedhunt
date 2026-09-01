@@ -263,6 +263,9 @@ async function saveFacebookLead({ fbLead, formId, pageAccessToken, notify = true
   const doc = {
     ...mapped,
     email,
+    // The untouched Graph API lead object, captured before field mapping —
+    // matches the website form's rawPayload capture in leadController.js.
+    rawPayload: fbLead,
     // `service` is the sales team's editable "what do they want" column. The
     // form name describes that far better than an ad name does.
     service: formName,

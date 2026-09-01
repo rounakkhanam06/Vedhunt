@@ -3,6 +3,7 @@ const Employee = require('../models/Employee');
 const WorkLog = require('../models/WorkLog');
 const logger = require('../utils/logger');
 const { syncFacebookLeads } = require('./leadSync');
+const { runFollowUpChecks, runEODEscalation, runBreachFlagging } = require('./followUpEngine');
 
 const startCronJobs = () => {
   // 1. Check for Active Timers running for more than 12 hours (Run every hour)
@@ -137,6 +138,61 @@ const startCronJobs = () => {
   } else {
     logger.warn('Facebook lead sync is DISABLED (LEAD_SYNC_ENABLED=false).');
   }
+
+  // 5. Follow-Up & Revenue Protection Engine.
+  //
+  // Reminder (30 min prior) / due-now / 1hr-overdue-to-BD checks run every
+  // 5 minutes so nothing slips more than a few minutes past its window.
+  // EOD escalation to managers and next-day breach flagging each run once
+  // daily. Set FOLLOWUP_ENGINE_ENABLED=false to turn the whole engine off.
+  if (process.env.FOLLOWUP_ENGINE_ENABLED !== 'false') {
+    cron.schedule('*/5 * * * *', runFollowUpChecks);
+    cron.schedule('0 20 * * *', runEODEscalation); // 8 PM — end of day
+    cron.schedule('0 9 * * *', runBreachFlagging); // 9 AM next day
+    logger.info('Follow-Up & Revenue Protection Engine scheduled.');
+  } else {
+    logger.warn('Follow-Up & Revenue Protection Engine is DISABLED (FOLLOWUP_ENGINE_ENABLED=false).');
+  }
+
+  // 6. Check for Unassigned Lead SLA breaches (Every 15 mins)
+  cron.schedule('*/15 * * * *', async () => {
+    try {
+      const Lead = require('../models/Lead');
+      const Notification = require('../models/Notification');
+      const Admin = require('../models/Admin');
+      
+      const breachedLeads = await Lead.find({
+        assignedTo: null,
+        unassignedSlaDeadline: { $lt: new Date() },
+        unassignedSlaAlerted: false,
+        status: { $nin: ['Won', 'Lost', 'Dropped'] }
+      });
+
+      if (breachedLeads.length > 0) {
+        // Find all Super Admins (management)
+        const superAdmins = await Admin.find({ permissions: '*' });
+        
+        for (const lead of breachedLeads) {
+          lead.unassignedSlaAlerted = true;
+          await lead.save();
+
+          for (const admin of superAdmins) {
+            await Notification.create({
+              recipient: admin._id,
+              type: 'sla_breach',
+              title: 'Unassigned SLA Breached',
+              message: `Lead ${lead.fullName} (${lead.service || lead.platform}) has been unassigned for too long.`,
+              link: `/admin/leads?leadId=${lead._id}`,
+              lead: lead._id
+            });
+          }
+        }
+        logger.info(`Flagged ${breachedLeads.length} unassigned leads for SLA breach.`);
+      }
+    } catch (error) {
+      logger.error('Error in Unassigned SLA cron:', error);
+    }
+  });
 
   logger.info('Timesheet Cron Jobs Initialized.');
 };

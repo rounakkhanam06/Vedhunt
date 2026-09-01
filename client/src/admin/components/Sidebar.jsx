@@ -18,7 +18,9 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
   const [openDropdowns, setOpenDropdowns] = useState({
     leads: true,
     clientPortal: false,
-    cms: false, pricing: false, careers: false, legal: false, servicesManagement: false, faq: false
+    leads: true,
+    clientPortal: false,
+    cms: false, pricing: false, careers: false, legal: false, servicesManagement: false, faq: false, audit: false
   });
 
   const [showLogoutModal, setShowLogoutModal] = useState(false);
@@ -51,10 +53,29 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
 
   const navItems = [
     { name: 'Overview', path: '/admin/dashboard', icon: LayoutDashboard },
-    { name: 'Lead Manager (Ads)', path: '/admin/leads', icon: Users, requiredPermission: 'leads.view' },
-    { name: 'Lead Activity', path: '/admin/lead-activity', icon: Activity, requiredPermission: 'leads.assign' },
-    { name: 'Follow-ups', path: '/admin/follow-ups', icon: Clock, requiredPermission: 'leads.assign' },
-    { name: 'Subscribers', path: '/admin/subscribers', icon: Mail, requiredPermission: 'leads.view' },
+    {
+      name: 'Leads Management',
+      icon: Users,
+      dropdownKey: 'leads',
+      requiredPermission: 'leads.view',
+      subItems: [
+        { name: 'All Leads (Ads)', path: '/admin/leads' },
+        { name: 'Unassigned Leads', path: '/admin/leads/unassigned' },
+        { name: 'Lead Activity', path: '/admin/lead-activity', requiredPermission: 'leads.assign' },
+        { name: 'Follow-ups', path: '/admin/follow-ups', requiredPermission: 'leads.assign' },
+        { name: 'Subscribers', path: '/admin/subscribers' }
+      ]
+    },
+    {
+      name: 'Audit & Logs',
+      icon: ShieldCheck,
+      dropdownKey: 'audit',
+      requiredPermission: '*',
+      subItems: [
+        { name: 'Activity Log', path: '/admin/audit/activity' },
+        { name: 'Assignment Log', path: '/admin/audit/assignments' },
+      ]
+    },
     {
       name: 'Client Portal (CRM)',
       icon: Building2,

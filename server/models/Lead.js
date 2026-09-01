@@ -1,7 +1,14 @@
 const mongoose = require('mongoose');
 const { normalizePhone, normalizeEmail } = require('../utils/normalize');
+const { NOT_CONNECTED_REASONS, INTEREST_LEVELS, LOST_DROPPED_REASONS } = require('../utils/leadStateMachine');
 
 const leadSchema = new mongoose.Schema({
+  // Full original submission payload, captured once at ingestion (before
+  // dedup/assignment run) so the raw request is always recoverable for audit,
+  // regardless of what normalization or field-mapping happens afterward.
+  rawPayload: {
+    type: mongoose.Schema.Types.Mixed
+  },
   fullName: {
     type: String,
     required: [true, 'Please provide full name'],
@@ -151,6 +158,23 @@ const leadSchema = new mongoose.Schema({
     type: Date,
     default: null
   },
+  unassignedSlaDeadline: {
+    type: Date,
+    default: null
+  },
+  unassignedSlaAlerted: {
+    type: Boolean,
+    default: false
+  },
+  lockedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Admin',
+    default: null
+  },
+  lockedAt: {
+    type: Date,
+    default: null
+  },
   callStartTime: {
     type: Date
   },
@@ -167,19 +191,21 @@ const leadSchema = new mongoose.Schema({
     type: String,
     enum: ['Yes', 'No', '', null]
   },
+  // Real enforcement lives in server/utils/leadStateMachine.js — both update
+  // paths write through the raw driver and bypass this schema validation.
   notConnectedReason: {
     type: String,
+    enum: [...NOT_CONNECTED_REASONS, '', null],
     trim: true
   },
-  // Real enforcement lives in server/utils/followUpRules.js — both update
-  // paths write through the raw driver and bypass this schema validation.
   interestLevel: {
     type: String,
-    enum: ['Hot', 'Warm', 'Cold', 'Interested', 'Not Interested', 'Asked to Call Later', '', null],
+    enum: [...INTEREST_LEVELS, '', null],
     trim: true
   },
   notConvertedReason: {
     type: String,
+    enum: [...LOST_DROPPED_REASONS, '', null],
     trim: true
   },
   remark: {
@@ -198,10 +224,10 @@ const leadSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['New', 'Contacted', 'Qualified', 'Proposal Sent', 'Negotiation', 'Won', 'Lost', 'Dropped'],
+    enum: ['New', 'Contacted', 'Qualified', 'Proposal Sent', 'Negotiation', 'Won', 'Lost', 'Dropped', 'Hold'],
     default: 'New'
   },
-  
+
   pipelineHistory: [{
     status: {
       type: String,
@@ -213,13 +239,70 @@ const leadSchema = new mongoose.Schema({
     },
     updatedBy: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'Employee'
+      ref: 'Admin'
     },
     note: {
       type: String,
       trim: true
     }
   }],
+
+  // Append-only log of every call attempt — never overwritten, unlike the
+  // scalar callStartTime/callEndTime/connected/etc. fields above, which only
+  // ever hold the most recent call. Populated going forward by
+  // services/leadLifecycle.js; empty for leads that predate this field.
+  callLogs: [{
+    touchNumber: Number,
+    calledBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Admin'
+    },
+    callDate: Date,
+    callStartTime: Date,
+    callEndTime: Date,
+    callDuration: Number,
+    connected: {
+      type: String,
+      enum: ['Yes', 'No', '', null]
+    },
+    notConnectedReason: String,
+    interestLevel: String,
+    remark: String
+  }],
+  // Set once, from the first callLogs entry — used for BD response-time
+  // reporting (time from assignment to first call).
+  firstCallAt: {
+    type: Date
+  },
+
+  // ── Follow-Up & Revenue Protection Engine ─────────────────────────────────
+  // Escalation tracking for services/followUpEngine.js. All cleared whenever
+  // nextFollowUpDate changes (see services/leadLifecycle.js), so rescheduling
+  // a follow-up restarts the reminder/escalation cycle cleanly.
+  followUpReminderSentAt: { type: Date, default: null },
+  followUpDueNotifiedAt: { type: Date, default: null },
+  followUpOverdueBDNotifiedAt: { type: Date, default: null },
+  followUpOverdueManagerNotifiedAt: { type: Date, default: null },
+  followUpBreached: { type: Boolean, default: false },
+  followUpBreachedAt: { type: Date, default: null },
+
+  // ── Proposal / Negotiation ────────────────────────────────────────────────
+  proposalValue: {
+    type: Number,
+    min: 0
+  },
+  proposalSentDate: {
+    type: Date
+  },
+
+  // ── Hold ──────────────────────────────────────────────────────────────────
+  holdReason: {
+    type: String,
+    trim: true
+  },
+  holdUntil: {
+    type: Date
+  },
 
   // ── Revenue / Deal Tracking ───────────────────────────────────────────────
   dealValue: {
@@ -272,6 +355,11 @@ leadSchema.pre('save', async function() {
     }
 
     this.leadId = `VH-${dateStr}-${('000' + counter).slice(-3)}`;
+  }
+  
+  // Set default unassigned SLA (e.g. 2 hours) on creation
+  if (this.isNew && !this.assignedTo) {
+    this.unassignedSlaDeadline = new Date(Date.now() + 2 * 60 * 60 * 1000);
   }
 });
 

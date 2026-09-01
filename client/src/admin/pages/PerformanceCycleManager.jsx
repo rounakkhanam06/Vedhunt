@@ -10,7 +10,7 @@ const YEARS = [CURRENT_YEAR - 1, CURRENT_YEAR, CURRENT_YEAR + 1];
 const BAND_COLORS = {
   Active: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
   Draft:  'bg-orange-500/10 text-orange-400 border-orange-500/20',
-  Closed: 'bg-white/5 text-gray-500 border-white/10',
+  Closed: 'bg-surface-variant text-app-text-muted border-app-border',
 };
 
 const PerformanceCycleManager = () => {
@@ -80,7 +80,7 @@ const PerformanceCycleManager = () => {
   };
 
   return (
-    <div className="bg-[#0d0d0f] text-white p-6 space-y-6">
+    <div className="text-app-text space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
@@ -88,7 +88,7 @@ const PerformanceCycleManager = () => {
             <Calendar className="text-orange-500" size={28} />
             Performance Cycles
           </h1>
-          <p className="text-gray-400 text-sm mt-1">Create and manage quarterly performance review cycles.</p>
+          <p className="text-app-text-muted text-sm mt-1">Create and manage quarterly performance review cycles.</p>
         </div>
         <button
           onClick={() => setShowModal(true)}
@@ -109,17 +109,17 @@ const PerformanceCycleManager = () => {
           <div className="w-10 h-10 rounded-full border-2 border-orange-500/20 border-t-orange-500 animate-spin" />
         </div>
       ) : cycles.length === 0 ? (
-        <div className="text-center py-20 bg-[#141416] rounded-xl border border-white/5 text-gray-500">
-          No cycles created yet. Click <strong className="text-white">New Cycle</strong> to get started.
+        <div className="text-center py-20 bg-app-card rounded-xl border border-app-border text-app-text-muted">
+          No cycles created yet. Click <strong className="text-app-text">New Cycle</strong> to get started.
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {cycles.map(cycle => (
-            <div key={cycle._id} className="bg-[#141416] border border-white/5 rounded-2xl p-5 space-y-4 hover:border-white/10 transition-colors">
+            <div key={cycle._id} className="bg-app-card border border-app-border rounded-2xl p-5 space-y-4 hover:border-app-text-muted/40 transition-colors">
               <div className="flex justify-between items-start">
                 <div>
-                  <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">{cycle.quarter} · {cycle.year}</div>
-                  <h3 className="font-bold text-white text-base leading-tight">{cycle.title}</h3>
+                  <div className="text-xs text-app-text-muted uppercase tracking-wider mb-1">{cycle.quarter} · {cycle.year}</div>
+                  <h3 className="font-bold text-app-text text-base leading-tight">{cycle.title}</h3>
                 </div>
                 <span className={`px-2.5 py-1 rounded-full text-xs font-bold border ${BAND_COLORS[cycle.status]}`}>
                   {cycle.status}
@@ -127,21 +127,21 @@ const PerformanceCycleManager = () => {
               </div>
 
               <div className="grid grid-cols-2 gap-3 text-xs">
-                <div className="bg-white/[0.03] rounded-lg p-3 border border-white/5">
-                  <div className="text-gray-500 mb-0.5">Start Date</div>
-                  <div className="font-bold text-white">{new Date(cycle.startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</div>
+                <div className="bg-app-bg rounded-lg p-3 border border-app-border">
+                  <div className="text-app-text-muted mb-0.5">Start Date</div>
+                  <div className="font-bold text-app-text">{new Date(cycle.startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</div>
                 </div>
-                <div className="bg-white/[0.03] rounded-lg p-3 border border-white/5">
-                  <div className="text-gray-500 mb-0.5">End Date</div>
-                  <div className="font-bold text-white">{new Date(cycle.endDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</div>
+                <div className="bg-app-bg rounded-lg p-3 border border-app-border">
+                  <div className="text-app-text-muted mb-0.5">End Date</div>
+                  <div className="font-bold text-app-text">{new Date(cycle.endDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</div>
                 </div>
               </div>
 
-              <div className="text-xs text-gray-500">
-                Created by: <span className="text-gray-300">{cycle.createdBy?.email || 'Admin'}</span>
+              <div className="text-xs text-app-text-muted">
+                Created by: <span className="text-app-text-muted">{cycle.createdBy?.email || 'Admin'}</span>
               </div>
 
-              <div className="flex gap-2 pt-1 border-t border-white/5">
+              <div className="flex gap-2 pt-1 border-t border-app-border">
                 {cycle.status === 'Draft' && (
                   <button
                     onClick={() => handleStatusChange(cycle._id, 'Active')}
@@ -154,7 +154,7 @@ const PerformanceCycleManager = () => {
                   <>
                     <button
                       onClick={() => handleStatusChange(cycle._id, 'Closed')}
-                      className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-white/5 text-gray-400 hover:bg-white/10 text-xs font-bold transition-colors cursor-pointer border border-white/10"
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-surface-variant text-app-text-muted hover:bg-app-border text-xs font-bold transition-colors cursor-pointer border border-app-border"
                     >
                       <Lock size={12} /> Close Cycle
                     </button>
@@ -167,7 +167,7 @@ const PerformanceCycleManager = () => {
                   </>
                 )}
                 {cycle.status === 'Closed' && (
-                  <div className="flex-1 text-center py-2 text-xs text-gray-600 font-medium">Cycle Closed</div>
+                  <div className="flex-1 text-center py-2 text-xs text-app-text-muted font-medium">Cycle Closed</div>
                 )}
               </div>
             </div>
@@ -178,13 +178,13 @@ const PerformanceCycleManager = () => {
       {/* Create Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-[#141416] border border-white/10 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
-            <div className="flex justify-between items-center p-5 border-b border-white/5">
+          <div className="bg-app-card border border-app-border rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+            <div className="flex justify-between items-center p-5 border-b border-app-border">
               <div>
                 <h2 className="text-lg font-bold">Create New Cycle</h2>
-                <p className="text-xs text-gray-400 mt-0.5">Define the quarter, year, and date range.</p>
+                <p className="text-xs text-app-text-muted mt-0.5">Define the quarter, year, and date range.</p>
               </div>
-              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-white cursor-pointer transition-colors">
+              <button onClick={() => setShowModal(false)} className="text-app-text-muted hover:text-app-text cursor-pointer transition-colors">
                 <X size={20} />
               </button>
             </div>
@@ -192,52 +192,52 @@ const PerformanceCycleManager = () => {
             <form onSubmit={handleCreate} className="p-5 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs text-gray-400 mb-1.5">Quarter <span className="text-orange-500">*</span></label>
+                  <label className="block text-xs text-app-text-muted mb-1.5">Quarter <span className="text-orange-500">*</span></label>
                   <select
                     value={form.quarter}
                     onChange={e => setForm(f => ({ ...f, quarter: e.target.value }))}
-                    className="w-full text-sm rounded-lg border border-white/10 bg-[#1e1e21] px-4 py-2.5 text-white focus:outline-none focus:ring-1 focus:ring-orange-500"
+                    className="w-full text-sm rounded-lg border border-app-border bg-form-input-bg px-4 py-2.5 text-app-text focus:outline-none focus:ring-1 focus:ring-orange-500"
                   >
                     {QUARTERS.map(q => <option key={q}>{q}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-400 mb-1.5">Year <span className="text-orange-500">*</span></label>
+                  <label className="block text-xs text-app-text-muted mb-1.5">Year <span className="text-orange-500">*</span></label>
                   <select
                     value={form.year}
                     onChange={e => setForm(f => ({ ...f, year: e.target.value }))}
-                    className="w-full text-sm rounded-lg border border-white/10 bg-[#1e1e21] px-4 py-2.5 text-white focus:outline-none focus:ring-1 focus:ring-orange-500"
+                    className="w-full text-sm rounded-lg border border-app-border bg-form-input-bg px-4 py-2.5 text-app-text focus:outline-none focus:ring-1 focus:ring-orange-500"
                   >
                     {YEARS.map(y => <option key={y}>{y}</option>)}
                   </select>
                 </div>
               </div>
 
-              <div className="bg-[#1a1a1d] rounded-lg p-3 border border-white/5">
-                <div className="text-xs text-gray-500 mb-1">Preview Title</div>
+              <div className="bg-app-bg rounded-lg p-3 border border-app-border">
+                <div className="text-xs text-app-text-muted mb-1">Preview Title</div>
                 <div className="font-bold text-orange-400 text-sm">{form.quarter} {form.year} — Performance Cycle</div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs text-gray-400 mb-1.5">Start Date <span className="text-orange-500">*</span></label>
+                  <label className="block text-xs text-app-text-muted mb-1.5">Start Date <span className="text-orange-500">*</span></label>
                   <input
                     type="date"
                     required
                     value={form.startDate}
                     onChange={e => setForm(f => ({ ...f, startDate: e.target.value }))}
-                    className="w-full text-sm rounded-lg border border-white/10 bg-[#1e1e21] px-4 py-2.5 text-white focus:outline-none focus:ring-1 focus:ring-orange-500"
+                    className="w-full text-sm rounded-lg border border-app-border bg-form-input-bg px-4 py-2.5 text-app-text focus:outline-none focus:ring-1 focus:ring-orange-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-400 mb-1.5">End Date <span className="text-orange-500">*</span></label>
+                  <label className="block text-xs text-app-text-muted mb-1.5">End Date <span className="text-orange-500">*</span></label>
                   <input
                     type="date"
                     required
                     min={form.startDate}
                     value={form.endDate}
                     onChange={e => setForm(f => ({ ...f, endDate: e.target.value }))}
-                    className="w-full text-sm rounded-lg border border-white/10 bg-[#1e1e21] px-4 py-2.5 text-white focus:outline-none focus:ring-1 focus:ring-orange-500"
+                    className="w-full text-sm rounded-lg border border-app-border bg-form-input-bg px-4 py-2.5 text-app-text focus:outline-none focus:ring-1 focus:ring-orange-500"
                   />
                 </div>
               </div>
@@ -246,7 +246,7 @@ const PerformanceCycleManager = () => {
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="flex-1 py-2.5 rounded-lg border border-white/10 text-gray-300 hover:bg-white/5 hover:text-white transition-all cursor-pointer text-sm"
+                  className="flex-1 py-2.5 rounded-lg border border-app-border text-app-text-muted hover:bg-surface-variant hover:text-app-text transition-all cursor-pointer text-sm"
                 >
                   Cancel
                 </button>
