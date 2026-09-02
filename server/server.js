@@ -63,7 +63,17 @@ const errorHandler = require('./middleware/errorHandler');
 // Allows browsers + CDN to cache responses for 2 minutes (s-maxage 4 min for CDN)
 // Bypasses cache for authenticated admin requests
 const publicCache = (req, res, next) => {
-  if (req.method === 'GET' && !req.headers.authorization) {
+  // contentRoutes mixes public reads with /admin/* writes+reads under one
+  // mount — never let admin sub-paths be cached, even if a stray request
+  // happens to reach here without an Authorization header (e.g. a token
+  // refresh race). Without this, a single such request can get a CDN/proxy
+  // to cache the admin response as "public" for minutes, showing stale
+  // data (e.g. an already-deleted record) until the cache expires.
+  if (req.path.startsWith('/admin')) {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+  } else if (req.method === 'GET' && !req.headers.authorization) {
     res.set('Cache-Control', 'public, max-age=120, s-maxage=240, stale-while-revalidate=60');
   } else if (req.method === 'GET' && req.headers.authorization) {
     // Explicitly prevent caching for admin requests
