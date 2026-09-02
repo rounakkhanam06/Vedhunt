@@ -32,6 +32,7 @@ const sendEmail = async (options) => {
       to: options.email,
       subject: options.subject,
       html: options.html || `<p>${options.message.replace(/\n/g, '<br>')}</p>`,
+      ...(options.attachments ? { attachments: options.attachments } : {}),
     });
 
     if (error) {

@@ -82,6 +82,7 @@ const ManagerDashboard = lazy(() => import('../admin/pages/ManagerDashboard'));
 const PerformanceCycleManager = lazy(() => import('../admin/pages/PerformanceCycleManager'));
 const PerformanceGoalAssigner = lazy(() => import('../admin/pages/PerformanceGoalAssigner'));
 const CompanyPerformanceMatrix = lazy(() => import('../admin/pages/CompanyPerformanceMatrix'));
+const PayrollManager = lazy(() => import('../admin/pages/PayrollManager'));
 const AttendanceManager = lazy(() => import('../admin/pages/AttendanceManager'));
 const ClientManager = lazy(() => import('../admin/pages/ClientManager'));
 const InvoiceManager = lazy(() => import('../admin/pages/InvoiceManager'));
@@ -362,6 +363,10 @@ export const router = createBrowserRouter([
           {
             path: 'performance-matrix',
             element: withPermission(CompanyPerformanceMatrix, 'team.manage')
+          },
+          {
+            path: 'payroll',
+            element: withPermission(PayrollManager, 'payroll.manage')
           },
           {
             path: 'roles',

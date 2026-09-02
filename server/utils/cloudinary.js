@@ -31,6 +31,16 @@ const upload = multer({
   },
 });
 
+/** Uploads an in-memory buffer (e.g. a generated PDF) without going through multer/disk. */
+const uploadBuffer = (buffer, { folder, public_id, resource_type = 'raw' }) =>
+  new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream({ folder, public_id, resource_type }, (error, result) => {
+      if (error) return reject(error);
+      resolve(result);
+    });
+    stream.end(buffer);
+  });
+
 const deleteFromCloudinary = async (publicId, isRaw = false) => {
   try {
     const options = isRaw ? { resource_type: 'raw' } : {};
@@ -71,4 +81,4 @@ const uploadResume = multer({
   },
 });
 
-module.exports = { cloudinary, upload, uploadResume, deleteFromCloudinary };
+module.exports = { cloudinary, upload, uploadResume, uploadBuffer, deleteFromCloudinary };

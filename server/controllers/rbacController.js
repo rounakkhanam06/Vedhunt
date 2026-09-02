@@ -14,7 +14,8 @@ const PERMISSIONS = [
   'legal.manage',
   'leads.view',
   'leads.assign',
-  'settings.manage'
+  'settings.manage',
+  'payroll.manage'
 ];
 
 exports.getPermissions = (req, res) => {

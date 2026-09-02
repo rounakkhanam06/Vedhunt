@@ -48,6 +48,7 @@ const employeeRoutes = require('./routes/employeeRoutes');
 const employeeAuthRoutes = require('./routes/employeeAuthRoutes');
 const employeePortalRoutes = require('./routes/employeePortalRoutes');
 const performanceRoutes = require('./routes/performanceRoutes');
+const payrollRoutes = require('./routes/payrollRoutes');
 const analyticsRoutes = require('./routes/analyticsRoutes');
 const { seedServicePages } = require('./controllers/servicePageSeeder');
 const { generateSitemap } = require('./controllers/sitemapController');
@@ -144,6 +145,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/subscribe', subscribeRoutes);
 app.use('/api/employees', employeeRoutes);
 app.use('/api/performance', performanceRoutes);
+app.use('/api/payroll', payrollRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api', publicCache, settingsRoutes);
 app.use('/api', paymentRoutes); // Non-cached payment routes

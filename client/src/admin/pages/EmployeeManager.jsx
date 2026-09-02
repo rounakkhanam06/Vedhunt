@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
-import { Plus, Trash2, Eye, Shield, FileText, Award, AlertCircle, CheckCircle, Search } from 'lucide-react';
+import { Plus, Trash2, Eye, Shield, Award, AlertCircle, CheckCircle, Search, IndianRupee } from 'lucide-react';
 
 // ─── Validation Rules ────────────────────────────────────────────────────────
 const NAME_REGEX = /^[a-zA-Z\s'-]{2,50}$/;
@@ -93,18 +93,17 @@ const EmployeeManager = () => {
   const [touched, setTouched] = useState({});
 
   // Sub-action states
-  const [payslipMonth, setPayslipMonth] = useState('June');
-  const [payslipYear, setPayslipYear] = useState(new Date().getFullYear().toString());
-  const [payslipBase, setPayslipBase] = useState('');
-  const [payslipAllowance, setPayslipAllowance] = useState('');
-  const [payslipDeduction, setPayslipDeduction] = useState('');
-  const [payslipDeductionReason, setPayslipDeductionReason] = useState('');
-  const [isCalculatingSalary, setIsCalculatingSalary] = useState(false);
   const [goalText, setGoalText] = useState('');
   const [goalTargetDate, setGoalTargetDate] = useState('');
   const [newCL, setNewCL] = useState('');
   const [newSL, setNewSL] = useState('');
   const [newPL, setNewPL] = useState('');
+
+  // Salary History
+  const [salaryHistory, setSalaryHistory] = useState([]);
+  const [showRevisionForm, setShowRevisionForm] = useState(false);
+  const [revisionForm, setRevisionForm] = useState({ ctc: '', effectiveFrom: '', reason: '' });
+  const [isSavingRevision, setIsSavingRevision] = useState(false);
 
   useEffect(() => { fetchEmployees(); }, []);
 
@@ -113,8 +112,46 @@ const EmployeeManager = () => {
       setNewCL(selectedEmp.leaveBalances?.CL ?? 6);
       setNewSL(selectedEmp.leaveBalances?.SL ?? 6);
       setNewPL(selectedEmp.leaveBalances?.PL ?? 12);
+      fetchSalaryHistory(selectedEmp._id);
+      setShowRevisionForm(false);
     }
   }, [selectedEmp]);
+
+  const fetchSalaryHistory = async (employeeId) => {
+    try {
+      const res = await api.get(`/payroll/salary-revisions/${employeeId}`);
+      if (res.data.success) setSalaryHistory(res.data.revisions);
+    } catch {
+      setSalaryHistory([]);
+    }
+  };
+
+  const handleAddRevision = async (e) => {
+    e.preventDefault();
+    if (!revisionForm.ctc || Number(revisionForm.ctc) <= 0) { toast.error('Enter a valid new CTC.'); return; }
+    if (!revisionForm.effectiveFrom) { toast.error('Effective date is required.'); return; }
+    if (!revisionForm.reason.trim()) { toast.error('Reason for revision is required.'); return; }
+
+    setIsSavingRevision(true);
+    try {
+      const res = await api.post('/payroll/salary-revisions', {
+        employeeId: selectedEmp._id,
+        ctc: Number(revisionForm.ctc),
+        effectiveFrom: revisionForm.effectiveFrom,
+        reason: revisionForm.reason.trim()
+      });
+      if (res.data.success) {
+        toast.success('Salary revision added.');
+        setRevisionForm({ ctc: '', effectiveFrom: '', reason: '' });
+        setShowRevisionForm(false);
+        fetchSalaryHistory(selectedEmp._id);
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to add salary revision.');
+    } finally {
+      setIsSavingRevision(false);
+    }
+  };
 
   // Pre-fill from Application Manager onboarding
   const location = useLocation();
@@ -247,20 +284,6 @@ const EmployeeManager = () => {
     setIsModalOpen(true);
   };
 
-  const handleAutoCalculateSalary = () => {
-    if (!selectedEmp || !selectedEmp.salaryCTC) {
-      toast.error('Employee CTC not defined.');
-      return;
-    }
-    setIsCalculatingSalary(true);
-    setTimeout(() => {
-      const monthly = Math.round(selectedEmp.salaryCTC / 12);
-      setPayslipBase(monthly.toString());
-      toast.success('Auto-calculated base salary from CTC.');
-      setIsCalculatingSalary(false);
-    }, 500);
-  };
-
   const closeModal = () => setIsModalOpen(false);
 
   const handleDeleteEmployee = async (id) => {
@@ -285,18 +308,6 @@ const EmployeeManager = () => {
         if (!goalText.trim()) { toast.error('Goal description is required.'); return; }
         if (!goalTargetDate) { toast.error('Goal target date is required.'); return; }
         payload.newGoal = { goal: goalText, targetDate: goalTargetDate, status: 'Pending' };
-      } else if (type === 'payslip') {
-        const base = Number(payslipBase);
-        if (!base || base <= 0) { toast.error('Enter a valid base salary.'); return; }
-        const allowance = Number(payslipAllowance) || 0;
-        const deduction = Number(payslipDeduction) || 0;
-        if (deduction > 0 && !payslipDeductionReason.trim()) { toast.error('Deduction reason is required.'); return; }
-        payload.newPayslip = {
-          month: payslipMonth, year: payslipYear,
-          baseSalary: base, allowance, deduction, deductionReason: payslipDeductionReason,
-          netPay: (base + allowance) - deduction,
-          status: 'Paid'
-        };
       } else if (type === 'leaveBalances') {
         const cl = Number(newCL);
         const sl = Number(newSL);
@@ -312,7 +323,6 @@ const EmployeeManager = () => {
         setSelectedEmp(found);
         setEmployees(updatedRes.data.employees);
         setGoalText(''); setGoalTargetDate('');
-        setPayslipBase(''); setPayslipAllowance(''); setPayslipDeduction(''); setPayslipDeductionReason('');
       }
     } catch {
       toast.error('Failed to add details.');
@@ -487,81 +497,79 @@ const EmployeeManager = () => {
                 <button onClick={() => handleAddSubItem('goal')} className="w-full mt-1 py-1.5 rounded-lg bg-orange-600/20 text-orange-400 border border-orange-500/20 text-xs font-semibold hover:bg-orange-600 hover:text-white transition-all cursor-pointer">Assign Goal</button>
               </div>
 
-              {/* Generate Payslip */}
-              <div className="space-y-3">
-                <h3 className="text-sm font-bold text-app-text-muted flex items-center gap-1.5"><FileText size={14} /> Generate Payslip</h3>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block text-[10px] font-semibold text-app-text-muted uppercase tracking-wider mb-1">Month *</label>
-                    <select className="w-full text-xs rounded-lg border border-app-border bg-form-input-bg p-2 text-app-text focus:outline-none" value={payslipMonth} onChange={e => setPayslipMonth(e.target.value)}>
-                      {['January','February','March','April','May','June','July','August','September','October','November','December'].map(m => <option key={m}>{m}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-semibold text-app-text-muted uppercase tracking-wider mb-1">Year *</label>
-                    <input type="number" placeholder="YYYY" className="w-full text-xs rounded-lg border border-app-border bg-form-input-bg p-2 text-app-text placeholder-app-text-muted focus:outline-none" value={payslipYear} onChange={e => setPayslipYear(e.target.value)} />
-                  </div>
-                </div>
-                <div className="flex justify-between items-end gap-2">
-                  <div className="flex-1">
-                    <label className="block text-[10px] font-semibold text-app-text-muted uppercase tracking-wider mb-1">Base Salary (₹) *</label>
-                    <input type="number" placeholder="e.g. 50000" className="w-full text-xs rounded-lg border border-app-border bg-form-input-bg px-3 py-2 text-app-text placeholder-app-text-muted focus:outline-none" value={payslipBase} onChange={e => setPayslipBase(e.target.value)} />
-                  </div>
+              {/* Salary History — payroll itself (calculation/review/approval/
+                  payslips) lives on the dedicated Payroll page; this is just
+                  where a salary revision gets recorded. */}
+              <div className="space-y-3 border-t border-app-border pt-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-bold text-app-text-muted flex items-center gap-1.5"><IndianRupee size={14} /> Salary History</h3>
                   <button
-                    onClick={handleAutoCalculateSalary}
-                    disabled={isCalculatingSalary}
-                    className="py-2 px-3 rounded-lg bg-blue-600/20 text-blue-400 border border-blue-500/20 text-xs font-semibold hover:bg-blue-600 hover:text-white transition-all cursor-pointer whitespace-nowrap"
+                    onClick={() => setShowRevisionForm((v) => !v)}
+                    className="text-xs font-semibold text-orange-400 hover:text-orange-300 cursor-pointer"
                   >
-                    {isCalculatingSalary ? 'Calc...' : 'Auto-Calc'}
+                    {showRevisionForm ? 'Cancel' : '+ Add Revision'}
                   </button>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block text-[10px] font-semibold text-app-text-muted uppercase tracking-wider mb-1">Allowances (₹)</label>
-                    <input type="number" placeholder="e.g. 2000" className="w-full text-xs rounded-lg border border-app-border bg-form-input-bg px-3 py-2 text-app-text placeholder-app-text-muted focus:outline-none" value={payslipAllowance} onChange={e => setPayslipAllowance(e.target.value)} />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-semibold text-app-text-muted uppercase tracking-wider mb-1">Deductions (₹)</label>
-                    <input type="number" placeholder="e.g. 500" className="w-full text-xs rounded-lg border border-app-border bg-form-input-bg px-3 py-2 text-app-text placeholder-app-text-muted focus:outline-none" value={payslipDeduction} onChange={e => setPayslipDeduction(e.target.value)} />
-                  </div>
-                </div>
-                {Number(payslipDeduction) > 0 && (
-                  <div>
-                    <label className="block text-[10px] font-semibold text-app-text-muted uppercase tracking-wider mb-1">Deduction Reason *</label>
-                    <input type="text" placeholder="e.g. Leave without pay" className="w-full text-xs rounded-lg border border-app-border bg-form-input-bg px-3 py-2 text-app-text placeholder-app-text-muted focus:outline-none" value={payslipDeductionReason} onChange={e => setPayslipDeductionReason(e.target.value)} />
-                  </div>
-                )}
-                {payslipBase && (
-                  <div className="text-xs text-emerald-400 bg-emerald-500/5 rounded-lg px-3 py-2 border border-emerald-500/10 mt-1">
-                    <span className="font-bold uppercase text-[10px] block mb-0.5 text-emerald-500/80">Calculated Net Payout</span>
-                    <span className="text-sm font-bold">₹{((Number(payslipBase) + Number(payslipAllowance || 0)) - Number(payslipDeduction || 0)).toLocaleString()}</span>
-                  </div>
-                )}
-                <button onClick={() => handleAddSubItem('payslip')} className="w-full mt-1 py-1.5 rounded-lg bg-orange-600/20 text-orange-400 border border-orange-500/20 text-xs font-semibold hover:bg-orange-600 hover:text-white transition-all cursor-pointer">Generate Payslip</button>
-              </div>
 
-              {/* Existing Payslips */}
-              {selectedEmp.payslips && selectedEmp.payslips.length > 0 && (
-                <div className="space-y-3 mt-6 border-t border-app-border pt-4">
-                  <h3 className="text-sm font-bold text-app-text-muted flex items-center gap-1.5"><FileText size={14} /> Issued Payslips</h3>
-                  <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                    {selectedEmp.payslips.slice().reverse().map((slip, idx) => (
-                      <div key={idx} className="bg-form-input-bg p-3 rounded-lg border border-app-border text-xs">
-                        <div className="flex justify-between items-center mb-2 border-b border-app-border pb-2">
-                          <span className="font-bold text-app-text">{slip.month} {slip.year}</span>
-                          <span className="bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded font-medium">{slip.status}</span>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2 text-app-text-muted">
-                          <div>Basic: <span className="text-app-text">₹{slip.baseSalary.toLocaleString()}</span></div>
-                          <div>Net Pay: <span className="text-orange-400 font-bold">₹{slip.netPay.toLocaleString()}</span></div>
-                          {slip.allowance > 0 && <div className="text-emerald-400">Allowance: +₹{slip.allowance.toLocaleString()}</div>}
-                          {slip.deduction > 0 && <div className="col-span-2 text-rose-400">Deduction: -₹{slip.deduction.toLocaleString()} {slip.deductionReason ? `(${slip.deductionReason})` : ''}</div>}
-                        </div>
+                {showRevisionForm && (
+                  <form onSubmit={handleAddRevision} className="space-y-2 bg-form-input-bg border border-app-border rounded-lg p-3">
+                    <div>
+                      <label className="block text-[10px] font-semibold text-app-text-muted uppercase tracking-wider mb-1">
+                        Previous CTC (₹/year)
+                      </label>
+                      <div className="text-xs text-app-text py-2 px-3 bg-app-bg rounded-lg border border-app-border">
+                        {salaryHistory[0] ? `₹${salaryHistory[0].ctc.toLocaleString()}` : 'No prior revision'}
                       </div>
-                    ))}
-                  </div>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-semibold text-app-text-muted uppercase tracking-wider mb-1">New CTC (₹/year) *</label>
+                      <input type="number" placeholder="e.g. 700000" className="w-full text-xs rounded-lg border border-app-border bg-app-bg px-3 py-2 text-app-text placeholder-app-text-muted focus:outline-none"
+                        value={revisionForm.ctc} onChange={(e) => setRevisionForm((f) => ({ ...f, ctc: e.target.value }))} />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-semibold text-app-text-muted uppercase tracking-wider mb-1">Effective Date *</label>
+                      <input type="date" className="w-full text-xs rounded-lg border border-app-border bg-app-bg px-3 py-2 text-app-text focus:outline-none"
+                        value={revisionForm.effectiveFrom} onChange={(e) => setRevisionForm((f) => ({ ...f, effectiveFrom: e.target.value }))} />
+                      <p className="text-[10px] text-app-text-muted mt-1">If mid-month, payroll auto-prorates old vs. new salary for that month.</p>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-semibold text-app-text-muted uppercase tracking-wider mb-1">Reason for Revision *</label>
+                      <input type="text" placeholder="e.g. Annual increment" className="w-full text-xs rounded-lg border border-app-border bg-app-bg px-3 py-2 text-app-text placeholder-app-text-muted focus:outline-none"
+                        value={revisionForm.reason} onChange={(e) => setRevisionForm((f) => ({ ...f, reason: e.target.value }))} />
+                    </div>
+                    <button type="submit" disabled={isSavingRevision} className="w-full mt-1 py-1.5 rounded-lg bg-orange-600/20 text-orange-400 border border-orange-500/20 text-xs font-semibold hover:bg-orange-600 hover:text-white transition-all cursor-pointer disabled:opacity-50">
+                      {isSavingRevision ? 'Saving...' : 'Save Revision'}
+                    </button>
+                  </form>
+                )}
+
+                <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                  {salaryHistory.length === 0 ? (
+                    <p className="text-xs text-app-text-muted">No salary revisions yet.</p>
+                  ) : salaryHistory.map((rev) => (
+                    <div key={rev._id} className="bg-form-input-bg p-3 rounded-lg border border-app-border text-xs">
+                      <div className="flex justify-between items-center mb-1.5">
+                        <span className="font-bold text-app-text">₹{rev.ctc.toLocaleString()}/yr</span>
+                        {rev.status === 'Active' ? (
+                          <span className="bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded font-medium">Current</span>
+                        ) : (
+                          <span className="bg-surface-variant text-app-text-muted px-2 py-0.5 rounded font-medium">Superseded</span>
+                        )}
+                      </div>
+                      {rev.previousCTC && <div className="text-app-text-muted">From ₹{rev.previousCTC.toLocaleString()}/yr</div>}
+                      <div className="text-app-text-muted">
+                        Effective {new Date(rev.effectiveFrom).toLocaleDateString('en-IN')}
+                        {rev.effectiveTo ? ` – ${new Date(rev.effectiveTo).toLocaleDateString('en-IN')}` : ' onwards'}
+                      </div>
+                      <div className="text-app-text-muted italic mt-0.5">{rev.reason}</div>
+                    </div>
+                  ))}
                 </div>
-              )}
+
+                <a href="/admin/payroll" className="text-xs font-semibold text-orange-400 hover:text-orange-300 inline-block mt-1">
+                  View payslips & payroll →
+                </a>
+              </div>
             </div>
           )}
         </div>

@@ -13,6 +13,7 @@ const permissionLabels = {
   'legal.manage': 'Legal & Compliance',
   'leads.view': 'Lead Manager (Ads)',
   'settings.manage': 'Settings Management',
+  'payroll.manage': 'Payroll & Payslips',
 };
 
 const RoleManager = () => {

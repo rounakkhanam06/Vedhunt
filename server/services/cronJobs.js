@@ -4,6 +4,7 @@ const WorkLog = require('../models/WorkLog');
 const logger = require('../utils/logger');
 const { syncFacebookLeads } = require('./leadSync');
 const { runFollowUpChecks, runEODEscalation, runBreachFlagging } = require('./followUpEngine');
+const { runPayrollTick } = require('./payrollCron');
 
 const startCronJobs = () => {
   // 1. Check for Active Timers running for more than 12 hours (Run every hour)
@@ -193,6 +194,24 @@ const startCronJobs = () => {
       logger.error('Error in Unassigned SLA cron:', error);
     }
   });
+
+  // 7. Payroll — opens the HR review window on the 1st of the month, then
+  // guarantees payslips go out by payroll_settings.generationDay (admin-
+  // configurable from the Payroll settings panel, no restart needed since
+  // this tick re-reads it fresh every run). Set PAYROLL_ENGINE_ENABLED=false
+  // to turn it off.
+  if (process.env.PAYROLL_ENGINE_ENABLED !== 'false') {
+    cron.schedule('0 2 * * *', async () => {
+      try {
+        await runPayrollTick();
+      } catch (error) {
+        logger.error('Error in Payroll cron:', error);
+      }
+    });
+    logger.info('Payroll engine scheduled (daily 2 AM tick).');
+  } else {
+    logger.warn('Payroll engine is DISABLED (PAYROLL_ENGINE_ENABLED=false).');
+  }
 
   logger.info('Timesheet Cron Jobs Initialized.');
 };

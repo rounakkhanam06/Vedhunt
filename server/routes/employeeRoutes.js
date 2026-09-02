@@ -10,6 +10,7 @@ const authMiddleware = require('../middleware/authMiddleware');
 const requirePermission = require('../middleware/requirePermission');
 const { encrypt, decrypt } = require('../utils/encryption');
 const { sendEmail } = require('../utils/sendEmail');
+const { createInitialSalaryRevision } = require('../services/payrollEngine');
 const crypto = require('crypto');
 const logger = require('../utils/logger');
 
@@ -206,6 +207,15 @@ router.post('/', requirePermission('team.manage'), async (req, res) => {
       bankDetails: { accountName: '', accountNumber: '', bankName: '', ifscCode: '' },
       attendance: [], tasks: [], timesheet: [], payslips: [], performance: []
     });
+
+    // Every employee gets an initial SalaryRevision the moment they're
+    // onboarded, so payroll always has a revision to calculate against —
+    // it never falls back to reading the raw salaryCTC field directly.
+    try {
+      await createInitialSalaryRevision(employee, req.user._id);
+    } catch (revisionError) {
+      logger.error('Error creating initial salary revision:', revisionError);
+    }
 
     // 6. Send Welcome Email
     const loginUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/admin/login`;

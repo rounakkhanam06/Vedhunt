@@ -5,6 +5,7 @@ const WorkLog = require('../models/WorkLog');
 const LeaveRequest = require('../models/LeaveRequest');
 const SupportTicket = require('../models/SupportTicket');
 const Lead = require('../models/Lead');
+const Payslip = require('../models/Payslip');
 const { getMyNotifications, markRead, markAllRead } = require('../controllers/notificationController');
 const { findLeadRaw } = require('../utils/leadLookup');
 const { LEAD_UPDATE_FIELDS } = require('../utils/leadStateMachine');
@@ -510,6 +511,38 @@ router.put('/ess/leads/:id', async (req, res) => {
     res.json({ success: true, message: 'Lead updated', lead: result.lead });
   } catch (error) {
     logger.error('Error updating employee lead:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// ==========================================
+// PAYSLIPS — read-only, self-scoped. Payroll is generated and approved
+// entirely from the admin side (server/routes/payrollRoutes.js); this is
+// just where an employee views/downloads their own history.
+// ==========================================
+router.get('/ess/payslips', async (req, res) => {
+  try {
+    const employee = await Employee.findOne({ adminId: req.user._id });
+    if (!employee) return res.status(404).json({ success: false, message: 'Employee not found' });
+
+    const payslips = await Payslip.find({ employeeId: employee._id, status: 'Active' }).sort({ year: -1, month: -1 });
+    res.json({ success: true, payslips });
+  } catch (error) {
+    logger.error('Error fetching employee payslips:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+router.get('/ess/payslips/:id', async (req, res) => {
+  try {
+    const employee = await Employee.findOne({ adminId: req.user._id });
+    if (!employee) return res.status(404).json({ success: false, message: 'Employee not found' });
+
+    const payslip = await Payslip.findOne({ _id: req.params.id, employeeId: employee._id });
+    if (!payslip) return res.status(404).json({ success: false, message: 'Payslip not found' });
+    res.json({ success: true, payslip });
+  } catch (error) {
+    logger.error('Error fetching employee payslip:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });

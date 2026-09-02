@@ -16,6 +16,8 @@ const StarRating = ({ value }) => (
   </div>
 );
 
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
 /** Buckets a lead's nextFollowUpDate as overdue / today / upcoming, mirroring LeadsPipelineView.jsx's getFollowUpColor day-diff logic. */
 function followUpBucket(dateString) {
   if (!dateString) return null;
@@ -62,6 +64,11 @@ const EmployeeDashboard = () => {
   const [isLeadsLoading, setIsLeadsLoading] = useState(false);
   const [leadFilter, setLeadFilter] = useState('All');
   const [followUpBucketFilter, setFollowUpBucketFilter] = useState('All');
+
+  // My Payslips state
+  const [payslips, setPayslips] = useState([]);
+  const [isPayslipsLoading, setIsPayslipsLoading] = useState(false);
+  const [expandedPayslipId, setExpandedPayslipId] = useState(null);
   const [leaveBalancePeriod, setLeaveBalancePeriod] = useState('Year');
   const [showLeaveModal, setShowLeaveModal] = useState(false);
 
@@ -217,6 +224,20 @@ const EmployeeDashboard = () => {
     }
   };
 
+  const fetchPayslips = async () => {
+    try {
+      setIsPayslipsLoading(true);
+      const res = await employeeApi.get('/employee-portal/ess/payslips');
+      if (res.data.success) {
+        setPayslips(res.data.payslips || []);
+      }
+    } catch {
+      toast.error('Failed to load your payslips');
+    } finally {
+      setIsPayslipsLoading(false);
+    }
+  };
+
   // Used by the Follow-ups Today / Overdue cards — jumps straight to the
   // lead's dedicated Workspace page, clearing any status filter that might
   // be hiding it from the list underneath.
@@ -345,6 +366,9 @@ const EmployeeDashboard = () => {
     }
     if (activeTab === 'leads' || activeTab === 'followups') {
       fetchLeads();
+    }
+    if (activeTab === 'payslips') {
+      fetchPayslips();
     }
   }, [activeTab]);
 
@@ -1335,46 +1359,99 @@ const EmployeeDashboard = () => {
         {activeTab === 'payslips' && (
           <div className="bg-app-card p-6 rounded-xl border border-app-border space-y-6">
             <h2 className="text-xl font-bold">Earnings & Payslips</h2>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left">
-                <thead>
-                  <tr className="border-b border-app-border text-xs text-app-text-muted uppercase">
-                    <th className="py-3 px-4">Period</th>
-                    <th className="py-3 px-4">Basic Salary</th>
-                    <th className="py-3 px-4">Allowance</th>
-                    <th className="py-3 px-4">Deductions</th>
-                    <th className="py-3 px-4">Net Payout</th>
-                    <th className="py-3 px-4 text-right">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-white/5 text-sm">
-                  {employee.payslips?.map((slip, idx) => (
-                    <tr key={idx} className="hover:bg-white/[0.01]">
-                      <td className="py-3 px-4 font-bold text-app-text">{slip.month} {slip.year}</td>
-                      <td className="py-3 px-4 text-app-text">₹{slip.baseSalary.toLocaleString()}</td>
-                      <td className="py-3 px-4 text-emerald-400">+₹{slip.allowance.toLocaleString()}</td>
-                      <td className="py-3 px-4">
-                        <div className="text-rose-400">-₹{slip.deduction.toLocaleString()}</div>
-                        {slip.deduction > 0 && slip.deductionReason && (
-                          <div className="text-[10px] text-app-text-muted mt-0.5 leading-tight">{slip.deductionReason}</div>
-                        )}
-                      </td>
-                      <td className="py-3 px-4 font-bold text-primary">₹{slip.netPay.toLocaleString()}</td>
-                      <td className="py-3 px-4 text-right">
-                        <span className="bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded text-xs">
-                          {slip.status}
-                        </span>
-                      </td>
+            {isPayslipsLoading ? (
+              <div className="flex justify-center items-center py-16">
+                <div className="w-8 h-8 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className="border-b border-app-border text-xs text-app-text-muted uppercase">
+                      <th className="py-3 px-4">Period</th>
+                      <th className="py-3 px-4">Gross Earnings</th>
+                      <th className="py-3 px-4">Deductions</th>
+                      <th className="py-3 px-4">Net Payout</th>
+                      <th className="py-3 px-4">Status</th>
+                      <th className="py-3 px-4 text-right">Details</th>
                     </tr>
-                  ))}
-                  {(!employee.payslips || employee.payslips.length === 0) && (
-                    <tr>
-                      <td colSpan="6" className="text-center py-6 text-app-text-muted">No payslips issued yet.</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y divide-app-border text-sm">
+                    {payslips.map((slip) => {
+                      const isExpanded = expandedPayslipId === slip._id;
+                      return (
+                        <>
+                          <tr key={slip._id} className="hover:bg-surface-variant transition-colors">
+                            <td className="py-3 px-4 font-bold text-app-text">{MONTH_NAMES[slip.month - 1]} {slip.year}</td>
+                            <td className="py-3 px-4 text-app-text">₹{(slip.grossEarnings || 0).toLocaleString('en-IN')}</td>
+                            <td className="py-3 px-4 text-rose-400">-₹{(slip.totalDeductions || 0).toLocaleString('en-IN')}</td>
+                            <td className="py-3 px-4 font-bold text-primary">₹{(slip.netPay || 0).toLocaleString('en-IN')}</td>
+                            <td className="py-3 px-4">
+                              <span className={`px-2 py-0.5 rounded text-xs ${slip.emailStatus === 'Sent' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-surface-variant text-app-text-muted'}`}>
+                                {slip.emailStatus === 'Sent' ? 'Sent' : 'Generated'}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4 text-right whitespace-nowrap">
+                              {slip.pdfUrl && (
+                                <a href={slip.pdfUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline text-xs font-semibold mr-3">
+                                  Download
+                                </a>
+                              )}
+                              <button
+                                onClick={() => setExpandedPayslipId(isExpanded ? null : slip._id)}
+                                className="text-app-text-muted hover:text-app-text cursor-pointer"
+                              >
+                                {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                              </button>
+                            </td>
+                          </tr>
+                          {isExpanded && (
+                            <tr key={`${slip._id}-detail`} className="bg-app-bg">
+                              <td colSpan="6" className="px-4 pb-5 pt-2">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                                  <div>
+                                    <div className="font-bold text-app-text-muted uppercase tracking-wider mb-2">Earnings</div>
+                                    <div className="space-y-1">
+                                      {Object.entries(slip.earnings || {}).filter(([, v]) => v).map(([k, v]) => (
+                                        <div key={k} className="flex justify-between text-app-text-muted">
+                                          <span className="capitalize">{k.replace(/([A-Z])/g, ' $1')}</span>
+                                          <span className="text-app-text font-medium">₹{Math.round(v).toLocaleString('en-IN')}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <div className="font-bold text-app-text-muted uppercase tracking-wider mb-2">Deductions</div>
+                                    <div className="space-y-1">
+                                      {Object.entries(slip.deductions || {}).filter(([k, v]) => k !== 'otherDeductionsReason' && v).map(([k, v]) => (
+                                        <div key={k} className="flex justify-between text-app-text-muted">
+                                          <span className="capitalize">{k.replace(/([A-Z])/g, ' $1')}</span>
+                                          <span className="text-app-text font-medium">₹{Math.round(v).toLocaleString('en-IN')}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                  {slip.attendanceSummary && (
+                                    <div className="sm:col-span-2 text-app-text-muted">
+                                      {slip.attendanceSummary.totalDaysInMonth} days · {slip.attendanceSummary.presentDays} present · {slip.attendanceSummary.paidLeaveDays} paid leave · {slip.attendanceSummary.lopDays} LOP
+                                    </div>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </>
+                      );
+                    })}
+                    {payslips.length === 0 && (
+                      <tr>
+                        <td colSpan="6" className="text-center py-6 text-app-text-muted">No payslips issued yet.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
 

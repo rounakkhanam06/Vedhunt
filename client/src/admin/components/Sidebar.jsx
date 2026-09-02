@@ -169,6 +169,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
       requiredPermission: 'team.manage',
       subItems: [
         { name: 'Employees List', path: '/admin/employees' },
+        { name: 'Payroll', path: '/admin/payroll', requiredPermission: 'payroll.manage' },
         { name: 'Attendance Roster', path: '/admin/attendance-roster' },
         { name: 'Organization Tasks', path: '/admin/tasks' },
         { name: 'Productivity Reports', path: '/admin/manager-dashboard' },
