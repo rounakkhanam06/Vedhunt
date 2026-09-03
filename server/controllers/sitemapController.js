@@ -22,6 +22,7 @@ exports.generateSitemap = async (req, res, next) => {
       { url: '/career', priority: 0.8, changefreq: 'monthly' },
       { url: '/faq', priority: 0.8, changefreq: 'monthly' },
       { url: '/get-quote', priority: 0.8, changefreq: 'monthly' },
+      { url: '/sitemap', priority: 0.3, changefreq: 'monthly' },
       { url: '/privacy-policy', priority: 0.5, changefreq: 'yearly' },
       { url: '/terms-and-conditions', priority: 0.5, changefreq: 'yearly' },
       { url: '/cookie-policy', priority: 0.5, changefreq: 'yearly' },

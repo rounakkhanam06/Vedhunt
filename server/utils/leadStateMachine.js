@@ -24,6 +24,8 @@ const NOT_CONNECTED_REASONS = [
 
 const INTEREST_LEVELS = ['Hot Lead', 'Warm', 'Cold', 'Interested', 'Not Interested', 'Wrong/Junk Lead'];
 
+const PAYMENT_STATUS_OPTIONS = ['Not Applicable', 'Pending', 'Partially Paid', 'Paid'];
+
 const LOST_DROPPED_REASONS = [
   'Too Expensive',
   'Went with Competitor',
@@ -71,7 +73,9 @@ const LEAD_UPDATE_FIELDS = [
   'status', 'city', 'country', 'callStartTime', 'callEndTime', 'callDuration',
   'callDate', 'connected', 'notConnectedReason', 'interestLevel',
   'notConvertedReason', 'remark', 'nextFollowUpDate', 'leadAgeAtCall', 'touchNumber',
-  'dealValue', 'proposalValue', 'proposalSentDate', 'holdReason', 'holdUntil'
+  'dealValue', 'proposalValue', 'proposalSentDate', 'holdReason', 'holdUntil',
+  'expectedCloseDate', 'paymentStatus',
+  'budget', 'timeline', 'decisionMaker', 'currentVendor', 'requirementSummary'
 ];
 
 /**
@@ -184,6 +188,7 @@ module.exports = {
   NOT_CONNECTED_REASONS,
   INTEREST_LEVELS,
   LOST_DROPPED_REASONS,
+  PAYMENT_STATUS_OPTIONS,
   FOLLOWUP_TRIGGER_INTEREST_LEVELS,
   FOLLOWUP_TRIGGER_STATUSES,
   FOLLOWUP_TRIGGER_NOT_CONNECTED_REASONS,

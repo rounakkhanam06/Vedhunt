@@ -13,6 +13,10 @@ const employeeService = {
     const { data } = await employeeApi.get('/employee/auth/me');
     return data;
   },
+  resetTempPassword: async (newPassword) => {
+    const { data } = await employeeApi.post('/employee/auth/reset-temp-password', { newPassword });
+    return data;
+  },
   getProfile: async () => {
     const { data } = await employeeApi.get('/employee-portal/ess/profile');
     return data;

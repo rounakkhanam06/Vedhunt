@@ -2,8 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import employeeApi from '../../services/employeeApi';
 import toast from 'react-hot-toast';
-import { ArrowLeft, Phone, Mail, MessageCircle, Play, Square, Clock, FileText } from 'lucide-react';
-import { NOT_CONNECTED_REASONS, INTEREST_LEVELS, LOST_DROPPED_REASONS, FOLLOWUP_TRIGGER_INTEREST_LEVELS } from '../../shared/leadConstants';
+import { ArrowLeft, Phone, Mail, MessageCircle, Play, Square, Clock, FileText, Upload, Trash2, PhoneCall } from 'lucide-react';
+import { NOT_CONNECTED_REASONS, INTEREST_LEVELS, LOST_DROPPED_REASONS, FOLLOWUP_TRIGGER_INTEREST_LEVELS, PAYMENT_STATUS_OPTIONS } from '../../shared/leadConstants';
 import NoCopyText from '../components/NoCopyText';
 
 const sectionClass = 'bg-app-card border border-app-border rounded-xl p-5';
@@ -40,20 +40,30 @@ export default function EmployeeLeadWorkspace() {
   const [loading, setLoading] = useState(true);
   const [draft, setDraft] = useState({});
   const [saving, setSaving] = useState(false);
+  // Call outcome (connected/notConnectedReason/interestLevel/nextFollowUpDate)
+  // is staged locally and auto-commits the instant the state machine's
+  // required combination is known — a one-tap flow, no separate Save click
+  // needed for the common case. Mirrors admin/pages/LeadWorkspace.jsx.
+  const [callOutcomeDraft, setCallOutcomeDraft] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [docType, setDocType] = useState('Attachment');
 
   const buildDraft = (l) => ({
-    connected: l.connected || '',
-    interestLevel: l.interestLevel || '',
-    notConnectedReason: l.notConnectedReason || '',
     remark: l.remark || '',
-    nextFollowUpDate: l.nextFollowUpDate ? new Date(l.nextFollowUpDate).toISOString() : '',
     dealValue: l.dealValue || '',
     notConvertedReason: l.notConvertedReason || '',
     proposalValue: l.proposalValue || '',
     proposalSentDate: l.proposalSentDate ? new Date(l.proposalSentDate).toISOString() : '',
     holdReason: l.holdReason || '',
     holdUntil: l.holdUntil ? new Date(l.holdUntil).toISOString() : '',
-    status: l.status
+    status: l.status,
+    expectedCloseDate: l.expectedCloseDate ? new Date(l.expectedCloseDate).toISOString() : '',
+    paymentStatus: l.paymentStatus || 'Not Applicable',
+    budget: l.budget || '',
+    timeline: l.timeline || '',
+    decisionMaker: l.decisionMaker || '',
+    currentVendor: l.currentVendor || '',
+    requirementSummary: l.requirementSummary || ''
   });
 
   const fetchLead = useCallback(async () => {
@@ -66,7 +76,7 @@ export default function EmployeeLeadWorkspace() {
       }
     } catch {
       toast.error('That lead could not be found');
-      navigate('/employee/dashboard?tab=leads');
+      navigate('/employee/dashboard?tab=working-leads');
     } finally {
       setLoading(false);
     }
@@ -91,6 +101,100 @@ export default function EmployeeLeadWorkspace() {
       toast.error(err.response?.data?.message || 'Failed to update lead');
     } finally {
       setSaving(false);
+    }
+  };
+
+  // Combined-field version — anything that participates in stage gating
+  // must travel in one request, since server/utils/leadStateMachine.js
+  // validates the merged result of a single update, not a sequence of
+  // partial ones.
+  const handleFieldsChange = async (fields) => {
+    const res = await employeeApi.put(`/employee-portal/ess/leads/${id}`, fields);
+    setLead(res.data.lead);
+    setDraft(buildDraft(res.data.lead));
+    return res.data;
+  };
+
+  const getCallOutcomeValue = (field) => {
+    if (callOutcomeDraft && field in callOutcomeDraft) return callOutcomeDraft[field];
+    return lead?.[field] ?? '';
+  };
+
+  // One-tap outcome capture: a chip tap stages the field, and the instant the
+  // state machine's required combination for that branch is known (e.g.
+  // Not Connected + a reason, or Connected + interest level with no
+  // follow-up required), it auto-commits — no separate Save press for the
+  // common case. Mirrors admin/pages/LeadWorkspace.jsx's updateCallOutcomeField.
+  const updateCallOutcomeField = async (field, value) => {
+    const merged = {
+      connected: getCallOutcomeValue('connected'),
+      notConnectedReason: getCallOutcomeValue('notConnectedReason'),
+      interestLevel: getCallOutcomeValue('interestLevel'),
+      nextFollowUpDate: getCallOutcomeValue('nextFollowUpDate'),
+      [field]: value
+    };
+
+    const needsFollowUp =
+      (merged.connected === 'Yes' && FOLLOWUP_TRIGGER_INTEREST_LEVELS.includes(merged.interestLevel)) ||
+      (merged.connected === 'No' && merged.notConnectedReason === 'Asked to Call Later');
+
+    const ready =
+      merged.connected === 'Yes' ? !!merged.interestLevel && (!needsFollowUp || !!merged.nextFollowUpDate) :
+      merged.connected === 'No' ? !!merged.notConnectedReason && (!needsFollowUp || !!merged.nextFollowUpDate) :
+      false;
+
+    if (!ready) {
+      setCallOutcomeDraft(merged);
+      return;
+    }
+
+    const fields = merged.connected === 'Yes'
+      ? { connected: 'Yes', interestLevel: merged.interestLevel, ...(merged.nextFollowUpDate ? { nextFollowUpDate: merged.nextFollowUpDate } : {}) }
+      : { connected: 'No', notConnectedReason: merged.notConnectedReason, ...(merged.nextFollowUpDate ? { nextFollowUpDate: merged.nextFollowUpDate } : {}) };
+
+    try {
+      await handleFieldsChange(fields);
+      setCallOutcomeDraft(null);
+      toast.success('Call outcome saved', { duration: 1200, position: 'bottom-right' });
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to save outcome');
+      setCallOutcomeDraft(merged);
+    }
+  };
+
+  const handleUploadDocument = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      setUploading(true);
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('docType', docType);
+      const res = await employeeApi.post(`/employee-portal/ess/leads/${id}/documents`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      if (res.data.success) {
+        toast.success('Document uploaded');
+        setLead(res.data.lead);
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to upload document');
+    } finally {
+      setUploading(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleDeleteDocument = async (docId) => {
+    if (!window.confirm('Remove this document?')) return;
+    try {
+      const res = await employeeApi.delete(`/employee-portal/ess/leads/${id}/documents/${docId}`);
+      if (res.data.success) {
+        toast.success('Document removed');
+        setLead(res.data.lead);
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to remove document');
     }
   };
 
@@ -275,9 +379,101 @@ export default function EmployeeLeadWorkspace() {
         </div>
       </div>
 
-      {/* Call Outcome + Pipeline + Remark */}
+      {/* Call Outcome — one-tap chips, auto-commits the instant the state
+          machine's required combination for the chosen branch is known. */}
       <div className={sectionClass}>
-        <label className={sectionLabelClass}>Call Outcome &amp; Stage</label>
+        <label className={sectionLabelClass}>Call Outcome</label>
+        <div className="space-y-4">
+          <div>
+            <label className={fieldLabelClass}>Connected?</label>
+            <div className="flex gap-2 mt-1.5">
+              <button
+                type="button"
+                onClick={() => updateCallOutcomeField('connected', 'Yes')}
+                className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-colors ${
+                  getCallOutcomeValue('connected') === 'Yes' ? 'bg-emerald-500 text-white' : 'bg-form-input-bg text-app-text hover:bg-app-border/40'
+                }`}
+              >
+                Connected
+              </button>
+              <button
+                type="button"
+                onClick={() => updateCallOutcomeField('connected', 'No')}
+                className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-colors ${
+                  getCallOutcomeValue('connected') === 'No' ? 'bg-red-500 text-white' : 'bg-form-input-bg text-app-text hover:bg-app-border/40'
+                }`}
+              >
+                Not Connected
+              </button>
+            </div>
+          </div>
+
+          {getCallOutcomeValue('connected') === 'No' && (
+            <div>
+              <label className={fieldLabelClass}>
+                Reason <span className="text-primary">*required</span>
+              </label>
+              <div className="flex flex-wrap gap-2 mt-1.5">
+                {NOT_CONNECTED_REASONS.map((reason) => (
+                  <button
+                    key={reason}
+                    type="button"
+                    onClick={() => updateCallOutcomeField('notConnectedReason', reason)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                      getCallOutcomeValue('notConnectedReason') === reason ? 'bg-primary text-white' : 'bg-form-input-bg text-app-text hover:bg-app-border/40'
+                    }`}
+                  >
+                    {reason}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {getCallOutcomeValue('connected') === 'Yes' && (
+            <div>
+              <label className={fieldLabelClass}>
+                Interest Level <span className="text-primary">*required</span>
+              </label>
+              <div className="flex flex-wrap gap-2 mt-1.5">
+                {INTEREST_LEVELS.map((level) => (
+                  <button
+                    key={level}
+                    type="button"
+                    onClick={() => updateCallOutcomeField('interestLevel', level)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                      getCallOutcomeValue('interestLevel') === level ? 'bg-primary text-white' : 'bg-form-input-bg text-app-text hover:bg-app-border/40'
+                    }`}
+                  >
+                    {level}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {(FOLLOWUP_TRIGGER_INTEREST_LEVELS.includes(getCallOutcomeValue('interestLevel')) || getCallOutcomeValue('notConnectedReason') === 'Asked to Call Later') && (
+            <div>
+              <label className={fieldLabelClass}>
+                Next Follow-Up Date &amp; Time <span className="text-primary">*required</span>
+              </label>
+              <input
+                type="datetime-local"
+                value={getCallOutcomeValue('nextFollowUpDate') ? new Date(getCallOutcomeValue('nextFollowUpDate')).toISOString().slice(0, 16) : ''}
+                onChange={(e) => updateCallOutcomeField('nextFollowUpDate', e.target.value ? new Date(e.target.value).toISOString() : '')}
+                className={selectClass}
+                style={{ colorScheme: 'dark' }}
+              />
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Stage, Qualification & Deal Details — bundled into one request via
+          the Save button below, since a status change plus its mandatory
+          companion data must travel together. */}
+      <div className={sectionClass}>
+        <label className={sectionLabelClass}>Stage &amp; Deal Details</label>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className={fieldLabelClass}>Status</label>
@@ -298,65 +494,26 @@ export default function EmployeeLeadWorkspace() {
             </select>
           </div>
           <div>
-            <label className={fieldLabelClass}>Connected?</label>
-            <select
-              value={draft.connected || ''}
-              onChange={(e) => updateDraft('connected', e.target.value)}
-              className={selectClass}
-            >
-              <option value="">—</option>
-              <option value="Yes">Yes</option>
-              <option value="No">No</option>
-            </select>
-          </div>
-          {draft.connected === 'No' && (
-            <div>
-              <label className={fieldLabelClass}>
-                Not Connected Reason <span className="text-primary">*required</span>
-              </label>
-              <select
-                value={draft.notConnectedReason || ''}
-                onChange={(e) => updateDraft('notConnectedReason', e.target.value)}
-                className={selectClass}
-              >
-                <option value="">—</option>
-                {NOT_CONNECTED_REASONS.map((reason) => (
-                  <option key={reason} value={reason}>{reason}</option>
-                ))}
-              </select>
-            </div>
-          )}
-          {draft.connected === 'Yes' && (
-            <div>
-              <label className={fieldLabelClass}>
-                Interest Level <span className="text-primary">*required</span>
-              </label>
-              <select
-                value={draft.interestLevel || ''}
-                onChange={(e) => updateDraft('interestLevel', e.target.value)}
-                className={selectClass}
-              >
-                <option value="">—</option>
-                {INTEREST_LEVELS.map((level) => (
-                  <option key={level} value={level}>{level}</option>
-                ))}
-              </select>
-            </div>
-          )}
-          <div>
-            <label className={fieldLabelClass}>
-              Next Follow-Up Date &amp; Time
-              {(FOLLOWUP_TRIGGER_INTEREST_LEVELS.includes(draft.interestLevel) || draft.notConnectedReason === 'Asked to Call Later') && (
-                <span className="text-primary"> *required</span>
-              )}
-            </label>
+            <label className={fieldLabelClass}>Expected Close Date</label>
             <input
-              type="datetime-local"
-              value={draft.nextFollowUpDate ? new Date(draft.nextFollowUpDate).toISOString().slice(0, 16) : ''}
-              onChange={(e) => updateDraft('nextFollowUpDate', e.target.value ? new Date(e.target.value).toISOString() : '')}
+              type="date"
+              value={draft.expectedCloseDate ? new Date(draft.expectedCloseDate).toISOString().slice(0, 10) : ''}
+              onChange={(e) => updateDraft('expectedCloseDate', e.target.value ? new Date(e.target.value).toISOString() : '')}
               className={selectClass}
               style={{ colorScheme: 'dark' }}
             />
+          </div>
+          <div>
+            <label className={fieldLabelClass}>Payment Status</label>
+            <select
+              value={draft.paymentStatus || 'Not Applicable'}
+              onChange={(e) => updateDraft('paymentStatus', e.target.value)}
+              className={selectClass}
+            >
+              {PAYMENT_STATUS_OPTIONS.map((opt) => (
+                <option key={opt} value={opt}>{opt}</option>
+              ))}
+            </select>
           </div>
           {draft.status === 'Proposal Sent' && (
             <>
@@ -453,6 +610,107 @@ export default function EmployeeLeadWorkspace() {
         </button>
       </div>
 
+      {/* Qualification — discovery data, doesn't gate any stage transition;
+          saved together with Stage & Deal Details via the Save button above. */}
+      <div className={sectionClass}>
+        <label className={sectionLabelClass}>Qualification</label>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className={fieldLabelClass}>Budget (₹)</label>
+            <input
+              type="number"
+              min="0"
+              value={draft.budget || ''}
+              onChange={(e) => updateDraft('budget', e.target.value)}
+              className={selectClass}
+            />
+          </div>
+          <div>
+            <label className={fieldLabelClass}>Timeline</label>
+            <input
+              type="text"
+              placeholder="e.g. Within 2 weeks"
+              value={draft.timeline || ''}
+              onChange={(e) => updateDraft('timeline', e.target.value)}
+              className={selectClass}
+            />
+          </div>
+          <div>
+            <label className={fieldLabelClass}>Decision Maker</label>
+            <input
+              type="text"
+              value={draft.decisionMaker || ''}
+              onChange={(e) => updateDraft('decisionMaker', e.target.value)}
+              className={selectClass}
+            />
+          </div>
+          <div>
+            <label className={fieldLabelClass}>Current Vendor</label>
+            <input
+              type="text"
+              value={draft.currentVendor || ''}
+              onChange={(e) => updateDraft('currentVendor', e.target.value)}
+              className={selectClass}
+            />
+          </div>
+        </div>
+        <div className="mt-4">
+          <label className={fieldLabelClass}>Requirement Summary</label>
+          <textarea
+            rows={3}
+            value={draft.requirementSummary || ''}
+            onChange={(e) => updateDraft('requirementSummary', e.target.value)}
+            className={selectClass}
+          />
+        </div>
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="mt-4 px-4 py-2 bg-primary hover:bg-primary-hover text-white text-sm font-bold rounded-lg transition-colors disabled:opacity-50"
+        >
+          {saving ? 'Saving...' : 'Save Updates'}
+        </button>
+      </div>
+
+      {/* Documents — proposal, quotation, scope, and other attachments */}
+      <div className={sectionClass}>
+        <label className={sectionLabelClass}>Documents</label>
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+          <select
+            value={docType}
+            onChange={(e) => setDocType(e.target.value)}
+            className={`${selectClass} w-auto`}
+          >
+            <option value="Proposal">Proposal</option>
+            <option value="Quotation">Quotation</option>
+            <option value="Scope">Scope</option>
+            <option value="Attachment">Other Attachment</option>
+          </select>
+          <label className="flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 text-primary hover:bg-primary/20 rounded-lg text-xs font-bold cursor-pointer transition-colors">
+            <Upload size={13} /> {uploading ? 'Uploading...' : 'Upload File'}
+            <input type="file" className="hidden" disabled={uploading} onChange={handleUploadDocument} />
+          </label>
+        </div>
+        {(lead.documents || []).length === 0 ? (
+          <p className="text-sm text-app-text-muted">No documents attached yet.</p>
+        ) : (
+          <div className="space-y-2">
+            {lead.documents.map((doc) => (
+              <div key={doc._id} className="flex items-center justify-between gap-3 bg-form-input-bg px-3 py-2 rounded-lg">
+                <a href={doc.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-app-text hover:text-primary min-w-0">
+                  <FileText size={14} className="shrink-0" />
+                  <span className="truncate">{doc.name}</span>
+                  <span className="text-[10px] text-app-text-muted shrink-0 uppercase font-bold">{doc.docType}</span>
+                </a>
+                <button onClick={() => handleDeleteDocument(doc._id)} className="text-red-400 hover:text-red-300 shrink-0">
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {lead.nextFollowUpDate && (
         <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 flex items-center gap-2 text-sm text-app-text">
           <Clock size={14} className="text-primary shrink-0" />
@@ -519,6 +777,48 @@ export default function EmployeeLeadWorkspace() {
           ))}
         </div>
       </div>
+
+      {/* Call History — every logged call attempt, richest-first. Each entry
+          is written by server/services/leadLifecycle.js the moment a call
+          outcome is saved above; callType/leadStage are auto-classified. */}
+      {(lead.callLogs || []).length > 0 && (
+        <div className={sectionClass}>
+          <label className={`${sectionLabelClass} flex items-center gap-2`}>
+            <PhoneCall size={14} /> Call History
+          </label>
+          <div className="space-y-3">
+            {[...lead.callLogs].reverse().map((call) => (
+              <div key={call._id || call.touchNumber} className="bg-form-input-bg rounded-lg p-3">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-bold text-app-text">Touch #{call.touchNumber}</span>
+                    {call.callType && (
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-primary/10 text-primary">{call.callType}</span>
+                    )}
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                      call.connected === 'Yes' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'
+                    }`}>
+                      {call.connected === 'Yes' ? 'Connected' : 'Not Connected'}
+                    </span>
+                  </div>
+                  <span className="text-xs text-app-text-muted">
+                    {call.callDate ? new Date(call.callDate).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '-'}
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-app-text-muted">
+                  {call.interestLevel && <span>Interest: <span className="text-app-text font-medium">{call.interestLevel}</span></span>}
+                  {call.notConnectedReason && <span>Reason: <span className="text-app-text font-medium">{call.notConnectedReason}</span></span>}
+                  {call.callDuration != null && <span>Duration: <span className="text-app-text font-medium">{call.callDuration} min</span></span>}
+                  {call.leadStage && <span>Stage: <span className="text-app-text font-medium">{call.leadStage}</span></span>}
+                </div>
+                {call.remark && (
+                  <p className="text-xs text-app-text-muted mt-2 italic border-l-2 border-primary/30 pl-2 py-0.5">{call.remark}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -267,7 +267,16 @@ const leadSchema = new mongoose.Schema({
     },
     notConnectedReason: String,
     interestLevel: String,
-    remark: String
+    remark: String,
+    // Stage the lead was in immediately after this call was logged, and an
+    // auto-classified call type — both set by services/leadLifecycle.js, not
+    // chosen by the caller, so every call log entry stays self-describing
+    // without asking the BD an extra question mid-call.
+    leadStage: String,
+    callType: {
+      type: String,
+      enum: ['First Call', 'Follow-up', 'Callback', 'Proposal', 'Negotiation', 'Other']
+    }
   }],
   // Set once, from the first callLogs entry — used for BD response-time
   // reporting (time from assignment to first call).
@@ -294,6 +303,60 @@ const leadSchema = new mongoose.Schema({
   proposalSentDate: {
     type: Date
   },
+  expectedCloseDate: {
+    type: Date
+  },
+  paymentStatus: {
+    type: String,
+    enum: ['Not Applicable', 'Pending', 'Partially Paid', 'Paid'],
+    default: 'Not Applicable'
+  },
+
+  // ── Qualification ─────────────────────────────────────────────────────────
+  // Free-form discovery data a BD fills in as the conversation progresses —
+  // none of it gates stage transitions (server/utils/leadStateMachine.js is
+  // still the only enforcement point for that), it's reference context.
+  budget: {
+    type: Number,
+    min: 0
+  },
+  timeline: {
+    type: String,
+    trim: true
+  },
+  decisionMaker: {
+    type: String,
+    trim: true
+  },
+  currentVendor: {
+    type: String,
+    trim: true
+  },
+  requirementSummary: {
+    type: String,
+    trim: true
+  },
+
+  // ── Documents ────────────────────────────────────────────────────────────
+  // Proposal/quotation/scope files and other attachments. Stored on
+  // Cloudinary (see server/utils/cloudinary.js's uploadLeadDocument), pushed
+  // via the raw driver in leadController.uploadLeadDocument, same as every
+  // other lead write.
+  documents: [{
+    name: { type: String, trim: true },
+    url: { type: String, trim: true },
+    publicId: { type: String, trim: true },
+    docType: { type: String, trim: true },
+    isImage: { type: Boolean, default: false },
+    uploadedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Admin'
+    },
+    uploadedAt: {
+      type: Date,
+      default: Date.now
+    }
+  }],
 
   // ── Hold ──────────────────────────────────────────────────────────────────
   holdReason: {

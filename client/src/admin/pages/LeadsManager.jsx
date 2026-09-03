@@ -45,7 +45,7 @@ const STATUS_BADGE_CLASSES = {
   Hold: 'bg-slate-500/10 text-slate-400 border-slate-500/20'
 };
 
-export default function LeadsManager() {
+export default function LeadsManager({ stageGroup }) {
   const { can } = usePermissions();
   const isSuperAdmin = can('*');
   const canAssign = can('leads.assign');
@@ -110,6 +110,7 @@ export default function LeadsManager() {
           page: currentPage,
           limit: 10, // Items per page
           status: statusFilter,
+          stageGroup,
           platform: platformFilter,
           userSource: sourceFilter,
           leadType: leadTypeFilter,
@@ -131,7 +132,7 @@ export default function LeadsManager() {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, statusFilter, platformFilter, sourceFilter, leadTypeFilter, formFilter, assignedBdFilter, debouncedSearchTerm, sortBy, sortOrder]);
+  }, [currentPage, statusFilter, stageGroup, platformFilter, sourceFilter, leadTypeFilter, formFilter, assignedBdFilter, debouncedSearchTerm, sortBy, sortOrder]);
 
   useEffect(() => {
     fetchLeads();
@@ -243,6 +244,7 @@ export default function LeadsManager() {
         params: {
           export: true,
           status: statusFilter,
+          stageGroup,
           platform: platformFilter,
           userSource: sourceFilter,
           leadType: leadTypeFilter,
@@ -315,8 +317,12 @@ export default function LeadsManager() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-app-text font-heading">Lead Manager</h1>
+          <h1 className="text-2xl font-bold text-app-text font-heading">
+            {stageGroup === 'raw' ? 'Raw Leads' : stageGroup === 'working' ? 'Working Leads' : 'Lead Manager'}
+          </h1>
           <p className="text-sm text-app-text-muted mt-1">
+            {stageGroup === 'raw' && 'Untouched leads — no calls made, no stage change yet. '}
+            {stageGroup === 'working' && 'Leads with calling/stage activity already started. '}
             {leadTypeFilter === 'All' ? 'Total' : leadTypeFilter} leads:{' '}
             <span className="font-semibold text-app-text">{totalLeads}</span>
           </p>
@@ -405,27 +411,30 @@ export default function LeadsManager() {
         <div className="hidden sm:block w-px h-6 bg-app-border" />
 
         <div className="flex flex-wrap items-center gap-2">
-          <div className="relative">
-            <select
-              value={statusFilter}
-              onChange={(e) => {
-                setStatusFilter(e.target.value);
-                setCurrentPage(1);
-              }}
-              className={compactSelectClass}
-            >
-              <option className="bg-app-bg text-app-text" value="All">All Statuses</option>
-              <option className="bg-app-bg text-app-text" value="New">New</option>
-              <option className="bg-app-bg text-app-text" value="Contacted">Contacted</option>
-              <option className="bg-app-bg text-app-text" value="Qualified">Qualified</option>
-              <option className="bg-app-bg text-app-text" value="Proposal Sent">Proposal Sent</option>
-              <option className="bg-app-bg text-app-text" value="Negotiation">Negotiation</option>
-              <option className="bg-app-bg text-app-text" value="Won">Won</option>
-              <option className="bg-app-bg text-app-text" value="Lost">Lost</option>
-              <option className="bg-app-bg text-app-text" value="Dropped">Dropped</option>
-            </select>
-            <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 text-app-text-muted w-3.5 h-3.5 pointer-events-none" />
-          </div>
+          {stageGroup !== 'raw' && (
+            <div className="relative">
+              <select
+                value={statusFilter}
+                onChange={(e) => {
+                  setStatusFilter(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className={compactSelectClass}
+              >
+                <option className="bg-app-bg text-app-text" value="All">{stageGroup === 'working' ? 'All Working Statuses' : 'All Statuses'}</option>
+                {stageGroup !== 'working' && <option className="bg-app-bg text-app-text" value="New">New</option>}
+                <option className="bg-app-bg text-app-text" value="Contacted">Contacted</option>
+                <option className="bg-app-bg text-app-text" value="Qualified">Qualified</option>
+                <option className="bg-app-bg text-app-text" value="Proposal Sent">Proposal Sent</option>
+                <option className="bg-app-bg text-app-text" value="Negotiation">Negotiation</option>
+                <option className="bg-app-bg text-app-text" value="Hold">Hold</option>
+                <option className="bg-app-bg text-app-text" value="Won">Won</option>
+                <option className="bg-app-bg text-app-text" value="Lost">Lost</option>
+                <option className="bg-app-bg text-app-text" value="Dropped">Dropped</option>
+              </select>
+              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 text-app-text-muted w-3.5 h-3.5 pointer-events-none" />
+            </div>
+          )}
 
           <div className="relative">
             <select

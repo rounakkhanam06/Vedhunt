@@ -24,6 +24,7 @@ const DPA = lazy(() => import('../pages/DPA'));
 const FAQ = lazy(() => import('../pages/FAQ'));
 const ThankYou = lazy(() => import('../pages/ThankYou'));
 const Unsubscribe = lazy(() => import('../pages/Unsubscribe'));
+const Sitemap = lazy(() => import('../pages/Sitemap'));
 
 // Admin Pages
 const AdminLayout = lazy(() => import('../admin/AdminLayout'));
@@ -61,7 +62,8 @@ const CookiePolicyManager = lazy(() => import('../admin/pages/CookiePolicyManage
 const DPAManager = lazy(() => import('../admin/pages/DPAManager'));
 const RefundPolicyManager = lazy(() => import('../admin/pages/RefundPolicyManager'));
 const ServiceAgreementManager = lazy(() => import('../admin/pages/ManageAgreement'));
-const LeadsManager = lazy(() => import('../admin/pages/LeadsManager'));
+const RawLeadsManager = lazy(() => import('../admin/pages/RawLeadsManager'));
+const WorkingLeadsManager = lazy(() => import('../admin/pages/WorkingLeadsManager'));
 const LeadWorkspace = lazy(() => import('../admin/pages/LeadWorkspace'));
 const UnassignedLeadsManager = lazy(() => import('../admin/pages/UnassignedLeadsManager'));
 const LeadActivity = lazy(() => import('../admin/pages/LeadActivity'));
@@ -95,6 +97,7 @@ const PaymentVerificationManager = lazy(() => import('../admin/pages/PaymentVeri
 const EmployeePrivateRoute = lazy(() => import('../employee/EmployeePrivateRoute'));
 const EmployeeLayout = lazy(() => import('../employee/EmployeeLayout'));
 const EmployeeLogin = lazy(() => import('../employee/pages/EmployeeLogin'));
+const EmployeePasswordReset = lazy(() => import('../employee/pages/EmployeePasswordReset'));
 const EmployeeDashboard = lazy(() => import('../employee/pages/EmployeeDashboard'));
 const EmployeeLeadWorkspace = lazy(() => import('../employee/pages/LeadWorkspace'));
 
@@ -238,6 +241,10 @@ export const router = createBrowserRouter([
       {
         path: 'cookie-policy',
         element: withSuspense(CookiePolicy)
+      },
+      {
+        path: 'sitemap',
+        element: withSuspense(Sitemap)
       },
       {
         path: 'data-processing-agreement',
@@ -482,7 +489,11 @@ export const router = createBrowserRouter([
           },
           {
             path: 'leads',
-            element: withSuspense(LeadsManager)
+            element: withSuspense(RawLeadsManager)
+          },
+          {
+            path: 'leads/working',
+            element: withSuspense(WorkingLeadsManager)
           },
           {
             path: 'leads/unassigned',
@@ -537,6 +548,10 @@ export const router = createBrowserRouter([
       {
         path: 'login',
         element: withSuspense(EmployeeLogin)
+      },
+      {
+        path: 'reset-temp-password',
+        element: withSuspense(EmployeePasswordReset)
       },
       {
         path: '',

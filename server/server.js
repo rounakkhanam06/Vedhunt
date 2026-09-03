@@ -246,7 +246,7 @@ if (process.env.NODE_ENV === 'production') {
   // Public routes declared in client/src/routes/index.jsx
   const STATIC_ROUTES = new Set([
     '/', '/about', '/services', '/portfolio', '/get-quote', '/pricing',
-    '/career', '/career/success', '/blog', '/faq', '/thank-you',
+    '/career', '/career/success', '/blog', '/faq', '/thank-you', '/sitemap',
     '/privacy-policy', '/terms-and-conditions', '/refund-and-billing-policy',
     '/cookie-policy', '/data-processing-agreement'
   ]);
