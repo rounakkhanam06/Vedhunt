@@ -37,7 +37,8 @@ const EmployeeLayout = () => {
 
   const navItems = [
     { name: 'Dashboard', path: '/employee/dashboard?tab=dashboard', icon: LayoutDashboard },
-    { name: 'My Leads', path: '/employee/dashboard?tab=leads', icon: UserCheck },
+    { name: 'Raw Leads', path: '/employee/dashboard?tab=raw-leads', icon: UserCheck },
+    { name: 'Working Leads', path: '/employee/dashboard?tab=working-leads', icon: UserCheck },
     { name: 'Follow-ups', path: '/employee/dashboard?tab=followups', icon: AlertTriangle },
     { name: 'Attendance & Leave', path: '/employee/dashboard?tab=attendance', icon: Clock },
     { name: 'My Tasks', path: '/employee/dashboard?tab=tasks', icon: CheckSquare },

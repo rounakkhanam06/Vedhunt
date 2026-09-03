@@ -10,6 +10,7 @@ const { manualAssign, autoAssignLead } = require('../services/leadAssignment');
 const { findLeadRaw } = require('../utils/leadLookup');
 const { LEAD_UPDATE_FIELDS } = require('../utils/leadStateMachine');
 const { applyLeadUpdate } = require('../services/leadLifecycle');
+const { addLeadDocument, removeLeadDocument } = require('../services/leadDocuments');
 
 // @desc    Submit a new lead from a landing page
 // @route   POST /api/leads
@@ -142,8 +143,17 @@ exports.getLeads = async (req, res, next) => {
 
     const query = {};
 
-    // Filter by status
-    if (req.query.status && req.query.status !== 'All') {
+    // Raw (untouched, still "New") vs Working (calling/stage activity has
+    // started) — keeps the two admin lead pages from ever showing the same
+    // lead. stageGroup takes priority over a plain status filter so a
+    // Working-page request can't accidentally leak New leads back in.
+    if (req.query.stageGroup === 'raw') {
+      query.status = 'New';
+    } else if (req.query.stageGroup === 'working') {
+      query.status = (req.query.status && req.query.status !== 'All')
+        ? req.query.status
+        : { $ne: 'New' };
+    } else if (req.query.status && req.query.status !== 'All') {
       query.status = req.query.status;
     }
 
@@ -491,6 +501,41 @@ exports.updateLead = async (req, res, next) => {
     res.status(200).json({ success: true, data: result.lead });
   } catch (error) {
     logger.error('Error updating lead:', error);
+    next(error);
+  }
+};
+
+// @desc    Attach a document (proposal, quotation, scope, other) to a lead
+// @route   POST /api/leads/:id/documents
+// @access  Private (Admin)
+exports.uploadLeadDocument = async (req, res, next) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'No file uploaded' });
+    }
+    const result = await addLeadDocument(req.params.id, req.file, req.body.docType, req.user._id);
+    if (!result.ok) {
+      return res.status(result.status).json({ success: false, message: result.message });
+    }
+    res.status(201).json({ success: true, data: result.lead });
+  } catch (error) {
+    logger.error('Error uploading lead document:', error);
+    next(error);
+  }
+};
+
+// @desc    Remove a document from a lead
+// @route   DELETE /api/leads/:id/documents/:docId
+// @access  Private (Admin)
+exports.deleteLeadDocument = async (req, res, next) => {
+  try {
+    const result = await removeLeadDocument(req.params.id, req.params.docId);
+    if (!result.ok) {
+      return res.status(result.status).json({ success: false, message: result.message });
+    }
+    res.status(200).json({ success: true, data: result.lead });
+  } catch (error) {
+    logger.error('Error deleting lead document:', error);
     next(error);
   }
 };

@@ -245,6 +245,12 @@ export default function Footer() {
                     Contact Support
                   </Link>
                 </li>
+                <li className="flex items-center gap-2 group">
+                  <ChevronRight className="w-4 h-4 text-primary transition-transform group-hover:translate-x-1" />
+                  <Link to="/sitemap" className="text-app-text-muted hover:text-primary transition-colors duration-300 block border-b border-app-border/30 pb-1.5 w-full">
+                    Sitemap
+                  </Link>
+                </li>
               </ul>
             </div>
 

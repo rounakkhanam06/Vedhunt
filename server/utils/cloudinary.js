@@ -1,3 +1,4 @@
+const path = require('path');
 const cloudinary = require('cloudinary').v2;
 const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const multer = require('multer');
@@ -81,4 +82,40 @@ const uploadResume = multer({
   },
 });
 
-module.exports = { cloudinary, upload, uploadResume, uploadBuffer, deleteFromCloudinary };
+// Lead documents (proposals, quotations, scope docs, general attachments) —
+// PDFs/Office docs go up as raw resources same as resumes; images stay
+// browser-viewable via the default 'image' resource type.
+const leadDocumentStorage = new CloudinaryStorage({
+  cloudinary,
+  params: async (_req, file) => ({
+    folder: 'vedhunt-lead-documents',
+    resource_type: file.mimetype.startsWith('image/') ? 'image' : 'raw',
+  }),
+});
+
+const uploadLeadDocument = multer({
+  storage: leadDocumentStorage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+  fileFilter: (_req, file, cb) => {
+    const allowedMime = [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'image/jpeg',
+      'image/png',
+      'image/webp',
+    ];
+    const allowedExts = ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.jpg', '.jpeg', '.png', '.webp'];
+    const ext = path.extname(file.originalname).toLowerCase();
+
+    if (allowedMime.includes(file.mimetype) && allowedExts.includes(ext)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only PDF, DOC/DOCX, XLS/XLSX, and image files are allowed'), false);
+    }
+  },
+});
+
+module.exports = { cloudinary, upload, uploadResume, uploadLeadDocument, uploadBuffer, deleteFromCloudinary };

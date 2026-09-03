@@ -59,7 +59,8 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
       dropdownKey: 'leads',
       requiredPermission: 'leads.view',
       subItems: [
-        { name: 'All Leads (Ads)', path: '/admin/leads' },
+        { name: 'Raw Leads', path: '/admin/leads' },
+        { name: 'Working Leads', path: '/admin/leads/working' },
         { name: 'Unassigned Leads', path: '/admin/leads/unassigned' },
         { name: 'Lead Activity', path: '/admin/lead-activity', requiredPermission: 'leads.assign' },
         { name: 'Follow-ups', path: '/admin/follow-ups', requiredPermission: 'leads.assign' },
@@ -186,14 +187,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
   const isEmployee = admin?.roles?.some(r => r.name === 'EMPLOYEE');
   const isEmployeeOnly = isEmployee && admin?.roles?.length === 1;
 
-  let baseNavItems = [...navItems];
-  if (isEmployee && !isEmployeeOnly) {
-    baseNavItems.unshift({
-      name: 'My Employee Portal',
-      path: '/employee/dashboard?tab=dashboard',
-      icon: User
-    });
-  }
+  const baseNavItems = [...navItems];
 
   const renderedNavItems = isEmployeeOnly
     ? [

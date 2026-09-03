@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../services/api';
-import { ArrowLeft, Mail, Phone, Clock, FileText, Play, Square, MessageCircle, Trash2 } from 'lucide-react';
+import { ArrowLeft, Mail, Phone, Clock, FileText, Play, Square, MessageCircle, Trash2, Upload, PhoneCall } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { usePermissions } from '../hooks/usePermissions';
 import StageDataModal from '../components/StageDataModal';
-import { NOT_CONNECTED_REASONS, INTEREST_LEVELS, LOST_DROPPED_REASONS, FOLLOWUP_TRIGGER_INTEREST_LEVELS } from '../../shared/leadConstants';
+import { NOT_CONNECTED_REASONS, INTEREST_LEVELS, LOST_DROPPED_REASONS, FOLLOWUP_TRIGGER_INTEREST_LEVELS, PAYMENT_STATUS_OPTIONS } from '../../shared/leadConstants';
 
 // Status values that require mandatory companion data beyond the status
 // field itself — server/utils/leadStateMachine.js rejects a bare status
@@ -98,6 +98,8 @@ export default function LeadWorkspace() {
   // then committed as one combined update — the state machine validates the
   // whole outcome together, not field-by-field.
   const [callOutcomeDraft, setCallOutcomeDraft] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [docType, setDocType] = useState('Attachment');
 
   const fetchLead = useCallback(async () => {
     setLoading(true);
@@ -250,6 +252,42 @@ export default function LeadWorkspace() {
       // Keep the draft so the admin doesn't lose what they picked — the
       // error toast from handleFieldsChange already explains what's missing.
       setCallOutcomeDraft(merged);
+    }
+  };
+
+  const handleUploadDocument = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      setUploading(true);
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('docType', docType);
+      const res = await api.post(`/leads/${id}/documents`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      if (res.data.success) {
+        toast.success('Document uploaded');
+        setLead(res.data.data);
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to upload document');
+    } finally {
+      setUploading(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleDeleteDocument = async (docId) => {
+    if (!window.confirm('Remove this document?')) return;
+    try {
+      const res = await api.delete(`/leads/${id}/documents/${docId}`);
+      if (res.data.success) {
+        toast.success('Document removed');
+        setLead(res.data.data);
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to remove document');
     }
   };
 
@@ -475,6 +513,31 @@ export default function LeadWorkspace() {
                 <label className={fieldLabelClass}>Estimated Deal Value</label>
                 <p className="mt-1 text-sm font-semibold text-app-text py-2">₹{(lead.dealValue || 0).toLocaleString('en-IN')}</p>
               </div>
+              <div>
+                <label className={fieldLabelClass}>Expected Close Date</label>
+                <input
+                  type="date"
+                  defaultValue={lead.expectedCloseDate ? new Date(lead.expectedCloseDate).toISOString().slice(0, 10) : ''}
+                  onBlur={(e) => {
+                    const value = e.target.value ? new Date(e.target.value).toISOString() : null;
+                    if (value !== lead.expectedCloseDate) handleFieldChange('expectedCloseDate', value);
+                  }}
+                  className={selectClass}
+                  style={{ colorScheme: 'dark' }}
+                />
+              </div>
+              <div>
+                <label className={fieldLabelClass}>Payment Status</label>
+                <select
+                  value={lead.paymentStatus || 'Not Applicable'}
+                  onChange={(e) => handleFieldChange('paymentStatus', e.target.value)}
+                  className={selectClass}
+                >
+                  {PAYMENT_STATUS_OPTIONS.map((opt) => (
+                    <option key={opt} className="bg-app-bg text-app-text" value={opt}>{opt}</option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
 
@@ -508,6 +571,95 @@ export default function LeadWorkspace() {
               onBlur={(e) => { if (e.target.value !== lead.remark) handleFieldChange('remark', e.target.value); }}
               className="w-full bg-app-bg border border-app-border rounded-lg px-3 py-2 text-sm text-app-text focus:outline-none focus:border-primary resize-none"
             />
+          </div>
+
+          {/* Qualification — discovery data, doesn't gate any stage transition */}
+          <div className={sectionClass}>
+            <label className={sectionLabelClass}>Qualification</label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className={fieldLabelClass}>Budget (₹)</label>
+                <input
+                  type="number"
+                  min="0"
+                  defaultValue={lead.budget ?? ''}
+                  onBlur={(e) => { if (e.target.value !== String(lead.budget ?? '')) handleFieldChange('budget', e.target.value); }}
+                  className={selectClass}
+                />
+              </div>
+              <div>
+                <label className={fieldLabelClass}>Timeline</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Within 2 weeks"
+                  defaultValue={lead.timeline || ''}
+                  onBlur={(e) => { if (e.target.value !== lead.timeline) handleFieldChange('timeline', e.target.value); }}
+                  className={selectClass}
+                />
+              </div>
+              <div>
+                <label className={fieldLabelClass}>Decision Maker</label>
+                <input
+                  type="text"
+                  defaultValue={lead.decisionMaker || ''}
+                  onBlur={(e) => { if (e.target.value !== lead.decisionMaker) handleFieldChange('decisionMaker', e.target.value); }}
+                  className={selectClass}
+                />
+              </div>
+              <div>
+                <label className={fieldLabelClass}>Current Vendor</label>
+                <input
+                  type="text"
+                  defaultValue={lead.currentVendor || ''}
+                  onBlur={(e) => { if (e.target.value !== lead.currentVendor) handleFieldChange('currentVendor', e.target.value); }}
+                  className={selectClass}
+                />
+              </div>
+            </div>
+            <div className="mt-4">
+              <label className={fieldLabelClass}>Requirement Summary</label>
+              <textarea
+                rows={3}
+                defaultValue={lead.requirementSummary || ''}
+                onBlur={(e) => { if (e.target.value !== lead.requirementSummary) handleFieldChange('requirementSummary', e.target.value); }}
+                className="w-full bg-app-bg border border-app-border rounded-lg px-3 py-2 text-sm text-app-text focus:outline-none focus:border-primary resize-none"
+              />
+            </div>
+          </div>
+
+          {/* Documents — proposal, quotation, scope, and other attachments */}
+          <div className={sectionClass}>
+            <label className={sectionLabelClass}>Documents</label>
+            <div className="flex flex-wrap items-center gap-2 mb-4">
+              <select value={docType} onChange={(e) => setDocType(e.target.value)} className={`${selectClass} w-auto`}>
+                <option className="bg-app-bg text-app-text" value="Proposal">Proposal</option>
+                <option className="bg-app-bg text-app-text" value="Quotation">Quotation</option>
+                <option className="bg-app-bg text-app-text" value="Scope">Scope</option>
+                <option className="bg-app-bg text-app-text" value="Attachment">Other Attachment</option>
+              </select>
+              <label className="flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 text-primary hover:bg-primary/20 rounded-lg text-xs font-bold cursor-pointer transition-colors">
+                <Upload size={13} /> {uploading ? 'Uploading...' : 'Upload File'}
+                <input type="file" className="hidden" disabled={uploading} onChange={handleUploadDocument} />
+              </label>
+            </div>
+            {(lead.documents || []).length === 0 ? (
+              <p className="text-sm text-app-text-muted">No documents attached yet.</p>
+            ) : (
+              <div className="space-y-2">
+                {lead.documents.map((doc) => (
+                  <div key={doc._id} className="flex items-center justify-between gap-3 bg-app-bg px-3 py-2 rounded-lg">
+                    <a href={doc.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-app-text hover:text-primary min-w-0">
+                      <FileText size={14} className="shrink-0" />
+                      <span className="truncate">{doc.name}</span>
+                      <span className="text-[10px] text-app-text-muted shrink-0 uppercase font-bold">{doc.docType}</span>
+                    </a>
+                    <button onClick={() => handleDeleteDocument(doc._id)} className="text-red-400 hover:text-red-300 shrink-0 cursor-pointer">
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
@@ -634,6 +786,48 @@ export default function LeadWorkspace() {
               ))}
             </div>
           </div>
+
+          {/* Call History — every logged call attempt, richest-first. Written
+              by server/services/leadLifecycle.js the moment a call outcome
+              is saved; callType/leadStage are auto-classified. */}
+          {(lead.callLogs || []).length > 0 && (
+            <div className={sectionClass}>
+              <label className="text-xs text-primary font-bold uppercase tracking-wider mb-4 flex items-center gap-2">
+                <PhoneCall size={14} /> Call History
+              </label>
+              <div className="space-y-3">
+                {[...lead.callLogs].reverse().map((call) => (
+                  <div key={call._id || call.touchNumber} className="bg-app-bg rounded-lg p-3">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs font-bold text-app-text">Touch #{call.touchNumber}</span>
+                        {call.callType && (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-primary/10 text-primary">{call.callType}</span>
+                        )}
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                          call.connected === 'Yes' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'
+                        }`}>
+                          {call.connected === 'Yes' ? 'Connected' : 'Not Connected'}
+                        </span>
+                      </div>
+                      <span className="text-xs text-app-text-muted">
+                        {call.callDate ? new Date(call.callDate).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '-'}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-app-text-muted">
+                      {call.interestLevel && <span>Interest: <span className="text-app-text font-medium">{call.interestLevel}</span></span>}
+                      {call.notConnectedReason && <span>Reason: <span className="text-app-text font-medium">{call.notConnectedReason}</span></span>}
+                      {call.callDuration != null && <span>Duration: <span className="text-app-text font-medium">{call.callDuration} min</span></span>}
+                      {call.leadStage && <span>Stage: <span className="text-app-text font-medium">{call.leadStage}</span></span>}
+                    </div>
+                    {call.remark && (
+                      <p className="text-xs text-app-text-muted mt-2 italic border-l-2 border-primary/30 pl-2 py-0.5">{call.remark}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

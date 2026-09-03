@@ -51,7 +51,8 @@ const PAGE_META = {
   '/terms-and-conditions': { title: 'Terms & Conditions', description: 'The terms governing use of Vedhunt InfoTech services and website.' },
   '/cookie-policy': { title: 'Cookie Policy', description: 'How and why Vedhunt InfoTech uses cookies.' },
   '/data-processing-agreement': { title: 'Data Processing Agreement', description: 'Our data processing terms for clients and partners.' },
-  '/refund-and-billing-policy': { title: 'Refund & Billing Policy', description: 'Billing cycles, refunds and cancellation terms for Vedhunt InfoTech services.' }
+  '/refund-and-billing-policy': { title: 'Refund & Billing Policy', description: 'Billing cycles, refunds and cancellation terms for Vedhunt InfoTech services.' },
+  '/sitemap': { title: 'Sitemap', description: 'Every page on Vedhunt InfoTech, in one place — services, blog articles, company and legal pages.' }
 };
 
 /**

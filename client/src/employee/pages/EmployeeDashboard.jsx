@@ -2,11 +2,11 @@ import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import employeeApi from '../../services/employeeApi';
 import toast from 'react-hot-toast';
-import { Clock, ShieldAlert, Trophy, Star, Target, AlertTriangle, TrendingUp, ChevronDown, ChevronUp, Phone, Mail, Eye } from 'lucide-react';
+import { Clock, ShieldAlert, Trophy, Star, Target, AlertTriangle, TrendingUp, ChevronDown, ChevronUp, UserPlus, PhoneCall, CalendarClock, AlertCircle, Flame, FileText, Handshake } from 'lucide-react';
 import employeeAvatar from '../../assets/033a13e9af4efbb035a04c3777c4934d-removebg-preview.png';
 
 import RealTimeTimer from '../components/RealTimeTimer';
-import NoCopyText from '../components/NoCopyText';
+import LeadCard from '../components/LeadCard';
 
 const StarRating = ({ value }) => (
   <div className="flex gap-0.5">
@@ -28,6 +28,22 @@ function followUpBucket(dateString) {
   if (due < todayStart) return 'overdue';
   if (due <= todayEnd) return 'today';
   return 'upcoming';
+}
+
+// A raw/New lead is "Call Pending" once it's sat assigned-but-uncalled past
+// this SLA — distinguishes the urgent subset from the full New Leads pool.
+const CALL_PENDING_SLA_HOURS = 4;
+
+function isCallPending(lead) {
+  if (lead.status !== 'New' || !lead.assignedAt) return false;
+  return (Date.now() - new Date(lead.assignedAt).getTime()) / 3600000 >= CALL_PENDING_SLA_HOURS;
+}
+
+function isThisMonth(dateString) {
+  if (!dateString) return false;
+  const d = new Date(dateString);
+  const now = new Date();
+  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
 }
 
 const EmployeeDashboard = () => {
@@ -63,6 +79,7 @@ const EmployeeDashboard = () => {
   const [leads, setLeads] = useState([]);
   const [isLeadsLoading, setIsLeadsLoading] = useState(false);
   const [leadFilter, setLeadFilter] = useState('All');
+  const [interestFilter, setInterestFilter] = useState('All');
   const [followUpBucketFilter, setFollowUpBucketFilter] = useState('All');
 
   // My Payslips state
@@ -246,59 +263,11 @@ const EmployeeDashboard = () => {
     navigate(`/employee/leads/${lead._id}`);
   };
 
-  // Shared between the "My Leads" full list and the "Follow-ups" tab — a
-  // compact summary card with only the lead's raw, captured-at-creation
-  // fields. Call handling, outcome, stage, and remark all live on the
-  // dedicated Lead Workspace page (/employee/leads/:id) reached via "View".
-  const renderLeadCard = (lead) => (
-    <div key={lead._id} id={`lead-card-${lead._id}`} className="bg-app-card border border-app-border rounded-xl p-6 hover:border-primary/20 transition-all scroll-mt-4">
-      <div className="flex flex-wrap justify-between items-start gap-4">
-        <div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs font-mono text-primary">{lead.leadId}</span>
-            <NoCopyText className="text-app-text font-bold">{lead.fullName}</NoCopyText>
-            <span className={`px-2.5 py-1 text-[10px] uppercase font-bold tracking-wider rounded border ${
-              lead.status === 'Won' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
-              (lead.status === 'Lost' || lead.status === 'Dropped') ? 'bg-red-500/10 text-red-400 border-red-500/20' :
-              lead.status === 'New' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
-              'bg-amber-500/10 text-amber-400 border-amber-500/20'
-            }`}>
-              {lead.status}
-            </span>
-          </div>
-          <p className="text-xs text-app-text-muted mt-1">
-            {lead.service} · {lead.platform}
-          </p>
-        </div>
-        <button
-          onClick={() => navigate(`/employee/leads/${lead._id}`)}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 text-primary hover:bg-primary/20 rounded-lg text-xs font-bold transition-colors shrink-0"
-        >
-          <Eye size={14} /> View
-        </button>
-      </div>
-
-      <div className="flex flex-wrap gap-4 text-sm text-app-text bg-form-input-bg p-4 rounded-lg mt-4">
-        <NoCopyText className="flex items-center gap-1.5">
-          <Phone size={14} /> {lead.phone}
-        </NoCopyText>
-        <NoCopyText className="flex items-center gap-1.5">
-          <Mail size={14} /> {lead.email}
-        </NoCopyText>
-      </div>
-
-      {lead.nextFollowUpDate && (
-        <p className="text-xs text-app-text-muted mt-3">
-          Next follow-up: {new Date(lead.nextFollowUpDate).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
-        </p>
-      )}
-
-      <div className="flex justify-between items-center text-xs text-app-text-muted mt-4 border-t border-app-border pt-4">
-        <span>Source: <span className="text-app-text-muted font-medium">{lead.userSource || 'Direct'}</span></span>
-        <span>Created: {new Date(lead.createdAt).toLocaleDateString()}</span>
-      </div>
-    </div>
-  );
+  // Keeps a card's own PUT response in sync locally instead of refetching
+  // the whole assigned-leads list after every quick action.
+  const updateLeadInState = (updatedLead) => {
+    setLeads((prev) => prev.map((l) => (l._id === updatedLead._id ? { ...l, ...updatedLead } : l)));
+  };
 
   const handleSendTicketMessage = async (e, ticketId) => {
     e.preventDefault();
@@ -364,7 +333,7 @@ const EmployeeDashboard = () => {
     if (activeTab === 'tickets') {
       fetchTickets();
     }
-    if (activeTab === 'leads' || activeTab === 'followups') {
+    if (activeTab === 'raw-leads' || activeTab === 'working-leads' || activeTab === 'followups' || activeTab === 'dashboard') {
       fetchLeads();
     }
     if (activeTab === 'payslips') {
@@ -381,6 +350,18 @@ const EmployeeDashboard = () => {
     // Only run once on mount — the leadId param is consumed above.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // BD Home widgets (dashboard tab) drive the Working Leads / Follow-ups
+  // filters by navigating with a query string — pick those up here so
+  // "Proposal Sent" etc. lands pre-filtered instead of showing everything.
+  useEffect(() => {
+    const status = searchParams.get('status');
+    if (status) setLeadFilter(status);
+    const interest = searchParams.get('interest');
+    if (interest) setInterestFilter(interest);
+    const bucket = searchParams.get('bucket');
+    if (bucket) setFollowUpBucketFilter(bucket);
+  }, [searchParams]);
 
   const handleUpdateBank = async (e) => {
     e.preventDefault();
@@ -532,9 +513,102 @@ const EmployeeDashboard = () => {
         
         {/* DASHBOARD PANEL */}
         {activeTab === 'dashboard' && (
+          <div className="space-y-6">
+            {/* BD Home — lead pipeline widgets (12.1) */}
+            <div>
+              <h2 className="text-lg font-bold text-app-text mb-3">Lead Pipeline</h2>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {(() => {
+                  const wonThisMonth = leads.filter((l) => l.status === 'Won' && isThisMonth(l.closedDate || l.updatedAt));
+                  const widgets = [
+                    {
+                      key: 'new',
+                      label: 'New Leads',
+                      count: leads.filter((l) => l.status === 'New').length,
+                      icon: UserPlus,
+                      onClick: () => navigate('/employee/dashboard?tab=raw-leads')
+                    },
+                    {
+                      key: 'call-pending',
+                      label: 'Call Pending',
+                      count: leads.filter(isCallPending).length,
+                      icon: PhoneCall,
+                      onClick: () => navigate('/employee/dashboard?tab=raw-leads&urgent=1')
+                    },
+                    {
+                      key: 'followups-today',
+                      label: 'Follow-ups Today',
+                      count: leads.filter((l) => followUpBucket(l.nextFollowUpDate) === 'today').length,
+                      icon: CalendarClock,
+                      onClick: () => navigate('/employee/dashboard?tab=followups&bucket=Today')
+                    },
+                    {
+                      key: 'followups-overdue',
+                      label: 'Overdue Follow-ups',
+                      count: leads.filter((l) => followUpBucket(l.nextFollowUpDate) === 'overdue').length,
+                      icon: AlertCircle,
+                      tone: 'danger',
+                      onClick: () => navigate('/employee/dashboard?tab=followups&bucket=Overdue')
+                    },
+                    {
+                      key: 'hot',
+                      label: 'Hot Leads',
+                      count: leads.filter((l) => l.interestLevel === 'Hot Lead').length,
+                      icon: Flame,
+                      onClick: () => navigate('/employee/dashboard?tab=working-leads&interest=Hot Lead')
+                    },
+                    {
+                      key: 'proposal',
+                      label: 'Proposal Sent',
+                      count: leads.filter((l) => l.status === 'Proposal Sent').length,
+                      icon: FileText,
+                      onClick: () => navigate('/employee/dashboard?tab=working-leads&status=Proposal Sent')
+                    },
+                    {
+                      key: 'negotiation',
+                      label: 'Negotiation',
+                      count: leads.filter((l) => l.status === 'Negotiation').length,
+                      icon: Handshake,
+                      onClick: () => navigate('/employee/dashboard?tab=working-leads&status=Negotiation')
+                    },
+                    {
+                      key: 'won',
+                      label: 'Won This Month',
+                      count: wonThisMonth.length,
+                      icon: Trophy,
+                      tone: 'success',
+                      onClick: () => navigate('/employee/dashboard?tab=working-leads&status=Won&period=thisMonth')
+                    }
+                  ];
+                  return widgets.map((w) => {
+                    const Icon = w.icon;
+                    return (
+                      <button
+                        key={w.key}
+                        onClick={w.onClick}
+                        className="bg-app-card border border-app-border hover:border-primary/40 rounded-xl p-4 text-left transition-colors group"
+                      >
+                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center mb-3 ${
+                          w.tone === 'danger' ? 'bg-red-500/10 text-red-400' :
+                          w.tone === 'success' ? 'bg-emerald-500/10 text-emerald-400' :
+                          'bg-primary/10 text-primary'
+                        }`}>
+                          <Icon size={16} />
+                        </div>
+                        <div className="text-2xl font-extrabold text-app-text group-hover:text-primary transition-colors">
+                          {isLeadsLoading ? '—' : w.count}
+                        </div>
+                        <div className="text-xs text-app-text-muted mt-0.5">{w.label}</div>
+                      </button>
+                    );
+                  });
+                })()}
+              </div>
+            </div>
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="md:col-span-2 space-y-6">
-              
+
               {/* Quick Summary Cards */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="bg-app-card p-5 rounded-xl border border-app-border space-y-1">
@@ -605,6 +679,7 @@ const EmployeeDashboard = () => {
                 </div>
               </div>
             </div>
+          </div>
           </div>
         )}
 
@@ -709,96 +784,171 @@ const EmployeeDashboard = () => {
           </div>
         )}
 
-        {/* MY LEADS PANEL */}
-        {activeTab === 'leads' && (
+        {/* RAW LEADS PANEL — completely untouched, no call/stage activity yet */}
+        {activeTab === 'raw-leads' && (
           <div className="space-y-6">
-            <div className="flex justify-between items-center">
-              <div>
-                <h2 className="text-xl font-bold text-app-text">My Leads</h2>
-                <p className="text-app-text-muted text-xs mt-1">Leads assigned to you — work them here, ownership changes only happen from Admin</p>
-              </div>
-              <select
-                value={leadFilter}
-                onChange={(e) => setLeadFilter(e.target.value)}
-                className="bg-app-card border border-app-border rounded-lg px-3 py-1.5 text-sm text-app-text focus:outline-none focus:border-primary/50 cursor-pointer"
-              >
-                <option value="All">All Statuses</option>
-                <option value="New">New</option>
-                <option value="Contacted">Contacted</option>
-                <option value="Qualified">Qualified</option>
-                <option value="Proposal Sent">Proposal Sent</option>
-                <option value="Negotiation">Negotiation</option>
-                <option value="Won">Won</option>
-                <option value="Lost">Lost</option>
-                <option value="Dropped">Dropped</option>
-              </select>
+            <div>
+              <h2 className="text-xl font-bold text-app-text">Raw Leads</h2>
+              <p className="text-app-text-muted text-xs mt-1">Assigned to you, not yet worked — open one to log your first call</p>
             </div>
 
             {isLeadsLoading ? (
               <div className="flex justify-center items-center py-12">
                 <div className="w-8 h-8 rounded-full border-2 border-primary/20 border-t-orange-500 animate-spin" />
               </div>
-            ) : leads.length === 0 ? (
-              <div className="bg-app-card border border-app-border rounded-xl p-8 text-center text-app-text-muted">
-                No leads assigned to you currently.
-              </div>
-            ) : (
-              <>
-                {(() => {
-                  const overdueLeads = leads
-                    .filter((l) => followUpBucket(l.nextFollowUpDate) === 'overdue')
-                    .sort((a, b) => new Date(a.nextFollowUpDate) - new Date(b.nextFollowUpDate));
-                  const todayLeads = leads
-                    .filter((l) => followUpBucket(l.nextFollowUpDate) === 'today')
-                    .sort((a, b) => new Date(a.nextFollowUpDate) - new Date(b.nextFollowUpDate));
-
-                  if (overdueLeads.length === 0 && todayLeads.length === 0) return null;
-
-                  const FollowUpCard = (lead, tone) => (
-                    <button
-                      key={lead._id}
-                      onClick={() => jumpToLead(lead)}
-                      className={`w-full flex items-center justify-between gap-3 px-4 py-2.5 rounded-lg border text-left transition-colors bg-form-input-bg ${
-                        tone === 'overdue' ? 'border-red-500/10 hover:border-red-500/30' : 'border-primary/10 hover:border-primary/30'
-                      }`}
-                    >
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium text-app-text truncate">{lead.fullName}</p>
-                        <p className="text-xs text-app-text-muted truncate">{lead.phone} · {lead.service}</p>
-                      </div>
-                      <span className={`text-xs font-mono shrink-0 ${tone === 'overdue' ? 'text-red-400' : 'text-primary'}`}>
-                        {new Date(lead.nextFollowUpDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </span>
-                    </button>
-                  );
-
-                  return (
-                    <div className="space-y-4">
-                      {overdueLeads.length > 0 && (
-                        <div className="bg-red-500/5 border border-red-500/20 rounded-xl p-4">
-                          <h3 className="text-sm font-bold text-red-400 flex items-center gap-2 mb-3">
-                            <AlertTriangle size={16} /> Overdue Follow-ups ({overdueLeads.length})
-                          </h3>
-                          <div className="space-y-2">{overdueLeads.map((lead) => FollowUpCard(lead, 'overdue'))}</div>
-                        </div>
-                      )}
-                      {todayLeads.length > 0 && (
-                        <div className="bg-primary/5 border border-primary/20 rounded-xl p-4">
-                          <h3 className="text-sm font-bold text-primary flex items-center gap-2 mb-3">
-                            <Clock size={16} /> Follow-ups Today ({todayLeads.length})
-                          </h3>
-                          <div className="space-y-2">{todayLeads.map((lead) => FollowUpCard(lead, 'today'))}</div>
-                        </div>
-                      )}
+            ) : (() => {
+              const showUrgentOnly = searchParams.get('urgent') === '1';
+              let rawLeads = leads.filter((l) => l.status === 'New');
+              if (showUrgentOnly) {
+                rawLeads = rawLeads.filter(isCallPending)
+                  .sort((a, b) => new Date(a.assignedAt) - new Date(b.assignedAt));
+              }
+              if (rawLeads.length === 0) {
+                return (
+                  <div className="bg-app-card border border-app-border rounded-xl p-8 text-center text-app-text-muted">
+                    {showUrgentOnly
+                      ? 'Nothing overdue for a first call right now.'
+                      : 'No raw leads right now — everything assigned to you has already been worked.'}
+                  </div>
+                );
+              }
+              return (
+                <>
+                  {showUrgentOnly && (
+                    <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl px-4 py-2.5 text-xs font-medium text-amber-400 flex items-center justify-between">
+                      Showing leads overdue for a first call, oldest first
+                      <button onClick={() => navigate('/employee/dashboard?tab=raw-leads')} className="underline hover:text-amber-300">Show all</button>
                     </div>
-                  );
-                })()}
+                  )}
+                  <div className="grid grid-cols-1 gap-4">
+                    {rawLeads.map((lead) => (
+                      <LeadCard key={lead._id} lead={lead} navigate={navigate} onUpdated={updateLeadInState} />
+                    ))}
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+        )}
 
-              <div className="grid grid-cols-1 gap-4">
-                {leads.filter(l => leadFilter === 'All' || l.status === leadFilter).map(renderLeadCard)}
+        {/* WORKING LEADS PANEL — calling/stage activity has already started */}
+        {activeTab === 'working-leads' && (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <div>
+                <h2 className="text-xl font-bold text-app-text">Working Leads</h2>
+                <p className="text-app-text-muted text-xs mt-1">Leads you've already started calling or moved forward — ownership changes only happen from Admin</p>
               </div>
-              </>
-            )}
+              <div className="flex items-center gap-2">
+                <select
+                  value={interestFilter}
+                  onChange={(e) => setInterestFilter(e.target.value)}
+                  className="bg-app-card border border-app-border rounded-lg px-3 py-1.5 text-sm text-app-text focus:outline-none focus:border-primary/50 cursor-pointer"
+                >
+                  <option value="All">All Interest Levels</option>
+                  <option value="Hot Lead">Hot Lead</option>
+                  <option value="Warm">Warm</option>
+                  <option value="Cold">Cold</option>
+                  <option value="Interested">Interested</option>
+                  <option value="Not Interested">Not Interested</option>
+                  <option value="Wrong/Junk Lead">Wrong/Junk Lead</option>
+                </select>
+                <select
+                  value={leadFilter}
+                  onChange={(e) => setLeadFilter(e.target.value)}
+                  className="bg-app-card border border-app-border rounded-lg px-3 py-1.5 text-sm text-app-text focus:outline-none focus:border-primary/50 cursor-pointer"
+                >
+                  <option value="All">All Statuses</option>
+                  <option value="Contacted">Contacted</option>
+                  <option value="Qualified">Qualified</option>
+                  <option value="Proposal Sent">Proposal Sent</option>
+                  <option value="Negotiation">Negotiation</option>
+                  <option value="Hold">Hold</option>
+                  <option value="Won">Won</option>
+                  <option value="Lost">Lost</option>
+                  <option value="Dropped">Dropped</option>
+                </select>
+              </div>
+            </div>
+
+            {isLeadsLoading ? (
+              <div className="flex justify-center items-center py-12">
+                <div className="w-8 h-8 rounded-full border-2 border-primary/20 border-t-orange-500 animate-spin" />
+              </div>
+            ) : (() => {
+              const wonThisMonthOnly = searchParams.get('period') === 'thisMonth';
+              const workingLeads = leads.filter((l) =>
+                l.status !== 'New' &&
+                (interestFilter === 'All' || l.interestLevel === interestFilter) &&
+                (!wonThisMonthOnly || (l.status === 'Won' && isThisMonth(l.closedDate || l.updatedAt)))
+              );
+              if (workingLeads.length === 0) {
+                return (
+                  <div className="bg-app-card border border-app-border rounded-xl p-8 text-center text-app-text-muted">
+                    Nothing in progress yet — start from Raw Leads.
+                  </div>
+                );
+              }
+              return (
+                <>
+                  {(() => {
+                    const overdueLeads = workingLeads
+                      .filter((l) => followUpBucket(l.nextFollowUpDate) === 'overdue')
+                      .sort((a, b) => new Date(a.nextFollowUpDate) - new Date(b.nextFollowUpDate));
+                    const todayLeads = workingLeads
+                      .filter((l) => followUpBucket(l.nextFollowUpDate) === 'today')
+                      .sort((a, b) => new Date(a.nextFollowUpDate) - new Date(b.nextFollowUpDate));
+
+                    if (overdueLeads.length === 0 && todayLeads.length === 0) return null;
+
+                    const FollowUpCard = (lead, tone) => (
+                      <button
+                        key={lead._id}
+                        onClick={() => jumpToLead(lead)}
+                        className={`w-full flex items-center justify-between gap-3 px-4 py-2.5 rounded-lg border text-left transition-colors bg-form-input-bg ${
+                          tone === 'overdue' ? 'border-red-500/10 hover:border-red-500/30' : 'border-primary/10 hover:border-primary/30'
+                        }`}
+                      >
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-app-text truncate">{lead.fullName}</p>
+                          <p className="text-xs text-app-text-muted truncate">{lead.phone} · {lead.service}</p>
+                        </div>
+                        <span className={`text-xs font-mono shrink-0 ${tone === 'overdue' ? 'text-red-400' : 'text-primary'}`}>
+                          {new Date(lead.nextFollowUpDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </button>
+                    );
+
+                    return (
+                      <div className="space-y-4">
+                        {overdueLeads.length > 0 && (
+                          <div className="bg-red-500/5 border border-red-500/20 rounded-xl p-4">
+                            <h3 className="text-sm font-bold text-red-400 flex items-center gap-2 mb-3">
+                              <AlertTriangle size={16} /> Overdue Follow-ups ({overdueLeads.length})
+                            </h3>
+                            <div className="space-y-2">{overdueLeads.map((lead) => FollowUpCard(lead, 'overdue'))}</div>
+                          </div>
+                        )}
+                        {todayLeads.length > 0 && (
+                          <div className="bg-primary/5 border border-primary/20 rounded-xl p-4">
+                            <h3 className="text-sm font-bold text-primary flex items-center gap-2 mb-3">
+                              <Clock size={16} /> Follow-ups Today ({todayLeads.length})
+                            </h3>
+                            <div className="space-y-2">{todayLeads.map((lead) => FollowUpCard(lead, 'today'))}</div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+
+                  <div className="grid grid-cols-1 gap-4">
+                    {workingLeads.filter(l => leadFilter === 'All' || l.status === leadFilter).map((lead) => (
+                      <LeadCard key={lead._id} lead={lead} navigate={navigate} onUpdated={updateLeadInState} />
+                    ))}
+                  </div>
+                </>
+              );
+            })()}
           </div>
         )}
 
@@ -845,7 +995,9 @@ const EmployeeDashboard = () => {
               }
               return (
                 <div className="grid grid-cols-1 gap-4">
-                  {sorted.map(renderLeadCard)}
+                  {sorted.map((lead) => (
+                    <LeadCard key={lead._id} lead={lead} navigate={navigate} onUpdated={updateLeadInState} />
+                  ))}
                 </div>
               );
             })()}

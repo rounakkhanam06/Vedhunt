@@ -10,6 +10,8 @@ const { getMyNotifications, markRead, markAllRead } = require('../controllers/no
 const { findLeadRaw } = require('../utils/leadLookup');
 const { LEAD_UPDATE_FIELDS } = require('../utils/leadStateMachine');
 const { applyLeadUpdate } = require('../services/leadLifecycle');
+const { addLeadDocument, removeLeadDocument } = require('../services/leadDocuments');
+const { uploadLeadDocument: uploadLeadDocumentMiddleware } = require('../utils/cloudinary');
 const employeeAuthMiddleware = require('../middleware/employeeAuthMiddleware');
 const { encrypt, decrypt } = require('../utils/encryption');
 const logger = require('../utils/logger');
@@ -511,6 +513,37 @@ router.put('/ess/leads/:id', async (req, res) => {
     res.json({ success: true, message: 'Lead updated', lead: result.lead });
   } catch (error) {
     logger.error('Error updating employee lead:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// Attach a document (proposal, quotation, scope, other) — scoped to a lead
+// this BD actually owns, same as every other ESS lead endpoint.
+router.post('/ess/leads/:id/documents', uploadLeadDocumentMiddleware.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'No file uploaded' });
+    }
+    const result = await addLeadDocument(req.params.id, req.file, req.body.docType, req.user._id, { assignedTo: req.user._id });
+    if (!result.ok) {
+      return res.status(result.status).json({ success: false, message: result.message });
+    }
+    res.status(201).json({ success: true, lead: result.lead });
+  } catch (error) {
+    logger.error('Error uploading employee lead document:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+router.delete('/ess/leads/:id/documents/:docId', async (req, res) => {
+  try {
+    const result = await removeLeadDocument(req.params.id, req.params.docId, { assignedTo: req.user._id });
+    if (!result.ok) {
+      return res.status(result.status).json({ success: false, message: result.message });
+    }
+    res.json({ success: true, lead: result.lead });
+  } catch (error) {
+    logger.error('Error deleting employee lead document:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });

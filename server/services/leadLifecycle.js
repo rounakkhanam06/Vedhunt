@@ -94,6 +94,17 @@ async function applyLeadUpdate(leadId, updates, actor, extraFilter = {}) {
   if ('connected' in updates && updates.connected) {
     const touchNumber = (existingLead.touchNumber || 0) + 1;
     touchNumberUpdate = touchNumber;
+    const resultingStage = updates.status || existingLead.status;
+    const resultingNotConnectedReason = updates.connected === 'No' ? (updates.notConnectedReason || '') : '';
+
+    // Auto-classified, not asked of the BD — keeps the outcome capture a
+    // one-tap flow instead of one more required field.
+    let callType = 'Follow-up';
+    if (touchNumber === 1) callType = 'First Call';
+    else if (resultingNotConnectedReason === 'Asked to Call Later') callType = 'Callback';
+    else if (resultingStage === 'Proposal Sent') callType = 'Proposal';
+    else if (resultingStage === 'Negotiation') callType = 'Negotiation';
+
     push.callLogs = {
       $each: [{
         touchNumber,
@@ -103,9 +114,11 @@ async function applyLeadUpdate(leadId, updates, actor, extraFilter = {}) {
         callEndTime: updates.callEndTime || existingLead.callEndTime,
         callDuration: updates.callDuration ?? existingLead.callDuration,
         connected: updates.connected,
-        notConnectedReason: updates.connected === 'No' ? (updates.notConnectedReason || '') : '',
+        notConnectedReason: resultingNotConnectedReason,
         interestLevel: updates.connected === 'Yes' ? (updates.interestLevel || existingLead.interestLevel || '') : '',
-        remark: updates.remark ?? existingLead.remark ?? ''
+        remark: updates.remark ?? existingLead.remark ?? '',
+        leadStage: resultingStage,
+        callType
       }]
     };
     if (!existingLead.firstCallAt) updates.firstCallAt = now;

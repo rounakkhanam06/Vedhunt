@@ -11,6 +11,18 @@ const router = express.Router();
 // All team routes require authentication
 router.use(authMiddleware);
 
+// EMPLOYEE/BDE accounts must be created via POST /api/employees, which also
+// creates the linked Employee HR profile (attendance, payroll, ESS access).
+// Creating them here would leave a login with no profile, breaking every
+// Employee Portal page.
+const PORTAL_ONLY_ROLE_NAMES = ['EMPLOYEE', 'BDE'];
+const assignsPortalOnlyRole = async (roleIds) => {
+  if (!roleIds || roleIds.length === 0) return false;
+  const portalRoles = await Role.find({ name: { $in: PORTAL_ONLY_ROLE_NAMES } }).select('_id');
+  const portalRoleIds = new Set(portalRoles.map(r => r._id.toString()));
+  return roleIds.some(id => portalRoleIds.has(id.toString()));
+};
+
 // @route   GET /api/team
 // @desc    Get all admins
 // @access  Private
@@ -47,6 +59,10 @@ router.post('/', requirePermission('team.manage'), async (req, res) => {
       if (defaultRole) {
         assignedRoles = [defaultRole._id];
       }
+    }
+
+    if (await assignsPortalOnlyRole(assignedRoles)) {
+      return res.status(400).json({ success: false, message: 'Employee/BDE accounts must be created from the Employee Manager, not Team Management.' });
     }
 
     // Super Admin assignment check
@@ -103,6 +119,15 @@ router.put('/:id', requirePermission('team.manage'), async (req, res) => {
     const beforeSnapshot = admin.toObject();
 
     if (roles !== undefined) {
+      // Block granting a new EMPLOYEE/BDE role here (see assignsPortalOnlyRole
+      // above) — only allow it through if the admin already held one, e.g.
+      // Team Management is just updating their other admin roles.
+      const currentlyHasPortalRole = await assignsPortalOnlyRole(admin.roles);
+      const wantsPortalRole = await assignsPortalOnlyRole(roles);
+      if (wantsPortalRole && !currentlyHasPortalRole) {
+        return res.status(400).json({ success: false, message: 'Employee/BDE accounts must be created from the Employee Manager, not Team Management.' });
+      }
+
       // Super Admin assignment check
       const superAdminRole = await Role.findOne({ name: 'SUPER_ADMIN' });
       const wantsToAssignSuperAdmin = superAdminRole && roles.includes(superAdminRole._id.toString());

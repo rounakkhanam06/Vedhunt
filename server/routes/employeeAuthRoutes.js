@@ -2,6 +2,7 @@ const express = require('express');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const Admin = require('../models/Admin');
+const Employee = require('../models/Employee');
 const AuditLog = require('../models/AuditLog');
 const employeeAuthMiddleware = require('../middleware/employeeAuthMiddleware');
 const { authLimiter } = require('../middleware/rateLimiter');
@@ -136,6 +137,32 @@ router.post('/refresh-token', async (req, res) => {
   } catch (error) {
     logger.error('Refresh token error:', error.message);
     res.status(401).json({ success: false, message: 'Invalid or expired refresh token' });
+  }
+});
+
+router.post('/reset-temp-password', employeeAuthMiddleware, async (req, res) => {
+  try {
+    const { newPassword } = req.body;
+    if (!newPassword || newPassword.length < 6) {
+      return res.status(400).json({ success: false, message: 'Password must be at least 6 characters long' });
+    }
+    const admin = await Admin.findById(req.user._id);
+    if (!admin) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    admin.password = newPassword;
+    admin.isTemporaryPassword = false;
+    await admin.save();
+
+    await Employee.findOneAndUpdate(
+      { adminId: req.user._id },
+      { tempPassword: newPassword }
+    );
+
+    res.json({ success: true, message: 'Password reset successfully' });
+  } catch (error) {
+    logger.error('Error resetting employee temp password:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
   }
 });
 

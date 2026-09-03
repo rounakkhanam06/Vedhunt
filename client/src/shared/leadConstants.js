@@ -33,3 +33,5 @@ export const LOST_DROPPED_REASONS = [
 export const FOLLOWUP_TRIGGER_INTEREST_LEVELS = ['Hot Lead', 'Warm', 'Interested'];
 export const FOLLOWUP_TRIGGER_STATUSES = ['Proposal Sent', 'Negotiation'];
 export const TERMINAL_STATUSES = ['Won', 'Lost', 'Dropped'];
+
+export const PAYMENT_STATUS_OPTIONS = ['Not Applicable', 'Pending', 'Partially Paid', 'Paid'];
