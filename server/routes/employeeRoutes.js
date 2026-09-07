@@ -1,4 +1,5 @@
 const express = require('express');
+const mongoose = require('mongoose');
 const Employee = require('../models/Employee');
 const WorkLog = require('../models/WorkLog');
 const Admin = require('../models/Admin');
@@ -11,24 +12,11 @@ const requirePermission = require('../middleware/requirePermission');
 const { encrypt, decrypt } = require('../utils/encryption');
 const { sendEmail } = require('../utils/sendEmail');
 const { createInitialSalaryRevision } = require('../services/payrollEngine');
+const { findEmployeeRaw } = require('../utils/employeeLookup');
 const crypto = require('crypto');
 const logger = require('../utils/logger');
 
 const router = express.Router();
-
-// Helper to ensure EMPLOYEE role exists and returns it
-async function getEmployeeRole() {
-  let role = await Role.findOne({ name: 'EMPLOYEE' });
-  if (!role) {
-    role = await Role.create({
-      name: 'EMPLOYEE',
-      description: 'Default role for employees. Access limited to ESS portal.',
-      permissions: ['ess.access'],
-      isSystem: true
-    });
-  }
-  return role;
-}
 
 // All HRMS / Employee routes require authentication
 router.use(authMiddleware);
@@ -36,6 +24,18 @@ router.use(authMiddleware);
 // ==========================================
 // ADMIN HRMS ROUTES
 // ==========================================
+
+// List the roles selectable for a new/existing employee — returns all
+// roles available in Role Management so any defined role can be assigned.
+router.get('/roles', requirePermission('team.manage'), async (req, res) => {
+  try {
+    const roles = await Role.find({}).select('name label description permissions isEmployeeRole isSystem');
+    res.json({ success: true, roles });
+  } catch (error) {
+    logger.error('Error fetching employee roles:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
 
 // Get all employees (Admin/HR only)
 router.get('/', requirePermission('team.manage'), async (req, res) => {
@@ -65,7 +65,7 @@ router.post('/', requirePermission('team.manage'), async (req, res) => {
       lastName,
       email,
       phone,
-      roleDept,
+      roleId,
       employmentType,
       joinDate,
       salaryCTC,
@@ -83,7 +83,7 @@ router.post('/', requirePermission('team.manage'), async (req, res) => {
     const AADHAAR_REGEX = /^[2-9]{1}[0-9]{11}$/;
 
     // Required presence check
-    const required = { firstName, lastName, email, phone, roleDept, joinDate, salaryCTC, panNumber, aadhaarNumber };
+    const required = { firstName, lastName, email, phone, roleId, joinDate, salaryCTC, panNumber, aadhaarNumber };
     for (const [field, value] of Object.entries(required)) {
       if (!value && value !== 0) {
         validationErrors.push(`${field} is required.`);
@@ -106,7 +106,6 @@ router.post('/', requirePermission('team.manage'), async (req, res) => {
     const strLastName = String(lastName || '');
     const strEmail = String(email || '');
     const strPhone = String(phone || '');
-    const strRoleDept = String(roleDept || '');
 
     if (!EMAIL_REGEX.test(strEmail.trim().toLowerCase())) {
       return res.status(400).json({ success: false, message: 'Please provide a valid email address.' });
@@ -114,8 +113,11 @@ router.post('/', requirePermission('team.manage'), async (req, res) => {
     if (!PHONE_REGEX.test(strPhone.trim())) {
       return res.status(400).json({ success: false, message: 'Please provide a valid phone number (10-15 digits).' });
     }
-    if (strRoleDept.trim().length < 2) {
-      return res.status(400).json({ success: false, message: 'Role / Department must be at least 2 characters.' });
+
+    // Validate that the selected role exists in Role Management.
+    const selectedRole = await Role.findById(roleId);
+    if (!selectedRole) {
+      return res.status(400).json({ success: false, message: 'Invalid role selected.' });
     }
 
     // Join date parsing
@@ -175,38 +177,48 @@ router.post('/', requirePermission('team.manage'), async (req, res) => {
     // 2. Generate temporary password
     const tempPassword = crypto.randomBytes(4).toString('hex');
 
-    // 3. Get or create EMPLOYEE role
-    const employeeRole = await getEmployeeRole();
-
-    // 4. Create Admin Account
+    // 3. Create Admin Account, holding exactly the selected employee role —
+    // that role's own permissions (see utils/employeeRoles.js) are what
+    // determine what this employee can see, both in the Admin panel's
+    // eyes (blocked entirely, since it's an employee-type role) and inside
+    // the Employee Portal (which sidebar tabs and APIs they can reach).
     const admin = await Admin.create({
       firstName: strFirstName.trim(),
       lastName: strLastName.trim(),
       email: strEmail.trim().toLowerCase(),
       password: tempPassword,
-      roles: [employeeRole._id],
+      roles: [selectedRole._id],
       isTemporaryPassword: true,
       employeeId
     });
 
-    // 5. Create Employee Details with encrypted PAN/Aadhaar
-    const employee = await Employee.create({
-      employeeId,
-      adminId: admin._id,
-      firstName: strFirstName.trim(),
-      lastName: strLastName.trim(),
-      email: strEmail.trim().toLowerCase(),
-      phone: strPhone.trim(),
-      tempPassword: tempPassword,
-      roleDept: strRoleDept.trim(),
-      employmentType: employmentType || 'Billable',
-      joinDate: parsedJoinDate,
-      salaryCTC: salaryNum,
-      panNumber: encrypt(panUpper),
-      aadhaarNumber: encrypt(aadhaarClean),
-      bankDetails: { accountName: '', accountNumber: '', bankName: '', ifscCode: '' },
-      attendance: [], tasks: [], timesheet: [], payslips: [], performance: []
-    });
+    // 5. Create Employee Details with encrypted PAN/Aadhaar. If this fails
+    // for any reason, the Admin login above must not be left behind as an
+    // orphan — it would permanently block this email with no way to see or
+    // fix it from the UI (findable only by direct DB inspection).
+    let employee;
+    try {
+      employee = await Employee.create({
+        employeeId,
+        adminId: admin._id,
+        firstName: strFirstName.trim(),
+        lastName: strLastName.trim(),
+        email: strEmail.trim().toLowerCase(),
+        phone: strPhone.trim(),
+        tempPassword: tempPassword,
+        roleDept: selectedRole.label || selectedRole.name,
+        employmentType: employmentType || 'Billable',
+        joinDate: parsedJoinDate,
+        salaryCTC: salaryNum,
+        panNumber: encrypt(panUpper),
+        aadhaarNumber: encrypt(aadhaarClean),
+        bankDetails: { accountName: '', accountNumber: '', bankName: '', ifscCode: '' },
+        attendance: [], tasks: [], timesheet: [], payslips: [], performance: []
+      });
+    } catch (employeeCreateError) {
+      await Admin.findByIdAndDelete(admin._id);
+      throw employeeCreateError;
+    }
 
     // Every employee gets an initial SalaryRevision the moment they're
     // onboarded, so payroll always has a revision to calculate against —
@@ -241,7 +253,7 @@ router.put('/:id', requirePermission('team.manage'), async (req, res) => {
     const {
       firstName,
       lastName,
-      roleDept,
+      roleId,
       employmentType,
       joinDate,
       salaryCTC,
@@ -260,9 +272,17 @@ router.put('/:id', requirePermission('team.manage'), async (req, res) => {
       return res.status(404).json({ success: false, message: 'Employee not found' });
     }
 
+    let newRole = null;
+    if (roleId) {
+      newRole = await Role.findById(roleId);
+      if (!newRole) {
+        return res.status(400).json({ success: false, message: 'Invalid role selected.' });
+      }
+    }
+
     if (firstName) employee.firstName = firstName;
     if (lastName) employee.lastName = lastName;
-    if (roleDept) employee.roleDept = roleDept;
+    if (newRole) employee.roleDept = newRole.label || newRole.name;
     if (employmentType) employee.employmentType = employmentType;
     if (joinDate) employee.joinDate = joinDate;
     if (salaryCTC) employee.salaryCTC = salaryCTC;
@@ -293,12 +313,16 @@ router.put('/:id', requirePermission('team.manage'), async (req, res) => {
 
     await employee.save();
 
-    // Also update Admin user first/last name if modified
-    if ((firstName || lastName) && employee.adminId) {
-      await Admin.findByIdAndUpdate(employee.adminId, {
-        firstName: employee.firstName,
-        lastName: employee.lastName
-      });
+    // Also update the linked Admin login: name changes stay display-only,
+    // but a role change swaps their actual permission set.
+    if ((firstName || lastName || newRole) && employee.adminId) {
+      const adminUpdate = {};
+      if (firstName || lastName) {
+        adminUpdate.firstName = employee.firstName;
+        adminUpdate.lastName = employee.lastName;
+      }
+      if (newRole) adminUpdate.roles = [newRole._id];
+      await Admin.findByIdAndUpdate(employee.adminId, adminUpdate);
     }
 
     res.json({ success: true, employee });
@@ -311,15 +335,21 @@ router.put('/:id', requirePermission('team.manage'), async (req, res) => {
 // Delete Employee (Admin/HR only)
 router.delete('/:id', requirePermission('team.manage'), async (req, res) => {
   try {
-    const employee = await Employee.findById(req.params.id);
+    const employee = await findEmployeeRaw(req.params.id);
     if (!employee) {
       return res.status(404).json({ success: false, message: 'Employee not found' });
     }
 
-    // Delete linked admin login credentials
-    await Admin.findByIdAndDelete(employee.adminId);
-    // Delete employee details
-    await Employee.findByIdAndDelete(req.params.id);
+    // Delete linked admin login credentials (adminId may itself be a legacy
+    // String, so match it the same String-or-ObjectId-safe way; a missing
+    // Admin record — e.g. an already-orphaned link — is not an error here).
+    const db = mongoose.connection.db;
+    await db.collection('admins').deleteOne({ _id: employee.adminId });
+    if (mongoose.Types.ObjectId.isValid(employee.adminId)) {
+      await db.collection('admins').deleteOne({ _id: new mongoose.Types.ObjectId(employee.adminId) });
+    }
+    // Delete employee details, matching the exact _id value/type found above
+    await db.collection('employees').deleteOne({ _id: employee._id });
 
     res.json({ success: true, message: 'Employee and linked user account deleted successfully' });
   } catch (error) {
@@ -610,9 +640,9 @@ router.get('/admin/attendance/monthly/:id', requirePermission('team.manage'), as
     const endDate = new Date(year, mIndex + 1, 0);
     endDate.setHours(23,59,59,999);
     
-    const employee = await Employee.findById(req.params.id);
+    const employee = await findEmployeeRaw(req.params.id);
     if (!employee) return res.status(404).json({ success: false, message: 'Employee not found' });
-    
+
     const settingDoc = await Settings.findOne({ key: 'attendance_rules' });
     const rules = settingDoc ? settingDoc.value : { halfDayCheckInLimit: '13:00', halfDayHoursThreshold: 4.5 };
     const [halfDayHour, halfDayMin] = rules.halfDayCheckInLimit.split(':').map(Number);

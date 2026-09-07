@@ -245,6 +245,24 @@ select, input, textarea {
   body.modal-open {
     overflow: hidden !important;
   }
+
+  select {
+    color-scheme: light;
+  }
+
+  .dark select {
+    color-scheme: dark;
+  }
+
+  select option {
+    background-color: var(--bg-card, #ffffff);
+    color: var(--text-primary, #111111);
+  }
+
+  .dark select option {
+    background-color: #1a1f2b;
+    color: #ffffff;
+  }
   
   main, .page-container {
     min-height: 90vh;

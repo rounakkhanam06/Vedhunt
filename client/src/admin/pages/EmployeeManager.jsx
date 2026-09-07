@@ -26,9 +26,8 @@ function validateField(name, value) {
       if (!value.trim()) return 'Phone number is required.';
       if (!PHONE_REGEX.test(value.trim())) return 'Enter a valid phone number.';
       return '';
-    case 'roleDept':
-      if (!value.trim()) return 'Role / Department is required.';
-      if (value.trim().length < 2) return 'Must be at least 2 characters.';
+    case 'roleId':
+      if (!value) return 'Role is required.';
       return '';
     case 'joinDate':
       if (!value) return 'Joining date is required.';
@@ -84,13 +83,15 @@ const EmployeeManager = () => {
   const [searchQuery, setSearchQuery] = useState('');
 
   const initialForm = {
-    firstName: '', lastName: '', email: '', phone: '', roleDept: '',
+    firstName: '', lastName: '', email: '', phone: '', roleId: '',
     employmentType: 'Billable', joinDate: '', salaryCTC: '',
     panNumber: '', aadhaarNumber: '',
   };
   const [form, setForm] = useState(initialForm);
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
+  const [roles, setRoles] = useState([]);
+  const [changeRoleId, setChangeRoleId] = useState('');
 
   // Sub-action states
   const [goalText, setGoalText] = useState('');
@@ -105,7 +106,13 @@ const EmployeeManager = () => {
   const [revisionForm, setRevisionForm] = useState({ ctc: '', effectiveFrom: '', reason: '' });
   const [isSavingRevision, setIsSavingRevision] = useState(false);
 
-  useEffect(() => { fetchEmployees(); }, []);
+  useEffect(() => { fetchEmployees(); fetchRoles(); }, []);
+
+  useEffect(() => {
+    if ((isModalOpen || isDetailOpen) && roles.length === 0) {
+      fetchRoles();
+    }
+  }, [isModalOpen, isDetailOpen, roles.length]);
 
   useEffect(() => {
     if (selectedEmp) {
@@ -114,8 +121,46 @@ const EmployeeManager = () => {
       setNewPL(selectedEmp.leaveBalances?.PL ?? 12);
       fetchSalaryHistory(selectedEmp._id);
       setShowRevisionForm(false);
+      setChangeRoleId('');
     }
   }, [selectedEmp]);
+
+  const fetchRoles = async () => {
+    try {
+      const res = await api.get('/rbac/roles');
+      if (res.data?.success && res.data?.roles) {
+        setRoles(res.data.roles);
+        return;
+      }
+    } catch {
+      // Fallback in case of different permissions
+    }
+
+    try {
+      const res = await api.get('/employees/roles');
+      if (res.data?.success && res.data?.roles) {
+        setRoles(res.data.roles);
+      }
+    } catch {
+      toast.error('Failed to load roles.');
+    }
+  };
+
+  const handleChangeRole = async () => {
+    if (!changeRoleId || !selectedEmp) return;
+    try {
+      const res = await api.put(`/employees/${selectedEmp._id}`, { roleId: changeRoleId });
+      if (res.data.success) {
+        toast.success('Role updated.');
+        const updatedRes = await api.get('/employees');
+        const found = updatedRes.data.employees.find(e => e._id === selectedEmp._id);
+        setSelectedEmp(found);
+        setEmployees(updatedRes.data.employees);
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to update role.');
+    }
+  };
 
   const fetchSalaryHistory = async (employeeId) => {
     try {
@@ -153,13 +198,20 @@ const EmployeeManager = () => {
     }
   };
 
-  // Pre-fill from Application Manager onboarding
+  // Pre-fill from Application Manager onboarding. The candidate arrives with
+  // a free-text `roleDept` (the job posting's role title) — waits for the
+  // role list to load, then maps it to the closest matching role by label so
+  // it lands as a real roleId selection instead of free text.
   const location = useLocation();
   useEffect(() => {
-    if (location.state?.onboardCandidate) {
-      const candidate = location.state.onboardCandidate;
+    if (location.state?.onboardCandidate && roles.length > 0) {
+      const { roleDept, ...candidate } = location.state.onboardCandidate;
+      if (roleDept) {
+        const match = roles.find(r => (r.label || r.name).toLowerCase() === String(roleDept).toLowerCase());
+        candidate.roleId = match ? match._id : '';
+      }
       setForm(prev => ({ ...prev, ...candidate }));
-      
+
       // Auto validate pre-filled fields to show them as green if valid
       const newTouched = {};
       const newErrors = {};
@@ -171,13 +223,13 @@ const EmployeeManager = () => {
       });
       setTouched(newTouched);
       setErrors(newErrors);
-      
+
       setIsModalOpen(true);
-      
+
       // Clear the state so it doesn't reopen on refresh
       window.history.replaceState({}, document.title);
     }
-  }, [location.state]);
+  }, [location.state, roles]);
 
   // ── Scroll Lock ───────────────────────────────────────────────────────────
   useEffect(() => {
@@ -236,7 +288,7 @@ const EmployeeManager = () => {
 
   // ── Validate full form on submit ──────────────────────────────────────────
   const validateAll = () => {
-    const fields = ['firstName', 'lastName', 'email', 'phone', 'roleDept', 'joinDate', 'salaryCTC', 'panNumber', 'aadhaarNumber'];
+    const fields = ['firstName', 'lastName', 'email', 'phone', 'roleId', 'joinDate', 'salaryCTC', 'panNumber', 'aadhaarNumber'];
     const newErrors = {};
     const newTouched = {};
     fields.forEach(f => {
@@ -470,6 +522,32 @@ const EmployeeManager = () => {
                 <div className="flex justify-between"><span>Email:</span><span className="font-bold text-app-text">{selectedEmp.email}</span></div>
                 <div className="flex justify-between"><span>Phone:</span><span className="font-bold text-app-text">{selectedEmp.phone || 'N/A'}</span></div>
                 <div className="flex justify-between"><span>Leaves Used:</span><span className="font-bold text-app-text">CL: {selectedEmp.leavesUsed?.CL || 0}, SL: {selectedEmp.leavesUsed?.SL || 0}, PL: {selectedEmp.leavesUsed?.PL || 0}</span></div>
+                <div className="flex justify-between"><span>Role:</span><span className="font-bold text-app-text">{selectedEmp.roleDept}</span></div>
+              </div>
+
+              {/* Change Role — determines actual Employee Portal access
+                  (sidebar tabs + APIs), not just a display label. */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-bold text-app-text-muted flex items-center gap-1.5"><Shield size={14} /> Role</h3>
+                <div className="flex gap-2">
+                  <select
+                    className="flex-1 text-xs rounded-lg border border-app-border bg-form-input-bg px-2 py-2 text-app-text focus:outline-none"
+                    value={changeRoleId}
+                    onChange={e => setChangeRoleId(e.target.value)}
+                  >
+                    <option value="" className="bg-white dark:bg-[#1a1f2b] text-gray-900 dark:text-white">Change role...</option>
+                    {roles.map(r => (
+                      <option key={r._id} value={r._id} className="bg-white dark:bg-[#1a1f2b] text-gray-900 dark:text-white">{r.label || r.name.replace(/_/g, ' ')}</option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={handleChangeRole}
+                    disabled={!changeRoleId}
+                    className="px-4 rounded-lg bg-orange-600/20 text-orange-400 border border-orange-500/20 text-xs font-semibold hover:bg-orange-600 hover:text-white transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    Save
+                  </button>
+                </div>
               </div>
 
               {/* Update Leave Balance */}
@@ -646,15 +724,19 @@ const EmployeeManager = () => {
 
                 {/* Role & Type */}
                 <div className="grid grid-cols-2 gap-4">
-                  <Field label="Role / Department" error={errors.roleDept} touched={touched.roleDept}>
-                    <input
-                      name="roleDept" type="text"
-                      className={inputClass('roleDept')}
-                      placeholder="e.g. Frontend Dev"
-                      value={form.roleDept}
+                  <Field label="Role" error={errors.roleId} touched={touched.roleId}>
+                    <select
+                      name="roleId"
+                      className={inputClass('roleId')}
+                      value={form.roleId}
                       onChange={handleChange}
                       onBlur={handleBlur}
-                    />
+                    >
+                      <option value="" className="bg-white dark:bg-[#1a1f2b] text-gray-900 dark:text-white">{roles.length === 0 ? 'Loading roles...' : 'Select a role...'}</option>
+                      {roles.map(r => (
+                        <option key={r._id} value={r._id} className="bg-white dark:bg-[#1a1f2b] text-gray-900 dark:text-white">{r.label || r.name.replace(/_/g, ' ')}</option>
+                      ))}
+                    </select>
                   </Field>
                   <div>
                     <label className="block text-xs font-medium text-app-text-muted mb-1">Employment Type <span className="text-orange-500">*</span></label>
@@ -664,8 +746,8 @@ const EmployeeManager = () => {
                       value={form.employmentType}
                       onChange={handleChange}
                     >
-                      <option value="Billable">Billable</option>
-                      <option value="Non-billable">Non-billable</option>
+                      <option value="Billable" className="bg-white dark:bg-[#1a1f2b] text-gray-900 dark:text-white">Billable</option>
+                      <option value="Non-billable" className="bg-white dark:bg-[#1a1f2b] text-gray-900 dark:text-white">Non-billable</option>
                     </select>
                   </div>
                 </div>

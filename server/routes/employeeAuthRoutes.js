@@ -33,18 +33,19 @@ router.post('/login', ...loginMiddleware, async (req, res) => {
         return res.status(401).json({ success: false, message: 'Account is inactive' });
       }
       
-      // Mirrors PORTAL_ONLY_ROLES in server/routes/auth.js — anyone confined
-      // to the Employee Portal there (plain employees, and BDs) must be able
-      // to actually reach it here, regardless of which of those roles they hold.
-      const PORTAL_ROLES = ['EMPLOYEE', 'BDE'];
-      const hasPortalRole = admin.roles?.some(role => PORTAL_ROLES.includes(role.name));
+      const hasPortalRole = Boolean(admin.employeeId) || admin.roles?.some(role => role.isEmployeeRole || role.permissions?.includes('ess.access'));
       if (!hasPortalRole) {
         return res.status(403).json({ success: false, message: 'Access Denied: Standard administrators cannot login to the Employee Portal.' });
       }
 
+      const permissionsSet = new Set();
+      admin.roles?.forEach(role => {
+        (role.permissions || []).forEach(perm => permissionsSet.add(perm));
+      });
+
       const accessToken = generateAccessToken(admin._id);
       const refreshToken = generateRefreshToken(admin._id);
-      
+
       const salt = await bcrypt.genSalt(10);
       const hashedRefreshToken = await bcrypt.hash(refreshToken, salt);
       await Admin.updateOne({ _id: admin._id }, { $set: { refreshToken: hashedRefreshToken } });
@@ -74,7 +75,8 @@ router.post('/login', ...loginMiddleware, async (req, res) => {
           firstName: admin.firstName,
           lastName: admin.lastName,
           email: admin.email,
-          employeeId: admin.employeeId
+          employeeId: admin.employeeId,
+          permissions: Array.from(permissionsSet)
         }
       });
     } else {
@@ -95,7 +97,8 @@ router.get('/me', employeeAuthMiddleware, async (req, res) => {
       lastName: req.user.lastName,
       email: req.user.email,
       employeeId: req.user.employeeId,
-      isTemporaryPassword: req.user.isTemporaryPassword
+      isTemporaryPassword: req.user.isTemporaryPassword,
+      permissions: req.user.permissions
     }
   });
 });

@@ -36,11 +36,18 @@ const EmployeeLayout = () => {
     navigate('/employee/login');
   };
 
-  const navItems = [
+  // `permission: undefined` means every employee sees it (Dashboard,
+  // Attendance, Tasks, ...). Items gated by a permission are hidden for
+  // anyone whose role doesn't carry it — e.g. Raw/Working Leads only show
+  // for roles with leads.view (BDE), not every employee. This mirrors the
+  // Admin panel's usePermissions()-driven sidebar, and is backed by the same
+  // requirePermission() checks server-side, so hiding these tabs isn't the
+  // only thing stopping unauthorized access — the underlying APIs 403 too.
+  const allNavItems = [
     { name: 'Dashboard', path: '/employee/dashboard?tab=dashboard', icon: LayoutDashboard },
-    { name: 'Raw Leads', path: '/employee/dashboard?tab=raw-leads', icon: UserCheck },
-    { name: 'Working Leads', path: '/employee/dashboard?tab=working-leads', icon: UserCheck },
-    { name: 'Follow-ups', path: '/employee/dashboard?tab=followups', icon: AlertTriangle },
+    { name: 'Raw Leads', path: '/employee/dashboard?tab=raw-leads', icon: UserCheck, permission: 'leads.view' },
+    { name: 'Working Leads', path: '/employee/dashboard?tab=working-leads', icon: UserCheck, permission: 'leads.view' },
+    { name: 'Follow-ups', path: '/employee/dashboard?tab=followups', icon: AlertTriangle, permission: 'followups.view' },
     { name: 'Attendance & Leave', path: '/employee/dashboard?tab=attendance', icon: Clock },
     { name: 'My Tasks', path: '/employee/dashboard?tab=tasks', icon: CheckSquare },
     { name: 'My Timesheet', path: '/employee/dashboard?tab=timesheet', icon: FileSpreadsheet },
@@ -49,6 +56,9 @@ const EmployeeLayout = () => {
     { name: 'Assigned Tickets', path: '/employee/dashboard?tab=tickets', icon: LifeBuoy },
     { name: 'My Profile', path: '/employee/dashboard?tab=profile', icon: User },
   ];
+  const permissions = employee?.permissions || [];
+  const can = (permission) => !permission || permissions.includes('*') || permissions.includes(permission);
+  const navItems = allNavItems.filter(item => can(item.permission));
 
   return (
     <div className="h-screen bg-app-bg text-app-text flex overflow-hidden">

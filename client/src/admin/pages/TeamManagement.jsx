@@ -46,11 +46,11 @@ const TeamManagement = () => {
         setAdmins(teamRes.data.admins);
       }
       if (rolesRes.data.success) {
-        // EMPLOYEE/BDE accounts are created from the Employee Manager, which
-        // also creates the linked Employee HR profile — offering them here
-        // would let an admin create a login with no profile behind it.
-        const PORTAL_ONLY_ROLE_NAMES = ['EMPLOYEE', 'BDE'];
-        setAvailableRoles(rolesRes.data.roles.filter(role => !PORTAL_ONLY_ROLE_NAMES.includes(role.name)));
+        // Employee-type roles (isEmployeeRole) are assigned from the Employee
+        // Manager, which also creates the linked Employee HR profile —
+        // offering them here would let an admin create a login with no
+        // profile behind it.
+        setAvailableRoles(rolesRes.data.roles.filter(role => !role.isEmployeeRole));
       }
     } catch (err) {
       console.error('Error fetching data:', err);

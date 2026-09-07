@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import employeeApi from '../../services/employeeApi';
 import toast from 'react-hot-toast';
+import { useEmployeeStore } from '../../store/useEmployeeStore';
 import { Clock, ShieldAlert, Trophy, Star, Target, AlertTriangle, TrendingUp, ChevronDown, ChevronUp, UserPlus, PhoneCall, CalendarClock, AlertCircle, Flame, FileText, Handshake } from 'lucide-react';
 import employeeAvatar from '../../assets/033a13e9af4efbb035a04c3777c4934d-removebg-preview.png';
 
@@ -50,7 +51,15 @@ const EmployeeDashboard = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const activeTab = searchParams.get('tab') || 'dashboard';
-  
+
+  // Distinct from the `employee` state below (the full ESS profile record) —
+  // this is the logged-in Admin/auth record, which is what carries
+  // `permissions`. Used only to decide whether it's worth calling the
+  // leads-scoped endpoints at all (avoids a pointless 403 + error toast for
+  // employees whose role doesn't include leads.view).
+  const { employee: authEmployee } = useEmployeeStore();
+  const canViewLeads = authEmployee?.permissions?.includes('*') || authEmployee?.permissions?.includes('leads.view');
+
   const [employee, setEmployee] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -333,7 +342,7 @@ const EmployeeDashboard = () => {
     if (activeTab === 'tickets') {
       fetchTickets();
     }
-    if (activeTab === 'raw-leads' || activeTab === 'working-leads' || activeTab === 'followups' || activeTab === 'dashboard') {
+    if (canViewLeads && (activeTab === 'raw-leads' || activeTab === 'working-leads' || activeTab === 'followups' || activeTab === 'dashboard')) {
       fetchLeads();
     }
     if (activeTab === 'payslips') {

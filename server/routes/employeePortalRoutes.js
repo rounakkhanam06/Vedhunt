@@ -14,6 +14,7 @@ const { addLeadDocument, removeLeadDocument } = require('../services/leadDocumen
 const { listTasks, completeTask } = require('../services/followUpTasks');
 const { uploadLeadDocument: uploadLeadDocumentMiddleware } = require('../utils/cloudinary');
 const employeeAuthMiddleware = require('../middleware/employeeAuthMiddleware');
+const requirePermission = require('../middleware/requirePermission');
 const { encrypt, decrypt } = require('../utils/encryption');
 const logger = require('../utils/logger');
 
@@ -465,7 +466,7 @@ router.post('/ess/tickets/:id/messages', async (req, res) => {
 // ==========================================
 
 // Get leads assigned to this employee
-router.get('/ess/leads', async (req, res) => {
+router.get('/ess/leads', requirePermission('leads.view'), async (req, res) => {
   try {
     const employee = await Employee.findOne({ adminId: req.user._id });
     if (!employee) return res.status(404).json({ success: false, message: 'Employee not found' });
@@ -480,7 +481,7 @@ router.get('/ess/leads', async (req, res) => {
 
 // Get a single lead assigned to this employee — powers the Lead Workspace
 // page. Scoped to assignedTo so a BD can't fetch a lead that isn't theirs.
-router.get('/ess/leads/:id', async (req, res) => {
+router.get('/ess/leads/:id', requirePermission('leads.view'), async (req, res) => {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
       return res.status(400).json({ success: false, message: 'Invalid lead id' });
@@ -499,7 +500,7 @@ router.get('/ess/leads/:id', async (req, res) => {
 // machine in services/leadLifecycle.js (same one the admin panel's
 // leadController.updateLead uses), so gating is identical regardless of
 // which portal edits the lead.
-router.put('/ess/leads/:id', async (req, res) => {
+router.put('/ess/leads/:id', requirePermission('leads.view'), async (req, res) => {
   try {
     const updates = {};
     for (const key of Object.keys(req.body)) {
@@ -520,7 +521,7 @@ router.put('/ess/leads/:id', async (req, res) => {
 
 // Attach a document (proposal, quotation, scope, other) — scoped to a lead
 // this BD actually owns, same as every other ESS lead endpoint.
-router.post('/ess/leads/:id/documents', uploadLeadDocumentMiddleware.single('file'), async (req, res) => {
+router.post('/ess/leads/:id/documents', requirePermission('leads.view'), uploadLeadDocumentMiddleware.single('file'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ success: false, message: 'No file uploaded' });
@@ -536,7 +537,7 @@ router.post('/ess/leads/:id/documents', uploadLeadDocumentMiddleware.single('fil
   }
 });
 
-router.delete('/ess/leads/:id/documents/:docId', async (req, res) => {
+router.delete('/ess/leads/:id/documents/:docId', requirePermission('leads.view'), async (req, res) => {
   try {
     const result = await removeLeadDocument(req.params.id, req.params.docId, { assignedTo: req.user._id });
     if (!result.ok) {
@@ -553,7 +554,7 @@ router.delete('/ess/leads/:id/documents/:docId', async (req, res) => {
 // created Parallel tasks on a lead this BD owns. Creating a Parallel task is
 // manager-only (admin side), so there's no POST route here — a BD can only
 // view and complete tasks assigned to them.
-router.get('/ess/leads/:id/tasks', async (req, res) => {
+router.get('/ess/leads/:id/tasks', requirePermission('followups.view'), async (req, res) => {
   try {
     const result = await listTasks(req.params.id, { assignedTo: req.user._id });
     if (!result.ok) {
@@ -566,7 +567,7 @@ router.get('/ess/leads/:id/tasks', async (req, res) => {
   }
 });
 
-router.put('/ess/leads/:id/tasks/:taskId/complete', async (req, res) => {
+router.put('/ess/leads/:id/tasks/:taskId/complete', requirePermission('followups.view'), async (req, res) => {
   try {
     const result = await completeTask(req.params.id, req.params.taskId, req.body.result, req.user._id, { canManage: false }, { assignedTo: req.user._id });
     if (!result.ok) {

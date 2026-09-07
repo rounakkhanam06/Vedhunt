@@ -14,8 +14,10 @@ const PERMISSIONS = [
   'legal.manage',
   'leads.view',
   'leads.assign',
+  'followups.view',
   'settings.manage',
-  'payroll.manage'
+  'payroll.manage',
+  'ess.access'
 ];
 
 exports.getPermissions = (req, res) => {
@@ -57,6 +59,7 @@ exports.createRole = async (req, res) => {
 
     const role = await Role.create({
       name: name.toUpperCase(),
+      label: req.body.label || name,
       description,
       permissions: permissions || []
     });
