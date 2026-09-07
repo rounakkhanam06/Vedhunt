@@ -851,7 +851,7 @@ const EmployeeDashboard = () => {
                   <option value="Cold">Cold</option>
                   <option value="Interested">Interested</option>
                   <option value="Not Interested">Not Interested</option>
-                  <option value="Wrong/Junk Lead">Wrong/Junk Lead</option>
+                  <option value="Wrong / Junk Lead">Wrong / Junk Lead</option>
                 </select>
                 <select
                   value={leadFilter}

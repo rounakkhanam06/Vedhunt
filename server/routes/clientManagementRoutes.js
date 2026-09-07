@@ -90,7 +90,7 @@ router.get('/clients/:id', async (req, res) => {
 
     const client = await Client.findById(req.params.id)
       .select('+notes +temporaryPasswordText -password -refreshToken -resetPasswordToken -resetPasswordExpire')
-      .populate('leadRef', 'fullName phone email status pipelineHistory callLogs dealValue createdAt')
+      .populate('leadRef', 'fullName phone email status pipelineHistory callLogs dealValue dealCloseValue createdAt')
       .lean();
 
     if (!client) {

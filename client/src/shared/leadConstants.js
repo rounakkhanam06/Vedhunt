@@ -7,7 +7,7 @@
  */
 
 export const NOT_CONNECTED_REASONS = [
-  'Ringing/No Answer',
+  'Ringing / No Answer',
   'Number Busy',
   'Switched Off',
   'Not Reachable',
@@ -16,16 +16,22 @@ export const NOT_CONNECTED_REASONS = [
   'Asked to Call Later'
 ];
 
-export const INTEREST_LEVELS = ['Hot Lead', 'Warm', 'Cold', 'Interested', 'Not Interested', 'Wrong/Junk Lead'];
+export const INTEREST_LEVELS = ['Hot Lead', 'Warm', 'Cold', 'Interested', 'Not Interested', 'Wrong / Junk Lead'];
 
+// Final-outcome reasons only — only selectable once a lead is actually
+// Lost/Dropped. Never add a live pipeline stage here (e.g. "In Negotiation").
 export const LOST_DROPPED_REASONS = [
-  'Too Expensive',
-  'Went with Competitor',
-  'No Longer Needs Service',
+  'Budget Constraint',
+  'Decision Pending',
+  'Comparing Vendors',
+  'Awaiting Approval',
+  'Timeline Not Now',
   'Unresponsive',
-  'Not a Fit',
-  'Timing Not Right',
-  'Other'
+  'Price Too High',
+  'Chose Competitor',
+  'Project Cancelled',
+  'Not Right Fit',
+  'Duplicate / Junk'
 ];
 
 // Levels that require a mandatory future follow-up date (unless the lead is

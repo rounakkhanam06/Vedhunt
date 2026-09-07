@@ -1,15 +1,20 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import employeeApi from '../../services/employeeApi';
 import toast from 'react-hot-toast';
-import { ArrowLeft, Phone, Mail, MessageCircle, Play, Square, Clock, FileText, Upload, Trash2, PhoneCall } from 'lucide-react';
+import { ArrowLeft, Phone, Mail, MessageCircle, Play, Square, Clock, FileText, Upload, Trash2, PhoneCall, CalendarClock, ListChecks } from 'lucide-react';
 import { NOT_CONNECTED_REASONS, INTEREST_LEVELS, LOST_DROPPED_REASONS, FOLLOWUP_TRIGGER_INTEREST_LEVELS, PAYMENT_STATUS_OPTIONS } from '../../shared/leadConstants';
+import {
+  SERVICES_REQUIRED_OPTIONS, MARKETING_TYPE_SERVICES, TIMELINE_OPTIONS, DECISION_MAKER_OPTIONS,
+  PROJECT_BUDGET_OPTIONS, MONTHLY_MARKETING_BUDGET_OPTIONS, LEAD_PRIORITY_BADGE_CLASSES
+} from '../../shared/serviceQualification';
 import NoCopyText from '../components/NoCopyText';
+import FollowUpTasksPanel from '../components/FollowUpTasksPanel';
 
-const sectionClass = 'bg-app-card border border-app-border rounded-xl p-5';
+const sectionClass = 'bg-app-card border border-app-border rounded-xl p-4 sm:p-5 w-full min-w-0 overflow-hidden';
 const sectionLabelClass = 'text-xs font-bold text-app-text-muted uppercase tracking-wider mb-3 block';
 const fieldLabelClass = 'block text-[10px] font-medium text-app-text-muted mb-1 uppercase tracking-wider';
-const selectClass = 'w-full bg-form-input-bg border border-app-border rounded-lg px-3 py-2 text-sm text-app-text focus:outline-none focus:border-primary/50';
+const selectClass = 'w-full min-w-0 max-w-full truncate bg-form-input-bg border border-app-border rounded-lg px-3 py-2 text-sm text-app-text focus:outline-none focus:border-primary/50 box-border';
 
 /** WhatsApp deep link straight to this lead's chat — Indian 10-digit numbers get the country code prefixed. */
 function toWhatsAppHref(phone) {
@@ -47,19 +52,35 @@ export default function EmployeeLeadWorkspace() {
   const [callOutcomeDraft, setCallOutcomeDraft] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [docType, setDocType] = useState('Attachment');
+  // Quick-action targets: "Follow-up"/"Update Stage" scroll to (and focus)
+  // these existing controls further down the page. Mirrors admin/pages/LeadWorkspace.jsx.
+  const followUpInputRef = useRef(null);
+  const statusSelectRef = useRef(null);
+  const scrollToRef = (ref) => {
+    ref.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    ref.current?.focus();
+  };
 
   const buildDraft = (l) => ({
     remark: l.remark || '',
     dealValue: l.dealValue || '',
+    dealCloseValue: l.dealCloseValue || '',
     notConvertedReason: l.notConvertedReason || '',
     proposalValue: l.proposalValue || '',
     proposalSentDate: l.proposalSentDate ? new Date(l.proposalSentDate).toISOString() : '',
+    proposalReference: l.proposalReference || '',
+    expectedCloseDate: l.expectedCloseDate ? new Date(l.expectedCloseDate).toISOString() : '',
     holdReason: l.holdReason || '',
     holdUntil: l.holdUntil ? new Date(l.holdUntil).toISOString() : '',
     status: l.status,
-    expectedCloseDate: l.expectedCloseDate ? new Date(l.expectedCloseDate).toISOString() : '',
     paymentStatus: l.paymentStatus || 'Not Applicable',
-    budget: l.budget || '',
+    amountPaid: l.amountPaid || '',
+    businessName: l.businessName || '',
+    website: l.website || '',
+    servicesRequired: l.servicesRequired || [],
+    businessType: l.businessType || '',
+    projectBudget: l.projectBudget || '',
+    monthlyMarketingBudget: l.monthlyMarketingBudget || '',
     timeline: l.timeline || '',
     decisionMaker: l.decisionMaker || '',
     currentVendor: l.currentVendor || '',
@@ -240,7 +261,7 @@ export default function EmployeeLeadWorkspace() {
   if (!lead) return null;
 
   return (
-    <div className="space-y-5 max-w-3xl mx-auto">
+    <div className="space-y-5 max-w-3xl mx-auto w-full min-w-0 max-w-full">
       <button
         onClick={() => navigate(-1)}
         className="flex items-center gap-2 text-sm font-medium text-app-text-muted hover:text-app-text transition-colors"
@@ -268,29 +289,38 @@ export default function EmployeeLeadWorkspace() {
         {/* Quick Actions — the labels are generic ("Call"/"WhatsApp"/"Email"),
             not the raw number/address, so no copy-protection needed here;
             each still deep-links straight to this lead's number/inbox. */}
-        <div className="grid grid-cols-3 gap-2 mt-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 mt-4 min-w-0">
           <a
             href={`tel:${lead.phone}`}
-            className="flex items-center justify-center gap-2 py-2.5 rounded-lg bg-primary text-white font-bold text-sm hover:opacity-90 transition-opacity"
+            className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg bg-primary text-white font-bold text-xs sm:text-sm hover:opacity-90 transition-opacity min-w-0"
           >
-            <Phone size={16} /> Call
+            <Phone size={14} className="shrink-0" /> <span className="truncate">Call</span>
           </a>
           {toWhatsAppHref(lead.phone) ? (
+            // TODO: plain wa.me deep-link out of the CRM — swap for an
+            // in-CRM WhatsApp conversation once a WhatsApp Business API
+            // account (Meta Cloud API/Twilio/etc.) is available.
             <a
               href={toWhatsAppHref(lead.phone)}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2 py-2.5 rounded-lg border border-app-border text-app-text font-bold text-sm hover:border-primary hover:text-primary transition-colors"
+              className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg border border-app-border text-app-text font-bold text-xs sm:text-sm hover:border-primary hover:text-primary transition-colors min-w-0"
             >
-              <MessageCircle size={16} /> WhatsApp
+              <MessageCircle size={14} className="shrink-0" /> <span className="truncate">WhatsApp</span>
             </a>
           ) : <div />}
           <a
             href={`mailto:${lead.email}`}
-            className="flex items-center justify-center gap-2 py-2.5 rounded-lg border border-app-border text-app-text font-bold text-sm hover:border-primary hover:text-primary transition-colors"
+            className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg border border-app-border text-app-text font-bold text-xs sm:text-sm hover:border-primary hover:text-primary transition-colors min-w-0"
           >
-            <Mail size={16} /> Email
+            <Mail size={14} className="shrink-0" /> <span className="truncate">Email</span>
           </a>
+          <button onClick={() => scrollToRef(followUpInputRef)} className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg border border-app-border text-app-text font-bold text-xs sm:text-sm hover:border-primary hover:text-primary transition-colors min-w-0">
+            <CalendarClock size={14} className="shrink-0" /> <span className="truncate">Follow-up</span>
+          </button>
+          <button onClick={() => scrollToRef(statusSelectRef)} className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg border border-app-border text-app-text font-bold text-xs sm:text-sm hover:border-primary hover:text-primary transition-colors min-w-0">
+            <ListChecks size={14} className="shrink-0" /> <span className="truncate">Update Stage</span>
+          </button>
         </div>
 
         {lead.message && (
@@ -315,12 +345,6 @@ export default function EmployeeLeadWorkspace() {
             <span className="text-app-text-muted">Email</span>
             <NoCopyText as="span" className="font-medium text-app-text">{lead.email}</NoCopyText>
           </div>
-          {lead.businessName && (
-            <div className="flex items-center justify-between py-2">
-              <span className="text-app-text-muted">Business</span>
-              <span className="font-medium text-app-text">{lead.businessName}</span>
-            </div>
-          )}
           <div className="flex items-center justify-between py-2">
             <span className="text-app-text-muted">Service required</span>
             <span className="font-medium text-app-text">{lead.service}</span>
@@ -340,10 +364,6 @@ export default function EmployeeLeadWorkspace() {
             <span className="font-medium text-app-text">
               {lead.assignedAt ? new Date(lead.assignedAt).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '-'}
             </span>
-          </div>
-          <div className="flex items-center justify-between py-2">
-            <span className="text-app-text-muted">Estimated deal value</span>
-            <span className="font-medium text-app-text">₹{(lead.dealValue || 0).toLocaleString('en-IN')}</span>
           </div>
           <div className="flex items-center justify-between py-2">
             <span className="text-app-text-muted">Created</span>
@@ -458,6 +478,7 @@ export default function EmployeeLeadWorkspace() {
                 Next Follow-Up Date &amp; Time <span className="text-primary">*required</span>
               </label>
               <input
+                ref={followUpInputRef}
                 type="datetime-local"
                 value={getCallOutcomeValue('nextFollowUpDate') ? new Date(getCallOutcomeValue('nextFollowUpDate')).toISOString().slice(0, 16) : ''}
                 onChange={(e) => updateCallOutcomeField('nextFollowUpDate', e.target.value ? new Date(e.target.value).toISOString() : '')}
@@ -474,10 +495,11 @@ export default function EmployeeLeadWorkspace() {
           companion data must travel together. */}
       <div className={sectionClass}>
         <label className={sectionLabelClass}>Stage &amp; Deal Details</label>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 min-w-0">
           <div>
             <label className={fieldLabelClass}>Status</label>
             <select
+              ref={statusSelectRef}
               value={draft.status ?? lead.status}
               onChange={(e) => updateDraft('status', e.target.value)}
               className={selectClass}
@@ -494,13 +516,13 @@ export default function EmployeeLeadWorkspace() {
             </select>
           </div>
           <div>
-            <label className={fieldLabelClass}>Expected Close Date</label>
+            <label className={fieldLabelClass}>Estimated Deal Value (₹)</label>
             <input
-              type="date"
-              value={draft.expectedCloseDate ? new Date(draft.expectedCloseDate).toISOString().slice(0, 10) : ''}
-              onChange={(e) => updateDraft('expectedCloseDate', e.target.value ? new Date(e.target.value).toISOString() : '')}
+              type="number"
+              min="0"
+              value={draft.dealValue || ''}
+              onChange={(e) => updateDraft('dealValue', e.target.value)}
               className={selectClass}
-              style={{ colorScheme: 'dark' }}
             />
           </div>
           <div>
@@ -515,6 +537,26 @@ export default function EmployeeLeadWorkspace() {
               ))}
             </select>
           </div>
+          {draft.paymentStatus && draft.paymentStatus !== 'Not Applicable' && (
+            <>
+              <div>
+                <label className={fieldLabelClass}>Amount Paid (₹)</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={draft.amountPaid || ''}
+                  onChange={(e) => updateDraft('amountPaid', e.target.value)}
+                  className={selectClass}
+                />
+              </div>
+              <div>
+                <label className={fieldLabelClass}>Pending Amount (₹)</label>
+                <p className="mt-1 text-sm font-semibold text-app-text py-2">
+                  ₹{Math.max(0, (Number(draft.dealCloseValue) || 0) - (Number(draft.amountPaid) || 0)).toLocaleString('en-IN')}
+                </p>
+              </div>
+            </>
+          )}
           {draft.status === 'Proposal Sent' && (
             <>
               <div>
@@ -537,16 +579,38 @@ export default function EmployeeLeadWorkspace() {
                   style={{ colorScheme: 'dark' }}
                 />
               </div>
+              <div>
+                <label className={fieldLabelClass}>Proposal Reference <span className="text-primary">*required</span></label>
+                <input
+                  type="text"
+                  placeholder="Quote #, document link, or filename"
+                  value={draft.proposalReference || ''}
+                  onChange={(e) => updateDraft('proposalReference', e.target.value)}
+                  className={selectClass}
+                />
+              </div>
             </>
+          )}
+          {draft.status === 'Negotiation' && (
+            <div>
+              <label className={fieldLabelClass}>Expected Close Date <span className="text-primary">*required</span></label>
+              <input
+                type="date"
+                value={draft.expectedCloseDate ? new Date(draft.expectedCloseDate).toISOString().slice(0, 10) : ''}
+                onChange={(e) => updateDraft('expectedCloseDate', e.target.value ? new Date(e.target.value).toISOString() : '')}
+                className={selectClass}
+                style={{ colorScheme: 'dark' }}
+              />
+            </div>
           )}
           {draft.status === 'Won' && (
             <div>
-              <label className={fieldLabelClass}>Deal Value (₹) <span className="text-primary">*required</span></label>
+              <label className={fieldLabelClass}>Deal Close Value (₹) <span className="text-primary">*required</span></label>
               <input
                 type="number"
                 min="0"
-                value={draft.dealValue || ''}
-                onChange={(e) => updateDraft('dealValue', e.target.value)}
+                value={draft.dealCloseValue || ''}
+                onChange={(e) => updateDraft('dealCloseValue', e.target.value)}
                 className={selectClass}
               />
             </div>
@@ -578,7 +642,7 @@ export default function EmployeeLeadWorkspace() {
                 />
               </div>
               <div>
-                <label className={fieldLabelClass}>Resume By (optional)</label>
+                <label className={fieldLabelClass}>Review Date <span className="text-primary">*required</span></label>
                 <input
                   type="date"
                   value={draft.holdUntil ? new Date(draft.holdUntil).toISOString().slice(0, 10) : ''}
@@ -610,39 +674,116 @@ export default function EmployeeLeadWorkspace() {
         </button>
       </div>
 
-      {/* Qualification — discovery data, doesn't gate any stage transition;
-          saved together with Stage & Deal Details via the Save button above. */}
+      <FollowUpTasksPanel leadId={lead._id} />
+
+      {/* Qualification — service-aware discovery data, doesn't gate any
+          stage transition; saved together with Stage & Deal Details via the
+          Save button above. */}
       <div className={sectionClass}>
         <label className={sectionLabelClass}>Qualification</label>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 min-w-0">
           <div>
-            <label className={fieldLabelClass}>Budget (₹)</label>
+            <label className={fieldLabelClass}>Business Name</label>
             <input
-              type="number"
-              min="0"
-              value={draft.budget || ''}
-              onChange={(e) => updateDraft('budget', e.target.value)}
+              type="text"
+              value={draft.businessName || ''}
+              onChange={(e) => updateDraft('businessName', e.target.value)}
               className={selectClass}
             />
           </div>
           <div>
-            <label className={fieldLabelClass}>Timeline</label>
+            <label className={fieldLabelClass}>Website</label>
             <input
               type="text"
-              placeholder="e.g. Within 2 weeks"
+              placeholder="https://..."
+              value={draft.website || ''}
+              onChange={(e) => updateDraft('website', e.target.value)}
+              className={selectClass}
+            />
+          </div>
+        </div>
+
+        <div className="mt-4">
+          <label className={fieldLabelClass}>Service Required</label>
+          <div className="mt-1.5 flex flex-wrap gap-2">
+            {SERVICES_REQUIRED_OPTIONS.map((svc) => {
+              const selected = (draft.servicesRequired || []).includes(svc);
+              return (
+                <button
+                  key={svc}
+                  type="button"
+                  onClick={() => {
+                    const current = draft.servicesRequired || [];
+                    updateDraft('servicesRequired', selected ? current.filter((s) => s !== svc) : [...current, svc]);
+                  }}
+                  className={`px-2.5 py-1 rounded-md text-xs font-semibold border transition-colors ${
+                    selected ? 'bg-primary/10 text-primary border-primary/30' : 'bg-form-input-bg text-app-text-muted border-app-border'
+                  }`}
+                >
+                  {svc}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 min-w-0 mt-4">
+          <div>
+            <label className={fieldLabelClass}>Business Type / Industry</label>
+            <input
+              type="text"
+              value={draft.businessType || ''}
+              onChange={(e) => updateDraft('businessType', e.target.value)}
+              className={selectClass}
+            />
+          </div>
+          {(!draft.servicesRequired?.length || draft.servicesRequired.some((s) => MARKETING_TYPE_SERVICES.includes(s))) && (
+            <div>
+              <label className={fieldLabelClass}>Monthly Marketing Budget</label>
+              <select
+                value={draft.monthlyMarketingBudget || ''}
+                onChange={(e) => updateDraft('monthlyMarketingBudget', e.target.value)}
+                className={selectClass}
+              >
+                <option value="">-Select-</option>
+                {MONTHLY_MARKETING_BUDGET_OPTIONS.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
+              </select>
+            </div>
+          )}
+          {(!draft.servicesRequired?.length || draft.servicesRequired.some((s) => !MARKETING_TYPE_SERVICES.includes(s))) && (
+            <div>
+              <label className={fieldLabelClass}>Project Budget</label>
+              <select
+                value={draft.projectBudget || ''}
+                onChange={(e) => updateDraft('projectBudget', e.target.value)}
+                className={selectClass}
+              >
+                <option value="">-Select-</option>
+                {PROJECT_BUDGET_OPTIONS.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
+              </select>
+            </div>
+          )}
+          <div>
+            <label className={fieldLabelClass}>Timeline</label>
+            <select
               value={draft.timeline || ''}
               onChange={(e) => updateDraft('timeline', e.target.value)}
               className={selectClass}
-            />
+            >
+              <option value="">-Select-</option>
+              {TIMELINE_OPTIONS.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
+            </select>
           </div>
           <div>
             <label className={fieldLabelClass}>Decision Maker</label>
-            <input
-              type="text"
+            <select
               value={draft.decisionMaker || ''}
               onChange={(e) => updateDraft('decisionMaker', e.target.value)}
               className={selectClass}
-            />
+            >
+              <option value="">-Select-</option>
+              {DECISION_MAKER_OPTIONS.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
+            </select>
           </div>
           <div>
             <label className={fieldLabelClass}>Current Vendor</label>
@@ -653,7 +794,24 @@ export default function EmployeeLeadWorkspace() {
               className={selectClass}
             />
           </div>
+          <div>
+            <label className={fieldLabelClass}>Lead Priority</label>
+            <p className="mt-1.5" title="Auto-derived from Decision Maker, Timeline and Budget — calculated automatically.">
+              <span className={`inline-flex px-2.5 py-1 rounded-md text-xs font-semibold border ${LEAD_PRIORITY_BADGE_CLASSES[lead.leadPriority] || LEAD_PRIORITY_BADGE_CLASSES.Normal}`}>
+                {lead.leadPriority || 'Normal'}
+              </span>
+            </p>
+          </div>
+          <div>
+            <label className={fieldLabelClass}>Lead Score</label>
+            <p className="mt-1.5" title="Configurable score (Admin Settings → Lead Scoring) — a supplementary signal, not the source of truth for Priority.">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold border bg-form-input-bg text-app-text border-app-border">
+                {lead.leadScore ?? 0}<span className="text-app-text-muted font-normal">/100</span>
+              </span>
+            </p>
+          </div>
         </div>
+
         <div className="mt-4">
           <label className={fieldLabelClass}>Requirement Summary</label>
           <textarea
@@ -679,7 +837,7 @@ export default function EmployeeLeadWorkspace() {
           <select
             value={docType}
             onChange={(e) => setDocType(e.target.value)}
-            className={`${selectClass} w-auto`}
+            className={`${selectClass} w-full sm:w-auto flex-1`}
           >
             <option value="Proposal">Proposal</option>
             <option value="Quotation">Quotation</option>

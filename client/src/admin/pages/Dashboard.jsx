@@ -1,10 +1,15 @@
-import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { UserPlus, LineChart, Megaphone, Activity, TrendingUp, IndianRupee, Clock, Briefcase, AlertTriangle } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import {
+  UserPlus, Activity, TrendingUp, IndianRupee, Clock, Briefcase, AlertTriangle,
+  Wallet, UserX, Gauge
+} from 'lucide-react';
+import { ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, Tooltip, XAxis, YAxis } from 'recharts';
 import analyticsService from '../../services/analyticsService';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
 import { usePermissions } from '../hooks/usePermissions';
+import { downloadLeadsCsv } from '../utils/leadExport';
 
 // firstName/lastName aren't guaranteed on every Admin account (the original
 // legacy seed account predates those fields being required) — fall back
@@ -15,14 +20,33 @@ function displayName(person) {
   return name || person.email || 'Unknown';
 }
 
+const STATUS_BADGE_CLASSES = {
+  Won: 'bg-emerald-500/10 text-emerald-400',
+  Lost: 'bg-red-500/10 text-red-400',
+  Dropped: 'bg-red-500/10 text-red-400',
+  New: 'bg-[#FFB800]/10 text-[#FFB800]',
+  Hold: 'bg-slate-500/10 text-slate-400'
+};
+
+const PIE_COLORS = ['#FF6B00', '#60a5fa', '#34d399', '#f87171', '#fbbf24', '#a78bfa', '#94a3b8'];
+
 const Dashboard = () => {
+  const navigate = useNavigate();
   const { can } = usePermissions();
   const canSeeCompliance = can('leads.assign');
+  const isSuperAdmin = can('*');
 
   const [financialData, setFinancialData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [compliance, setCompliance] = useState(null);
   const [complianceLoading, setComplianceLoading] = useState(true);
+
+  // Super-Admin-only real leads section — replaces what used to be hardcoded
+  // placeholder numbers/charts/table.
+  const [volume, setVolume] = useState(null);
+  const [pipeline, setPipeline] = useState(null);
+  const [recentLeads, setRecentLeads] = useState([]);
+  const [leadsLoading, setLeadsLoading] = useState(true);
 
   useEffect(() => {
     const fetchAnalytics = async () => {
@@ -31,7 +55,7 @@ const Dashboard = () => {
         if (res.success) {
           setFinancialData(res.data);
         }
-      } catch (err) {
+      } catch {
         toast.error('Failed to load financial analytics');
       } finally {
         setLoading(false);
@@ -51,11 +75,51 @@ const Dashboard = () => {
       .finally(() => setComplianceLoading(false));
   }, [canSeeCompliance]);
 
+  const fetchLeadsOverview = useCallback(async () => {
+    if (!isSuperAdmin) {
+      setLeadsLoading(false);
+      return;
+    }
+    setLeadsLoading(true);
+    try {
+      const [volRes, pipeRes, recentRes] = await Promise.all([
+        api.get('/admin/activity/lead-volume'),
+        api.get('/admin/activity/pipeline-summary'),
+        api.get('/leads', { params: { limit: 8, sortBy: 'createdAt', sortOrder: 'desc' } })
+      ]);
+      if (volRes.data.success) setVolume(volRes.data);
+      if (pipeRes.data.success) setPipeline(pipeRes.data);
+      if (recentRes.data.success) setRecentLeads(recentRes.data.data);
+    } catch (error) {
+      console.error('Error loading leads overview:', error);
+      toast.error('Failed to load leads overview');
+    } finally {
+      setLeadsLoading(false);
+    }
+  }, [isSuperAdmin]);
+
+  useEffect(() => { fetchLeadsOverview(); }, [fetchLeadsOverview]);
+
   const fmt = (n) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(n || 0);
+
+  const goToLeads = (params) => {
+    const qs = new URLSearchParams(
+      Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== '')
+    ).toString();
+    navigate(`/admin/leads/all${qs ? `?${qs}` : ''}`);
+  };
+
+  const handleExportRecent = () => {
+    if (recentLeads.length === 0) {
+      toast.error('No leads to export');
+      return;
+    }
+    downloadLeadsCsv(recentLeads, 'recent_leads_export');
+  };
 
   return (
     <div className="space-y-8">
-      {/* Financial Overview (New) */}
+      {/* Financial Overview */}
       <section>
         <h2 className="text-xl font-bold text-white mb-4">Financial Overview</h2>
         {loading ? (
@@ -64,8 +128,7 @@ const Dashboard = () => {
           </div>
         ) : financialData && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Total Revenue */}
-            <div className="bg-admin-glass border border-white/5 p-6 rounded-xl transition-transform duration-300 hover:scale-[1.02] group">
+            <Link to="/admin/invoices" className="bg-admin-glass border border-white/5 p-6 rounded-xl transition-transform duration-300 hover:scale-[1.02] group">
               <div className="flex justify-between items-start mb-4">
                 <span className="text-sm font-medium text-on-primary-container">Total Earnings</span>
                 <IndianRupee className="w-5 h-5 text-[#22C55E] group-hover:scale-110 transition-transform" />
@@ -74,10 +137,9 @@ const Dashboard = () => {
               <div className="flex items-center gap-1 text-[10px] font-medium text-[#9CA3AF]">
                 From {financialData.overview.totalInvoices} invoices
               </div>
-            </div>
+            </Link>
 
-            {/* Pending Payments */}
-            <div className="bg-admin-glass border border-white/5 p-6 rounded-xl transition-transform duration-300 hover:scale-[1.02] group">
+            <Link to="/admin/invoices" className="bg-admin-glass border border-white/5 p-6 rounded-xl transition-transform duration-300 hover:scale-[1.02] group">
               <div className="flex justify-between items-start mb-4">
                 <span className="text-sm font-medium text-on-primary-container">Total Pending</span>
                 <Clock className="w-5 h-5 text-yellow-500 group-hover:scale-110 transition-transform" />
@@ -86,10 +148,9 @@ const Dashboard = () => {
               <div className="flex items-center gap-1 text-[10px] font-medium text-[#9CA3AF]">
                 Requires follow-up
               </div>
-            </div>
+            </Link>
 
-            {/* Total Projects */}
-            <div className="bg-admin-glass border border-white/5 p-6 rounded-xl transition-transform duration-300 hover:scale-[1.02] group">
+            <Link to="/admin/projects" className="bg-admin-glass border border-white/5 p-6 rounded-xl transition-transform duration-300 hover:scale-[1.02] group">
               <div className="flex justify-between items-start mb-4">
                 <span className="text-sm font-medium text-on-primary-container">Active Projects</span>
                 <Briefcase className="w-5 h-5 text-primary group-hover:scale-110 transition-transform" />
@@ -98,7 +159,7 @@ const Dashboard = () => {
               <div className="flex items-center gap-1 text-[10px] font-medium text-[#9CA3AF]">
                 Across all clients
               </div>
-            </div>
+            </Link>
           </div>
         )}
       </section>
@@ -111,7 +172,7 @@ const Dashboard = () => {
               <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                 <AlertTriangle className="w-5 h-5 text-secondary" /> Follow-up Compliance
               </h3>
-              <p className="text-xs text-on-primary-container mt-1">Live snapshot across the BD team</p>
+              <p className="text-xs text-on-primary-container mt-1">Live snapshot across the BD team — click any number to see the leads behind it</p>
             </div>
             {compliance && compliance.totals.total > 0 && (
               <div className="text-right">
@@ -130,18 +191,18 @@ const Dashboard = () => {
           ) : (
             <>
               <div className="grid grid-cols-3 divide-x divide-white/5 border-b border-white/5">
-                <div className="p-4 text-center">
+                <button onClick={() => navigate('/admin/follow-ups?bucket=Overdue')} className="p-4 text-center hover:bg-white/[0.03] transition-colors cursor-pointer">
                   <div className="text-2xl font-bold text-red-400">{compliance.totals.overdue}</div>
                   <div className="text-[10px] text-on-primary-container uppercase tracking-wider mt-1">Overdue</div>
-                </div>
-                <div className="p-4 text-center">
+                </button>
+                <button onClick={() => navigate('/admin/follow-ups?bucket=Today')} className="p-4 text-center hover:bg-white/[0.03] transition-colors cursor-pointer">
                   <div className="text-2xl font-bold text-orange-400">{compliance.totals.dueToday}</div>
                   <div className="text-[10px] text-on-primary-container uppercase tracking-wider mt-1">Due Today</div>
-                </div>
-                <div className="p-4 text-center">
+                </button>
+                <button onClick={() => navigate('/admin/follow-ups?bucket=Upcoming')} className="p-4 text-center hover:bg-white/[0.03] transition-colors cursor-pointer">
                   <div className="text-2xl font-bold text-emerald-400">{compliance.totals.upcoming}</div>
                   <div className="text-[10px] text-on-primary-container uppercase tracking-wider mt-1">Upcoming</div>
-                </div>
+                </button>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
@@ -156,7 +217,11 @@ const Dashboard = () => {
                   </thead>
                   <tbody className="divide-y divide-white/5">
                     {compliance.byBd.map((row) => (
-                      <tr key={row.bd._id} className="hover:bg-white/[0.02] transition-colors">
+                      <tr
+                        key={row.bd._id}
+                        onClick={() => navigate(`/admin/follow-ups?by=${row.bd._id}`)}
+                        className="hover:bg-white/[0.02] transition-colors cursor-pointer"
+                      >
                         <td className="px-6 py-3 text-sm text-white font-medium">{displayName(row.bd)}</td>
                         <td className="px-6 py-3 text-sm text-center text-red-400 font-bold">{row.overdue}</td>
                         <td className="px-6 py-3 text-sm text-center text-orange-400 font-bold">{row.dueToday}</td>
@@ -172,7 +237,7 @@ const Dashboard = () => {
         </section>
       )}
 
-      {/* Project Financial Breakdown */}
+      {/* Project-Level Earnings */}
       {financialData?.projectStats?.length > 0 && (
         <section className="bg-admin-glass border border-white/5 rounded-xl overflow-hidden">
           <div className="p-6 border-b border-white/5">
@@ -192,7 +257,7 @@ const Dashboard = () => {
               </thead>
               <tbody className="divide-y divide-white/5">
                 {financialData.projectStats.map((proj) => (
-                  <tr key={proj._id} className="hover:bg-white/[0.02] transition-colors">
+                  <tr key={proj._id} onClick={() => navigate('/admin/projects')} className="hover:bg-white/[0.02] transition-colors cursor-pointer">
                     <td className="px-6 py-4 text-sm font-mono text-[#9CA3AF]">{proj.projectId}</td>
                     <td className="px-6 py-4 text-sm text-white font-medium">{proj.projectName}</td>
                     <td className="px-6 py-4 text-sm text-[#9CA3AF]">{proj.clientName}</td>
@@ -207,224 +272,214 @@ const Dashboard = () => {
         </section>
       )}
 
-      {/* KPI Top Row */}
-      <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {/* Total Leads */}
-        <div className="bg-admin-glass border border-white/5 p-6 rounded-xl transition-transform duration-300 hover:scale-[1.02] group">
-          <div className="flex justify-between items-start mb-4">
-            <span className="text-sm font-medium text-on-primary-container">Total Leads</span>
-            <UserPlus className="w-5 h-5 text-secondary group-hover:scale-110 transition-transform" />
-          </div>
-          <div className="text-3xl font-bold mb-1">1,284</div>
-          <div className="flex items-center gap-1 text-[10px] font-medium text-[#00FF94]">
-            <TrendingUp className="w-3 h-3" />
-            +12% week-over-week
-          </div>
-        </div>
+      {/* Leads Overview — Super Admin only, fully real, fully clickable.
+          For the deeper drill-down/funnel/BD breakdown, see Management Dashboard. */}
+      {isSuperAdmin && (
+        <>
+          {leadsLoading ? (
+            <div className="flex items-center justify-center h-24 bg-admin-glass border border-white/5 rounded-xl">
+              <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+            </div>
+          ) : (
+            <>
+              <section className="flex items-center justify-between">
+                <h2 className="text-xl font-bold text-white">Leads Overview <span className="text-xs font-normal text-on-primary-container">(last 30 days)</span></h2>
+                <Link to="/admin/management-dashboard" className="flex items-center gap-1.5 text-xs font-semibold text-secondary hover:opacity-80">
+                  <Gauge size={14} /> Full Management Dashboard
+                </Link>
+              </section>
 
-        {/* Ad Spend ROI */}
-        <div className="bg-admin-glass border border-white/5 p-6 rounded-xl transition-transform duration-300 hover:scale-[1.02] group">
-          <div className="flex justify-between items-start mb-4">
-            <span className="text-sm font-medium text-on-primary-container">Ad Spend ROI</span>
-            <LineChart className="w-5 h-5 text-secondary group-hover:scale-110 transition-transform" />
-          </div>
-          <div className="text-3xl font-bold mb-1">4.2x</div>
-          <div className="text-[10px] font-medium text-on-surface-variant">
-            Target: <span className="text-secondary">3.5x</span>
-          </div>
-        </div>
-
-        {/* Active Campaigns */}
-        <div className="bg-admin-glass border border-white/5 p-6 rounded-xl transition-transform duration-300 hover:scale-[1.02] group">
-          <div className="flex justify-between items-start mb-4">
-            <span className="text-sm font-medium text-on-primary-container">Active Campaigns</span>
-            <Megaphone className="w-5 h-5 text-secondary group-hover:scale-110 transition-transform" />
-          </div>
-          <div className="text-3xl font-bold mb-1">12</div>
-          <div className="flex items-center gap-1 text-[10px] font-medium text-on-surface">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#00FF94]"></span>
-            8 High Performance
-          </div>
-        </div>
-
-        {/* Conversion Rate */}
-        <div className="bg-admin-glass border border-white/5 p-6 rounded-xl transition-transform duration-300 hover:scale-[1.02] group">
-          <div className="flex justify-between items-start mb-4">
-            <span className="text-sm font-medium text-on-primary-container">Conversion Rate</span>
-            <Activity className="w-5 h-5 text-secondary group-hover:scale-110 transition-transform" />
-          </div>
-          <div className="text-3xl font-bold mb-1">3.8%</div>
-          <div className="flex items-center gap-1 text-[10px] font-medium text-[#00FF94]">
-            <TrendingUp className="w-3 h-3" />
-            +0.4% from last month
-          </div>
-        </div>
-      </section>
-
-      {/* Main Analytics Row */}
-      <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left: Area Chart Simulation */}
-        <div className="lg:col-span-2 bg-admin-glass border border-white/5 p-6 rounded-xl">
-          <div className="flex justify-between items-center mb-10 border-b border-outline-variant pb-4">
-            <h3 className="text-xl font-semibold text-on-surface">Lead Flow Over Past 30 Days</h3>
-            <div className="flex gap-2">
-              <span className="px-2 py-1 bg-surface-variant/50 rounded text-xs text-on-surface-variant">Daily</span>
-              <span className="px-2 py-1 bg-secondary-container/20 text-secondary rounded text-xs font-bold">Monthly</span>
-            </div>
-          </div>
-          <div className="relative h-64 w-full flex items-end gap-[2%] px-2">
-            {/* Simulated Chart */}
-            <div className="absolute inset-0 flex flex-col justify-between pointer-events-none opacity-20">
-              <div className="border-b border-outline-variant w-full"></div>
-              <div className="border-b border-outline-variant w-full"></div>
-              <div className="border-b border-outline-variant w-full"></div>
-              <div className="border-b border-outline-variant w-full"></div>
-            </div>
-            
-            <div className="w-[3%] bg-secondary/20 h-[30%] rounded-t-sm relative group">
-              <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-surface p-1 rounded border border-outline-variant opacity-0 group-hover:opacity-100 text-[10px] transition-opacity">12</div>
-            </div>
-            <div className="w-[3%] bg-secondary/30 h-[45%] rounded-t-sm"></div>
-            <div className="w-[3%] bg-secondary/40 h-[38%] rounded-t-sm"></div>
-            <div className="w-[3%] bg-secondary/50 h-[60%] rounded-t-sm"></div>
-            <div className="w-[3%] bg-secondary/60 h-[55%] rounded-t-sm"></div>
-            <div className="w-[3%] bg-secondary/70 h-[72%] rounded-t-sm"></div>
-            <div className="w-[3%] bg-secondary h-[85%] rounded-t-sm shadow-[0_0_15px_rgba(255,107,0,0.3)]"></div>
-            <div className="w-[3%] bg-secondary/80 h-[78%] rounded-t-sm"></div>
-            <div className="w-[3%] bg-secondary/70 h-[65%] rounded-t-sm"></div>
-            <div className="w-[3%] bg-secondary/60 h-[70%] rounded-t-sm"></div>
-            <div className="w-[3%] bg-secondary/50 h-[62%] rounded-t-sm"></div>
-            <div className="w-[3%] bg-secondary/60 h-[75%] rounded-t-sm"></div>
-            <div className="w-[3%] bg-secondary h-[92%] rounded-t-sm shadow-[0_0_15px_rgba(255,107,0,0.3)]"></div>
-          </div>
-          <div className="mt-4 flex justify-between px-2 text-[10px] font-medium text-on-primary-container">
-            <span>Day 01</span>
-            <span>Day 10</span>
-            <span>Day 20</span>
-            <span>Today</span>
-          </div>
-        </div>
-
-        {/* Right: Donut Chart Simulation */}
-        <div className="bg-admin-glass border border-white/5 p-6 rounded-xl flex flex-col">
-          <div className="mb-10 border-b border-outline-variant pb-4">
-            <h3 className="text-xl font-semibold text-on-surface">Leads by Category</h3>
-          </div>
-          <div className="flex-1 flex flex-col justify-center items-center py-6">
-            <div className="relative w-48 h-48 rounded-full border-[16px] border-[#222226] flex items-center justify-center">
-              <div className="absolute inset-[-16px] rounded-full border-[16px] border-secondary border-t-transparent border-l-transparent transform rotate-45 shadow-[inset_0_0_10px_rgba(0,0,0,0.5)]"></div>
-              <div className="absolute inset-[-16px] rounded-full border-[16px] border-[#94A3B8] border-b-transparent border-r-transparent transform -rotate-12"></div>
-              <div className="text-center">
-                <div className="text-3xl font-bold">1,284</div>
-                <div className="text-[10px] font-medium text-on-primary-container">TOTAL</div>
-              </div>
-            </div>
-          </div>
-          <div className="space-y-2 mt-auto">
-            <div className="flex justify-between items-center text-xs font-medium">
-              <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded-full bg-secondary"></span>
-                <span>Website Dev</span>
-              </div>
-              <span className="text-on-surface">45%</span>
-            </div>
-            <div className="flex justify-between items-center text-xs font-medium">
-              <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded-full bg-[#94A3B8]"></span>
-                <span>Perf. Marketing</span>
-              </div>
-              <span className="text-on-surface">32%</span>
-            </div>
-            <div className="flex justify-between items-center text-xs font-medium">
-              <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded-full bg-[#2D2D33]"></span>
-                <span>SMM</span>
-              </div>
-              <span className="text-on-surface">23%</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Bottom Section: Data Table */}
-      <section className="bg-admin-glass border border-white/5 rounded-xl overflow-hidden mt-6">
-        <div className="p-6 border-b border-outline-variant flex justify-between items-center">
-          <h3 className="text-xl font-semibold text-on-surface">Live Leads Data Table</h3>
-          <button className="bg-[#121215] border border-[#2D2D33] px-4 py-2 rounded-lg text-xs font-medium hover:border-secondary transition-all text-on-surface">Export CSV</button>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-surface-container-high/50 text-xs font-medium text-on-primary-container">
-                <th className="px-6 py-4 font-medium">CLIENT NAME</th>
-                <th className="px-6 py-4 font-medium">CONTACT</th>
-                <th className="px-6 py-4 font-medium">CHOSEN SERVICE</th>
-                <th className="px-6 py-4 font-medium">SOURCE</th>
-                <th className="px-6 py-4 font-medium">STATUS</th>
-              </tr>
-            </thead>
-            <tbody className="text-sm divide-y divide-outline-variant/30 text-on-surface-variant">
-              <tr className="hover:bg-surface-variant/20 transition-colors">
-                <td className="px-6 py-4">
-                  <div className="flex items-center gap-3 text-on-surface">
-                    <div className="w-8 h-8 rounded-full bg-secondary-container/20 text-secondary flex items-center justify-center font-bold text-xs">JD</div>
-                    John Doe
+              {/* KPI Top Row — real numbers, every card clickable */}
+              <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <button
+                  onClick={() => goToLeads({})}
+                  className="text-left bg-admin-glass border border-white/5 p-6 rounded-xl transition-transform duration-300 hover:scale-[1.02] group"
+                >
+                  <div className="flex justify-between items-start mb-4">
+                    <span className="text-sm font-medium text-on-primary-container">New Leads</span>
+                    <UserPlus className="w-5 h-5 text-secondary group-hover:scale-110 transition-transform" />
                   </div>
-                </td>
-                <td className="px-6 py-4">john@email.com</td>
-                <td className="px-6 py-4">
-                  <span className="px-2 py-1 bg-surface-variant text-on-surface rounded text-[11px] font-medium">Website Dev</span>
-                </td>
-                <td className="px-6 py-4">Google Ads /lp/</td>
-                <td className="px-6 py-4">
-                  <span className="inline-flex items-center px-2 py-1 rounded-full bg-[#FFB800]/10 text-[#FFB800] text-[10px] font-bold uppercase tracking-wider">
-                    <span className="w-1 h-1 rounded-full bg-[#FFB800] mr-2"></span>
-                    New
-                  </span>
-                </td>
-              </tr>
-              <tr className="hover:bg-surface-variant/20 transition-colors">
-                <td className="px-6 py-4">
-                  <div className="flex items-center gap-3 text-on-surface">
-                    <div className="w-8 h-8 rounded-full bg-[#1e293b] text-on-surface flex items-center justify-center font-bold text-xs">JS</div>
-                    Jane Smith
+                  <div className="text-3xl font-bold mb-1 text-white">{volume?.totalLeads ?? 0}</div>
+                  <div className="text-[10px] font-medium text-[#9CA3AF]">Last 30 days</div>
+                </button>
+
+                <button
+                  onClick={() => goToLeads({ stage: 'open' })}
+                  className="text-left bg-admin-glass border border-white/5 p-6 rounded-xl transition-transform duration-300 hover:scale-[1.02] group"
+                >
+                  <div className="flex justify-between items-start mb-4">
+                    <span className="text-sm font-medium text-on-primary-container">Open Pipeline Value</span>
+                    <Wallet className="w-5 h-5 text-secondary group-hover:scale-110 transition-transform" />
                   </div>
-                </td>
-                <td className="px-6 py-4">jane@company.com</td>
-                <td className="px-6 py-4">
-                  <span className="px-2 py-1 bg-surface-variant text-on-surface rounded text-[11px] font-medium">SMM</span>
-                </td>
-                <td className="px-6 py-4">Facebook Organic</td>
-                <td className="px-6 py-4">
-                  <span className="inline-flex items-center px-2 py-1 rounded-full bg-blue-500/10 text-blue-400 text-[10px] font-bold uppercase tracking-wider">
-                    <span className="w-1 h-1 rounded-full bg-blue-400 mr-2"></span>
-                    In Progress
-                  </span>
-                </td>
-              </tr>
-              <tr className="hover:bg-surface-variant/20 transition-colors">
-                <td className="px-6 py-4">
-                  <div className="flex items-center gap-3 text-on-surface">
-                    <div className="w-8 h-8 rounded-full bg-[#e5e2e1]/10 text-on-surface flex items-center justify-center font-bold text-xs">AC</div>
-                    Acme Corp
+                  <div className="text-3xl font-bold mb-1 text-white">₹{(pipeline?.pipelineValue || 0).toLocaleString('en-IN')}</div>
+                  <div className="text-[10px] font-medium text-[#9CA3AF]">Active, non-terminal leads</div>
+                </button>
+
+                <button
+                  onClick={() => goToLeads({ assignedTo: 'Unassigned', stage: 'open' })}
+                  className="text-left bg-admin-glass border border-white/5 p-6 rounded-xl transition-transform duration-300 hover:scale-[1.02] group"
+                >
+                  <div className="flex justify-between items-start mb-4">
+                    <span className="text-sm font-medium text-on-primary-container">Unassigned Leads</span>
+                    <UserX className="w-5 h-5 text-yellow-500 group-hover:scale-110 transition-transform" />
                   </div>
-                </td>
-                <td className="px-6 py-4">admin@acme.co</td>
-                <td className="px-6 py-4">
-                  <span className="px-2 py-1 bg-surface-variant text-on-surface rounded text-[11px] font-medium">Perf. Marketing</span>
-                </td>
-                <td className="px-6 py-4">Google Search</td>
-                <td className="px-6 py-4">
-                  <span className="inline-flex items-center px-2 py-1 rounded-full bg-[#00FF94]/10 text-[#00FF94] text-[10px] font-bold uppercase tracking-wider">
-                    <span className="w-1 h-1 rounded-full bg-[#00FF94] mr-2"></span>
-                    Converted
-                  </span>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
+                  <div className="text-3xl font-bold mb-1 text-white">{volume?.unassignedCount ?? 0}</div>
+                  <div className="text-[10px] font-medium text-[#9CA3AF]">
+                    {volume?.unassignedSlaBreachedCount ? `${volume.unassignedSlaBreachedCount} past SLA` : 'Within SLA'}
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => goToLeads({ status: 'Won' })}
+                  className="text-left bg-admin-glass border border-white/5 p-6 rounded-xl transition-transform duration-300 hover:scale-[1.02] group"
+                >
+                  <div className="flex justify-between items-start mb-4">
+                    <span className="text-sm font-medium text-on-primary-container">Conversion Rate</span>
+                    <Activity className="w-5 h-5 text-secondary group-hover:scale-110 transition-transform" />
+                  </div>
+                  <div className="text-3xl font-bold mb-1 text-white">{pipeline?.conversionRate ?? 0}%</div>
+                  <div className="flex items-center gap-1 text-[10px] font-medium text-[#00FF94]">
+                    <TrendingUp className="w-3 h-3" /> Click to see wins
+                  </div>
+                </button>
+              </section>
+
+              {/* Trend + Service Mix — real charts */}
+              <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2 bg-admin-glass border border-white/5 p-6 rounded-xl">
+                  <h3 className="text-xl font-semibold text-on-surface mb-6 border-b border-outline-variant pb-4">Lead Flow — Past 30 Days</h3>
+                  {volume?.trend?.length > 0 ? (
+                    <div className="h-64">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={volume.trend}>
+                          <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#9CA3AF' }} />
+                          <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#9CA3AF' }} />
+                          <Tooltip contentStyle={{ background: '#16161A', border: '1px solid #2D2D33', fontSize: 12 }} />
+                          <Line
+                            type="monotone"
+                            dataKey="count"
+                            stroke="#FF6B00"
+                            strokeWidth={2}
+                            activeDot={{
+                              r: 5,
+                              style: { cursor: 'pointer' },
+                              onClick: (_e, payload) => goToLeads({ dateFrom: payload.payload.date, dateTo: payload.payload.date })
+                            }}
+                          />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-on-primary-container text-center py-16">No leads in this window yet.</p>
+                  )}
+                </div>
+
+                <div className="bg-admin-glass border border-white/5 p-6 rounded-xl flex flex-col">
+                  <h3 className="text-xl font-semibold text-on-surface mb-6 border-b border-outline-variant pb-4">Leads by Service</h3>
+                  {volume?.byService?.length > 0 ? (
+                    <>
+                      <div className="flex-1 flex items-center justify-center" style={{ minHeight: 180 }}>
+                        <ResponsiveContainer width="100%" height={180}>
+                          <PieChart>
+                            <Pie
+                              data={volume.byService}
+                              dataKey="count"
+                              nameKey="service"
+                              innerRadius={50}
+                              outerRadius={80}
+                              style={{ cursor: 'pointer' }}
+                              onClick={(entry) => goToLeads({ service: entry.service, dateFrom: undefined, dateTo: undefined })}
+                            >
+                              {volume.byService.map((entry, i) => (
+                                <Cell key={entry.service} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                              ))}
+                            </Pie>
+                            <Tooltip contentStyle={{ background: '#16161A', border: '1px solid #2D2D33', fontSize: 12 }} />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+                      <div className="space-y-2 mt-auto">
+                        {volume.byService.slice(0, 5).map((s, i) => (
+                          <button
+                            key={s.service}
+                            onClick={() => goToLeads({ service: s.service })}
+                            className="w-full flex justify-between items-center text-xs font-medium hover:text-secondary transition-colors"
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="w-3 h-3 rounded-full shrink-0" style={{ background: PIE_COLORS[i % PIE_COLORS.length] }}></span>
+                              <span className="truncate text-on-surface">{s.service}</span>
+                            </div>
+                            <span className="text-on-surface-variant shrink-0 ml-2">{s.count}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  ) : (
+                    <p className="text-sm text-on-primary-container text-center py-16">No leads in this window yet.</p>
+                  )}
+                </div>
+              </section>
+
+              {/* Recent Leads — real, clickable, exportable */}
+              <section className="bg-admin-glass border border-white/5 rounded-xl overflow-hidden">
+                <div className="p-6 border-b border-outline-variant flex justify-between items-center">
+                  <h3 className="text-xl font-semibold text-on-surface">Recent Leads</h3>
+                  <div className="flex items-center gap-3">
+                    <button onClick={handleExportRecent} className="bg-[#121215] border border-[#2D2D33] px-4 py-2 rounded-lg text-xs font-medium hover:border-secondary transition-all text-on-surface">
+                      Export CSV
+                    </button>
+                    <Link to="/admin/leads/all" className="text-xs font-semibold text-secondary hover:opacity-80">View All →</Link>
+                  </div>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-surface-container-high/50 text-xs font-medium text-on-primary-container">
+                        <th className="px-6 py-4 font-medium">NAME</th>
+                        <th className="px-6 py-4 font-medium">CONTACT</th>
+                        <th className="px-6 py-4 font-medium">SERVICE</th>
+                        <th className="px-6 py-4 font-medium">SOURCE</th>
+                        <th className="px-6 py-4 font-medium">STATUS</th>
+                      </tr>
+                    </thead>
+                    <tbody className="text-sm divide-y divide-outline-variant/30 text-on-surface-variant">
+                      {recentLeads.length === 0 ? (
+                        <tr><td colSpan={5} className="px-6 py-8 text-center text-on-primary-container">No leads yet.</td></tr>
+                      ) : recentLeads.map((lead) => (
+                        <tr
+                          key={lead._id}
+                          onClick={() => navigate(`/admin/leads/${lead._id}`)}
+                          className="hover:bg-surface-variant/20 transition-colors cursor-pointer"
+                        >
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-3 text-on-surface">
+                              <div className="w-8 h-8 rounded-full bg-secondary-container/20 text-secondary flex items-center justify-center font-bold text-xs shrink-0">
+                                {(lead.fullName || '?').slice(0, 2).toUpperCase()}
+                              </div>
+                              <span className="truncate">{lead.fullName}</span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">{lead.phone || lead.email}</td>
+                          <td className="px-6 py-4">
+                            <span className="px-2 py-1 bg-surface-variant text-on-surface rounded text-[11px] font-medium">{lead.service}</span>
+                          </td>
+                          <td className="px-6 py-4 truncate max-w-[160px]">{lead.platform || 'Website'}</td>
+                          <td className="px-6 py-4">
+                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${STATUS_BADGE_CLASSES[lead.status] || 'bg-blue-500/10 text-blue-400'}`}>
+                              <span className="w-1 h-1 rounded-full bg-current mr-2"></span>
+                              {lead.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            </>
+          )}
+        </>
+      )}
     </div>
   );
 };

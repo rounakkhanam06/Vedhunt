@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mail, Phone, Clock, Globe, Briefcase, CheckCircle2, Play, Square, XCircle } from 'lucide-react';
+import { Mail, Phone, Clock, Globe, CheckCircle2, Play, Square, XCircle } from 'lucide-react';
 import StageDataModal from './StageDataModal';
 
 const COLUMNS = [
@@ -116,7 +116,9 @@ export default function LeadsPipelineView({
   };
 
   const calculateTotalValue = (columnLeads) => {
-    return columnLeads.reduce((sum, lead) => sum + (Number(lead.dealValue) || 0), 0);
+    // Prefer the actual closing value once a deal has one; falls back to the
+    // running estimate for leads still earlier in the pipeline.
+    return columnLeads.reduce((sum, lead) => sum + (Number(lead.dealCloseValue || lead.dealValue) || 0), 0);
   };
 
   return (
@@ -205,11 +207,6 @@ export default function LeadsPipelineView({
                         >
                           {lead.fullName}
                         </h4>
-                        {lead.businessName && (
-                          <div className="text-xs text-app-text-muted truncate mt-0.5 flex items-center gap-1">
-                            <Briefcase size={12} /> {lead.businessName}
-                          </div>
-                        )}
                         <div className="text-xs text-app-text-muted truncate mt-1 flex items-center gap-1">
                            <Phone size={12} /> {lead.phone}
                         </div>
@@ -230,9 +227,9 @@ export default function LeadsPipelineView({
                               {lead.interestLevel}
                            </span>
                          )}
-                         {lead.dealValue > 0 && (
+                         {(lead.dealCloseValue || lead.dealValue) > 0 && (
                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium bg-emerald-500/10 border border-emerald-500/20 text-emerald-500">
-                              ₹{lead.dealValue.toLocaleString()}
+                              ₹{(lead.dealCloseValue || lead.dealValue).toLocaleString()}
                            </span>
                          )}
                          {lead.status === 'Won' && (

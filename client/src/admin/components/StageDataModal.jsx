@@ -6,7 +6,7 @@ import { LOST_DROPPED_REASONS } from '../../shared/leadConstants';
 /**
  * Collects the mandatory data a stage transition requires before it's sent
  * as one combined update — server/utils/leadStateMachine.js rejects, say, a
- * bare `status: 'Won'` with no dealValue, so every field this stage needs
+ * bare `status: 'Won'` with no dealCloseValue, so every field this stage needs
  * has to travel in the same request. Used wherever a lead's status can be
  * changed to Proposal Sent / Won / Lost / Dropped / Hold: the admin table's
  * status dropdown, the lead detail drawer, and the Kanban board's drag-drop.
@@ -16,10 +16,14 @@ export default function StageDataModal({ lead, targetStatus, onClose, onSubmit }
   const [proposalSentDate, setProposalSentDate] = useState(
     lead?.proposalSentDate ? new Date(lead.proposalSentDate).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10)
   );
+  const [proposalReference, setProposalReference] = useState(lead?.proposalReference || '');
   const [nextFollowUpDate, setNextFollowUpDate] = useState(
     lead?.nextFollowUpDate ? new Date(lead.nextFollowUpDate).toISOString().slice(0, 16) : ''
   );
-  const [dealValue, setDealValue] = useState(lead?.dealValue || '');
+  const [expectedCloseDate, setExpectedCloseDate] = useState(
+    lead?.expectedCloseDate ? new Date(lead.expectedCloseDate).toISOString().slice(0, 10) : ''
+  );
+  const [dealCloseValue, setDealCloseValue] = useState(lead?.dealCloseValue || '');
   const [notConvertedReason, setNotConvertedReason] = useState(lead?.notConvertedReason || '');
   const [holdReason, setHoldReason] = useState(lead?.holdReason || '');
   const [holdUntil, setHoldUntil] = useState(lead?.holdUntil ? new Date(lead.holdUntil).toISOString().slice(0, 10) : '');
@@ -29,6 +33,7 @@ export default function StageDataModal({ lead, targetStatus, onClose, onSubmit }
 
   const titles = {
     'Proposal Sent': 'Send Proposal',
+    Negotiation: 'Move to Negotiation',
     Won: 'Mark as Won',
     Lost: 'Mark as Lost',
     Dropped: 'Mark as Dropped',
@@ -40,17 +45,23 @@ export default function StageDataModal({ lead, targetStatus, onClose, onSubmit }
     if (targetStatus === 'Proposal Sent') {
       if (!(Number(proposalValue) > 0)) return;
       if (!proposalSentDate) return;
+      if (!proposalReference.trim()) return;
       if (!nextFollowUpDate) return;
-      fields = { ...fields, proposalValue: Number(proposalValue), proposalSentDate: new Date(proposalSentDate).toISOString(), nextFollowUpDate: new Date(nextFollowUpDate).toISOString() };
+      fields = { ...fields, proposalValue: Number(proposalValue), proposalSentDate: new Date(proposalSentDate).toISOString(), proposalReference: proposalReference.trim(), nextFollowUpDate: new Date(nextFollowUpDate).toISOString() };
+    } else if (targetStatus === 'Negotiation') {
+      if (!expectedCloseDate) return;
+      if (!nextFollowUpDate) return;
+      fields = { ...fields, expectedCloseDate: new Date(expectedCloseDate).toISOString(), nextFollowUpDate: new Date(nextFollowUpDate).toISOString() };
     } else if (targetStatus === 'Won') {
-      if (!(Number(dealValue) > 0)) return;
-      fields = { ...fields, dealValue: Number(dealValue) };
+      if (!(Number(dealCloseValue) > 0)) return;
+      fields = { ...fields, dealCloseValue: Number(dealCloseValue) };
     } else if (targetStatus === 'Lost' || targetStatus === 'Dropped') {
       if (!notConvertedReason) return;
       fields = { ...fields, notConvertedReason };
     } else if (targetStatus === 'Hold') {
       if (!holdReason.trim()) return;
-      fields = { ...fields, holdReason: holdReason.trim(), holdUntil: holdUntil ? new Date(holdUntil).toISOString() : undefined };
+      if (!holdUntil) return;
+      fields = { ...fields, holdReason: holdReason.trim(), holdUntil: new Date(holdUntil).toISOString() };
     }
 
     setSubmitting(true);
@@ -98,6 +109,26 @@ export default function StageDataModal({ lead, targetStatus, onClose, onSubmit }
                     className="w-full mt-1 bg-app-bg border border-app-border rounded-lg px-4 py-2.5 text-sm text-app-text focus:outline-none focus:border-primary" style={{ colorScheme: 'dark' }} />
                 </div>
                 <div>
+                  <label className="text-xs font-bold text-app-text-muted uppercase tracking-wider">Proposal Reference *</label>
+                  <input type="text" value={proposalReference} onChange={(e) => setProposalReference(e.target.value)} placeholder="Quote #, document link, or filename"
+                    className="w-full mt-1 bg-app-bg border border-app-border rounded-lg px-4 py-2.5 text-sm text-app-text focus:outline-none focus:border-primary" />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-app-text-muted uppercase tracking-wider">Next Follow-Up *</label>
+                  <input type="datetime-local" value={nextFollowUpDate} onChange={(e) => setNextFollowUpDate(e.target.value)}
+                    className="w-full mt-1 bg-app-bg border border-app-border rounded-lg px-4 py-2.5 text-sm text-app-text focus:outline-none focus:border-primary" style={{ colorScheme: 'dark' }} />
+                </div>
+              </motion.div>
+            )}
+
+            {targetStatus === 'Negotiation' && (
+              <motion.div key="negotiation-form" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
+                <div>
+                  <label className="text-xs font-bold text-app-text-muted uppercase tracking-wider">Expected Close Date *</label>
+                  <input type="date" value={expectedCloseDate} onChange={(e) => setExpectedCloseDate(e.target.value)}
+                    className="w-full mt-1 bg-app-bg border border-app-border rounded-lg px-4 py-2.5 text-sm text-app-text focus:outline-none focus:border-primary" style={{ colorScheme: 'dark' }} />
+                </div>
+                <div>
                   <label className="text-xs font-bold text-app-text-muted uppercase tracking-wider">Next Follow-Up *</label>
                   <input type="datetime-local" value={nextFollowUpDate} onChange={(e) => setNextFollowUpDate(e.target.value)}
                     className="w-full mt-1 bg-app-bg border border-app-border rounded-lg px-4 py-2.5 text-sm text-app-text focus:outline-none focus:border-primary" style={{ colorScheme: 'dark' }} />
@@ -107,8 +138,8 @@ export default function StageDataModal({ lead, targetStatus, onClose, onSubmit }
 
             {targetStatus === 'Won' && (
               <motion.div key="won-form" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-2">
-                <label className="text-xs font-bold text-app-text-muted uppercase tracking-wider">Final Deal Value (₹) *</label>
-                <input type="number" min="0" value={dealValue} onChange={(e) => setDealValue(e.target.value)} placeholder="e.g. 50000"
+                <label className="text-xs font-bold text-app-text-muted uppercase tracking-wider">Deal Close Value (₹) *</label>
+                <input type="number" min="0" value={dealCloseValue} onChange={(e) => setDealCloseValue(e.target.value)} placeholder="e.g. 50000"
                   className="w-full bg-app-bg border border-app-border rounded-lg px-4 py-2.5 text-sm text-app-text focus:outline-none focus:border-primary" />
                 <p className="text-[10px] text-emerald-500/80">Closing this will also create the client's portal account automatically. 🚀</p>
               </motion.div>
@@ -133,7 +164,7 @@ export default function StageDataModal({ lead, targetStatus, onClose, onSubmit }
                     className="w-full mt-1 bg-app-bg border border-app-border rounded-lg px-4 py-2.5 text-sm text-app-text focus:outline-none focus:border-primary" />
                 </div>
                 <div>
-                  <label className="text-xs font-bold text-app-text-muted uppercase tracking-wider">Resume By (optional)</label>
+                  <label className="text-xs font-bold text-app-text-muted uppercase tracking-wider">Review Date *</label>
                   <input type="date" value={holdUntil} onChange={(e) => setHoldUntil(e.target.value)}
                     className="w-full mt-1 bg-app-bg border border-app-border rounded-lg px-4 py-2.5 text-sm text-app-text focus:outline-none focus:border-primary" style={{ colorScheme: 'dark' }} />
                 </div>

@@ -4,11 +4,13 @@ import {
   LayoutDashboard, Users, ChevronDown, ChevronRight, Activity,
   Briefcase, FileText, Wallet, ShieldCheck, Settings, LogOut, X,
   Image as ImageIcon, Tag, UserPlus, Scale, Share2, Mail, MessageCircle,
-  User, Clock, CheckSquare, FileSpreadsheet, CreditCard, Award, Building2
+  User, Clock, CheckSquare, FileSpreadsheet, CreditCard, Award, Building2,
+  Gauge
 } from 'lucide-react';
 import { useAdminStore } from '../../store/useAdminStore';
 import { usePermissions } from '../hooks/usePermissions';
 import darkLogo from '../../assets/DarkthemeLogo.png';
+import lightLogo from '../../assets/logo_Square.jpg__1_-removebg-preview.png';
 
 const Sidebar = ({ isOpen, setIsOpen }) => {
   const { logout, admin } = useAdminStore();
@@ -53,6 +55,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
 
   const navItems = [
     { name: 'Overview', path: '/admin/dashboard', icon: LayoutDashboard },
+    { name: 'Management Dashboard', path: '/admin/management-dashboard', icon: Gauge, requiredPermission: '*' },
     {
       name: 'Leads Management',
       icon: Users,
@@ -62,6 +65,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
         { name: 'Raw Leads', path: '/admin/leads' },
         { name: 'Working Leads', path: '/admin/leads/working' },
         { name: 'Unassigned Leads', path: '/admin/leads/unassigned' },
+        { name: 'All Leads', path: '/admin/leads/all', requiredPermission: '*' },
         { name: 'Lead Activity', path: '/admin/lead-activity', requiredPermission: 'leads.assign' },
         { name: 'Follow-ups', path: '/admin/follow-ups', requiredPermission: 'leads.assign' },
         { name: 'Subscribers', path: '/admin/subscribers' }
@@ -219,7 +223,14 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
       `}>
         <div className={`mb-12 flex justify-between items-start shrink-0 ${isEmployeeOnly ? 'pr-6' : 'pl-1'}`}>
           <div className="relative flex items-start">
-            <img src={darkLogo} alt="Vedhunt Logo" className={`h-12 md:h-14 w-auto object-contain scale-[1.6] origin-left ${isEmployeeOnly ? 'brightness-0 invert' : 'dark:brightness-0 dark:invert-0'}`} />
+            {isEmployeeOnly ? (
+              <img src={lightLogo} alt="Vedhunt Logo" className={`h-12 md:h-14 w-auto object-contain scale-[1.6] origin-left brightness-0 invert`} />
+            ) : (
+              <>
+                <img src={lightLogo} alt="Vedhunt Logo" className="h-12 md:h-14 w-auto object-contain scale-[1.6] origin-left dark:hidden" />
+                <img src={darkLogo} alt="Vedhunt Logo" className="h-12 md:h-14 w-auto object-contain scale-[1.6] origin-left hidden dark:block" />
+              </>
+            )}
           </div>
           <button onClick={() => setIsOpen(false)} className={`${isEmployeeOnly ? 'text-white hover:text-white/80' : 'text-app-text-muted hover:text-app-text'} lg:hidden transition-colors`} title="Close Sidebar">
             <X size={24} />

@@ -199,6 +199,69 @@ const serviceFormConfig = {
   }
 };
 
+// GetQuote's per-service timeline/budget answers → the CRM's canonical
+// qualification vocabulary (server/utils/serviceQualification.js). Best
+// effort by design: the source bands don't align 1:1 across services (a
+// website project and an app project use completely different price
+// scales), so this maps each raw answer onto the closest canonical band —
+// a BD can always correct it during qualification.
+const TIMELINE_TO_CANONICAL = {
+  Immediately: 'Immediate',
+  'Within 1 Month': '30 days',
+  '1-3 Months': '60+ days',
+  'Just Exploring': 'Not decided'
+};
+
+// Services whose budget maps onto MONTHLY_MARKETING_BUDGET_OPTIONS instead
+// of PROJECT_BUDGET_OPTIONS — mirrors MARKETING_TYPE_SERVICES server-side.
+const MARKETING_TYPE_SERVICE_IDS = ['digital_marketing', 'performance_marketing'];
+
+// Per-service: which raw field carries the budget answer, and how its
+// values map onto the two canonical band lists. Services with no budget
+// question in serviceFormConfig (accounting, shipping) are simply absent
+// here — budget stays blank at intake, same as today.
+const SERVICE_BUDGET_MAP = {
+  website: { field: 'projectBudget', map: { 'Below 25K': 'Below ₹25K', '25K-75K': '₹25K–75K', '75K-2L': '₹75K–2L', '2L-5L': '₹2L–5L', 'Above 5L': '₹5L–15L', 'Not sure': 'Not sure' } },
+  app: { field: 'projectBudget', map: { 'Below 1L': '₹75K–2L', '1L-3L': '₹2L–5L', '3L-7L': '₹5L–15L', '7L-15L': '₹5L–15L', 'Above 15L': 'Above ₹15L', 'Not sure': 'Not sure' } },
+  digital_marketing: { field: 'projectBudget', map: { 'Below 25K': 'Below ₹50K', '25K-50K': 'Below ₹50K', '50K-1L': '₹50K–1L', '1L-2L': '₹1L–3L', 'Above 2L': '₹3L–5L', 'Not sure': 'Not sure' } },
+  performance_marketing: { field: 'monthlyAdSpend', map: { 'Below ₹50K': 'Below ₹50K', '₹50K–1L': '₹50K–1L', '₹1L–3L': '₹1L–3L', '₹3L–5L': '₹3L–5L', 'Above ₹5L': 'Above ₹5L' } },
+  mis: { field: 'projectBudget', map: { 'Below 25K': 'Below ₹25K', '25K-75K': '₹25K–75K', '75K-1.5L': '₹75K–2L', 'Above 1.5L': '₹2L–5L', 'Not sure': 'Not sure' } },
+  graphic_design: { field: 'projectBudget', map: { 'Below 10K': 'Below ₹25K', '10K-25K': 'Below ₹25K', '25K-50K': '₹25K–75K', 'Above 50K': '₹25K–75K', 'Not sure': 'Not sure' } },
+  workflow: { field: 'projectBudget', map: { 'Below 25K': 'Below ₹25K', '25K-75K': '₹25K–75K', '75K-2L': '₹75K–2L', 'Above 2L': '₹2L–5L', 'Not sure': 'Not sure' } }
+};
+
+/** Builds the structured qualification fields to send alongside the existing free-text message blob. */
+function buildQualificationFields(serviceId, serviceLabel, finalData) {
+  const fields = { servicesRequired: serviceLabel ? [serviceLabel] : [] };
+
+  if (finalData.timeline && TIMELINE_TO_CANONICAL[finalData.timeline]) {
+    fields.timeline = TIMELINE_TO_CANONICAL[finalData.timeline];
+  }
+
+  if (serviceId === 'website' && finalData.hasWebsite === 'Yes' && finalData.existingWebsiteUrl) {
+    fields.website = finalData.existingWebsiteUrl;
+  }
+
+  // digital_marketing/accounting/shipping all name this field 'businessType' —
+  // a direct passthrough, no per-service mapping needed.
+  if (finalData.businessType) {
+    fields.businessType = finalData.businessType;
+  }
+
+  const budgetConfig = SERVICE_BUDGET_MAP[serviceId];
+  const rawBudget = budgetConfig && finalData[budgetConfig.field];
+  const canonicalBudget = rawBudget && budgetConfig.map[rawBudget];
+  if (canonicalBudget) {
+    if (MARKETING_TYPE_SERVICE_IDS.includes(serviceId)) {
+      fields.monthlyMarketingBudget = canonicalBudget;
+    } else {
+      fields.projectBudget = canonicalBudget;
+    }
+  }
+
+  return fields;
+}
+
 export default function GetQuote() {
   const { contactInfo } = useContactInfo();
   const [step, setStep] = useState(1);
@@ -272,11 +335,13 @@ export default function GetQuote() {
         fullMessage += `Details:\n${finalData.projectIdea}\n`;
       }
 
+      const serviceLabel = servicesOptions.find(s => s.id === finalData.service)?.label || finalData.service || 'Not Specified';
+
       const payload = {
         fullName: `${finalData.firstName} ${finalData.lastName || ''}`.trim(),
         phone: finalData.phone,
         email: finalData.email,
-        service: servicesOptions.find(s => s.id === finalData.service)?.label || finalData.service || 'Not Specified',
+        service: serviceLabel,
         businessName: finalData.company,
         message: fullMessage.trim(),
         consent: true,
@@ -289,7 +354,10 @@ export default function GetQuote() {
         utmMedium: urlParams.get('utm_medium') || savedUtms.utmMedium || '',
         utmCampaign: urlParams.get('utm_campaign') || savedUtms.utmCampaign || '',
         utmContent: urlParams.get('utm_content') || savedUtms.utmContent || '',
-        utmTerm: urlParams.get('utm_term') || savedUtms.utmTerm || ''
+        utmTerm: urlParams.get('utm_term') || savedUtms.utmTerm || '',
+        // Structured qualification fields, additive to the message blob
+        // above — see server/utils/serviceQualification.js.
+        ...buildQualificationFields(finalData.service, serviceLabel, finalData)
       };
 
       await api.post('/leads', payload);

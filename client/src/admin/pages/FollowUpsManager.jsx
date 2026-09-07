@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Clock, Filter, ChevronDown, ChevronLeft, ChevronRight, Phone, AlertTriangle, TrendingUp, Users } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
@@ -10,6 +10,14 @@ const BUCKET_BADGE = {
   Overdue: 'bg-red-500/10 text-red-400 border-red-500/20',
   Today: 'bg-orange-500/10 text-orange-400 border-orange-500/20',
   Upcoming: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+};
+
+const EXCEPTION_CATEGORIES = ['All', 'Hot Lead', 'Proposal/Negotiation', 'Other'];
+
+const EXCEPTION_BADGE = {
+  'Hot Lead': 'bg-red-500/10 text-red-400 border-red-500/20',
+  'Proposal/Negotiation': 'bg-purple-500/10 text-purple-400 border-purple-500/20',
+  Other: 'bg-amber-500/10 text-amber-400 border-amber-500/20'
 };
 
 // firstName/lastName aren't guaranteed on every Admin account (the original
@@ -23,14 +31,24 @@ function displayName(person) {
 
 export default function FollowUpsManager() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [followUps, setFollowUps] = useState([]);
   const [loading, setLoading] = useState(true);
   const [bds, setBds] = useState([]);
-  const [bdFilter, setBdFilter] = useState('All');
-  const [bucketFilter, setBucketFilter] = useState('All');
+  // Deep-linkable from the Overview/Management dashboards (?by=<bdId>) — falls
+  // back to "All" for a plain page visit.
+  const [bdFilter, setBdFilter] = useState(() => searchParams.get('by') || 'All');
+  // Deep-linkable from notifications (e.g. the EOD manager digest links here
+  // with ?bucket=Overdue) — falls back to "All" for a plain page visit.
+  const [bucketFilter, setBucketFilter] = useState(() => {
+    const fromUrl = searchParams.get('bucket');
+    return BUCKET_TABS.includes(fromUrl) ? fromUrl : 'All';
+  });
+  const [categoryFilter, setCategoryFilter] = useState('All');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
+  const [categoryCounts, setCategoryCounts] = useState(null);
   const [pipelineSummary, setPipelineSummary] = useState(null);
   const [bdAccountability, setBdAccountability] = useState([]);
 
@@ -40,19 +58,20 @@ export default function FollowUpsManager() {
     setLoading(true);
     try {
       const response = isActionMissing
-        ? await api.get('/admin/activity/action-missing', { params: { page: currentPage, limit: 20, by: bdFilter } })
+        ? await api.get('/admin/activity/action-missing', { params: { page: currentPage, limit: 20, by: bdFilter, category: categoryFilter } })
         : await api.get('/admin/activity/followups', { params: { page: currentPage, limit: 20, by: bdFilter, bucket: bucketFilter } });
       if (response.data.success) {
         setFollowUps(response.data.data);
         setTotalPages(response.data.totalPages);
         setTotal(response.data.total);
+        setCategoryCounts(response.data.counts || null);
       }
     } catch {
       toast.error(isActionMissing ? 'Failed to load the Action Missing queue' : 'Failed to load follow-ups');
     } finally {
       setLoading(false);
     }
-  }, [currentPage, bdFilter, bucketFilter, isActionMissing]);
+  }, [currentPage, bdFilter, bucketFilter, categoryFilter, isActionMissing]);
 
   useEffect(() => {
     fetchFollowUps();
@@ -155,7 +174,7 @@ export default function FollowUpsManager() {
         {BUCKET_TABS.map((tab) => (
           <button
             key={tab}
-            onClick={() => { setBucketFilter(tab); setCurrentPage(1); }}
+            onClick={() => { setBucketFilter(tab); setCategoryFilter('All'); setCurrentPage(1); }}
             className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${
               bucketFilter === tab ? 'bg-primary text-black' : 'text-app-text-muted hover:text-app-text'
             }`}
@@ -164,6 +183,25 @@ export default function FollowUpsManager() {
           </button>
         ))}
       </div>
+
+      {/* Exception category chips — Action Missing only */}
+      {isActionMissing && (
+        <div className="flex flex-wrap items-center gap-2">
+          {EXCEPTION_CATEGORIES.map((cat) => (
+            <button
+              key={cat}
+              onClick={() => { setCategoryFilter(cat); setCurrentPage(1); }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${
+                categoryFilter === cat
+                  ? 'bg-primary text-black border-primary'
+                  : `bg-app-card text-app-text-muted hover:text-app-text ${cat === 'All' ? 'border-app-border' : EXCEPTION_BADGE[cat]}`
+              }`}
+            >
+              {cat}{categoryCounts && cat !== 'All' ? ` (${categoryCounts[cat] ?? 0})` : ''}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-4 bg-app-card p-4 rounded-xl border border-app-border">
@@ -231,8 +269,8 @@ export default function FollowUpsManager() {
                     <td className="px-4 py-3">
                       {isActionMissing ? (
                         <div className="flex flex-col gap-1">
-                          <span className="inline-flex w-fit px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider border bg-amber-500/10 text-amber-400 border-amber-500/20">
-                            No next action
+                          <span className={`inline-flex w-fit px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider border ${EXCEPTION_BADGE[lead.exceptionType] || EXCEPTION_BADGE.Other}`}>
+                            {lead.exceptionType || 'No next action'}
                           </span>
                           <span className="text-xs text-app-text-muted">
                             {lead.callDate ? new Date(lead.callDate).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '-'}

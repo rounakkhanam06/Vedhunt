@@ -54,29 +54,47 @@ async function syncFacebookLeads({ lookbackHours = 24, notify = true } = {}) {
 
   for (const form of forms) {
     try {
-      const res = await get(
-        `${GRAPH}/${form.id}/leads?fields=${LEAD_FIELDS}&limit=100&access_token=${token}`
-      );
-      if (res.error) {
-        // Surface an expired token loudly — it is the failure that silently
-        // drops every lead, and the one we have been bitten by twice.
-        if (res.error.code === 190) {
-          logger.error(
-            'Lead sync: FB_PAGE_ACCESS_TOKEN is EXPIRED or INVALID (code 190). ' +
-            'No leads can be imported until it is replaced.'
-          );
-          return { imported, skipped, forms: forms.length, tokenExpired: true };
+      // Leads come back newest first. Facebook caps each page at 100
+      // regardless of the requested limit, so a form with more leads than
+      // that inside the lookback window needs to be paged via `paging.next`
+      // — a single un-paginated fetch silently drops everything past the
+      // newest 100 (this is how leads went missing before).
+      const recent = [];
+      let url = `${GRAPH}/${form.id}/leads?fields=${LEAD_FIELDS}&limit=100&access_token=${token}`;
+      let tokenExpired = false;
+      let pageErrored = false;
+
+      while (url) {
+        const res = await get(url);
+        if (res.error) {
+          // Surface an expired token loudly — it is the failure that silently
+          // drops every lead, and the one we have been bitten by twice.
+          if (res.error.code === 190) {
+            logger.error(
+              'Lead sync: FB_PAGE_ACCESS_TOKEN is EXPIRED or INVALID (code 190). ' +
+              'No leads can be imported until it is replaced.'
+            );
+            tokenExpired = true;
+          } else {
+            logger.warn(`Lead sync: form ${form.name} — [${res.error.code}] ${res.error.message}`);
+          }
+          pageErrored = true;
+          break;
         }
-        logger.warn(`Lead sync: form ${form.name} — [${res.error.code}] ${res.error.message}`);
-        continue;
+
+        let crossedWindow = false;
+        for (const fbLead of res.data || []) {
+          if (new Date(fbLead.created_time).getTime() < since) { crossedWindow = true; break; }
+          recent.push(fbLead);
+        }
+
+        url = crossedWindow ? null : (res.paging?.next || null);
       }
 
-      // Leads come back newest first, so stop once we walk past the window.
-      const recent = [];
-      for (const fbLead of res.data || []) {
-        if (new Date(fbLead.created_time).getTime() < since) break;
-        recent.push(fbLead);
+      if (tokenExpired) {
+        return { imported, skipped, forms: forms.length, tokenExpired: true };
       }
+      if (pageErrored) continue;
       if (!recent.length) continue;
 
       // One query instead of one per lead — most runs find nothing new.

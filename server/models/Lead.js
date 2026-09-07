@@ -303,22 +303,77 @@ const leadSchema = new mongoose.Schema({
   proposalSentDate: {
     type: Date
   },
+  // Quote/document reference (number, filename, or link) for the proposal —
+  // required to move a lead to Proposal Sent (see utils/leadStateMachine.js).
+  proposalReference: {
+    type: String,
+    trim: true
+  },
+  // Forecast close date, required while a lead is in Negotiation (see
+  // utils/leadStateMachine.js). Distinct from `dealCloseValue` below, which
+  // is the actual amount captured once the deal is really closed — this is
+  // just a target date, set before the outcome is known.
   expectedCloseDate: {
     type: Date
+  },
+  // The actual amount a deal closes at — required to mark a lead Won (see
+  // utils/leadStateMachine.js). Doubles as "Total Deal Value" for payment
+  // tracking below. Distinct from `dealValue`, which is a running estimate a
+  // BD can edit at any stage.
+  dealCloseValue: {
+    type: Number,
+    min: 0
   },
   paymentStatus: {
     type: String,
     enum: ['Not Applicable', 'Pending', 'Partially Paid', 'Paid'],
     default: 'Not Applicable'
   },
+  // How much of `dealCloseValue` has actually been received. Pending amount
+  // is intentionally not stored — it's derived (dealCloseValue - amountPaid)
+  // wherever it's displayed, so it can never go stale relative to its inputs.
+  amountPaid: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
 
   // ── Qualification ─────────────────────────────────────────────────────────
   // Free-form discovery data a BD fills in as the conversation progresses —
   // none of it gates stage transitions (server/utils/leadStateMachine.js is
   // still the only enforcement point for that), it's reference context.
+  // `budget` is legacy (superseded by projectBudget/monthlyMarketingBudget
+  // below) — left in place, unused going forward, rather than migrated.
   budget: {
     type: Number,
     min: 0
+  },
+  // Service-aware qualification fields — see server/utils/serviceQualification.js
+  // for the controlled vocab (services list, budget bands, timeline/decision
+  // maker options) and the Lead Priority derivation rules.
+  website: {
+    type: String,
+    trim: true
+  },
+  // One or more Vedhunt services this lead needs — distinct from `service`
+  // (a single free-text field fed by Facebook/website forms, used far too
+  // widely across the app to safely retype); this is the BD-editable
+  // structured multi-select for qualification/reporting.
+  servicesRequired: [{ type: String }],
+  // Free text — GetQuote's per-service "business type" answer means
+  // different things per service (legal structure vs B2B/B2C vs logistics
+  // category), not worth forcing into one enum.
+  businessType: {
+    type: String,
+    trim: true
+  },
+  projectBudget: {
+    type: String,
+    trim: true
+  },
+  monthlyMarketingBudget: {
+    type: String,
+    trim: true
   },
   timeline: {
     type: String,
@@ -335,6 +390,23 @@ const leadSchema = new mongoose.Schema({
   requirementSummary: {
     type: String,
     trim: true
+  },
+  // Auto-derived from decisionMaker/timeline/projectBudget/monthlyMarketingBudget
+  // by services/leadLifecycle.js — never client-settable (not in
+  // LEAD_UPDATE_FIELDS), same treatment as leadAgeAtCall/touchNumber.
+  leadPriority: {
+    type: String,
+    enum: ['Hot', 'Warm', 'Normal', 'Low'],
+    default: 'Normal'
+  },
+  // Configurable, supplementary score (0-100) — see services/leadScoring.js.
+  // A secondary signal only; it never sets leadPriority (that stays derived
+  // from explicit business signals above). Never client-settable.
+  leadScore: {
+    type: Number,
+    default: 0,
+    min: 0,
+    max: 100
   },
 
   // ── Documents ────────────────────────────────────────────────────────────

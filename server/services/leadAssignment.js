@@ -8,6 +8,7 @@ const AssignmentLog = require('../models/AssignmentLog');
 const Notification = require('../models/Notification');
 const logger = require('../utils/logger');
 const { findLeadRaw } = require('../utils/leadLookup');
+const { sendPushToAdmin } = require('../utils/pushNotify');
 
 // A lead still being worked counts against a BD's workload; these are done.
 const TERMINAL_STATUSES = ['Won', 'Lost', 'Dropped'];
@@ -90,16 +91,13 @@ async function applyAssignment(leadRef, { toAdmin, assignedBy = null, mode, reas
   });
 
   if (toAdminId) {
-    await Notification.create({
-      recipient: toAdminId,
-      type: 'lead_assigned',
-      title: 'New lead assigned to you',
-      message: `${leadPlain.fullName} — ${leadPlain.service || leadPlain.platform}`,
-      // BDs work exclusively from the Employee Portal (see PORTAL_ONLY_ROLES
-      // in server/routes/auth.js) — the admin panel isn't reachable for them.
-      link: `/employee/dashboard?tab=leads&leadId=${leadPlain._id}`,
-      lead: leadPlain._id
-    });
+    const title = 'New lead assigned to you';
+    const message = `${leadPlain.fullName} — ${leadPlain.service || leadPlain.platform}`;
+    // BDs work exclusively from the Employee Portal (see PORTAL_ONLY_ROLES
+    // in server/routes/auth.js) — the admin panel isn't reachable for them.
+    const link = `/employee/dashboard?tab=leads&leadId=${leadPlain._id}`;
+    await Notification.create({ recipient: toAdminId, type: 'lead_assigned', title, message, link, lead: leadPlain._id });
+    await sendPushToAdmin(toAdminId, { title, body: message, link });
   }
 
   return {

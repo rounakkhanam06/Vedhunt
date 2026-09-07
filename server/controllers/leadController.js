@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Lead = require('../models/Lead');
 const Admin = require('../models/Admin');
 const Settings = require('../models/Settings');
@@ -8,16 +9,27 @@ const { normalizePhone, normalizeEmail } = require('../utils/normalize');
 const AssignmentLog = require('../models/AssignmentLog');
 const { manualAssign, autoAssignLead } = require('../services/leadAssignment');
 const { findLeadRaw } = require('../utils/leadLookup');
-const { LEAD_UPDATE_FIELDS } = require('../utils/leadStateMachine');
+const { LEAD_UPDATE_FIELDS, TERMINAL_STATUSES } = require('../utils/leadStateMachine');
 const { applyLeadUpdate } = require('../services/leadLifecycle');
 const { addLeadDocument, removeLeadDocument } = require('../services/leadDocuments');
+const { importLeadsFromFile } = require('../services/leadImport');
+const { listTasks, createParallelTask, completeTask } = require('../services/followUpTasks');
+const { derivePriority } = require('../utils/serviceQualification');
+const { getLeadScoringSettings, computeLeadScore } = require('../services/leadScoring');
 
 // @desc    Submit a new lead from a landing page
 // @route   POST /api/leads
 // @access  Public
 exports.createLead = async (req, res, next) => {
   try {
-    const { fullName, phone, altPhone, email, service, businessName, message, source, consent, city, country, platform, userSource, utmSource, utmMedium, utmCampaign, utmContent, utmTerm } = req.body;
+    const {
+      fullName, phone, altPhone, email, service, businessName, message, source, consent, city, country,
+      platform, userSource, utmSource, utmMedium, utmCampaign, utmContent, utmTerm,
+      // Service-aware qualification fields — populated when the source form
+      // (e.g. GetQuote.jsx) already collected them at intake; blank otherwise,
+      // a BD fills them in during qualification. See utils/serviceQualification.js.
+      servicesRequired, website, businessType, timeline, decisionMaker, projectBudget, monthlyMarketingBudget
+    } = req.body;
 
     if (!fullName || !phone || !email || !source) {
       return res.status(400).json({ success: false, message: 'Please provide all required fields' });
@@ -54,6 +66,8 @@ exports.createLead = async (req, res, next) => {
       return res.status(200).json({ success: true, message: 'Lead submitted successfully', data: duplicate });
     }
 
+    const scoringSettings = await getLeadScoringSettings();
+
     // Save lead to database
     const lead = await Lead.create({
       fullName,
@@ -74,6 +88,15 @@ exports.createLead = async (req, res, next) => {
       utmCampaign,
       utmContent,
       utmTerm,
+      servicesRequired,
+      website,
+      businessType,
+      timeline,
+      decisionMaker,
+      projectBudget,
+      monthlyMarketingBudget,
+      leadPriority: derivePriority({ decisionMaker, timeline, projectBudget, monthlyMarketingBudget }),
+      leadScore: computeLeadScore({ servicesRequired, projectBudget, monthlyMarketingBudget, decisionMaker, timeline }, scoringSettings),
       // Full original submission, captured before any dedup/assignment
       // processing runs, so the raw request is always recoverable for audit.
       rawPayload: req.body,
@@ -178,6 +201,45 @@ exports.getLeads = async (req, res, next) => {
     // Filter by the Facebook Instant Form the lead came from
     if (req.query.fbFormId && req.query.fbFormId !== 'All') {
       query.fbFormId = req.query.fbFormId;
+    }
+
+    // Filter by call-connected outcome (dashboard drill-down)
+    if (req.query.connected === 'Yes' || req.query.connected === 'No') {
+      query.connected = req.query.connected;
+    }
+
+    // Filter by the legacy free-text service field (dashboard drill-down)
+    if (req.query.service && req.query.service !== 'All') {
+      query.service = req.query.service;
+    }
+
+    // Filter by auto-derived Lead Priority (dashboard drill-down)
+    if (req.query.leadPriority && req.query.leadPriority !== 'All') {
+      query.leadPriority = req.query.leadPriority;
+    }
+
+    // Follow-up Breach filter (dashboard drill-down)
+    if (req.query.followUpBreached === 'true') {
+      query.followUpBreached = true;
+    }
+
+    // "Open pipeline" shorthand — every non-terminal, non-Hold lead, same set
+    // activityController.js's getPipelineSummary already uses for pipelineValue.
+    // Only applies when no explicit status/stageGroup filter already set one.
+    if (req.query.stage === 'open' && !query.status) {
+      query.status = { $nin: [...TERMINAL_STATUSES, 'Hold'] };
+    }
+
+    // Date range filter (createdAt) — indexed field, cheap to filter on.
+    if (req.query.dateFrom || req.query.dateTo) {
+      query.createdAt = {};
+      if (req.query.dateFrom) query.createdAt.$gte = new Date(req.query.dateFrom);
+      if (req.query.dateTo) {
+        // Treat dateTo as inclusive of the whole day.
+        const endOfDay = new Date(req.query.dateTo);
+        endOfDay.setHours(23, 59, 59, 999);
+        query.createdAt.$lte = endOfDay;
+      }
     }
 
     // Visibility: BDs (anyone without the '*' wildcard) only ever see leads
@@ -420,7 +482,7 @@ exports.getAllAssignmentLogs = async (req, res, next) => {
 // @access  Private
 exports.lockLead = async (req, res, next) => {
   try {
-    const lead = await Lead.findById(req.params.id);
+    const lead = await findLeadRaw(req.params.id);
     if (!lead) return res.status(404).json({ success: false, message: 'Lead not found' });
 
     const LOCK_TIMEOUT_MS = 5 * 60 * 1000;
@@ -430,9 +492,15 @@ exports.lockLead = async (req, res, next) => {
       }
     }
 
-    lead.lockedBy = req.user._id;
-    lead.lockedAt = new Date();
-    await lead.save();
+    // Raw driver, not lead.save() — .save()'s version-checked update throws a
+    // spurious VersionError for some legacy String-_id leads (see
+    // utils/leadLookup.js), and can also race against itself: this effect
+    // fires twice under React StrictMode in dev (mount, cleanup/unlock,
+    // remount/lock), and an atomic update has no version to conflict on.
+    await mongoose.connection.db.collection('leads').updateOne(
+      { _id: lead._id },
+      { $set: { lockedBy: req.user._id, lockedAt: new Date() } }
+    );
 
     res.status(200).json({ success: true, message: 'Lead locked successfully' });
   } catch (error) {
@@ -446,13 +514,14 @@ exports.lockLead = async (req, res, next) => {
 // @access  Private
 exports.unlockLead = async (req, res, next) => {
   try {
-    const lead = await Lead.findById(req.params.id);
+    const lead = await findLeadRaw(req.params.id);
     if (!lead) return res.status(404).json({ success: false, message: 'Lead not found' });
 
     if (String(lead.lockedBy) === String(req.user._id) || req.user?.permissions?.includes('*')) {
-      lead.lockedBy = null;
-      lead.lockedAt = null;
-      await lead.save();
+      await mongoose.connection.db.collection('leads').updateOne(
+        { _id: lead._id },
+        { $set: { lockedBy: null, lockedAt: null } }
+      );
     }
 
     res.status(200).json({ success: true, message: 'Lead unlocked successfully' });
@@ -469,12 +538,14 @@ exports.updateLead = async (req, res, next) => {
   try {
     // 'bd'/'assignedTo' are intentionally excluded — ownership changes must
     // go through POST /leads/:id/assign so every change is audit-logged.
-    let allowedUpdates = [...LEAD_UPDATE_FIELDS, 'fullName', 'email', 'phone', 'altPhone', 'businessName', 'service'];
+    // businessName lives in LEAD_UPDATE_FIELDS — it's an ordinary qualification
+    // field now, not a protected core-identity one (see below).
+    let allowedUpdates = [...LEAD_UPDATE_FIELDS, 'fullName', 'email', 'phone', 'altPhone', 'service'];
 
     // Field-level access control: Only Super Admins can edit core fields
     const isSuperAdmin = req.user?.permissions?.includes('*');
     if (!isSuperAdmin) {
-      const protectedFields = ['fullName', 'email', 'phone', 'altPhone', 'city', 'country', 'businessName', 'platform'];
+      const protectedFields = ['fullName', 'email', 'phone', 'altPhone', 'city', 'country', 'platform'];
       allowedUpdates = allowedUpdates.filter(field => !protectedFields.includes(field));
     }
 
@@ -501,6 +572,26 @@ exports.updateLead = async (req, res, next) => {
     res.status(200).json({ success: true, data: result.lead });
   } catch (error) {
     logger.error('Error updating lead:', error);
+    next(error);
+  }
+};
+
+// @desc    Bulk-import leads from an uploaded Excel (.xlsx) or CSV file
+// @route   POST /api/leads/import
+// @access  Private (Super Admin)
+exports.importLeads = async (req, res, next) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'No file uploaded' });
+    }
+
+    const summary = await importLeadsFromFile(req.file.buffer, req.file.originalname, { id: req.user?._id });
+    res.status(200).json({ success: true, data: summary });
+  } catch (error) {
+    if (error.status) {
+      return res.status(error.status).json({ success: false, message: error.message });
+    }
+    logger.error('Error importing leads:', error);
     next(error);
   }
 };
@@ -554,6 +645,58 @@ exports.deleteLead = async (req, res, next) => {
     res.status(200).json({ success: true, data: {} });
   } catch (error) {
     logger.error('Error deleting lead:', error);
+    next(error);
+  }
+};
+
+// @desc    List a lead's follow-up tasks (Primary + any manager-created Parallel ones)
+// @route   GET /api/leads/:id/tasks
+// @access  Private (Admin)
+exports.getLeadTasks = async (req, res, next) => {
+  try {
+    const result = await listTasks(req.params.id);
+    if (!result.ok) {
+      return res.status(result.status).json({ success: false, message: result.message });
+    }
+    res.status(200).json({ success: true, tasks: result.tasks });
+  } catch (error) {
+    logger.error('Error listing lead tasks:', error);
+    next(error);
+  }
+};
+
+// @desc    Create a Parallel follow-up task — manager-only, independent of
+//          the lead's primary next-follow-up (the spec's "manager explicitly
+//          creates parallel tasks" exception).
+// @route   POST /api/leads/:id/tasks
+// @access  Private (leads.assign)
+exports.createLeadTask = async (req, res, next) => {
+  try {
+    const { assignedTo, dueDate, note } = req.body;
+    const result = await createParallelTask(req.params.id, { assignedTo, dueDate, note }, req.user._id);
+    if (!result.ok) {
+      return res.status(result.status).json({ success: false, message: result.message });
+    }
+    res.status(201).json({ success: true, task: result.task });
+  } catch (error) {
+    logger.error('Error creating lead task:', error);
+    next(error);
+  }
+};
+
+// @desc    Complete a follow-up task — a result is always required.
+// @route   PUT /api/leads/:id/tasks/:taskId/complete
+// @access  Private (Admin)
+exports.completeLeadTask = async (req, res, next) => {
+  try {
+    const canManage = req.user?.permissions?.includes('leads.assign') || req.user?.permissions?.includes('*');
+    const result = await completeTask(req.params.id, req.params.taskId, req.body.result, req.user._id, { canManage });
+    if (!result.ok) {
+      return res.status(result.status).json({ success: false, message: result.message });
+    }
+    res.status(200).json({ success: true, task: result.task });
+  } catch (error) {
+    logger.error('Error completing lead task:', error);
     next(error);
   }
 };

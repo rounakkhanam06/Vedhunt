@@ -6,11 +6,12 @@ const LeaveRequest = require('../models/LeaveRequest');
 const SupportTicket = require('../models/SupportTicket');
 const Lead = require('../models/Lead');
 const Payslip = require('../models/Payslip');
-const { getMyNotifications, markRead, markAllRead } = require('../controllers/notificationController');
+const { getMyNotifications, markRead, markAllRead, registerDevice } = require('../controllers/notificationController');
 const { findLeadRaw } = require('../utils/leadLookup');
 const { LEAD_UPDATE_FIELDS } = require('../utils/leadStateMachine');
 const { applyLeadUpdate } = require('../services/leadLifecycle');
 const { addLeadDocument, removeLeadDocument } = require('../services/leadDocuments');
+const { listTasks, completeTask } = require('../services/followUpTasks');
 const { uploadLeadDocument: uploadLeadDocumentMiddleware } = require('../utils/cloudinary');
 const employeeAuthMiddleware = require('../middleware/employeeAuthMiddleware');
 const { encrypt, decrypt } = require('../utils/encryption');
@@ -548,6 +549,36 @@ router.delete('/ess/leads/:id/documents/:docId', async (req, res) => {
   }
 });
 
+// Follow-up Tasks — Primary (auto-synced with nextFollowUpDate) + any manager-
+// created Parallel tasks on a lead this BD owns. Creating a Parallel task is
+// manager-only (admin side), so there's no POST route here — a BD can only
+// view and complete tasks assigned to them.
+router.get('/ess/leads/:id/tasks', async (req, res) => {
+  try {
+    const result = await listTasks(req.params.id, { assignedTo: req.user._id });
+    if (!result.ok) {
+      return res.status(result.status).json({ success: false, message: result.message });
+    }
+    res.json({ success: true, tasks: result.tasks });
+  } catch (error) {
+    logger.error('Error listing employee lead tasks:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+router.put('/ess/leads/:id/tasks/:taskId/complete', async (req, res) => {
+  try {
+    const result = await completeTask(req.params.id, req.params.taskId, req.body.result, req.user._id, { canManage: false }, { assignedTo: req.user._id });
+    if (!result.ok) {
+      return res.status(result.status).json({ success: false, message: result.message });
+    }
+    res.json({ success: true, task: result.task });
+  } catch (error) {
+    logger.error('Error completing employee lead task:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
 // ==========================================
 // PAYSLIPS — read-only, self-scoped. Payroll is generated and approved
 // entirely from the admin side (server/routes/payrollRoutes.js); this is
@@ -588,5 +619,6 @@ router.get('/ess/payslips/:id', async (req, res) => {
 router.get('/ess/notifications', getMyNotifications);
 router.put('/ess/notifications/read-all', markAllRead);
 router.put('/ess/notifications/:id/read', markRead);
+router.post('/ess/notifications/register-device', registerDevice);
 
 module.exports = router;

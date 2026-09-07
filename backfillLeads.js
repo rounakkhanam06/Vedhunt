@@ -15,7 +15,7 @@ require('dotenv').config({ path: './server/.env' });
 const mongoose = require('mongoose');
 const { syncFacebookLeads } = require('./server/services/leadSync');
 
-const LOOKBACK_DAYS = 10; // covers the outage with margin
+const LOOKBACK_DAYS = 90; // Facebook's typical lead-data retention window — maximize recovery of older missing leads
 
 async function main() {
   await mongoose.connect(process.env.MONGODB_URI);

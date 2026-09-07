@@ -2,6 +2,9 @@ const mongoose = require('mongoose');
 const { validateLeadTransition, TERMINAL_STATUSES } = require('../utils/leadStateMachine');
 const { findLeadRaw } = require('../utils/leadLookup');
 const { convertWonLeadToClient } = require('./clientProvisioning');
+const FollowUpTask = require('../models/FollowUpTask');
+const { derivePriority } = require('../utils/serviceQualification');
+const { getLeadScoringSettings, computeLeadScore } = require('./leadScoring');
 const logger = require('../utils/logger');
 
 /**
@@ -48,7 +51,7 @@ async function applyLeadUpdate(leadId, updates, actor, extraFilter = {}) {
 
   if (updates.status && updates.status !== existingLead.status) {
     let note = '';
-    if (updates.status === 'Won') note = `Closed with value ₹${updates.dealValue ?? existingLead.dealValue ?? 0}`;
+    if (updates.status === 'Won') note = `Closed with value ₹${updates.dealCloseValue ?? existingLead.dealCloseValue ?? 0}`;
     else if (updates.status === 'Lost' || updates.status === 'Dropped') note = `Reason: ${updates.notConvertedReason || existingLead.notConvertedReason || ''}`;
     else if (updates.status === 'Hold') note = `Reason: ${updates.holdReason || ''}`;
     pipelineEntries.push({ status: updates.status, date: now, updatedBy: actor.id, note });
@@ -96,6 +99,16 @@ async function applyLeadUpdate(leadId, updates, actor, extraFilter = {}) {
     touchNumberUpdate = touchNumber;
     const resultingStage = updates.status || existingLead.status;
     const resultingNotConnectedReason = updates.connected === 'No' ? (updates.notConnectedReason || '') : '';
+    const callDateUsed = updates.callDate || existingLead.callDate || now;
+
+    // Age @ Call — how many days old the lead was as of its most recent call.
+    // Recomputed on every logged call outcome, never hand-entered.
+    if (existingLead.createdAt) {
+      updates.leadAgeAtCall = Math.max(
+        0,
+        Math.floor((new Date(callDateUsed).getTime() - new Date(existingLead.createdAt).getTime()) / 86400000)
+      );
+    }
 
     // Auto-classified, not asked of the BD — keeps the outcome capture a
     // one-tap flow instead of one more required field.
@@ -109,7 +122,7 @@ async function applyLeadUpdate(leadId, updates, actor, extraFilter = {}) {
       $each: [{
         touchNumber,
         calledBy: actor.id,
-        callDate: updates.callDate || existingLead.callDate || now,
+        callDate: callDateUsed,
         callStartTime: updates.callStartTime || existingLead.callStartTime,
         callEndTime: updates.callEndTime || existingLead.callEndTime,
         callDuration: updates.callDuration ?? existingLead.callDuration,
@@ -135,6 +148,47 @@ async function applyLeadUpdate(leadId, updates, actor, extraFilter = {}) {
     updates.followUpBreachedAt = null;
   }
 
+  // Lead Priority is auto-derived, never client-settable (not in
+  // LEAD_UPDATE_FIELDS) — recomputed whenever a qualification save touches
+  // any of its three inputs, against the merged (existing + incoming) state.
+  const PRIORITY_INPUT_FIELDS = ['timeline', 'decisionMaker', 'projectBudget', 'monthlyMarketingBudget'];
+  if (PRIORITY_INPUT_FIELDS.some((f) => f in updates)) {
+    updates.leadPriority = derivePriority({
+      decisionMaker: 'decisionMaker' in updates ? updates.decisionMaker : existingLead.decisionMaker,
+      timeline: 'timeline' in updates ? updates.timeline : existingLead.timeline,
+      projectBudget: 'projectBudget' in updates ? updates.projectBudget : existingLead.projectBudget,
+      monthlyMarketingBudget: 'monthlyMarketingBudget' in updates ? updates.monthlyMarketingBudget : existingLead.monthlyMarketingBudget
+    });
+  }
+
+  // Lead Score — a configurable, supplementary signal only (see
+  // services/leadScoring.js); never influences leadPriority above, and
+  // never client-settable. Recomputed on every save against the same
+  // merged state, including the call-log entry this very update might be
+  // pushing (not yet reflected in existingLead.callLogs).
+  try {
+    const scoringSettings = await getLeadScoringSettings();
+    const mergedCallLogs = push.callLogs
+      ? [...(existingLead.callLogs || []), ...push.callLogs.$each]
+      : (existingLead.callLogs || []);
+    updates.leadScore = computeLeadScore({
+      servicesRequired: 'servicesRequired' in updates ? updates.servicesRequired : existingLead.servicesRequired,
+      projectBudget: 'projectBudget' in updates ? updates.projectBudget : existingLead.projectBudget,
+      monthlyMarketingBudget: 'monthlyMarketingBudget' in updates ? updates.monthlyMarketingBudget : existingLead.monthlyMarketingBudget,
+      decisionMaker: 'decisionMaker' in updates ? updates.decisionMaker : existingLead.decisionMaker,
+      timeline: 'timeline' in updates ? updates.timeline : existingLead.timeline,
+      connected: 'connected' in updates ? updates.connected : existingLead.connected,
+      status: updates.status || existingLead.status,
+      proposalSentDate: 'proposalSentDate' in updates ? updates.proposalSentDate : existingLead.proposalSentDate,
+      interestLevel: 'interestLevel' in updates ? updates.interestLevel : existingLead.interestLevel,
+      notConvertedReason: 'notConvertedReason' in updates ? updates.notConvertedReason : existingLead.notConvertedReason,
+      callLogs: mergedCallLogs
+    }, scoringSettings);
+  } catch (err) {
+    // Scoring must never block a lead update from saving.
+    logger.error(`Lead score computation failed for lead ${existingLead._id}:`, err);
+  }
+
   if (touchNumberUpdate) updates.touchNumber = touchNumberUpdate;
   updates.updatedAt = now;
 
@@ -148,6 +202,36 @@ async function applyLeadUpdate(leadId, updates, actor, extraFilter = {}) {
     { returnDocument: 'after' }
   );
   const updatedLead = result?.value || result;
+
+  // Keep the lead's Primary FollowUpTask in sync with nextFollowUpDate —
+  // every reschedule/clear/first-time-set gets a durable Task row (see
+  // models/FollowUpTask.js) without changing the existing call-outcome-driven
+  // UI/validation at all. Never blocks or fails the lead update itself.
+  if ('nextFollowUpDate' in updates) {
+    try {
+      const result_ = updates.remark
+        || (updates.connected === 'No' ? updates.notConnectedReason
+          : updates.connected === 'Yes' ? `Connected — ${updates.interestLevel || existingLead.interestLevel || ''}`
+            : (updates.status && updates.status !== existingLead.status ? `Moved to ${updates.status}` : 'Updated'));
+      await FollowUpTask.updateMany(
+        { lead: existingLead._id, type: 'Primary', status: 'Pending' },
+        { $set: { status: 'Completed', result: result_, completedAt: now, completedBy: actor.id } }
+      );
+      if (updates.nextFollowUpDate) {
+        await FollowUpTask.create({
+          lead: existingLead._id,
+          assignedTo: existingLead.assignedTo || actor.id,
+          createdBy: actor.id,
+          dueDate: updates.nextFollowUpDate,
+          note: updates.remark || '',
+          type: 'Primary',
+          status: 'Pending'
+        });
+      }
+    } catch (err) {
+      logger.error(`Primary FollowUpTask sync failed for lead ${existingLead._id}:`, err);
+    }
+  }
 
   if (updates.status === 'Won' && existingLead.status !== 'Won') {
     try {

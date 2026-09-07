@@ -1,7 +1,7 @@
 const Lead = require('../models/Lead');
 const mongoose = require('mongoose');
 const logger = require('../utils/logger');
-const { TERMINAL_STATUSES } = require('../utils/leadStateMachine');
+const { TERMINAL_STATUSES, FOLLOWUP_TRIGGER_INTEREST_LEVELS, FOLLOWUP_TRIGGER_STATUSES } = require('../utils/leadStateMachine');
 
 // pipelineHistory entries a BD's call outcome writes (see leadController.js's
 // updateLead and employeePortalRoutes.js's PUT /ess/leads/:id).
@@ -227,11 +227,22 @@ exports.getFollowUpsList = async (req, res, next) => {
   }
 };
 
+/** Which exception bucket a lead in the Action Missing queue falls into — the
+ *  spec calls out Hot leads and Proposal/Negotiation leads as their own
+ *  automatic-exception categories, not just one undifferentiated queue. */
+function classifyException(lead) {
+  if (FOLLOWUP_TRIGGER_INTEREST_LEVELS.includes(lead.interestLevel)) return 'Hot Lead';
+  if (FOLLOWUP_TRIGGER_STATUSES.includes(lead.status)) return 'Proposal/Negotiation';
+  return 'Other';
+}
+
 // @desc    Action Missing queue — every connected, still-active lead with no
 //          scheduled next action. In steady state this should stay empty:
 //          server/utils/leadStateMachine.js already requires a follow-up
 //          date whenever a call is connected with a live interest level.
 //          This exists as the safety net for legacy data or any bypass.
+//          Categorized into Hot Lead / Proposal-Negotiation / Other exception
+//          buckets, since those are the spec's own automatic-exception types.
 // @route   GET /api/admin/activity/action-missing
 // @access  Private (leads.assign)
 exports.getActionMissingQueue = async (req, res, next) => {
@@ -249,6 +260,29 @@ exports.getActionMissingQueue = async (req, res, next) => {
       query.assignedTo = new mongoose.Types.ObjectId(req.query.by);
     }
 
+    // Category counts are computed over the full matching set (unpaginated,
+    // filter-by-BD respected) so the dashboard's chip counts stay accurate
+    // regardless of which page is currently shown.
+    const allMatching = await Lead.find(query).select('interestLevel status').lean();
+    const counts = { 'Hot Lead': 0, 'Proposal/Negotiation': 0, Other: 0 };
+    for (const lead of allMatching) counts[classifyException(lead)]++;
+
+    // Mirrors classifyException's priority order (interestLevel checked
+    // before status) so a chip's contents always match the badge shown —
+    // a Hot lead that's also in Proposal Sent is badged "Hot Lead", so it
+    // must filter under that chip only, not "Proposal/Negotiation" too.
+    if (req.query.category && req.query.category !== 'All') {
+      if (req.query.category === 'Hot Lead') {
+        query.interestLevel = { $in: FOLLOWUP_TRIGGER_INTEREST_LEVELS };
+      } else if (req.query.category === 'Proposal/Negotiation') {
+        query.interestLevel = { $nin: FOLLOWUP_TRIGGER_INTEREST_LEVELS };
+        query.status = { $in: FOLLOWUP_TRIGGER_STATUSES };
+      } else if (req.query.category === 'Other') {
+        query.interestLevel = { $nin: FOLLOWUP_TRIGGER_INTEREST_LEVELS };
+        query.status = { $nin: [...NON_ACTIVE_STATUSES, ...FOLLOWUP_TRIGGER_STATUSES] };
+      }
+    }
+
     const [leads, total] = await Promise.all([
       Lead.find(query)
         .select('leadId fullName phone service platform status interestLevel assignedTo callDate updatedAt')
@@ -260,7 +294,9 @@ exports.getActionMissingQueue = async (req, res, next) => {
       Lead.countDocuments(query)
     ]);
 
-    res.status(200).json({ success: true, data: leads, total, totalPages: Math.max(1, Math.ceil(total / limit)), currentPage: page });
+    const data = leads.map((lead) => ({ ...lead, exceptionType: classifyException(lead) }));
+
+    res.status(200).json({ success: true, data, total, totalPages: Math.max(1, Math.ceil(total / limit)), currentPage: page, counts });
   } catch (error) {
     logger.error('Error fetching action-missing queue:', error);
     next(error);
@@ -280,6 +316,7 @@ exports.getPipelineSummary = async (req, res, next) => {
           _id: '$status',
           count: { $sum: 1 },
           dealValue: { $sum: { $ifNull: ['$dealValue', 0] } },
+          dealCloseValue: { $sum: { $ifNull: ['$dealCloseValue', 0] } },
           proposalValue: { $sum: { $ifNull: ['$proposalValue', 0] } }
         }
       }
@@ -288,7 +325,7 @@ exports.getPipelineSummary = async (req, res, next) => {
     const byStatus = {};
     let won = 0, lost = 0, dropped = 0;
     for (const row of rows) {
-      byStatus[row._id] = { count: row.count, dealValue: row.dealValue, proposalValue: row.proposalValue };
+      byStatus[row._id] = { count: row.count, dealValue: row.dealValue, dealCloseValue: row.dealCloseValue, proposalValue: row.proposalValue };
       if (row._id === 'Won') won = row.count;
       if (row._id === 'Lost') lost = row.count;
       if (row._id === 'Dropped') dropped = row.count;
@@ -299,7 +336,9 @@ exports.getPipelineSummary = async (req, res, next) => {
     const pipelineValue = Object.entries(byStatus)
       .filter(([status]) => !NON_ACTIVE_STATUSES.includes(status))
       .reduce((sum, [, v]) => sum + (v.proposalValue || 0), 0);
-    const wonValue = byStatus.Won?.dealValue || 0;
+    // Actual closed revenue, not the pre-close estimate — dealValue can keep
+    // changing after a deal is Won, dealCloseValue is fixed at close time.
+    const wonValue = byStatus.Won?.dealCloseValue || 0;
 
     res.status(200).json({ success: true, byStatus, conversionRate, pipelineValue, wonValue });
   } catch (error) {
@@ -359,6 +398,102 @@ exports.getBDAccountability = async (req, res, next) => {
     res.status(200).json({ success: true, data: rows });
   } catch (error) {
     logger.error('Error fetching BD accountability:', error);
+    next(error);
+  }
+};
+
+// A tier's-worth of the conversion-likelihood breakdown is only meaningful
+// for leads still actually in play.
+const OPEN_STATUS_FILTER = { $nin: NON_ACTIVE_STATUSES };
+const LEAD_PRIORITY_ORDER = ['Hot', 'Warm', 'Normal', 'Low'];
+
+// @desc    Lead volume/source/service breakdown (period-scoped) plus a
+//          conversion-likelihood snapshot of the current open pipeline
+//          (priority tiers + top-scored leads) — feeds the Management
+//          Dashboard. Everything here is additive to the existing
+//          pipeline-summary/bd-accountability/followup-compliance endpoints,
+//          not a replacement.
+// @route   GET /api/admin/activity/lead-volume
+// @access  Private ('*' — see routes)
+exports.getLeadVolumeBreakdown = async (req, res, next) => {
+  try {
+    const dateTo = req.query.dateTo ? new Date(req.query.dateTo) : new Date();
+    dateTo.setHours(23, 59, 59, 999);
+    const dateFrom = req.query.dateFrom ? new Date(req.query.dateFrom) : new Date(dateTo.getTime() - 30 * 24 * 60 * 60 * 1000);
+    dateFrom.setHours(0, 0, 0, 0);
+
+    const periodMatch = { leadType: { $in: ['Sales', null] }, createdAt: { $gte: dateFrom, $lte: dateTo } };
+
+    const [periodResult] = await Lead.aggregate([
+      { $match: periodMatch },
+      {
+        $facet: {
+          total: [{ $count: 'count' }],
+          byPlatform: [
+            { $group: { _id: { $ifNull: ['$platform', 'Website'] }, count: { $sum: 1 } } },
+            { $sort: { count: -1 } }
+          ],
+          byService: [
+            { $group: { _id: { $ifNull: ['$service', 'Not specified'] }, count: { $sum: 1 } } },
+            { $sort: { count: -1 } },
+            { $limit: 12 }
+          ],
+          trend: [
+            { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } }, count: { $sum: 1 } } },
+            { $sort: { _id: 1 } }
+          ]
+        }
+      }
+    ]);
+
+    // Current-state snapshot below — NOT period-scoped by design: "what does
+    // the live pipeline look like right now", a different lens than "what
+    // came in during the selected period" above.
+    const openMatch = { leadType: { $in: ['Sales', null] }, status: OPEN_STATUS_FILTER };
+
+    const byPriorityRows = await Lead.aggregate([
+      { $match: openMatch },
+      {
+        $group: {
+          _id: { $ifNull: ['$leadPriority', 'Normal'] },
+          count: { $sum: 1 },
+          pipelineValue: { $sum: { $ifNull: ['$dealValue', 0] } }
+        }
+      }
+    ]);
+    const byPriority = LEAD_PRIORITY_ORDER.map((priority) => {
+      const row = byPriorityRows.find((r) => r._id === priority);
+      return { priority, count: row?.count || 0, pipelineValue: row?.pipelineValue || 0 };
+    });
+
+    const topScoredLeads = await Lead.find(openMatch)
+      .select('leadId fullName leadScore leadPriority status dealValue assignedTo')
+      .populate('assignedTo', 'firstName lastName')
+      .sort({ leadScore: -1 })
+      .limit(10)
+      .lean();
+
+    const unassignedCount = await Lead.countDocuments({
+      leadType: { $in: ['Sales', null] }, assignedTo: null, status: OPEN_STATUS_FILTER
+    });
+    const unassignedSlaBreachedCount = await Lead.countDocuments({
+      assignedTo: null, unassignedSlaAlerted: true, status: OPEN_STATUS_FILTER
+    });
+
+    res.status(200).json({
+      success: true,
+      period: { from: dateFrom, to: dateTo },
+      totalLeads: periodResult.total[0]?.count || 0,
+      byPlatform: periodResult.byPlatform.map((r) => ({ platform: r._id, count: r.count })),
+      byService: periodResult.byService.map((r) => ({ service: r._id, count: r.count })),
+      trend: periodResult.trend.map((r) => ({ date: r._id, count: r.count })),
+      byPriority,
+      topScoredLeads,
+      unassignedCount,
+      unassignedSlaBreachedCount
+    });
+  } catch (error) {
+    logger.error('Error fetching lead volume breakdown:', error);
     next(error);
   }
 };

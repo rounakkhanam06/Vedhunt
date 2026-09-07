@@ -13,7 +13,7 @@
  */
 
 const NOT_CONNECTED_REASONS = [
-  'Ringing/No Answer',
+  'Ringing / No Answer',
   'Number Busy',
   'Switched Off',
   'Not Reachable',
@@ -22,18 +22,27 @@ const NOT_CONNECTED_REASONS = [
   'Asked to Call Later'
 ];
 
-const INTEREST_LEVELS = ['Hot Lead', 'Warm', 'Cold', 'Interested', 'Not Interested', 'Wrong/Junk Lead'];
+const INTEREST_LEVELS = ['Hot Lead', 'Warm', 'Cold', 'Interested', 'Not Interested', 'Wrong / Junk Lead'];
 
 const PAYMENT_STATUS_OPTIONS = ['Not Applicable', 'Pending', 'Partially Paid', 'Paid'];
 
+// Final-outcome reasons only — a lead only reaches this list once it's
+// actually Lost/Dropped (see the `nextStatus === 'Lost' || 'Dropped'` check
+// below, and the frontend only renders/enables this field for those two
+// statuses). Never add a live pipeline stage here (e.g. "In Negotiation")
+// — Negotiation is an active stage, not a final outcome.
 const LOST_DROPPED_REASONS = [
-  'Too Expensive',
-  'Went with Competitor',
-  'No Longer Needs Service',
+  'Budget Constraint',
+  'Decision Pending',
+  'Comparing Vendors',
+  'Awaiting Approval',
+  'Timeline Not Now',
   'Unresponsive',
-  'Not a Fit',
-  'Timing Not Right',
-  'Other'
+  'Price Too High',
+  'Chose Competitor',
+  'Project Cancelled',
+  'Not Right Fit',
+  'Duplicate / Junk'
 ];
 
 // Outcomes that mean the lead is still live and needs a scheduled touchpoint.
@@ -73,9 +82,10 @@ const LEAD_UPDATE_FIELDS = [
   'status', 'city', 'country', 'callStartTime', 'callEndTime', 'callDuration',
   'callDate', 'connected', 'notConnectedReason', 'interestLevel',
   'notConvertedReason', 'remark', 'nextFollowUpDate', 'leadAgeAtCall', 'touchNumber',
-  'dealValue', 'proposalValue', 'proposalSentDate', 'holdReason', 'holdUntil',
-  'expectedCloseDate', 'paymentStatus',
-  'budget', 'timeline', 'decisionMaker', 'currentVendor', 'requirementSummary'
+  'dealValue', 'proposalValue', 'proposalSentDate', 'proposalReference', 'holdReason', 'holdUntil',
+  'dealCloseValue', 'expectedCloseDate', 'paymentStatus', 'amountPaid',
+  'budget', 'timeline', 'decisionMaker', 'currentVendor', 'requirementSummary',
+  'businessName', 'website', 'servicesRequired', 'businessType', 'projectBudget', 'monthlyMarketingBudget'
 ];
 
 /**
@@ -97,10 +107,14 @@ function validateLeadTransition(existingLead, updates) {
   const nextNotConnectedReason = 'notConnectedReason' in updates ? updates.notConnectedReason : existingLead.notConnectedReason;
   const nextFollowUpDate = 'nextFollowUpDate' in updates ? updates.nextFollowUpDate : existingLead.nextFollowUpDate;
   const nextNotConvertedReason = 'notConvertedReason' in updates ? updates.notConvertedReason : existingLead.notConvertedReason;
-  const nextDealValue = 'dealValue' in updates ? updates.dealValue : existingLead.dealValue;
+  const nextDealCloseValue = 'dealCloseValue' in updates ? updates.dealCloseValue : existingLead.dealCloseValue;
   const nextProposalValue = 'proposalValue' in updates ? updates.proposalValue : existingLead.proposalValue;
   const nextProposalSentDate = 'proposalSentDate' in updates ? updates.proposalSentDate : existingLead.proposalSentDate;
+  const nextProposalReference = 'proposalReference' in updates ? updates.proposalReference : existingLead.proposalReference;
+  const nextExpectedCloseDate = 'expectedCloseDate' in updates ? updates.expectedCloseDate : existingLead.expectedCloseDate;
   const nextHoldReason = 'holdReason' in updates ? updates.holdReason : existingLead.holdReason;
+  const nextHoldUntil = 'holdUntil' in updates ? updates.holdUntil : existingLead.holdUntil;
+  const nextAmountPaid = 'amountPaid' in updates ? updates.amountPaid : existingLead.amountPaid;
 
   // ── Stage sequencing ──────────────────────────────────────────────────
   if ('status' in updates && updates.status !== existingLead.status) {
@@ -138,15 +152,27 @@ function validateLeadTransition(existingLead, updates) {
     if (!nextProposalSentDate) {
       return 'Proposal sent date is required to move a lead to Proposal Sent.';
     }
+    if (!nextProposalReference) {
+      return 'Proposal reference is required to move a lead to Proposal Sent.';
+    }
+  }
+
+  if (nextStatus === 'Negotiation' && !nextExpectedCloseDate) {
+    return 'Expected close date is required to move a lead to Negotiation.';
   }
 
   if (nextStatus === 'Won') {
     if (!WON_REQUIRES_PRIOR_STATUS.includes(existingLead.status) && existingLead.status !== 'Won') {
       return 'A lead can only be marked Won from Qualified, Proposal Sent, or Negotiation.';
     }
-    if (!(Number(nextDealValue) > 0)) {
-      return 'Deal value is required to mark a lead Won.';
+    if (!(Number(nextDealCloseValue) > 0)) {
+      return 'Deal close value is required to mark a lead Won.';
     }
+  }
+
+  // ── Payment tracking ──────────────────────────────────────────────────
+  if ('amountPaid' in updates && Number(nextAmountPaid) > Number(nextDealCloseValue || 0)) {
+    return 'Amount paid cannot exceed the deal close value.';
   }
 
   if (nextStatus === 'Lost' || nextStatus === 'Dropped') {
@@ -155,8 +181,13 @@ function validateLeadTransition(existingLead, updates) {
     }
   }
 
-  if (nextStatus === 'Hold' && !nextHoldReason) {
-    return 'A hold reason is required to put a lead on Hold.';
+  if (nextStatus === 'Hold') {
+    if (!nextHoldReason) {
+      return 'A hold reason is required to put a lead on Hold.';
+    }
+    if (!nextHoldUntil) {
+      return 'A review date is required to put a lead on Hold.';
+    }
   }
 
   // ── Follow-up requirement ────────────────────────────────────────────
@@ -178,6 +209,25 @@ function validateLeadTransition(existingLead, updates) {
     );
     if (!loggedOutcome) {
       return 'Cannot clear a follow-up without logging a call outcome (status, connected, or interest level).';
+    }
+  }
+
+  // Same idea for pushing an existing follow-up to a new date — a BD
+  // "completing" a due follow-up must say what happened on it, not silently
+  // reschedule. Satisfied either by a logged call outcome (`connected`
+  // merely present counts — the admin/employee call-outcome widget always
+  // resends it, even unchanged, and leadLifecycle.js appends a fresh
+  // callLogs entry whenever it's present) or by an actual stage change
+  // (moving to Proposal Sent/Negotiation is itself the "next action"). Only
+  // fires on a genuine reschedule of an existing follow-up, not the first
+  // time one is being set.
+  const reschedulingFollowUp =
+    'nextFollowUpDate' in updates && updates.nextFollowUpDate && existingLead.nextFollowUpDate &&
+    String(updates.nextFollowUpDate) !== String(existingLead.nextFollowUpDate);
+  if (reschedulingFollowUp) {
+    const loggedTouch = ('connected' in updates && updates.connected) || ('status' in updates && updates.status !== existingLead.status);
+    if (!loggedTouch) {
+      return 'Rescheduling a follow-up requires logging what happened first (a call outcome or a stage change).';
     }
   }
 

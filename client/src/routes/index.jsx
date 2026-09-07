@@ -66,10 +66,12 @@ const RawLeadsManager = lazy(() => import('../admin/pages/RawLeadsManager'));
 const WorkingLeadsManager = lazy(() => import('../admin/pages/WorkingLeadsManager'));
 const LeadWorkspace = lazy(() => import('../admin/pages/LeadWorkspace'));
 const UnassignedLeadsManager = lazy(() => import('../admin/pages/UnassignedLeadsManager'));
+const AllLeadsManager = lazy(() => import('../admin/pages/AllLeadsManager'));
 const LeadActivity = lazy(() => import('../admin/pages/LeadActivity'));
 const ActivityLog = lazy(() => import('../admin/pages/ActivityLog'));
 const AssignmentLogManager = lazy(() => import('../admin/pages/AssignmentLogManager'));
 const FollowUpsManager = lazy(() => import('../admin/pages/FollowUpsManager'));
+const ManagementDashboard = lazy(() => import('../admin/pages/ManagementDashboard'));
 const FacebookIntegrationManager = lazy(() => import('../admin/pages/FacebookIntegrationManager'));
 const SubscriberManager = lazy(() => import('../admin/pages/SubscriberManager'));
 
@@ -500,6 +502,10 @@ export const router = createBrowserRouter([
             element: withSuspense(UnassignedLeadsManager)
           },
           {
+            path: 'leads/all',
+            element: withPermission(AllLeadsManager, '*')
+          },
+          {
             path: 'leads/:id',
             element: withSuspense(LeadWorkspace)
           },
@@ -518,6 +524,10 @@ export const router = createBrowserRouter([
           {
             path: 'follow-ups',
             element: withPermission(FollowUpsManager, 'leads.assign')
+          },
+          {
+            path: 'management-dashboard',
+            element: withPermission(ManagementDashboard, '*')
           },
           {
             path: 'facebook-integration',

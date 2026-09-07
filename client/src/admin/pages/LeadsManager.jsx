@@ -2,10 +2,13 @@ import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import { motion } from 'framer-motion';
-import { Search, ChevronDown, ChevronLeft, ChevronRight, Eye, Download, LayoutGrid, Table, UserCheck, FileText } from 'lucide-react';
+import { Search, ChevronDown, ChevronLeft, ChevronRight, Eye, Download, LayoutGrid, Table, UserCheck, FileText, Upload as UploadIcon } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { usePermissions } from '../hooks/usePermissions';
 import LeadsPipelineView from '../components/LeadsPipelineView';
+import { downloadLeadsCsv } from '../utils/leadExport';
+import ImportLeadsModal from '../components/ImportLeadsModal';
+import { SERVICES_REQUIRED_OPTIONS, LEAD_PRIORITY_LEVELS } from '../../shared/serviceQualification';
 
 // firstName/lastName aren't guaranteed on every Admin account (the original
 // legacy seed account predates those fields being required) — fall back
@@ -57,20 +60,30 @@ export default function LeadsManager({ stageGroup }) {
   const [viewMode, setViewMode] = useState(() => localStorage.getItem('leadsViewMode') || 'table');
   const [bds, setBds] = useState([]);
 
-  // Pagination & Filters state
+  // Pagination & Filters state — initial values read from the URL so a
+  // dashboard KPI's drill-down link (e.g. /admin/leads/all?platform=Facebook&leadPriority=Hot)
+  // actually lands pre-filtered, not just on an unfiltered list.
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('All');
-  const [platformFilter, setPlatformFilter] = useState('All');
-  const [sourceFilter, setSourceFilter] = useState('All');
+  const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || 'All');
+  const [platformFilter, setPlatformFilter] = useState(searchParams.get('platform') || 'All');
+  const [sourceFilter, setSourceFilter] = useState(searchParams.get('userSource') || 'All');
   // Sales vs Hiring. Facebook delivers both through the same webhook, and the
   // sales pipeline/revenue fields are meaningless for job applicants.
-  const [leadTypeFilter, setLeadTypeFilter] = useState('Sales');
+  const [leadTypeFilter, setLeadTypeFilter] = useState(searchParams.get('leadType') || 'Sales');
   const [formFilter, setFormFilter] = useState('All');
-  const [assignedBdFilter, setAssignedBdFilter] = useState('All');
+  const [assignedBdFilter, setAssignedBdFilter] = useState(searchParams.get('assignedTo') || 'All');
+  const [serviceFilter, setServiceFilter] = useState(searchParams.get('service') || 'All');
+  const [priorityFilter, setPriorityFilter] = useState(searchParams.get('leadPriority') || 'All');
+  const [breachedOnly, setBreachedOnly] = useState(searchParams.get('followUpBreached') === 'true');
+  const [stageFilter] = useState(searchParams.get('stage') || '');
+  const [connectedFilter] = useState(searchParams.get('connected') || '');
+  const [dateFrom, setDateFrom] = useState(searchParams.get('dateFrom') || '');
+  const [dateTo, setDateTo] = useState(searchParams.get('dateTo') || '');
   const [leadForms, setLeadForms] = useState([]);
-  const [sortBy, setSortBy] = useState('createdAt');
-  const [sortOrder, setSortOrder] = useState('desc');
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [sortBy, setSortBy] = useState(searchParams.get('sortBy') || 'createdAt');
+  const [sortOrder, setSortOrder] = useState(searchParams.get('sortOrder') || 'desc');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalLeads, setTotalLeads] = useState(0);
@@ -116,6 +129,13 @@ export default function LeadsManager({ stageGroup }) {
           leadType: leadTypeFilter,
           fbFormId: formFilter,
           assignedTo: assignedBdFilter,
+          service: serviceFilter,
+          leadPriority: priorityFilter,
+          followUpBreached: breachedOnly || undefined,
+          stage: stageFilter || undefined,
+          connected: connectedFilter || undefined,
+          dateFrom: dateFrom || undefined,
+          dateTo: dateTo || undefined,
           search: debouncedSearchTerm,
           sortBy,
           sortOrder
@@ -132,7 +152,7 @@ export default function LeadsManager({ stageGroup }) {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, statusFilter, stageGroup, platformFilter, sourceFilter, leadTypeFilter, formFilter, assignedBdFilter, debouncedSearchTerm, sortBy, sortOrder]);
+  }, [currentPage, statusFilter, stageGroup, platformFilter, sourceFilter, leadTypeFilter, formFilter, assignedBdFilter, serviceFilter, priorityFilter, breachedOnly, stageFilter, connectedFilter, dateFrom, dateTo, debouncedSearchTerm, sortBy, sortOrder]);
 
   useEffect(() => {
     fetchLeads();
@@ -249,6 +269,14 @@ export default function LeadsManager({ stageGroup }) {
           userSource: sourceFilter,
           leadType: leadTypeFilter,
           fbFormId: formFilter,
+          assignedTo: assignedBdFilter,
+          service: serviceFilter,
+          leadPriority: priorityFilter,
+          followUpBreached: breachedOnly || undefined,
+          stage: stageFilter || undefined,
+          connected: connectedFilter || undefined,
+          dateFrom: dateFrom || undefined,
+          dateTo: dateTo || undefined,
           search: debouncedSearchTerm,
           sortBy,
           sortOrder
@@ -262,43 +290,7 @@ export default function LeadsManager({ stageGroup }) {
         }
 
         if (format === 'csv') {
-          const headers = ['Lead ID', 'Date', 'Name', 'Phone', 'Email', 'City', 'Country', 'Platform', 'Type', 'Form', 'Campaign', 'Business Name', 'Source', 'Service', 'BD', 'Call Duration', 'Status', 'Deal Value'];
-          const csvRows = [headers.join(',')];
-
-          for (const lead of leadsToExport) {
-            const values = [
-              lead.leadId || '',
-              lead.createdAt ? new Date(lead.createdAt).toLocaleString() : '',
-              `"${(lead.fullName || '').replace(/"/g, '""')}"`,
-              lead.phone || '',
-              lead.email || '',
-              `"${(lead.city || '').replace(/"/g, '""')}"`,
-              `"${(lead.country || '').replace(/"/g, '""')}"`,
-              lead.platform || '',
-              lead.leadType || 'Sales',
-              `"${(lead.fbFormName || '').replace(/"/g, '""')}"`,
-              `"${(lead.utmCampaign || lead.adCampaignId || '').replace(/"/g, '""')}"`,
-              `"${(lead.businessName || '').replace(/"/g, '""')}"`,
-              `"${(lead.source || '').replace(/"/g, '""')}"`,
-              `"${(lead.service || '').replace(/"/g, '""')}"`,
-              `"${(lead.bd || '').replace(/"/g, '""')}"`,
-              lead.callDuration || '',
-              lead.status || '',
-              lead.dealValue || ''
-            ];
-            csvRows.push(values.join(','));
-          }
-
-          const csvString = csvRows.join('\n');
-          const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
-          const url = window.URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = `leads_export_${new Date().toISOString().split('T')[0]}.csv`;
-          document.body.appendChild(a);
-          a.click();
-          window.URL.revokeObjectURL(url);
-          document.body.removeChild(a);
+          downloadLeadsCsv(leadsToExport, stageGroup ? `${stageGroup}_leads_export` : 'leads_export');
           toast.success('Export downloaded successfully', { id: 'export-toast' });
         }
       }
@@ -311,6 +303,22 @@ export default function LeadsManager({ stageGroup }) {
   const [showExportDropdown, setShowExportDropdown] = useState(false);
 
   const compactSelectClass = "bg-app-bg border border-app-border rounded-lg pl-3 pr-8 py-2 text-sm text-app-text focus:outline-none focus:border-primary transition-colors appearance-none cursor-pointer";
+
+  // Plain-English summary of every active filter — so a lead list reached by
+  // clicking a dashboard KPI always shows what's actually inside that number,
+  // not just a bare table.
+  const activeFilterChips = [
+    statusFilter !== 'All' && `Status: ${statusFilter}`,
+    platformFilter !== 'All' && `Platform: ${platformFilter}`,
+    sourceFilter !== 'All' && `Source: ${sourceFilter}`,
+    serviceFilter !== 'All' && `Service: ${serviceFilter}`,
+    priorityFilter !== 'All' && `Priority: ${priorityFilter}`,
+    assignedBdFilter !== 'All' && `BD: ${assignedBdFilter === 'Unassigned' ? 'Unassigned' : (bds.find((b) => b._id === assignedBdFilter) ? `${bds.find((b) => b._id === assignedBdFilter).firstName} ${bds.find((b) => b._id === assignedBdFilter).lastName}` : assignedBdFilter)}`,
+    breachedOnly && 'Follow-up Breached only',
+    stageFilter === 'open' && 'Open pipeline (not Won/Lost/Dropped/Hold)',
+    connectedFilter && `Connected: ${connectedFilter}`,
+    (dateFrom || dateTo) && `Date: ${dateFrom || '…'} to ${dateTo || '…'}`
+  ].filter(Boolean);
 
   return (
     <div className="space-y-5">
@@ -326,35 +334,65 @@ export default function LeadsManager({ stageGroup }) {
             {leadTypeFilter === 'All' ? 'Total' : leadTypeFilter} leads:{' '}
             <span className="font-semibold text-app-text">{totalLeads}</span>
           </p>
-        </div>
-        <div className="relative">
-          <button
-            onClick={() => setShowExportDropdown(!showExportDropdown)}
-            className="flex items-center gap-2 bg-app-card border border-app-border hover:border-primary px-4 py-2 rounded-lg font-semibold text-sm text-app-text transition-colors"
-          >
-            <Download className="w-4 h-4" />
-            <span>Export</span>
-            <ChevronDown className="w-4 h-4" />
-          </button>
-          {showExportDropdown && (
-            <>
-              <div className="fixed inset-0 z-40" onClick={() => setShowExportDropdown(false)} />
-              <div className="absolute right-0 mt-2 w-48 bg-app-card border border-app-border rounded-xl shadow-lg z-50 overflow-hidden">
-                <button
-                  onClick={() => {
-                    setShowExportDropdown(false);
-                    handleExport('csv');
-                  }}
-                  className="w-full text-left px-4 py-3 text-sm text-app-text hover:bg-surface-variant hover:text-primary transition-colors flex items-center gap-2"
-                >
-                  <FileText className="w-4 h-4" />
-                  Export as CSV
-                </button>
-              </div>
-            </>
+          {activeFilterChips.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {activeFilterChips.map((chip) => (
+                <span key={chip} className="px-2 py-0.5 rounded text-[11px] font-medium bg-primary/10 text-primary border border-primary/20">
+                  {chip}
+                </span>
+              ))}
+            </div>
           )}
         </div>
+        <div className="flex items-center gap-2">
+          {stageGroup === 'raw' && isSuperAdmin && (
+            <button
+              onClick={() => setShowImportModal(true)}
+              className="flex items-center gap-2 bg-app-card border border-app-border hover:border-primary px-4 py-2 rounded-lg font-semibold text-sm text-app-text transition-colors"
+            >
+              <UploadIcon className="w-4 h-4" />
+              <span>Import Leads</span>
+            </button>
+          )}
+          <div className="relative">
+            <button
+              onClick={() => setShowExportDropdown(!showExportDropdown)}
+              className="flex items-center gap-2 bg-app-card border border-app-border hover:border-primary px-4 py-2 rounded-lg font-semibold text-sm text-app-text transition-colors"
+            >
+              <Download className="w-4 h-4" />
+              <span>Export</span>
+              <ChevronDown className="w-4 h-4" />
+            </button>
+            {showExportDropdown && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowExportDropdown(false)} />
+                <div className="absolute right-0 mt-2 w-48 bg-app-card border border-app-border rounded-xl shadow-lg z-50 overflow-hidden">
+                  <button
+                    onClick={() => {
+                      setShowExportDropdown(false);
+                      handleExport('csv');
+                    }}
+                    className="w-full text-left px-4 py-3 text-sm text-app-text hover:bg-surface-variant hover:text-primary transition-colors flex items-center gap-2"
+                  >
+                    <FileText className="w-4 h-4" />
+                    Export as CSV
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
       </div>
+
+      {showImportModal && (
+        <ImportLeadsModal
+          onClose={() => setShowImportModal(false)}
+          onImported={() => {
+            setShowImportModal(false);
+            fetchLeads();
+          }}
+        />
+      )}
 
       {/* Toolbar: type split + view toggle, one row */}
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -521,6 +559,71 @@ export default function LeadsManager({ stageGroup }) {
               <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 text-app-text-muted w-3.5 h-3.5 pointer-events-none" />
             </div>
           )}
+
+          <div className="relative">
+            <select
+              value={serviceFilter}
+              onChange={(e) => { setServiceFilter(e.target.value); setCurrentPage(1); }}
+              className={compactSelectClass}
+            >
+              <option className="bg-app-bg text-app-text" value="All">All Services</option>
+              {SERVICES_REQUIRED_OPTIONS.map((svc) => (
+                <option key={svc} className="bg-app-bg text-app-text" value={svc}>{svc}</option>
+              ))}
+            </select>
+            <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 text-app-text-muted w-3.5 h-3.5 pointer-events-none" />
+          </div>
+
+          <div className="relative">
+            <select
+              value={priorityFilter}
+              onChange={(e) => { setPriorityFilter(e.target.value); setCurrentPage(1); }}
+              className={compactSelectClass}
+            >
+              <option className="bg-app-bg text-app-text" value="All">All Priorities</option>
+              {LEAD_PRIORITY_LEVELS.map((p) => (
+                <option key={p} className="bg-app-bg text-app-text" value={p}>{p}</option>
+              ))}
+            </select>
+            <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 text-app-text-muted w-3.5 h-3.5 pointer-events-none" />
+          </div>
+
+          <button
+            onClick={() => { setBreachedOnly((v) => !v); setCurrentPage(1); }}
+            className={`px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${
+              breachedOnly ? 'bg-red-500/10 text-red-400 border-red-500/30' : 'bg-app-bg text-app-text-muted border-app-border hover:border-red-500/30'
+            }`}
+          >
+            Breached only
+          </button>
+
+          <div className="flex items-center gap-1.5">
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => { setDateFrom(e.target.value); setCurrentPage(1); }}
+              className={compactSelectClass}
+              style={{ colorScheme: 'dark' }}
+              title="From date"
+            />
+            <span className="text-app-text-muted text-xs">to</span>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => { setDateTo(e.target.value); setCurrentPage(1); }}
+              className={compactSelectClass}
+              style={{ colorScheme: 'dark' }}
+              title="To date"
+            />
+            {(dateFrom || dateTo) && (
+              <button
+                onClick={() => { setDateFrom(''); setDateTo(''); setCurrentPage(1); }}
+                className="text-xs text-app-text-muted hover:text-primary underline"
+              >
+                Clear
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -587,7 +690,6 @@ export default function LeadsManager({ stageGroup }) {
                           <span className="text-[9px] opacity-70">{sortBy === 'utmCampaign' ? (sortOrder === 'asc' ? '▲' : '▼') : '↕'}</span>
                         </div>
                       </th>
-                      <th className="px-3 py-3 font-semibold">Business Name</th>
                       <th onClick={() => handleSort('userSource')} className="px-3 py-3 font-semibold cursor-pointer select-none hover:text-primary transition-colors">
                         <div className="flex items-center gap-1">
                           <span>Source</span>
@@ -720,19 +822,6 @@ export default function LeadsManager({ stageGroup }) {
                         </td>
                         <td className="px-3 py-2 align-middle text-app-text-muted text-xs min-w-[140px] truncate max-w-[180px]" title={lead.utmCampaign || lead.adCampaignId || 'N/A'}>
                           {lead.utmCampaign || lead.adCampaignId || '-'}
-                        </td>
-                        <td className="px-3 py-2 align-middle min-w-[150px]">
-                          {isSuperAdmin ? (
-                            <input 
-                              type="text" 
-                              defaultValue={lead.businessName || ''} 
-                              placeholder="Add business..."
-                              onBlur={(e) => { if(e.target.value !== lead.businessName) handleFieldChange(lead._id, 'businessName', e.target.value) }}
-                              className="border border-white/5 bg-white/[0.02] hover:border-app-border focus:border-primary px-2 py-1 rounded w-full focus:outline-none"
-                            />
-                          ) : (
-                            <span className="px-2 py-1">{lead.businessName || '-'}</span>
-                          )}
                         </td>
                         <td className="px-3 py-2 align-middle text-app-text-muted text-xs truncate max-w-[150px]" title={lead.source}>
                           {lead.source ? (

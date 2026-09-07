@@ -161,7 +161,8 @@ const startCronJobs = () => {
       const Lead = require('../models/Lead');
       const Notification = require('../models/Notification');
       const Admin = require('../models/Admin');
-      
+      const { sendPushToAdmin } = require('../utils/pushNotify');
+
       const breachedLeads = await Lead.find({
         assignedTo: null,
         unassignedSlaDeadline: { $lt: new Date() },
@@ -172,20 +173,20 @@ const startCronJobs = () => {
       if (breachedLeads.length > 0) {
         // Find all Super Admins (management)
         const superAdmins = await Admin.find({ permissions: '*' });
-        
-        for (const lead of breachedLeads) {
-          lead.unassignedSlaAlerted = true;
-          await lead.save();
 
+        for (const lead of breachedLeads) {
+          // Plain updateOne, not lead.save() — some legacy leads have a
+          // String _id that breaks Mongoose's version-checked .save() (see
+          // utils/leadLookup.js), same class of bug fixed elsewhere in the
+          // lead-write paths this session.
+          await Lead.updateOne({ _id: lead._id }, { $set: { unassignedSlaAlerted: true } });
+
+          const title = 'Unassigned SLA Breached';
+          const message = `Lead ${lead.fullName} (${lead.service || lead.platform}) has been unassigned for too long.`;
+          const link = `/admin/leads?leadId=${lead._id}`;
           for (const admin of superAdmins) {
-            await Notification.create({
-              recipient: admin._id,
-              type: 'sla_breach',
-              title: 'Unassigned SLA Breached',
-              message: `Lead ${lead.fullName} (${lead.service || lead.platform}) has been unassigned for too long.`,
-              link: `/admin/leads?leadId=${lead._id}`,
-              lead: lead._id
-            });
+            await Notification.create({ recipient: admin._id, type: 'sla_breach', title, message, link, lead: lead._id });
+            await sendPushToAdmin(admin._id, { title, body: message, link });
           }
         }
         logger.info(`Flagged ${breachedLeads.length} unassigned leads for SLA breach.`);

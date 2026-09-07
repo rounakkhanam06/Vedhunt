@@ -270,11 +270,12 @@ router.post('/sync-actual/:cycleId', requirePermission('team.manage'), async (re
 
       let actual = null;
 
-      // ── Revenue: sum of dealValue from Lead where closedBy = emp._id and closedDate in cycle range
+      // ── Revenue: sum of dealCloseValue (actual closed amount) from Lead
+      // where closedBy = emp._id and closedDate in cycle range
       if (target.metricType === 'Revenue') {
         const result = await Lead.aggregate([
           { $match: { closedBy: emp._id, closedDate: { $gte: cycle.startDate, $lte: cycle.endDate } } },
-          { $group: { _id: null, total: { $sum: '$dealValue' } } }
+          { $group: { _id: null, total: { $sum: '$dealCloseValue' } } }
         ]);
         actual = result[0]?.total || 0;
       }

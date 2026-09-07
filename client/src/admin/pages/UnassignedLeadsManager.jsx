@@ -6,6 +6,7 @@ import { Search, ChevronDown, ChevronLeft, ChevronRight, Eye, Download, LayoutGr
 import toast from 'react-hot-toast';
 import { usePermissions } from '../hooks/usePermissions';
 import LeadsPipelineView from '../components/LeadsPipelineView';
+import { downloadLeadsCsv } from '../utils/leadExport';
 
 // firstName/lastName aren't guaranteed on every Admin account (the original
 // legacy seed account predates those fields being required) — fall back
@@ -68,6 +69,8 @@ export default function UnassignedLeadsManager() {
   // sales pipeline/revenue fields are meaningless for job applicants.
   const [leadTypeFilter, setLeadTypeFilter] = useState('Sales');
   const [formFilter, setFormFilter] = useState('All');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [leadForms, setLeadForms] = useState([]);
   const [bulkAssignTo, setBulkAssignTo] = useState('');
   const [sortBy, setSortBy] = useState('createdAt');
@@ -154,6 +157,8 @@ export default function UnassignedLeadsManager() {
           leadType: leadTypeFilter,
           fbFormId: formFilter,
           assignedTo: 'Unassigned',
+          dateFrom: dateFrom || undefined,
+          dateTo: dateTo || undefined,
           search: debouncedSearchTerm,
           sortBy,
           sortOrder
@@ -170,7 +175,7 @@ export default function UnassignedLeadsManager() {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, statusFilter, platformFilter, sourceFilter, leadTypeFilter, formFilter, debouncedSearchTerm, sortBy, sortOrder]);
+  }, [currentPage, statusFilter, platformFilter, sourceFilter, leadTypeFilter, formFilter, dateFrom, dateTo, debouncedSearchTerm, sortBy, sortOrder]);
 
   useEffect(() => {
     fetchLeads();
@@ -256,6 +261,8 @@ export default function UnassignedLeadsManager() {
           userSource: sourceFilter,
           leadType: leadTypeFilter,
           fbFormId: formFilter,
+          dateFrom: dateFrom || undefined,
+          dateTo: dateTo || undefined,
           search: debouncedSearchTerm,
           sortBy,
           sortOrder
@@ -269,43 +276,7 @@ export default function UnassignedLeadsManager() {
         }
 
         if (format === 'csv') {
-          const headers = ['Lead ID', 'Date', 'Name', 'Phone', 'Email', 'City', 'Country', 'Platform', 'Type', 'Form', 'Campaign', 'Business Name', 'Source', 'Service', 'BD', 'Call Duration', 'Status', 'Deal Value'];
-          const csvRows = [headers.join(',')];
-
-          for (const lead of leadsToExport) {
-            const values = [
-              lead.leadId || '',
-              lead.createdAt ? new Date(lead.createdAt).toLocaleString() : '',
-              `"${(lead.fullName || '').replace(/"/g, '""')}"`,
-              lead.phone || '',
-              lead.email || '',
-              `"${(lead.city || '').replace(/"/g, '""')}"`,
-              `"${(lead.country || '').replace(/"/g, '""')}"`,
-              lead.platform || '',
-              lead.leadType || 'Sales',
-              `"${(lead.fbFormName || '').replace(/"/g, '""')}"`,
-              `"${(lead.utmCampaign || lead.adCampaignId || '').replace(/"/g, '""')}"`,
-              `"${(lead.businessName || '').replace(/"/g, '""')}"`,
-              `"${(lead.source || '').replace(/"/g, '""')}"`,
-              `"${(lead.service || '').replace(/"/g, '""')}"`,
-              `"${(lead.bd || '').replace(/"/g, '""')}"`,
-              lead.callDuration || '',
-              lead.status || '',
-              lead.dealValue || ''
-            ];
-            csvRows.push(values.join(','));
-          }
-
-          const csvString = csvRows.join('\n');
-          const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
-          const url = window.URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = `leads_export_${new Date().toISOString().split('T')[0]}.csv`;
-          document.body.appendChild(a);
-          a.click();
-          window.URL.revokeObjectURL(url);
-          document.body.removeChild(a);
+          downloadLeadsCsv(leadsToExport, 'unassigned_leads_export');
           toast.success('Export downloaded successfully', { id: 'export-toast' });
         }
       }
@@ -525,6 +496,34 @@ export default function UnassignedLeadsManager() {
               <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 text-app-text-muted w-3.5 h-3.5 pointer-events-none" />
             </div>
           )}
+
+          <div className="flex items-center gap-1.5">
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => { setDateFrom(e.target.value); setCurrentPage(1); }}
+              className={compactSelectClass}
+              style={{ colorScheme: 'dark' }}
+              title="From date"
+            />
+            <span className="text-app-text-muted text-xs">to</span>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => { setDateTo(e.target.value); setCurrentPage(1); }}
+              className={compactSelectClass}
+              style={{ colorScheme: 'dark' }}
+              title="To date"
+            />
+            {(dateFrom || dateTo) && (
+              <button
+                onClick={() => { setDateFrom(''); setDateTo(''); setCurrentPage(1); }}
+                className="text-xs text-app-text-muted hover:text-primary underline"
+              >
+                Clear
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -586,7 +585,6 @@ export default function UnassignedLeadsManager() {
                           <span className="text-[9px] opacity-70">{sortBy === 'utmCampaign' ? (sortOrder === 'asc' ? '▲' : '▼') : '↕'}</span>
                         </div>
                       </th>
-                      <th className="px-3 py-3 font-semibold">Business Name</th>
                       <th onClick={() => handleSort('userSource')} className="px-3 py-3 font-semibold cursor-pointer select-none hover:text-primary transition-colors">
                         <div className="flex items-center gap-1">
                           <span>Source</span>
@@ -727,19 +725,6 @@ export default function UnassignedLeadsManager() {
                         </td>
                         <td className="px-3 py-2 align-middle text-app-text-muted text-xs min-w-[140px] truncate max-w-[180px]" title={lead.utmCampaign || lead.adCampaignId || 'N/A'}>
                           {lead.utmCampaign || lead.adCampaignId || '-'}
-                        </td>
-                        <td className="px-3 py-2 align-middle min-w-[150px]">
-                          {isSuperAdmin ? (
-                            <input 
-                              type="text" 
-                              defaultValue={lead.businessName || ''} 
-                              placeholder="Add business..."
-                              onBlur={(e) => { if(e.target.value !== lead.businessName) handleFieldChange(lead._id, 'businessName', e.target.value) }}
-                              className="border border-white/5 bg-white/[0.02] hover:border-app-border focus:border-primary px-2 py-1 rounded w-full focus:outline-none"
-                            />
-                          ) : (
-                            <span className="px-2 py-1">{lead.businessName || '-'}</span>
-                          )}
                         </td>
                         <td className="px-3 py-2 align-middle text-app-text-muted text-xs truncate max-w-[150px]" title={lead.source}>
                           {lead.source ? (

@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 
 // Fixed metric types — no free text allowed
 const METRIC_TYPES = [
-  'Revenue',          // BD/Sales — ₹ deal value (auto from Lead.dealValue)
+  'Revenue',          // BD/Sales — ₹ deal value (auto from Lead.dealCloseValue)
   'LeadCount',        // Digital Marketing — count of Qualified/Won leads
   'CampaignROAS',     // Digital Marketing — manual manager entry
   'OnTimeDelivery',   // Design/Tech — task completed on/before dueDate %

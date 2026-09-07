@@ -19,7 +19,8 @@ import {
   X,
   Menu
 } from 'lucide-react';
-import darkLogo from '../assets/logo_Square.jpg__1_-removebg-preview.png';
+import darkLogo from '../assets/DarkthemeLogo.png';
+import lightLogo from '../assets/logo_Square.jpg__1_-removebg-preview.png';
 import NotificationBell from './components/NotificationBell';
 
 const EmployeeLayout = () => {
@@ -68,7 +69,7 @@ const EmployeeLayout = () => {
       `}>
         <div className="mb-12 flex justify-between items-start shrink-0 pr-6">
           <div className="relative flex items-start">
-            <img src={darkLogo} alt="Vedhunt Logo" className="h-12 md:h-14 w-auto object-contain scale-[1.6] origin-left brightness-0 invert" />
+            <img src={lightLogo} alt="Vedhunt Logo" className="h-12 md:h-14 w-auto object-contain scale-[1.6] origin-left brightness-0 invert" />
           </div>
           <button onClick={() => setIsMobileMenuOpen(false)} className="text-white hover:text-white/80 lg:hidden" title="Close Sidebar">
             <X size={24} />
@@ -142,7 +143,8 @@ const EmployeeLayout = () => {
             {/* This header sits on the theme-reactive card background (unlike
                 the sidebar's fixed orange), so the logo only gets forced white
                 in dark mode — in light mode it renders in its natural colors. */}
-            <img src={darkLogo} alt="Vedhunt Logo" className="h-10 w-auto object-contain scale-[1.2] origin-left dark:brightness-0 dark:invert" />
+            <img src={lightLogo} alt="Vedhunt Logo" className="h-10 w-auto object-contain scale-[1.2] origin-left dark:hidden" />
+            <img src={darkLogo} alt="Vedhunt Logo" className="h-10 w-auto object-contain scale-[1.2] origin-left hidden dark:block" />
           </div>
           <div className="hidden lg:block flex-1"></div>
           
@@ -157,7 +159,7 @@ const EmployeeLayout = () => {
             <NotificationBell />
           </div>
         </header>
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-app-bg">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6 lg:p-8 bg-app-bg min-w-0 max-w-full">
           <Outlet />
         </div>
       </main>

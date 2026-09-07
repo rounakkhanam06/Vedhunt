@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { User, Plug, BarChart2, Database, Save, Mail, Lock, Smartphone, DownloadCloud, AlertCircle, Phone, MapPin, Share2, Clock, CreditCard, QrCode, UploadCloud, LifeBuoy } from 'lucide-react';
+import { User, Plug, BarChart2, Database, Save, Mail, Lock, Smartphone, DownloadCloud, AlertCircle, Phone, MapPin, Share2, Clock, CreditCard, QrCode, UploadCloud, LifeBuoy, Gauge } from 'lucide-react';
 import { useAdminStore } from '../../store/useAdminStore';
 import { settingsService } from '../../services/settingsService';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
 import { usePermissions } from '../hooks/usePermissions';
+import { PROJECT_BUDGET_OPTIONS, MONTHLY_MARKETING_BUDGET_OPTIONS } from '../../shared/serviceQualification';
 
 const SettingsPage = () => {
   const { admin } = useAdminStore();
@@ -71,6 +72,9 @@ const SettingsPage = () => {
 
   const [autoAssignEnabled, setAutoAssignEnabled] = useState(false);
   const [assignmentRules, setAssignmentRules] = useState([]);
+  // Left null until fetched — every point value/threshold shown comes from
+  // the backend's default (services/leadScoring.js), never hard-coded here.
+  const [leadScoring, setLeadScoring] = useState(null);
   const [bdRoster, setBdRoster] = useState([]);
   const emptyRuleForm = { name: '', matchService: '', matchSource: '', bdPool: [], maxActiveLeads: '', priority: 0 };
   const [ruleForm, setRuleForm] = useState(emptyRuleForm);
@@ -288,6 +292,40 @@ const SettingsPage = () => {
     }
   };
 
+  const fetchLeadScoring = async () => {
+    try {
+      setLoading(true);
+      const res = await api.get('/admin/assignment/scoring-settings');
+      if (res.data.success) setLeadScoring(res.data.data);
+    } catch (error) {
+      toast.error('Failed to load lead scoring settings');
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateScoringPoints = (signal, value) => {
+    setLeadScoring((prev) => ({ ...prev, points: { ...prev.points, [signal]: Number(value) } }));
+  };
+
+  const handleSaveLeadScoring = async () => {
+    if (!leadScoring) return;
+    setSaving(true);
+    try {
+      const res = await api.put('/admin/assignment/scoring-settings', leadScoring);
+      if (res.data.success) {
+        setLeadScoring(res.data.data);
+        toast.success('Lead scoring settings saved!');
+      }
+    } catch (error) {
+      toast.error('Failed to save lead scoring settings');
+      console.error(error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleSavePaymentSettings = async () => {
     setSaving(true);
     try {
@@ -340,6 +378,7 @@ const SettingsPage = () => {
       fetchAssignmentRules();
       fetchBdRoster();
     }
+    if (activeTab === 'leadScoring') fetchLeadScoring();
   }, [activeTab, selectedYear]);
 
   const handleContactChange = (e) => {
@@ -556,6 +595,7 @@ const SettingsPage = () => {
     { id: 'attendanceRules', label: 'Attendance Rules', icon: Clock },
     { id: 'holidays', label: 'Holiday Calendar', icon: Database },
     ...(can('leads.assign') ? [{ id: 'assignmentRules', label: 'Assignment Rules', icon: Share2 }] : []),
+    ...(can('leads.assign') ? [{ id: 'leadScoring', label: 'Lead Scoring', icon: Gauge }] : []),
     { id: 'integrations', label: 'Integrations', icon: Plug },
     { id: 'campaigns', label: 'Campaign Control', icon: BarChart2 },
     { id: 'payment', label: 'Payment Settings', icon: CreditCard },
@@ -1379,6 +1419,113 @@ const SettingsPage = () => {
           </div>
         )}
 
+        {/* Lead Scoring Tab */}
+        {activeTab === 'leadScoring' && (
+          <div className="max-w-3xl animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <h3 className="text-2xl font-bold text-white mb-2">Lead Scoring</h3>
+            <p className="text-gray-400 text-sm mb-8">
+              A configurable, supplementary score (0-100) shown alongside each lead — it never decides Lead Priority on its own, Priority stays derived from Decision Maker, Timeline and Budget directly. Every point value and threshold below is editable here; none of it is hard-coded in the app.
+            </p>
+
+            {loading || !leadScoring ? (
+              <div className="text-gray-400">Loading...</div>
+            ) : (
+              <>
+                <div className="bg-[#121215] border border-[#2D2D33] p-6 rounded-xl mb-8 flex items-center justify-between">
+                  <div>
+                    <h4 className="text-sm font-semibold text-white">Lead Scoring Enabled</h4>
+                    <p className="text-xs text-gray-400 mt-1">When off, every lead's score shows as 0.</p>
+                  </div>
+                  <button
+                    onClick={() => setLeadScoring((prev) => ({ ...prev, enabled: !prev.enabled }))}
+                    className={`relative w-12 h-6 rounded-full transition-colors ${leadScoring.enabled ? 'bg-[#FF6B00]' : 'bg-[#2D2D33]'}`}
+                  >
+                    <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform ${leadScoring.enabled ? 'translate-x-6' : 'translate-x-0.5'}`} />
+                  </button>
+                </div>
+
+                <div className="bg-[#121215] border border-[#2D2D33] p-6 rounded-xl mb-8">
+                  <h4 className="text-sm font-semibold text-[#FF6B00] uppercase tracking-widest mb-4">Points per signal</h4>
+                  <p className="text-xs text-gray-500 mb-4">Positive signals add points, negative signals subtract. The total is clamped to 0-100 for display.</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className={labelClasses}>Service fit (target service selected)</label>
+                      <input type="number" value={leadScoring.points.serviceFit} onChange={(e) => updateScoringPoints('serviceFit', e.target.value)} className={inputClasses} />
+                    </div>
+                    <div>
+                      <label className={labelClasses}>Budget fit (above threshold, below)</label>
+                      <input type="number" value={leadScoring.points.budgetFit} onChange={(e) => updateScoringPoints('budgetFit', e.target.value)} className={inputClasses} />
+                    </div>
+                    <div>
+                      <label className={labelClasses}>Decision maker confirmed</label>
+                      <input type="number" value={leadScoring.points.decisionMaker} onChange={(e) => updateScoringPoints('decisionMaker', e.target.value)} className={inputClasses} />
+                    </div>
+                    <div>
+                      <label className={labelClasses}>Timeline (Immediate / 7 days)</label>
+                      <input type="number" value={leadScoring.points.timeline} onChange={(e) => updateScoringPoints('timeline', e.target.value)} className={inputClasses} />
+                    </div>
+                    <div>
+                      <label className={labelClasses}>Engagement (connected on a call)</label>
+                      <input type="number" value={leadScoring.points.engagement} onChange={(e) => updateScoringPoints('engagement', e.target.value)} className={inputClasses} />
+                    </div>
+                    <div>
+                      <label className={labelClasses}>Proposal requested/sent (strong positive)</label>
+                      <input type="number" value={leadScoring.points.proposal} onChange={(e) => updateScoringPoints('proposal', e.target.value)} className={inputClasses} />
+                    </div>
+                    <div>
+                      <label className={labelClasses}>No response (repeated unanswered attempts)</label>
+                      <input type="number" value={leadScoring.points.noResponse} onChange={(e) => updateScoringPoints('noResponse', e.target.value)} className={inputClasses} />
+                    </div>
+                    <div>
+                      <label className={labelClasses}>Junk / Duplicate (hard negative — excludes the lead)</label>
+                      <input type="number" value={leadScoring.points.junkDuplicate} onChange={(e) => updateScoringPoints('junkDuplicate', e.target.value)} className={inputClasses} />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-[#121215] border border-[#2D2D33] p-6 rounded-xl mb-8">
+                  <h4 className="text-sm font-semibold text-[#FF6B00] uppercase tracking-widest mb-4">Thresholds</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className={labelClasses}>Project Budget fit threshold</label>
+                      <select
+                        value={leadScoring.budgetFitThreshold.project}
+                        onChange={(e) => setLeadScoring((prev) => ({ ...prev, budgetFitThreshold: { ...prev.budgetFitThreshold, project: e.target.value } }))}
+                        className={inputClasses}
+                      >
+                        {PROJECT_BUDGET_OPTIONS.filter((opt) => opt !== 'Not sure').map((opt) => <option key={opt} value={opt}>{opt}</option>)}
+                      </select>
+                      <p className="text-[11px] text-gray-500 mt-1">A lead's Project Budget at or above this band counts as budget fit.</p>
+                    </div>
+                    <div>
+                      <label className={labelClasses}>Monthly Marketing Budget fit threshold</label>
+                      <select
+                        value={leadScoring.budgetFitThreshold.marketing}
+                        onChange={(e) => setLeadScoring((prev) => ({ ...prev, budgetFitThreshold: { ...prev.budgetFitThreshold, marketing: e.target.value } }))}
+                        className={inputClasses}
+                      >
+                        {MONTHLY_MARKETING_BUDGET_OPTIONS.filter((opt) => opt !== 'Not sure').map((opt) => <option key={opt} value={opt}>{opt}</option>)}
+                      </select>
+                      <p className="text-[11px] text-gray-500 mt-1">A lead's Monthly Marketing Budget at or above this band counts as budget fit.</p>
+                    </div>
+                    <div>
+                      <label className={labelClasses}>Unanswered attempts before "No response"</label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={leadScoring.noResponseAttempts}
+                        onChange={(e) => setLeadScoring((prev) => ({ ...prev, noResponseAttempts: Number(e.target.value) }))}
+                        className={inputClasses}
+                      />
+                      <p className="text-[11px] text-gray-500 mt-1">Number of logged not-connected calls that trigger the No Response penalty.</p>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
       </div>
 
       {/* Sticky Floating Action Button */}
@@ -1393,6 +1540,7 @@ const SettingsPage = () => {
             if (activeTab === 'holidays') fetchHolidays();
             if (activeTab === 'payment') handleSavePaymentSettings();
             if (activeTab === 'assignmentRules') fetchAssignmentRules();
+            if (activeTab === 'leadScoring') handleSaveLeadScoring();
           }}
           disabled={saving}
           className={`flex items-center gap-2 bg-[#FF6B00] hover:bg-[#EA580C] text-white px-6 py-3 rounded-full font-bold shadow-[0_4px_20px_rgba(255,107,0,0.4)] transition-all ${saving ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105 active:scale-95'}`}

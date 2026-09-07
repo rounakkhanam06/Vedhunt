@@ -46,6 +46,14 @@ const adminSchema = new mongoose.Schema(
     },
     resetPasswordToken: String,
     resetPasswordExpire: Date,
+    // Firebase Cloud Messaging device tokens for push notifications — one
+    // Admin can be signed in on multiple devices/browsers, so this is a list.
+    // See utils/pushNotify.js.
+    fcmTokens: [{
+      token: { type: String, required: true },
+      addedAt: { type: Date, default: Date.now },
+      userAgent: { type: String, trim: true }
+    }],
   },
   { timestamps: true }
 );

@@ -3,6 +3,7 @@ const Settings = require('../models/Settings');
 const AssignmentRule = require('../models/AssignmentRule');
 const logger = require('../utils/logger');
 const { getBDERole, activeLeadCount } = require('../services/leadAssignment');
+const { DEFAULT_LEAD_SCORING_SETTINGS, getLeadScoringSettings } = require('../services/leadScoring');
 
 // @desc    List BD team members (dynamically, from the DB — not hardcoded)
 // @route   GET /api/admin/assignment/bds
@@ -56,6 +57,46 @@ exports.updateAssignmentSettings = async (req, res, next) => {
     res.status(200).json({ success: true, data: settings.value });
   } catch (error) {
     logger.error('Error updating assignment settings:', error);
+    next(error);
+  }
+};
+
+// @desc    Get the Lead Scoring configuration (points per signal + thresholds)
+// @route   GET /api/admin/assignment/scoring-settings
+// @access  Private (leads.assign)
+exports.getLeadScoringConfig = async (req, res, next) => {
+  try {
+    const settings = await getLeadScoringSettings();
+    res.status(200).json({ success: true, data: settings });
+  } catch (error) {
+    logger.error('Error fetching lead scoring settings:', error);
+    next(error);
+  }
+};
+
+// @desc    Update the Lead Scoring configuration — every point value and
+//          threshold is admin-editable, nothing is hard-coded in the frontend.
+// @route   PUT /api/admin/assignment/scoring-settings
+// @access  Private (leads.assign)
+exports.updateLeadScoringConfig = async (req, res, next) => {
+  try {
+    const { enabled, points, budgetFitThreshold, noResponseAttempts } = req.body;
+    const value = {
+      enabled: enabled !== undefined ? !!enabled : DEFAULT_LEAD_SCORING_SETTINGS.enabled,
+      points: { ...DEFAULT_LEAD_SCORING_SETTINGS.points, ...points },
+      budgetFitThreshold: { ...DEFAULT_LEAD_SCORING_SETTINGS.budgetFitThreshold, ...budgetFitThreshold },
+      noResponseAttempts: noResponseAttempts === '' || noResponseAttempts == null
+        ? DEFAULT_LEAD_SCORING_SETTINGS.noResponseAttempts
+        : Number(noResponseAttempts)
+    };
+    const settings = await Settings.findOneAndUpdate(
+      { key: 'lead_scoring' },
+      { key: 'lead_scoring', value },
+      { upsert: true, new: true }
+    );
+    res.status(200).json({ success: true, data: settings.value });
+  } catch (error) {
+    logger.error('Error updating lead scoring settings:', error);
     next(error);
   }
 };

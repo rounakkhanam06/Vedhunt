@@ -1,17 +1,23 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../services/api';
-import { ArrowLeft, Mail, Phone, Clock, FileText, Play, Square, MessageCircle, Trash2, Upload, PhoneCall } from 'lucide-react';
+import { ArrowLeft, Mail, Phone, Clock, FileText, Play, Square, MessageCircle, Trash2, Upload, PhoneCall, CalendarClock, ListChecks } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { usePermissions } from '../hooks/usePermissions';
+import { useAdminStore } from '../../store/useAdminStore';
 import StageDataModal from '../components/StageDataModal';
+import FollowUpTasksPanel from '../components/FollowUpTasksPanel';
 import { NOT_CONNECTED_REASONS, INTEREST_LEVELS, LOST_DROPPED_REASONS, FOLLOWUP_TRIGGER_INTEREST_LEVELS, PAYMENT_STATUS_OPTIONS } from '../../shared/leadConstants';
+import {
+  SERVICES_REQUIRED_OPTIONS, MARKETING_TYPE_SERVICES, TIMELINE_OPTIONS, DECISION_MAKER_OPTIONS,
+  PROJECT_BUDGET_OPTIONS, MONTHLY_MARKETING_BUDGET_OPTIONS, LEAD_PRIORITY_BADGE_CLASSES
+} from '../../shared/serviceQualification';
 
 // Status values that require mandatory companion data beyond the status
 // field itself — server/utils/leadStateMachine.js rejects a bare status
 // change into any of these, so they're routed through StageDataModal instead
 // of an instant single-field save.
-const STATUSES_REQUIRING_MODAL = ['Proposal Sent', 'Won', 'Lost', 'Dropped', 'Hold'];
+const STATUSES_REQUIRING_MODAL = ['Proposal Sent', 'Negotiation', 'Won', 'Lost', 'Dropped', 'Hold'];
 
 // firstName/lastName aren't guaranteed on every Admin account (the original
 // legacy seed account predates those fields being required) — fall back
@@ -58,6 +64,17 @@ function buildActivityTimeline(lead, assignmentHistory) {
   return events.sort((a, b) => new Date(b.date) - new Date(a.date));
 }
 
+// Mirrors the server's own lock-expiry check (services/leadLifecycle.js) —
+// a lock older than this is stale and no longer blocks anyone.
+const LOCK_TIMEOUT_MS = 5 * 60 * 1000;
+
+/** Whether `lead` is actively locked by someone other than `adminId` — a stale or self-held lock never disables anything. */
+function isLockedByOther(lead, adminId) {
+  if (!lead?.lockedBy || String(lead.lockedBy) === String(adminId)) return false;
+  if (!lead.lockedAt) return false;
+  return Date.now() - new Date(lead.lockedAt).getTime() < LOCK_TIMEOUT_MS;
+}
+
 /** WhatsApp deep link — Indian 10-digit numbers get the country code prefixed. */
 function toWhatsAppHref(phone) {
   const digits = String(phone || '').replace(/\D/g, '');
@@ -73,21 +90,31 @@ const STATUS_BADGE_CLASSES = {
   Hold: 'bg-slate-500/10 text-slate-400 border-slate-500/20'
 };
 
-const sectionClass = 'bg-app-card border border-app-border rounded-xl p-5';
+const sectionClass = 'bg-app-card border border-app-border rounded-xl p-4 sm:p-5 w-full min-w-0 overflow-hidden';
 const sectionLabelClass = 'text-xs text-primary font-bold uppercase tracking-wider mb-3 block';
-const selectClass = 'mt-1 w-full bg-app-bg border border-app-border px-3 py-2 rounded-lg text-app-text focus:outline-none focus:border-primary cursor-pointer text-sm disabled:opacity-50';
+const selectClass = 'mt-1 w-full min-w-0 max-w-full truncate bg-app-bg border border-app-border px-3 py-2 rounded-lg text-app-text focus:outline-none focus:border-primary cursor-pointer text-sm disabled:opacity-50 box-border';
 const fieldLabelClass = 'text-xs text-app-text-muted font-medium';
 
 export default function LeadWorkspace() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { can } = usePermissions();
+  const { admin } = useAdminStore();
   const isSuperAdmin = can('*');
   const canAssign = can('leads.assign');
 
   const [lead, setLead] = useState(null);
   const [loading, setLoading] = useState(true);
   const [bds, setBds] = useState([]);
+  // Quick-action targets: "Follow-up"/"Update Stage" scroll to (and focus)
+  // these existing controls further down the page rather than duplicating
+  // their logic in a separate widget.
+  const followUpInputRef = useRef(null);
+  const statusSelectRef = useRef(null);
+  const scrollToRef = (ref) => {
+    ref.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    ref.current?.focus();
+  };
   const [assignmentHistory, setAssignmentHistory] = useState([]);
   const [assignReason, setAssignReason] = useState('');
   // Stage transitions that need mandatory companion data (Proposal Sent,
@@ -302,7 +329,7 @@ export default function LeadWorkspace() {
   if (!lead) return null;
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 w-full min-w-0 max-w-full">
       {/* Header row */}
       <div className="flex items-center justify-between gap-4">
         <button
@@ -324,10 +351,10 @@ export default function LeadWorkspace() {
       {/* Identity + quick actions */}
       <div className={sectionClass}>
         <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-app-text font-heading">{lead.fullName}</h1>
+          <div className="min-w-0">
+            <h1 className="text-2xl font-bold text-app-text font-heading truncate">{lead.fullName}</h1>
             <p className="text-sm text-app-text-muted mt-1">
-              {[lead.businessName, lead.leadId, lead.phone].filter(Boolean).join(' · ')}
+              {[lead.leadId, lead.phone].filter(Boolean).join(' · ')}
             </p>
             <div className="flex flex-wrap gap-2 mt-3">
               <span className={`px-2.5 py-1 rounded-md text-xs font-semibold border ${STATUS_BADGE_CLASSES[lead.status] || 'bg-amber-500/10 text-amber-400 border-amber-500/20'}`}>
@@ -348,25 +375,34 @@ export default function LeadWorkspace() {
               )}
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-2 w-full sm:w-auto sm:min-w-[280px]">
-            <a href={`tel:${lead.phone}`} className="flex items-center justify-center gap-2 py-2.5 rounded-lg bg-primary text-black font-bold text-sm hover:opacity-90 transition-opacity">
-              <Phone size={16} /> Call
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 w-full sm:w-auto min-w-0">
+            <a href={`tel:${lead.phone}`} className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg bg-primary text-black font-bold text-xs sm:text-sm hover:opacity-90 transition-opacity min-w-0">
+              <Phone size={14} className="shrink-0" /> <span className="truncate">Call</span>
             </a>
             {toWhatsAppHref(lead.phone) ? (
-              <a href={toWhatsAppHref(lead.phone)} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 py-2.5 rounded-lg border border-app-border text-app-text font-bold text-sm hover:border-primary hover:text-primary transition-colors">
-                <MessageCircle size={16} /> WhatsApp
+              // TODO: plain wa.me deep-link out of the CRM — swap for an
+              // in-CRM WhatsApp conversation once a WhatsApp Business API
+              // account (Meta Cloud API/Twilio/etc.) is available.
+              <a href={toWhatsAppHref(lead.phone)} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg border border-app-border text-app-text font-bold text-xs sm:text-sm hover:border-primary hover:text-primary transition-colors min-w-0">
+                <MessageCircle size={14} className="shrink-0" /> <span className="truncate">WhatsApp</span>
               </a>
             ) : <div />}
-            <a href={`mailto:${lead.email}`} className="flex items-center justify-center gap-2 py-2.5 rounded-lg border border-app-border text-app-text font-bold text-sm hover:border-primary hover:text-primary transition-colors">
-              <Mail size={16} /> Email
+            <a href={`mailto:${lead.email}`} className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg border border-app-border text-app-text font-bold text-xs sm:text-sm hover:border-primary hover:text-primary transition-colors min-w-0">
+              <Mail size={14} className="shrink-0" /> <span className="truncate">Email</span>
             </a>
+            <button onClick={() => scrollToRef(followUpInputRef)} className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg border border-app-border text-app-text font-bold text-xs sm:text-sm hover:border-primary hover:text-primary transition-colors min-w-0">
+              <CalendarClock size={14} className="shrink-0" /> <span className="truncate">Follow-up</span>
+            </button>
+            <button onClick={() => scrollToRef(statusSelectRef)} className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg border border-app-border text-app-text font-bold text-xs sm:text-sm hover:border-primary hover:text-primary transition-colors min-w-0">
+              <ListChecks size={14} className="shrink-0" /> <span className="truncate">Update Stage</span>
+            </button>
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 min-w-0 max-w-full">
         {/* Main column: everything an admin actively works while handling this lead */}
-        <div className="lg:col-span-2 space-y-5">
+        <div className="lg:col-span-2 space-y-5 min-w-0 max-w-full">
           {/* Call Handling */}
           <div className={sectionClass}>
             <label className={sectionLabelClass}>Call Handling</label>
@@ -378,7 +414,7 @@ export default function LeadWorkspace() {
                 <Square size={14} /> End Call
               </button>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 min-w-0">
               <div>
                 <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">Start Time</label>
                 <p className="text-sm font-medium text-app-text mt-1">{lead.callStartTime ? new Date(lead.callStartTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-'}</p>
@@ -401,7 +437,7 @@ export default function LeadWorkspace() {
           {/* Call Outcome */}
           <div className={sectionClass}>
             <label className={sectionLabelClass}>Call Outcome</label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 min-w-0">
               <div>
                 <label className={fieldLabelClass}>Connected?</label>
                 <select
@@ -445,21 +481,15 @@ export default function LeadWorkspace() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className={fieldLabelClass}>Age @ Call</label>
-                  <input
-                    type="number"
-                    defaultValue={lead.leadAgeAtCall ?? ''}
-                    onBlur={(e) => { if (Number(e.target.value) !== lead.leadAgeAtCall) handleFieldChange('leadAgeAtCall', Number(e.target.value)); }}
-                    className="mt-1 w-full bg-app-bg border border-app-border px-3 py-2 rounded-lg text-app-text focus:outline-none focus:border-primary text-sm text-center"
-                  />
+                  <p className="mt-1 text-sm font-semibold text-app-text py-2 text-center" title="Days between the lead's creation and its most recent logged call — calculated automatically.">
+                    {lead.leadAgeAtCall ?? '-'}{lead.leadAgeAtCall != null ? ' days' : ''}
+                  </p>
                 </div>
                 <div>
                   <label className={fieldLabelClass}>Touch #</label>
-                  <input
-                    type="number"
-                    defaultValue={lead.touchNumber ?? 0}
-                    onBlur={(e) => { if (Number(e.target.value) !== lead.touchNumber) handleFieldChange('touchNumber', Number(e.target.value)); }}
-                    className="mt-1 w-full bg-app-bg border border-app-border px-3 py-2 rounded-lg text-app-text focus:outline-none focus:border-primary text-sm text-center"
-                  />
+                  <p className="mt-1 text-sm font-semibold text-app-text py-2 text-center" title="Number of logged call attempts — calculated automatically.">
+                    {lead.touchNumber ?? 0}
+                  </p>
                 </div>
               </div>
             </div>
@@ -472,6 +502,7 @@ export default function LeadWorkspace() {
               <div>
                 <label className={fieldLabelClass}>Status</label>
                 <select
+                  ref={statusSelectRef}
                   value={lead.status}
                   onChange={(e) => {
                     const newStatus = e.target.value;
@@ -481,7 +512,7 @@ export default function LeadWorkspace() {
                       handleFieldChange('status', newStatus);
                     }
                   }}
-                  disabled={(!isSuperAdmin && ['Won', 'Lost', 'Dropped'].includes(lead.status)) || !!lead.lockedBy}
+                  disabled={(!isSuperAdmin && ['Won', 'Lost', 'Dropped'].includes(lead.status)) || isLockedByOther(lead, admin?._id)}
                   className={`${selectClass} font-medium`}
                 >
                   <option className="bg-app-bg text-app-text" value="New">New</option>
@@ -510,8 +541,24 @@ export default function LeadWorkspace() {
                 </select>
               </div>
               <div>
-                <label className={fieldLabelClass}>Estimated Deal Value</label>
-                <p className="mt-1 text-sm font-semibold text-app-text py-2">₹{(lead.dealValue || 0).toLocaleString('en-IN')}</p>
+                <label className={fieldLabelClass}>Estimated Deal Value (₹)</label>
+                <input
+                  type="number"
+                  min="0"
+                  defaultValue={lead.dealValue ?? ''}
+                  onBlur={(e) => { if (Number(e.target.value) !== lead.dealValue) handleFieldChange('dealValue', Number(e.target.value)); }}
+                  className={selectClass}
+                />
+              </div>
+              <div>
+                <label className={fieldLabelClass}>Deal Close Value (₹)</label>
+                <input
+                  type="number"
+                  min="0"
+                  defaultValue={lead.dealCloseValue ?? ''}
+                  onBlur={(e) => { if (Number(e.target.value) !== lead.dealCloseValue) handleFieldChange('dealCloseValue', Number(e.target.value)); }}
+                  className={selectClass}
+                />
               </div>
               <div>
                 <label className={fieldLabelClass}>Expected Close Date</label>
@@ -538,6 +585,26 @@ export default function LeadWorkspace() {
                   ))}
                 </select>
               </div>
+              {lead.paymentStatus && lead.paymentStatus !== 'Not Applicable' && (
+                <>
+                  <div>
+                    <label className={fieldLabelClass}>Amount Paid (₹)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      defaultValue={lead.amountPaid ?? ''}
+                      onBlur={(e) => { if (Number(e.target.value) !== lead.amountPaid) handleFieldChange('amountPaid', Number(e.target.value)); }}
+                      className={selectClass}
+                    />
+                  </div>
+                  <div>
+                    <label className={fieldLabelClass}>Pending Amount (₹)</label>
+                    <p className="mt-1 text-sm font-semibold text-app-text py-2">
+                      ₹{Math.max(0, (lead.dealCloseValue || 0) - (lead.amountPaid || 0)).toLocaleString('en-IN')}
+                    </p>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
@@ -550,6 +617,7 @@ export default function LeadWorkspace() {
                 : 'Not scheduled'}
             </p>
             <input
+              ref={followUpInputRef}
               type="datetime-local"
               value={(() => { const v = getCallOutcomeValue('nextFollowUpDate'); return v ? new Date(v).toISOString().slice(0, 16) : ''; })()}
               onChange={(e) => {
@@ -560,6 +628,8 @@ export default function LeadWorkspace() {
               style={{ colorScheme: 'dark' }}
             />
           </div>
+
+          <FollowUpTasksPanel leadId={lead._id} canManage={canAssign} bds={bds} myAdminId={admin?._id} />
 
           {/* Remark */}
           <div className={sectionClass}>
@@ -573,38 +643,121 @@ export default function LeadWorkspace() {
             />
           </div>
 
-          {/* Qualification — discovery data, doesn't gate any stage transition */}
+          {/* Qualification — service-aware discovery data, doesn't gate any stage transition */}
           <div className={sectionClass}>
             <label className={sectionLabelClass}>Qualification</label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className={fieldLabelClass}>Budget (₹)</label>
+                <label className={fieldLabelClass}>Business Name</label>
                 <input
-                  type="number"
-                  min="0"
-                  defaultValue={lead.budget ?? ''}
-                  onBlur={(e) => { if (e.target.value !== String(lead.budget ?? '')) handleFieldChange('budget', e.target.value); }}
+                  type="text"
+                  defaultValue={lead.businessName || ''}
+                  onBlur={(e) => { if (e.target.value !== lead.businessName) handleFieldChange('businessName', e.target.value); }}
                   className={selectClass}
                 />
               </div>
               <div>
-                <label className={fieldLabelClass}>Timeline</label>
+                <label className={fieldLabelClass}>Website</label>
                 <input
                   type="text"
-                  placeholder="e.g. Within 2 weeks"
-                  defaultValue={lead.timeline || ''}
-                  onBlur={(e) => { if (e.target.value !== lead.timeline) handleFieldChange('timeline', e.target.value); }}
+                  placeholder="https://..."
+                  defaultValue={lead.website || ''}
+                  onBlur={(e) => { if (e.target.value !== lead.website) handleFieldChange('website', e.target.value); }}
                   className={selectClass}
                 />
+              </div>
+            </div>
+
+            <div className="mt-4">
+              <label className={fieldLabelClass}>Service Required</label>
+              <div className="mt-1.5 flex flex-wrap gap-2">
+                {SERVICES_REQUIRED_OPTIONS.map((svc) => {
+                  const selected = (lead.servicesRequired || []).includes(svc);
+                  return (
+                    <button
+                      key={svc}
+                      type="button"
+                      onClick={() => {
+                        const current = lead.servicesRequired || [];
+                        const next = selected ? current.filter((s) => s !== svc) : [...current, svc];
+                        handleFieldChange('servicesRequired', next);
+                      }}
+                      className={`px-2.5 py-1 rounded-md text-xs font-semibold border transition-colors cursor-pointer ${
+                        selected ? 'bg-primary/10 text-primary border-primary/30' : 'bg-app-bg text-app-text-muted border-app-border hover:border-primary/40'
+                      }`}
+                    >
+                      {svc}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+              <div>
+                <label className={fieldLabelClass}>Business Type / Industry</label>
+                <input
+                  type="text"
+                  defaultValue={lead.businessType || ''}
+                  onBlur={(e) => { if (e.target.value !== lead.businessType) handleFieldChange('businessType', e.target.value); }}
+                  className={selectClass}
+                />
+              </div>
+              {(!lead.servicesRequired?.length || lead.servicesRequired.some((s) => MARKETING_TYPE_SERVICES.includes(s))) && (
+                <div>
+                  <label className={fieldLabelClass}>Monthly Marketing Budget</label>
+                  <select
+                    value={lead.monthlyMarketingBudget || ''}
+                    onChange={(e) => handleFieldChange('monthlyMarketingBudget', e.target.value)}
+                    className={selectClass}
+                  >
+                    <option className="bg-app-bg text-app-text" value="">-Select-</option>
+                    {MONTHLY_MARKETING_BUDGET_OPTIONS.map((opt) => (
+                      <option key={opt} className="bg-app-bg text-app-text" value={opt}>{opt}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              {(!lead.servicesRequired?.length || lead.servicesRequired.some((s) => !MARKETING_TYPE_SERVICES.includes(s))) && (
+                <div>
+                  <label className={fieldLabelClass}>Project Budget</label>
+                  <select
+                    value={lead.projectBudget || ''}
+                    onChange={(e) => handleFieldChange('projectBudget', e.target.value)}
+                    className={selectClass}
+                  >
+                    <option className="bg-app-bg text-app-text" value="">-Select-</option>
+                    {PROJECT_BUDGET_OPTIONS.map((opt) => (
+                      <option key={opt} className="bg-app-bg text-app-text" value={opt}>{opt}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              <div>
+                <label className={fieldLabelClass}>Timeline</label>
+                <select
+                  value={lead.timeline || ''}
+                  onChange={(e) => handleFieldChange('timeline', e.target.value)}
+                  className={selectClass}
+                >
+                  <option className="bg-app-bg text-app-text" value="">-Select-</option>
+                  {TIMELINE_OPTIONS.map((opt) => (
+                    <option key={opt} className="bg-app-bg text-app-text" value={opt}>{opt}</option>
+                  ))}
+                </select>
               </div>
               <div>
                 <label className={fieldLabelClass}>Decision Maker</label>
-                <input
-                  type="text"
-                  defaultValue={lead.decisionMaker || ''}
-                  onBlur={(e) => { if (e.target.value !== lead.decisionMaker) handleFieldChange('decisionMaker', e.target.value); }}
+                <select
+                  value={lead.decisionMaker || ''}
+                  onChange={(e) => handleFieldChange('decisionMaker', e.target.value)}
                   className={selectClass}
-                />
+                >
+                  <option className="bg-app-bg text-app-text" value="">-Select-</option>
+                  {DECISION_MAKER_OPTIONS.map((opt) => (
+                    <option key={opt} className="bg-app-bg text-app-text" value={opt}>{opt}</option>
+                  ))}
+                </select>
               </div>
               <div>
                 <label className={fieldLabelClass}>Current Vendor</label>
@@ -615,7 +768,24 @@ export default function LeadWorkspace() {
                   className={selectClass}
                 />
               </div>
+              <div>
+                <label className={fieldLabelClass}>Lead Priority</label>
+                <p className="mt-1.5" title="Auto-derived from Decision Maker, Timeline and Budget — calculated automatically.">
+                  <span className={`inline-flex px-2.5 py-1 rounded-md text-xs font-semibold border ${LEAD_PRIORITY_BADGE_CLASSES[lead.leadPriority] || LEAD_PRIORITY_BADGE_CLASSES.Normal}`}>
+                    {lead.leadPriority || 'Normal'}
+                  </span>
+                </p>
+              </div>
+              <div>
+                <label className={fieldLabelClass}>Lead Score</label>
+                <p className="mt-1.5" title="Configurable score (Admin Settings → Lead Scoring) — a supplementary signal, not the source of truth for Priority.">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold border bg-app-bg text-app-text border-app-border">
+                    {lead.leadScore ?? 0}<span className="text-app-text-muted font-normal">/100</span>
+                  </span>
+                </p>
+              </div>
             </div>
+
             <div className="mt-4">
               <label className={fieldLabelClass}>Requirement Summary</label>
               <textarea
@@ -631,7 +801,7 @@ export default function LeadWorkspace() {
           <div className={sectionClass}>
             <label className={sectionLabelClass}>Documents</label>
             <div className="flex flex-wrap items-center gap-2 mb-4">
-              <select value={docType} onChange={(e) => setDocType(e.target.value)} className={`${selectClass} w-auto`}>
+              <select value={docType} onChange={(e) => setDocType(e.target.value)} className={`${selectClass} w-full sm:w-auto flex-1`}>
                 <option className="bg-app-bg text-app-text" value="Proposal">Proposal</option>
                 <option className="bg-app-bg text-app-text" value="Quotation">Quotation</option>
                 <option className="bg-app-bg text-app-text" value="Scope">Scope</option>

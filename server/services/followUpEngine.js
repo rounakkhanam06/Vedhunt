@@ -18,8 +18,10 @@ const Lead = require('../models/Lead');
 const Role = require('../models/Role');
 const Admin = require('../models/Admin');
 const Notification = require('../models/Notification');
+const FollowUpTask = require('../models/FollowUpTask');
 const logger = require('../utils/logger');
 const { TERMINAL_STATUSES } = require('../utils/leadStateMachine');
+const { sendPushToAdmin } = require('../utils/pushNotify');
 
 const NON_ACTIVE_STATUSES = [...TERMINAL_STATUSES, 'Hold'];
 
@@ -28,6 +30,12 @@ async function getManagerAdminIds() {
   if (!roles.length) return [];
   const admins = await Admin.find({ roles: { $in: roles.map((r) => r._id) }, isActive: true }).select('_id').lean();
   return admins.map((a) => a._id);
+}
+
+/** Creates the in-app Notification and fires the paired push (no-ops if Firebase isn't configured — see utils/pushNotify.js). */
+async function notify({ recipient, type, title, message, link, lead }) {
+  await Notification.create({ recipient, type, title, message, link, lead });
+  await sendPushToAdmin(recipient, { title, body: message, link });
 }
 
 async function notifyReminders(now) {
@@ -41,7 +49,7 @@ async function notifyReminders(now) {
   }).select('fullName assignedTo nextFollowUpDate');
 
   for (const lead of leads) {
-    await Notification.create({
+    await notify({
       recipient: lead.assignedTo,
       type: 'followup_reminder',
       title: 'Follow-up in 30 minutes',
@@ -60,14 +68,16 @@ async function notifyDue(now) {
     assignedTo: { $ne: null },
     nextFollowUpDate: { $lte: now },
     followUpDueNotifiedAt: null
-  }).select('fullName assignedTo nextFollowUpDate');
+  }).select('fullName leadId assignedTo nextFollowUpDate');
 
   for (const lead of leads) {
-    await Notification.create({
+    await notify({
       recipient: lead.assignedTo,
-      type: 'followup_due',
+      // Distinct type from the 30-min reminder so the frontend can render it
+      // with priority treatment (spec: "priority notification").
+      type: 'followup_due_priority',
       title: 'Follow-up due now',
-      message: `${lead.fullName}'s scheduled follow-up is due now.`,
+      message: `${lead.fullName} (${lead.leadId}) is due right now — ${new Date(lead.nextFollowUpDate).toLocaleTimeString()}.`,
       link: `/employee/dashboard?tab=leads&leadId=${lead._id}`,
       lead: lead._id
     });
@@ -86,7 +96,7 @@ async function notifyOverdueBD(now) {
   }).select('fullName assignedTo nextFollowUpDate');
 
   for (const lead of leads) {
-    await Notification.create({
+    await notify({
       recipient: lead.assignedTo,
       type: 'followup_overdue',
       title: 'Follow-up overdue',
@@ -99,30 +109,118 @@ async function notifyOverdueBD(now) {
   return leads.length;
 }
 
+/**
+ * Same 30-min/due-now/1hr-overdue cadence as the Lead-level checks above,
+ * but for manager-created Parallel tasks (models/FollowUpTask.js) — these
+ * aren't reflected in Lead.nextFollowUpDate at all, so they need their own
+ * reminder pass over the FollowUpTask collection.
+ */
+async function notifyParallelTaskReminders(now) {
+  const windowStart = new Date(now.getTime() + 25 * 60 * 1000);
+  const windowEnd = new Date(now.getTime() + 30 * 60 * 1000);
+  const tasks = await FollowUpTask.find({
+    type: 'Parallel',
+    status: 'Pending',
+    dueDate: { $gte: windowStart, $lte: windowEnd },
+    reminderSentAt: null
+  }).select('lead assignedTo dueDate note');
+
+  for (const task of tasks) {
+    await notify({
+      recipient: task.assignedTo,
+      type: 'followup_reminder',
+      title: 'Follow-up task in 30 minutes',
+      message: task.note || 'A follow-up task you were assigned is due in 30 minutes.',
+      link: `/employee/dashboard?tab=leads&leadId=${task.lead}`,
+      lead: task.lead
+    });
+    await FollowUpTask.updateOne({ _id: task._id }, { $set: { reminderSentAt: now } });
+  }
+  return tasks.length;
+}
+
+async function notifyParallelTaskDue(now) {
+  const tasks = await FollowUpTask.find({
+    type: 'Parallel',
+    status: 'Pending',
+    dueDate: { $lte: now },
+    dueNotifiedAt: null
+  }).select('lead assignedTo dueDate note');
+
+  for (const task of tasks) {
+    await notify({
+      recipient: task.assignedTo,
+      type: 'followup_due_priority',
+      title: 'Follow-up task due now',
+      message: task.note || 'A follow-up task you were assigned is due now.',
+      link: `/employee/dashboard?tab=leads&leadId=${task.lead}`,
+      lead: task.lead
+    });
+    await FollowUpTask.updateOne({ _id: task._id }, { $set: { dueNotifiedAt: now } });
+  }
+  return tasks.length;
+}
+
+async function notifyParallelTaskOverdue(now) {
+  const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+  const tasks = await FollowUpTask.find({
+    type: 'Parallel',
+    status: 'Pending',
+    dueDate: { $lte: oneHourAgo },
+    overdueNotifiedAt: null
+  }).select('lead assignedTo dueDate note');
+
+  for (const task of tasks) {
+    await notify({
+      recipient: task.assignedTo,
+      type: 'followup_overdue',
+      title: 'Follow-up task overdue',
+      message: task.note || 'A follow-up task you were assigned is over an hour overdue.',
+      link: `/employee/dashboard?tab=leads&leadId=${task.lead}`,
+      lead: task.lead
+    });
+    await FollowUpTask.updateOne({ _id: task._id }, { $set: { overdueNotifiedAt: now } });
+  }
+  return tasks.length;
+}
+
+/**
+ * EOD manager escalation — one consolidated digest notification per manager
+ * (spec: "Manager exception report"), not one notification per overdue lead.
+ */
 async function escalateToManagers(now) {
   const leads = await Lead.find({
     status: { $nin: NON_ACTIVE_STATUSES },
     assignedTo: { $ne: null },
     nextFollowUpDate: { $lte: now },
     followUpOverdueManagerNotifiedAt: null
-  }).select('fullName assignedTo nextFollowUpDate');
+  }).populate('assignedTo', 'firstName lastName').select('fullName assignedTo nextFollowUpDate');
 
   if (!leads.length) return 0;
   const managerIds = await getManagerAdminIds();
 
+  // Group by BD for the digest's breakdown line.
+  const byBd = new Map();
   for (const lead of leads) {
-    for (const managerId of managerIds) {
-      await Notification.create({
-        recipient: managerId,
-        type: 'followup_overdue_manager',
-        title: 'BD follow-up overdue (EOD)',
-        message: `${lead.fullName}'s follow-up is still overdue at end of day.`,
-        link: `/admin/leads?leadId=${lead._id}`,
-        lead: lead._id
-      });
-    }
-    await Lead.updateOne({ _id: lead._id }, { $set: { followUpOverdueManagerNotifiedAt: now } });
+    const bdName = lead.assignedTo ? `${lead.assignedTo.firstName} ${lead.assignedTo.lastName}`.trim() : 'Unassigned';
+    byBd.set(bdName, (byBd.get(bdName) || 0) + 1);
   }
+  const breakdown = [...byBd.entries()].map(([name, count]) => `${name}: ${count}`).join(', ');
+
+  for (const managerId of managerIds) {
+    await notify({
+      recipient: managerId,
+      type: 'followup_eod_report',
+      title: `${leads.length} follow-up(s) overdue at end of day`,
+      message: `By BD — ${breakdown}`,
+      link: '/admin/follow-ups?bucket=Overdue',
+      lead: null
+    });
+  }
+  await Lead.updateMany(
+    { _id: { $in: leads.map((l) => l._id) } },
+    { $set: { followUpOverdueManagerNotifiedAt: now } }
+  );
   return leads.length;
 }
 
@@ -140,7 +238,7 @@ async function flagBreaches(now) {
   const managerIds = await getManagerAdminIds();
 
   for (const lead of leads) {
-    await Notification.create({
+    await notify({
       recipient: lead.assignedTo,
       type: 'followup_breach',
       title: 'Follow-up Breach',
@@ -149,7 +247,7 @@ async function flagBreaches(now) {
       lead: lead._id
     });
     for (const managerId of managerIds) {
-      await Notification.create({
+      await notify({
         recipient: managerId,
         type: 'followup_breach',
         title: 'Follow-up Breach',
@@ -163,17 +261,23 @@ async function flagBreaches(now) {
   return leads.length;
 }
 
-/** Runs the 30-min-prior / due / 1hr-overdue-to-BD checks. Called every 5 minutes. */
+/** Runs the 30-min-prior / due / 1hr-overdue-to-BD checks (Lead + Parallel Task). Called every 5 minutes. */
 async function runFollowUpChecks() {
   const now = new Date();
   try {
-    const [reminders, due, overdue] = await Promise.all([
+    const [reminders, due, overdue, taskReminders, taskDue, taskOverdue] = await Promise.all([
       notifyReminders(now),
       notifyDue(now),
-      notifyOverdueBD(now)
+      notifyOverdueBD(now),
+      notifyParallelTaskReminders(now),
+      notifyParallelTaskDue(now),
+      notifyParallelTaskOverdue(now)
     ]);
-    if (reminders || due || overdue) {
-      logger.info(`Follow-up engine: ${reminders} reminders, ${due} due-now, ${overdue} overdue-to-BD.`);
+    if (reminders || due || overdue || taskReminders || taskDue || taskOverdue) {
+      logger.info(
+        `Follow-up engine: ${reminders} reminders, ${due} due-now, ${overdue} overdue-to-BD ` +
+        `(+ ${taskReminders} task reminders, ${taskDue} task due-now, ${taskOverdue} task overdue).`
+      );
     }
   } catch (error) {
     logger.error('Error in follow-up engine (checks):', error);
