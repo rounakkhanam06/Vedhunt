@@ -36,7 +36,7 @@ const ServicePage = mongoose.models.ServicePage || mongoose.model('ServicePage',
 async function prerenderSEO() {
   try {
     console.log('Connecting to MongoDB for SEO prerendering...');
-    await mongoose.connect(MONGODB_URI);
+    await mongoose.connect(MONGODB_URI, { serverSelectionTimeoutMS: 10000 });
     console.log('Connected.');
 
     const services = await Service.find({ isActive: true }).lean();
@@ -106,4 +106,16 @@ async function prerenderSEO() {
   }
 }
 
-prerenderSEO();
+// Safety net: never let the build hang forever on a stuck DB connection.
+const watchdog = setTimeout(() => {
+  console.error('Prerender SEO: timed out, forcing exit so the build can continue.');
+  process.exit(0);
+}, 30000);
+watchdog.unref();
+
+prerenderSEO()
+  .then(() => process.exit(0))
+  .catch((err) => {
+    console.error('Prerender SEO: unexpected error, skipping.', err);
+    process.exit(0);
+  });
