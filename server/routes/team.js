@@ -11,17 +11,27 @@ const router = express.Router();
 // All team routes require authentication
 router.use(authMiddleware);
 
-// EMPLOYEE/BDE accounts must be created via POST /api/employees, which also
-// creates the linked Employee HR profile (attendance, payroll, ESS access).
-// Creating them here would leave a login with no profile, breaking every
-// Employee Portal page.
-const PORTAL_ONLY_ROLE_NAMES = ['EMPLOYEE', 'BDE'];
-const assignsPortalOnlyRole = async (roleIds) => {
+// Employee-type accounts (any role flagged isEmployeeRole — EMPLOYEE, BDE,
+// or a custom role created that way in Role Management) must be created via
+// POST /api/employees, which also creates the linked Employee HR profile
+// (attendance, payroll, ESS access). Creating them here would leave a login
+// with no profile, breaking every Employee Portal page. Driven off the flag
+// (not a hardcoded name list) so it stays correct as new employee roles are
+// added — see Role.isEmployeeRole and utils/employeeRoles.js.
+const assignsEmployeeRole = async (roleIds) => {
   if (!roleIds || roleIds.length === 0) return false;
-  const portalRoles = await Role.find({ name: { $in: PORTAL_ONLY_ROLE_NAMES } }).select('_id');
-  const portalRoleIds = new Set(portalRoles.map(r => r._id.toString()));
-  return roleIds.some(id => portalRoleIds.has(id.toString()));
+  const employeeRoles = await Role.find({ isEmployeeRole: true }).select('_id');
+  const employeeRoleIds = new Set(employeeRoles.map(r => r._id.toString()));
+  return roleIds.some(id => employeeRoleIds.has(id.toString()));
 };
+
+// Accounts created from the Employee Manager (HRMS) carry an employeeId and
+// have a linked Employee HR document — Team Management must not touch them
+// (changing their roles or deleting the login here would desync them from
+// that Employee record, or delete the login while leaving the Employee
+// document orphaned). Those accounts are managed exclusively from
+// /admin/employees, whose DELETE route removes both records together.
+const isEmployeeManagedAccount = (admin) => Boolean(admin.employeeId);
 
 // @route   GET /api/team
 // @desc    Get all admins
@@ -61,8 +71,8 @@ router.post('/', requirePermission('team.manage'), async (req, res) => {
       }
     }
 
-    if (await assignsPortalOnlyRole(assignedRoles)) {
-      return res.status(400).json({ success: false, message: 'Employee/BDE accounts must be created from the Employee Manager, not Team Management.' });
+    if (await assignsEmployeeRole(assignedRoles)) {
+      return res.status(400).json({ success: false, message: 'Employee accounts must be created from the Employee Manager, not Team Management.' });
     }
 
     // Super Admin assignment check
@@ -116,16 +126,18 @@ router.put('/:id', requirePermission('team.manage'), async (req, res) => {
       return res.status(404).json({ success: false, message: 'Admin not found' });
     }
 
+    if (isEmployeeManagedAccount(admin)) {
+      return res.status(400).json({ success: false, message: 'This is an HRMS employee account — manage its role from Employee Manager (admin/employees), not Team Management.' });
+    }
+
     const beforeSnapshot = admin.toObject();
 
     if (roles !== undefined) {
-      // Block granting a new EMPLOYEE/BDE role here (see assignsPortalOnlyRole
-      // above) — only allow it through if the admin already held one, e.g.
-      // Team Management is just updating their other admin roles.
-      const currentlyHasPortalRole = await assignsPortalOnlyRole(admin.roles);
-      const wantsPortalRole = await assignsPortalOnlyRole(roles);
-      if (wantsPortalRole && !currentlyHasPortalRole) {
-        return res.status(400).json({ success: false, message: 'Employee/BDE accounts must be created from the Employee Manager, not Team Management.' });
+      // Block granting an employee-type role here — a pure admin account
+      // must never pick one up (see assignsEmployeeRole above).
+      const wantsEmployeeRole = await assignsEmployeeRole(roles);
+      if (wantsEmployeeRole) {
+        return res.status(400).json({ success: false, message: 'Employee accounts must be created from the Employee Manager, not Team Management.' });
       }
 
       // Super Admin assignment check
@@ -187,6 +199,10 @@ router.delete('/:id', requirePermission('team.manage'), async (req, res) => {
     const admin = await Admin.findById(adminId);
     if (!admin) {
       return res.status(404).json({ success: false, message: 'Admin not found' });
+    }
+
+    if (isEmployeeManagedAccount(admin)) {
+      return res.status(400).json({ success: false, message: 'This is an HRMS employee account — delete it from Employee Manager (admin/employees) so the linked HR record is removed too.' });
     }
 
     const superAdminRole = await Role.findOne({ name: 'SUPER_ADMIN' });

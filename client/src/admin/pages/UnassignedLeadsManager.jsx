@@ -2,10 +2,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import { motion } from 'framer-motion';
-import { Search, ChevronDown, ChevronLeft, ChevronRight, Eye, Download, LayoutGrid, Table, FileText } from 'lucide-react';
+import { Search, ChevronDown, ChevronLeft, ChevronRight, Eye, Download, FileText, RotateCcw } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { usePermissions } from '../hooks/usePermissions';
-import LeadsPipelineView from '../components/LeadsPipelineView';
 import { downloadLeadsCsv } from '../utils/leadExport';
 
 // firstName/lastName aren't guaranteed on every Admin account (the original
@@ -56,7 +55,6 @@ export default function UnassignedLeadsManager() {
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedLeads, setSelectedLeads] = useState([]);
-  const [viewMode, setViewMode] = useState(() => localStorage.getItem('leadsViewMode') || 'table');
   const [bds, setBds] = useState([]);
 
   // Pagination & Filters state
@@ -99,11 +97,6 @@ export default function UnassignedLeadsManager() {
     setCurrentPage(1);
   };
 
-  const handleViewModeChange = (mode) => {
-    setViewMode(mode);
-    setCurrentPage(1);
-    setSearchTerm(''); // Clear search on mode switch for a clean view
-  };
 
   const toggleSelectAll = () => {
     if (selectedLeads.length === leads.length) {
@@ -119,27 +112,29 @@ export default function UnassignedLeadsManager() {
     );
   };
 
-  const handleBulkAssign = async () => {
-    if (!bulkAssignTo) {
-      toast.error('Please select a BD');
+  const handleBulkAssign = async (targetOverride) => {
+    const target = targetOverride !== undefined ? targetOverride : bulkAssignTo;
+    if (!target) {
+      toast.error('Please choose a BD or select Round-Robin');
       return;
     }
     
+    const toastId = toast.loading(target === 'round-robin' ? 'Distributing via Round-Robin...' : 'Assigning selected leads...');
     try {
       const response = await api.post('/leads/bulk-assign', {
         leadIds: selectedLeads,
-        assignedTo: bulkAssignTo,
-        reason: 'Bulk Assigned from Unassigned View'
+        assignedTo: target,
+        reason: target === 'round-robin' ? 'Bulk Auto-Assigned (Round-Robin)' : 'Bulk Assigned from Unassigned View'
       });
       if (response.data.success) {
-        toast.success(response.data.message);
+        toast.success(response.data.message, { id: toastId });
         setSelectedLeads([]);
         setBulkAssignTo('');
         fetchLeads();
       }
     } catch (error) {
       console.error('Bulk assign error:', error);
-      toast.error(error.response?.data?.message || 'Failed to assign leads');
+      toast.error(error.response?.data?.message || 'Failed to assign leads', { id: toastId });
     }
   };
 
@@ -295,9 +290,9 @@ export default function UnassignedLeadsManager() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-app-text font-heading">Lead Manager</h1>
+          <h1 className="text-2xl font-bold text-app-text font-heading">Unassigned Leads</h1>
           <p className="text-sm text-app-text-muted mt-1">
-            {leadTypeFilter === 'All' ? 'Total' : leadTypeFilter} leads:{' '}
+            {leadTypeFilter === 'All' ? 'Total' : leadTypeFilter} leads awaiting BD assignment:{' '}
             <span className="font-semibold text-app-text">{totalLeads}</span>
           </p>
         </div>
@@ -332,32 +327,56 @@ export default function UnassignedLeadsManager() {
 
       {/* Bulk Action Bar */}
       {selectedLeads.length > 0 && (
-        <div className="bg-primary/10 border border-primary/30 p-3 rounded-xl flex items-center justify-between shadow-lg sticky top-0 z-30 mb-4 animate-in fade-in slide-in-from-top-4">
-          <div className="font-semibold text-primary">
-            {selectedLeads.length} lead(s) selected
-          </div>
-          <div className="flex items-center gap-3">
-            <select
-              value={bulkAssignTo}
-              onChange={(e) => setBulkAssignTo(e.target.value)}
-              className="bg-app-bg border border-app-border rounded-lg px-3 py-1.5 text-sm text-app-text focus:outline-none focus:border-primary"
-            >
-              <option value="">-Select BD to Assign-</option>
-              {bds.map(bd => (
-                <option key={bd._id} value={bd._id}>{bd.firstName} {bd.lastName}</option>
-              ))}
-            </select>
+        <div className="bg-primary/10 border border-primary/30 p-3 rounded-xl flex flex-wrap items-center justify-between gap-3 shadow-lg sticky top-0 z-30 mb-4 animate-in fade-in slide-in-from-top-4">
+          <div className="flex items-center gap-2">
+            <span className="font-bold text-primary text-sm">
+              {selectedLeads.length} lead(s) selected
+            </span>
             <button
-              onClick={handleBulkAssign}
-              className="px-4 py-1.5 bg-primary text-black font-bold rounded-lg text-sm hover:bg-primary/90 transition-colors"
+              onClick={() => setSelectedLeads([])}
+              className="text-xs text-app-text-muted hover:text-white underline ml-2"
             >
-              Assign Selected
+              Clear
             </button>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Quick Round-Robin Button */}
+            <button
+              onClick={() => handleBulkAssign('round-robin')}
+              className="px-3.5 py-1.5 bg-amber-500/10 text-amber-300 border border-amber-500/30 font-bold rounded-lg text-xs hover:bg-amber-500/20 transition-all flex items-center gap-1.5 shadow-sm"
+              title="Automatically distribute selected leads across active BD pools according to assignment rules"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Assign via Round-Robin</span>
+            </button>
+
+            <span className="text-app-text-muted text-xs font-semibold">or</span>
+
+            {/* Manual BD Picker */}
+            <div className="flex items-center gap-1.5">
+              <select
+                value={bulkAssignTo}
+                onChange={(e) => setBulkAssignTo(e.target.value)}
+                className="bg-app-bg border border-app-border rounded-lg px-3 py-1.5 text-xs text-app-text focus:outline-none focus:border-primary"
+              >
+                <option value="">-Select specific BD-</option>
+                {bds.map(bd => (
+                  <option key={bd._id} value={bd._id}>{bd.firstName} {bd.lastName}</option>
+                ))}
+              </select>
+              <button
+                onClick={() => handleBulkAssign()}
+                disabled={!bulkAssignTo}
+                className="px-3.5 py-1.5 bg-primary text-black font-bold rounded-lg text-xs hover:bg-primary/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Assign to BD
+              </button>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Leads Table Toolbar: type split + view toggle, one row */}
+      {/* Leads Table Toolbar: lead type selector */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex bg-app-card border border-app-border p-1 rounded-lg w-max">
           {['Sales', 'Hiring', 'All'].map((type) => (
@@ -374,25 +393,6 @@ export default function UnassignedLeadsManager() {
               {type === 'All' ? 'All Leads' : `${type} Leads`}
             </button>
           ))}
-        </div>
-
-        <div className="flex bg-app-card border border-app-border p-1 rounded-lg w-max">
-          <button
-            onClick={() => handleViewModeChange('table')}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-semibold transition-all ${
-              viewMode === 'table' ? 'bg-primary text-black' : 'text-app-text-muted hover:text-app-text'
-            }`}
-          >
-            <Table size={15} /> Table
-          </button>
-          <button
-            onClick={() => handleViewModeChange('pipeline')}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-semibold transition-all ${
-              viewMode === 'pipeline' ? 'bg-primary text-black' : 'text-app-text-muted hover:text-app-text'
-            }`}
-          >
-            <LayoutGrid size={15} /> Pipeline
-          </button>
         </div>
       </div>
 
@@ -465,10 +465,8 @@ export default function UnassignedLeadsManager() {
               <option className="bg-app-bg text-app-text" value="All">All Sources</option>
               <option className="bg-app-bg text-app-text" value="Google">Google</option>
               <option className="bg-app-bg text-app-text" value="Facebook">Facebook</option>
-              <option className="bg-app-bg text-app-text" value="LinkedIn">LinkedIn</option>
               <option className="bg-app-bg text-app-text" value="Instagram">Instagram</option>
-              <option className="bg-app-bg text-app-text" value="WhatsApp">WhatsApp</option>
-              <option className="bg-app-bg text-app-text" value="Twitter/X">Twitter/X</option>
+              <option className="bg-app-bg text-app-text" value="LinkedIn">LinkedIn</option>
               <option className="bg-app-bg text-app-text" value="YouTube">YouTube</option>
               <option className="bg-app-bg text-app-text" value="Referral">Referral</option>
               <option className="bg-app-bg text-app-text" value="Direct">Direct</option>

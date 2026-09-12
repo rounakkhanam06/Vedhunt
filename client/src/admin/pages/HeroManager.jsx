@@ -66,14 +66,14 @@ const HeroManager = ({ isNested = false }) => {
     <div className={isNested ? "space-y-6" : "mx-auto max-w-4xl space-y-6"}>
       {!isNested && (
         <div>
-          <h1 className="text-2xl font-bold text-white">Manage Hero Section</h1>
-          <p className="mt-1 text-sm text-gray-400">
+          <h1 className="text-2xl font-bold text-app-text">Manage Hero Section</h1>
+          <p className="mt-1 text-sm text-app-text-muted">
             Update the content and image for the main landing area of the website.
           </p>
         </div>
       )}
 
-      <div className="rounded-xl bg-[#222222] p-6 shadow-xl border border-white/10">
+      <div className="rounded-xl bg-app-card p-6 shadow-sm border border-app-border">
         <DynamicFormRenderer
           config={heroFormConfig}
           initialData={heroData || defaultInitial}

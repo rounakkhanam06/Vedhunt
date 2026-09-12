@@ -962,16 +962,6 @@ const ServicePagesManager = () => {
                       <label className="block text-xs font-medium text-on-surface mb-1">Country</label>
                       <input type="text" name="country" value={testimonialForm.country} onChange={handleTestimonialFormChange} className="w-full bg-surface-container border border-outline-variant rounded-lg px-3 py-2 text-sm text-on-surface" placeholder="e.g. India" />
                     </div>
-                    <div>
-                      <label className="block text-xs font-medium text-on-surface mb-1">Avatar Upload</label>
-                      <div className="flex gap-2">
-                        <input type="text" name="avatar" value={testimonialForm.avatar} onChange={handleTestimonialFormChange} className="w-full bg-surface-container border border-outline-variant rounded-lg px-3 py-2 text-sm text-on-surface" placeholder="Paste URL or upload ->" />
-                        <label className={`shrink-0 flex items-center justify-center px-4 py-2 bg-surface-variant text-on-surface rounded-lg text-sm font-medium cursor-pointer hover:bg-surface-variant/80 transition-colors ${uploadingTestimonialImage ? 'opacity-50 pointer-events-none' : ''}`}>
-                          {uploadingTestimonialImage ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Upload'}
-                          <input type="file" className="hidden" accept="image/*" onChange={handleTestimonialImageUpload} disabled={uploadingTestimonialImage} />
-                        </label>
-                      </div>
-                    </div>
                     <div className="md:col-span-2">
                       <label className="block text-xs font-medium text-on-surface mb-1">Feedback / Quote</label>
                       <textarea name="feedback" value={testimonialForm.feedback} onChange={handleTestimonialFormChange} rows={3} className="w-full bg-surface-container border border-outline-variant rounded-lg px-3 py-2 text-sm text-on-surface resize-y" placeholder="Client's review..." />
@@ -996,7 +986,9 @@ const ServicePagesManager = () => {
                         <X size={14} />
                       </button>
                     </div>
-                    <img src={t.avatar} alt="" className="w-12 h-12 rounded-full object-cover shrink-0 bg-surface-variant" />
+                    <div className="w-10 h-10 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center font-bold text-primary shrink-0">
+                      {t.author?.charAt(0)?.toUpperCase() || 'C'}
+                    </div>
                     <div>
                       <p className="text-xs font-bold text-on-surface">{t.author} <span className="font-normal text-on-surface-variant ml-1">({t.role})</span></p>
                       <p className="text-[10px] text-on-surface-variant mb-1">{t.country || 'No Country'}</p>

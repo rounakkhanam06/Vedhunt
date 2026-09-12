@@ -279,6 +279,7 @@ async function saveFacebookLead({ fbLead, formId, pageAccessToken, notify = true
       ? `${platform} Lead Ad (Campaign: ${campaignName})`
       : `${platform} Lead Ad (Ad: ${adId || 'n/a'})`,
     consent: true,
+    userSource: platform,
     utmSource,
     utmMedium: fbLead.is_organic ? 'organic' : 'cpc',
     utmCampaign: campaignName || campaignId,

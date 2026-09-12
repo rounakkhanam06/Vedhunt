@@ -179,8 +179,12 @@ export default function LeadWorkspace() {
   // update, not a sequence of partial ones.
   const handleFieldsChange = async (fields) => {
     try {
-      await api.put(`/leads/${id}`, fields);
-      setLead((prev) => ({ ...prev, ...fields }));
+      const res = await api.put(`/leads/${id}`, fields);
+      // Use the server's response, not a local merge of just what was sent —
+      // leadPriority/leadScore/touchNumber/leadAgeAtCall and pipelineHistory
+      // are all computed server-side (leadLifecycle.js) as part of this same
+      // update, and a local merge would leave them stale until next refetch.
+      setLead(res.data.data);
       toast.success('Saved', { duration: 1000, position: 'bottom-right' });
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to update lead');
@@ -215,8 +219,8 @@ export default function LeadWorkspace() {
   const startCall = async () => {
     try {
       const now = new Date();
-      await api.put(`/leads/${id}`, { callStartTime: now, callDate: now });
-      setLead((prev) => ({ ...prev, callStartTime: now, callDate: now }));
+      const res = await api.put(`/leads/${id}`, { callStartTime: now, callDate: now });
+      setLead(res.data.data);
       toast.success('Call started', { position: 'bottom-right' });
     } catch {
       toast.error('Failed to start call');
@@ -232,8 +236,8 @@ export default function LeadWorkspace() {
       const now = new Date();
       const diffMs = now.getTime() - new Date(lead.callStartTime).getTime();
       const durationMin = Math.max(1, Math.round(diffMs / 60000));
-      await api.put(`/leads/${id}`, { callEndTime: now, callDuration: durationMin });
-      setLead((prev) => ({ ...prev, callEndTime: now, callDuration: durationMin }));
+      const res = await api.put(`/leads/${id}`, { callEndTime: now, callDuration: durationMin });
+      setLead(res.data.data);
       toast.success(`Call ended (${durationMin} min)`, { position: 'bottom-right' });
     } catch {
       toast.error('Failed to end call');

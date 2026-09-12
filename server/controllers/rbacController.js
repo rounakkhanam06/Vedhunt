@@ -13,6 +13,7 @@ const PERMISSIONS = [
   'careers.manage',
   'legal.manage',
   'leads.view',
+  'leads.viewAll',
   'leads.assign',
   'followups.view',
   'settings.manage',
@@ -57,11 +58,19 @@ exports.createRole = async (req, res) => {
       }
     }
 
+    // A role holding the '*' wildcard must never be flagged isEmployeeRole —
+    // that flag is what lets the Employee Manager assign a role directly
+    // (see routes/employeeRoutes.js), and an HRMS-created account must never
+    // be able to end up with full admin access.
+    const finalPermissions = permissions || [];
+    const isEmployeeRole = Boolean(req.body.isEmployeeRole) && !finalPermissions.includes('*');
+
     const role = await Role.create({
       name: name.toUpperCase(),
       label: req.body.label || name,
       description,
-      permissions: permissions || []
+      permissions: finalPermissions,
+      isEmployeeRole
     });
 
     await AuditLog.create({
@@ -81,7 +90,7 @@ exports.createRole = async (req, res) => {
 
 exports.updateRole = async (req, res) => {
   try {
-    const { description, permissions } = req.body;
+    const { description, permissions, isEmployeeRole, label } = req.body;
     const roleId = req.params.id;
 
     const role = await Role.findById(roleId);
@@ -107,6 +116,15 @@ exports.updateRole = async (req, res) => {
 
     role.description = description !== undefined ? description : role.description;
     role.permissions = permissions !== undefined ? permissions : role.permissions;
+    role.label = label !== undefined ? label : role.label;
+    if (isEmployeeRole !== undefined) {
+      role.isEmployeeRole = Boolean(isEmployeeRole);
+    }
+    // Same wildcard guard as createRole — never let a '*' role be pickable
+    // from the Employee Manager.
+    if (role.permissions.includes('*')) {
+      role.isEmployeeRole = false;
+    }
 
     await role.save();
 

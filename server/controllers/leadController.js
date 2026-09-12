@@ -17,6 +17,15 @@ const { listTasks, createParallelTask, completeTask } = require('../services/fol
 const { derivePriority } = require('../utils/serviceQualification');
 const { getLeadScoringSettings, computeLeadScore } = require('../services/leadScoring');
 
+// A role can see every lead (not just ones assignedTo them) either by holding
+// the full '*' wildcard, or the narrower 'leads.viewAll' permission — added
+// so a Super Admin can grant "see all Raw + Working leads" without handing
+// out full admin access. Read-only: it does not bypass the ownership checks
+// on write actions (unlock, editing protected fields), which stay '*'-only.
+const canViewAllLeads = (user) => Boolean(
+  user?.permissions?.includes('*') || user?.permissions?.includes('leads.viewAll')
+);
+
 // @desc    Submit a new lead from a landing page
 // @route   POST /api/leads
 // @access  Public
@@ -187,7 +196,18 @@ exports.getLeads = async (req, res, next) => {
 
     // Filter by userSource (attribution source)
     if (req.query.userSource && req.query.userSource !== 'All') {
-      query.userSource = req.query.userSource;
+      const src = req.query.userSource;
+      const regex = new RegExp(src === 'Twitter/X' ? 'twitter|x\\.com' : src, 'i');
+      query.$and = query.$and || [];
+      query.$and.push({
+        $or: [
+          { userSource: src },
+          { userSource: regex },
+          { platform: regex },
+          { utmSource: regex },
+          { source: regex }
+        ]
+      });
     }
 
     // Filter by lead type (Sales vs Hiring). Leads created before this field
@@ -242,11 +262,10 @@ exports.getLeads = async (req, res, next) => {
       }
     }
 
-    // Visibility: BDs (anyone without the '*' wildcard) only ever see leads
-    // assigned to them, however they filter. Admins additionally get an
-    // "Assigned BD" filter (a specific BD, or 'Unassigned').
-    const isSuperAdmin = req.user?.permissions?.includes('*');
-    if (!isSuperAdmin) {
+    // Visibility: BDs (anyone without '*' or 'leads.viewAll') only ever see
+    // leads assigned to them, however they filter. Full-visibility roles
+    // additionally get an "Assigned BD" filter (a specific BD, or 'Unassigned').
+    if (!canViewAllLeads(req.user)) {
       query.assignedTo = req.user._id;
     } else if (req.query.assignedTo && req.query.assignedTo !== 'All') {
       query.assignedTo = req.query.assignedTo === 'Unassigned' ? null : req.query.assignedTo;
@@ -301,9 +320,8 @@ exports.getLeads = async (req, res, next) => {
 // @access  Private (Admin) — used by the notification deep link
 exports.getLeadById = async (req, res, next) => {
   try {
-    const isSuperAdmin = req.user?.permissions?.includes('*');
     const lead = await findLeadRaw(req.params.id);
-    if (!lead || (!isSuperAdmin && String(lead.assignedTo || '') !== String(req.user._id))) {
+    if (!lead || (!canViewAllLeads(req.user) && String(lead.assignedTo || '') !== String(req.user._id))) {
       return res.status(404).json({ success: false, message: 'Lead not found' });
     }
 
@@ -354,31 +372,60 @@ exports.assignLead = async (req, res, next) => {
 
 // @desc    Bulk assign leads to a BD
 // @route   POST /api/leads/bulk-assign
+// @desc    Bulk assign leads to a specific BD, unassign, or distribute via Round Robin
+// @route   POST /api/leads/bulk-assign
 // @access  Private (leads.assign)
 exports.bulkAssignLeads = async (req, res, next) => {
   try {
-    const { leadIds, assignedTo, reason } = req.body;
+    const { leadIds, assignedTo, mode = 'manual', reason } = req.body;
 
     if (!Array.isArray(leadIds) || leadIds.length === 0) {
       return res.status(400).json({ success: false, message: 'No leads provided' });
     }
 
-    if (assignedTo) {
+    const isRoundRobin = assignedTo === 'round-robin' || mode === 'round-robin';
+
+    if (isRoundRobin) {
+      let successCount = 0;
+      let skippedCount = 0;
+
+      for (const leadId of leadIds) {
+        const lead = await findLeadRaw(leadId);
+        if (!lead) {
+          skippedCount++;
+          continue;
+        }
+        const assigned = await autoAssignLead(lead);
+        if (assigned && assigned.assignedTo) {
+          successCount++;
+        } else {
+          skippedCount++;
+        }
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: `Round-Robin: Assigned ${successCount} leads across active BD rules.${skippedCount > 0 ? ` (${skippedCount} could not be matched or BDs at capacity)` : ''}`
+      });
+    }
+
+    if (assignedTo && assignedTo !== 'unassign') {
       const targetAdmin = await Admin.findById(assignedTo);
       if (!targetAdmin) {
         return res.status(400).json({ success: false, message: 'That BD account does not exist' });
       }
     }
 
+    const targetBdId = (assignedTo === 'unassign' || !assignedTo) ? null : assignedTo;
     let successCount = 0;
     let failCount = 0;
 
     for (const leadId of leadIds) {
       const lead = await manualAssign({
         leadId,
-        toAdmin: assignedTo || null,
+        toAdmin: targetBdId,
         assignedBy: req.user._id,
-        reason: reason || 'Bulk Assignment'
+        reason: reason || (targetBdId ? 'Bulk Assignment' : 'Bulk Unassigned')
       });
       if (lead) {
         successCount++;
@@ -389,7 +436,9 @@ exports.bulkAssignLeads = async (req, res, next) => {
 
     res.status(200).json({ 
       success: true, 
-      message: `Successfully assigned ${successCount} leads. ${failCount > 0 ? `Failed to assign ${failCount} leads.` : ''}` 
+      message: targetBdId
+        ? `Successfully assigned ${successCount} leads.${failCount > 0 ? ` (Failed: ${failCount})` : ''}`
+        : `Successfully unassigned ${successCount} leads.`
     });
   } catch (error) {
     logger.error('Error in bulk assigning leads:', error);
@@ -402,9 +451,8 @@ exports.bulkAssignLeads = async (req, res, next) => {
 // @access  Private (Admin)
 exports.getAssignmentHistory = async (req, res, next) => {
   try {
-    const isSuperAdmin = req.user?.permissions?.includes('*');
     const lead = await findLeadRaw(req.params.id);
-    if (!lead || (!isSuperAdmin && String(lead.assignedTo || '') !== String(req.user._id))) {
+    if (!lead || (!canViewAllLeads(req.user) && String(lead.assignedTo || '') !== String(req.user._id))) {
       return res.status(404).json({ success: false, message: 'Lead not found' });
     }
 

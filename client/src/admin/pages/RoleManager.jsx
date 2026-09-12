@@ -12,8 +12,12 @@ const permissionLabels = {
   'careers.manage': 'Careers CMS',
   'legal.manage': 'Legal & Compliance',
   'leads.view': 'Lead Manager (Ads)',
+  'leads.viewAll': 'All Leads (Raw + Working)',
+  'leads.assign': 'Lead Assignment',
+  'followups.view': 'Follow-Ups',
   'settings.manage': 'Settings Management',
   'payroll.manage': 'Payroll & Payslips',
+  'ess.access': 'Employee Portal Access (ESS)',
 };
 
 const RoleManager = () => {
@@ -26,7 +30,8 @@ const RoleManager = () => {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    permissions: []
+    permissions: [],
+    isEmployeeRole: false
   });
   const [error, setError] = useState('');
 
@@ -61,14 +66,16 @@ const RoleManager = () => {
       setFormData({
         name: role.name,
         description: role.description || '',
-        permissions: role.permissions || []
+        permissions: role.permissions || [],
+        isEmployeeRole: Boolean(role.isEmployeeRole)
       });
     } else {
       setEditingRole(null);
       setFormData({
         name: '',
         description: '',
-        permissions: []
+        permissions: [],
+        isEmployeeRole: false
       });
     }
     setError('');
@@ -78,11 +85,40 @@ const RoleManager = () => {
   const handleTogglePermission = (permission) => {
     setFormData(prev => {
       const isSelected = prev.permissions.includes(permission);
-      if (isSelected) {
-        return { ...prev, permissions: prev.permissions.filter(p => p !== permission) };
-      } else {
-        return { ...prev, permissions: [...prev.permissions, permission] };
-      }
+      const permissions = isSelected
+        ? prev.permissions.filter(p => p !== permission)
+        : [...prev.permissions, permission];
+      // A role granted '*' can never be an employee role — mirrors the
+      // server-side guard in rbacController.
+      const isEmployeeRole = permissions.includes('*') ? false : prev.isEmployeeRole;
+      return { ...prev, permissions, isEmployeeRole };
+    });
+  };
+
+  // Leads visibility is its own little on/off + scope control rather than
+  // two unlabeled checkboxes in the generic grid — "leads.view" alone used to
+  // silently mean "only their own assigned leads", which nobody configuring
+  // a role from this screen could tell just by looking at the checkbox.
+  const hasLeadsView = formData.permissions.includes('leads.view');
+  const hasLeadsViewAll = formData.permissions.includes('leads.viewAll');
+
+  const handleToggleLeadsAccess = () => {
+    setFormData(prev => {
+      const enabling = !prev.permissions.includes('leads.view');
+      // Turning it off also drops the scope permission — "see all leads"
+      // is meaningless without "can view leads" at all.
+      const permissions = enabling
+        ? [...prev.permissions, 'leads.view']
+        : prev.permissions.filter(p => p !== 'leads.view' && p !== 'leads.viewAll');
+      return { ...prev, permissions };
+    });
+  };
+
+  const handleSetLeadsScope = (scope) => {
+    setFormData(prev => {
+      const withoutScope = prev.permissions.filter(p => p !== 'leads.viewAll');
+      const permissions = scope === 'all' ? [...withoutScope, 'leads.viewAll'] : withoutScope;
+      return { ...prev, permissions };
     });
   };
 
@@ -165,6 +201,11 @@ const RoleManager = () => {
                             {role.name}
                             {role.isSystem && (
                               <span className="px-1.5 py-0.5 rounded text-[10px] bg-red-500/10 text-red-400 border border-red-500/20 uppercase">System</span>
+                            )}
+                            {role.isEmployeeRole ? (
+                              <span className="px-1.5 py-0.5 rounded text-[10px] bg-blue-500/10 text-blue-400 border border-blue-500/20 uppercase">Employee</span>
+                            ) : (
+                              <span className="px-1.5 py-0.5 rounded text-[10px] bg-surface-variant text-app-text-muted border border-app-border uppercase">Admin</span>
                             )}
                           </div>
                         </div>
@@ -264,10 +305,116 @@ const RoleManager = () => {
                 </div>
               </div>
 
+              <div
+                onClick={() => {
+                  if (formData.permissions.includes('*')) return;
+                  setFormData(prev => ({ ...prev, isEmployeeRole: !prev.isEmployeeRole }));
+                }}
+                className={`
+                  flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all duration-200
+                  ${formData.permissions.includes('*') ? 'opacity-50 cursor-not-allowed' : ''}
+                  ${formData.isEmployeeRole
+                    ? 'bg-primary/10 border-primary/30 text-app-text'
+                    : 'bg-app-bg border-app-border text-app-text-muted hover:border-app-text-muted'}
+                `}
+              >
+                <div className={`mt-0.5 rounded flex items-center justify-center shrink-0 w-4 h-4 border ${formData.isEmployeeRole ? 'bg-primary border-primary' : 'border-app-text-muted'}`}>
+                  {formData.isEmployeeRole && <CheckCircle2 size={12} className="text-white" />}
+                </div>
+                <div>
+                  <div className="text-sm font-medium">Employee role</div>
+                  <div className="text-xs text-app-text-muted mt-0.5">
+                    Assignable from HRMS → Employees (not Team Management). Holders log into the Employee Portal only, never the Admin panel.
+                    {formData.permissions.includes('*') && ' Disabled — a role with full (*) access can never be an employee role.'}
+                  </div>
+                </div>
+              </div>
+
               <div className="pt-2">
-                <label className={labelClasses}>Permissions ({formData.permissions.length} selected)</label>
+                <label className={labelClasses}>Leads Access</label>
+                <div className="bg-app-bg border border-app-border rounded-lg p-4 space-y-3">
+                  <div
+                    onClick={handleToggleLeadsAccess}
+                    className={`
+                      flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all duration-200
+                      ${hasLeadsView
+                        ? 'bg-primary/10 border-primary/30 text-app-text'
+                        : 'bg-app-card border-app-border text-app-text-muted hover:border-app-text-muted'}
+                    `}
+                  >
+                    <div className={`mt-0.5 rounded flex items-center justify-center shrink-0 w-4 h-4 border ${hasLeadsView ? 'bg-primary border-primary' : 'border-app-text-muted'}`}>
+                      {hasLeadsView && <CheckCircle2 size={12} className="text-white" />}
+                    </div>
+                    <div>
+                      <div className="text-sm font-medium">Can view leads</div>
+                      <div className="text-xs text-app-text-muted mt-0.5">Opens Lead Manager (Raw Leads / Working Leads) in the sidebar.</div>
+                    </div>
+                  </div>
+
+                  {hasLeadsView && (
+                    <div className="ml-4 pl-4 border-l-2 border-primary/20 space-y-2">
+                      <div className="text-xs font-mono uppercase tracking-wider text-app-text-muted">Which leads can they see?</div>
+                      <div
+                        onClick={() => handleSetLeadsScope('assigned')}
+                        className={`
+                          flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all duration-200
+                          ${!hasLeadsViewAll
+                            ? 'bg-primary/10 border-primary/30 text-app-text'
+                            : 'bg-app-card border-app-border text-app-text-muted hover:border-app-text-muted'}
+                        `}
+                      >
+                        <div className={`mt-0.5 rounded-full flex items-center justify-center shrink-0 w-4 h-4 border ${!hasLeadsViewAll ? 'border-primary' : 'border-app-text-muted'}`}>
+                          {!hasLeadsViewAll && <div className="w-2 h-2 rounded-full bg-primary" />}
+                        </div>
+                        <div>
+                          <div className="text-sm font-medium">Only leads assigned to them</div>
+                          <div className="text-xs text-app-text-muted mt-0.5">Same as a BDE today — they only see their own leads, whatever filters they apply.</div>
+                        </div>
+                      </div>
+                      <div
+                        onClick={() => handleSetLeadsScope('all')}
+                        className={`
+                          flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all duration-200
+                          ${hasLeadsViewAll
+                            ? 'bg-primary/10 border-primary/30 text-app-text'
+                            : 'bg-app-card border-app-border text-app-text-muted hover:border-app-text-muted'}
+                        `}
+                      >
+                        <div className={`mt-0.5 rounded-full flex items-center justify-center shrink-0 w-4 h-4 border ${hasLeadsViewAll ? 'border-primary' : 'border-app-text-muted'}`}>
+                          {hasLeadsViewAll && <div className="w-2 h-2 rounded-full bg-primary" />}
+                        </div>
+                        <div>
+                          <div className="text-sm font-medium">All leads (Raw + Working)</div>
+                          <div className="text-xs text-app-text-muted mt-0.5">Full visibility across every lead, plus the "Assigned BD" filter — without giving full (*) admin access.</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div
+                    onClick={() => handleTogglePermission('leads.assign')}
+                    className={`
+                      flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all duration-200
+                      ${formData.permissions.includes('leads.assign')
+                        ? 'bg-primary/10 border-primary/30 text-app-text'
+                        : 'bg-app-card border-app-border text-app-text-muted hover:border-app-text-muted'}
+                    `}
+                  >
+                    <div className={`mt-0.5 rounded flex items-center justify-center shrink-0 w-4 h-4 border ${formData.permissions.includes('leads.assign') ? 'bg-primary border-primary' : 'border-app-text-muted'}`}>
+                      {formData.permissions.includes('leads.assign') && <CheckCircle2 size={12} className="text-white" />}
+                    </div>
+                    <div>
+                      <div className="text-sm font-medium">Can assign leads to team members</div>
+                      <div className="text-xs text-app-text-muted mt-0.5">Assign/reassign leads to any BD, independent of which leads they can see themselves.</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <label className={labelClasses}>Other Permissions ({formData.permissions.filter(p => !['leads.view', 'leads.viewAll', 'leads.assign'].includes(p)).length} selected)</label>
                 <div className="bg-app-bg border border-app-border rounded-lg p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {availablePermissions.map(permission => {
+                  {availablePermissions.filter(p => !['leads.view', 'leads.viewAll', 'leads.assign'].includes(p)).map(permission => {
                     const isSelected = formData.permissions.includes(permission);
                     return (
                       <div

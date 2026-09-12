@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
-import { Plus, Trash2, Eye, Shield, Award, AlertCircle, CheckCircle, Search, IndianRupee } from 'lucide-react';
+import { Plus, Trash2, Eye, Shield, Award, AlertCircle, CheckCircle, Search, IndianRupee, Copy, Check, ExternalLink, Info } from 'lucide-react';
 
 // ─── Validation Rules ────────────────────────────────────────────────────────
 const NAME_REGEX = /^[a-zA-Z\s'-]{2,50}$/;
@@ -81,6 +81,7 @@ const EmployeeManager = () => {
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [selectedEmp, setSelectedEmp] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [copiedUrl, setCopiedUrl] = useState(false);
 
   const initialForm = {
     firstName: '', lastName: '', email: '', phone: '', roleId: '',
@@ -125,11 +126,16 @@ const EmployeeManager = () => {
     }
   }, [selectedEmp]);
 
+  // Only employee-type roles (isEmployeeRole) belong in this picker — an
+  // admin-side role like EDITOR or SUPER_ADMIN must never be assignable to
+  // an HRMS employee. /employees/roles already filters server-side; /rbac/roles
+  // (the RBAC-wide list, used as a fallback here since it needs a different
+  // permission) does not, so it's filtered client-side too.
   const fetchRoles = async () => {
     try {
       const res = await api.get('/rbac/roles');
       if (res.data?.success && res.data?.roles) {
-        setRoles(res.data.roles);
+        setRoles(res.data.roles.filter(r => r.isEmployeeRole));
         return;
       }
     } catch {
@@ -139,7 +145,7 @@ const EmployeeManager = () => {
     try {
       const res = await api.get('/employees/roles');
       if (res.data?.success && res.data?.roles) {
-        setRoles(res.data.roles);
+        setRoles(res.data.roles.filter(r => r.isEmployeeRole));
       }
     } catch {
       toast.error('Failed to load roles.');
@@ -411,6 +417,54 @@ const EmployeeManager = () => {
         </button>
       </div>
 
+      {/* Employee Portal Login Guidance Banner */}
+      <div className="p-4 rounded-xl border border-blue-500/20 bg-blue-500/5 dark:bg-blue-950/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="flex items-start gap-3">
+          <div className="w-9 h-9 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-500 flex items-center justify-center shrink-0 mt-0.5">
+            <Info size={18} />
+          </div>
+          <div>
+            <div className="text-sm font-semibold text-app-text flex items-center gap-2">
+              Employee Login Portal
+            </div>
+            <p className="text-xs text-app-text-muted mt-1 leading-relaxed">
+              Employees created on this page can log in to their Employee Portal using their registered email and password at:
+            </p>
+            <div className="mt-2 flex items-center gap-2">
+              <code className="px-3 py-1 rounded-md bg-app-bg border border-app-border text-xs font-mono font-bold text-primary select-all">
+                https://vedhunt.in/employee/login
+              </code>
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+          <button
+            type="button"
+            onClick={() => {
+              const url = 'https://vedhunt.in/employee/login';
+              navigator.clipboard.writeText(url);
+              setCopiedUrl(true);
+              setTimeout(() => setCopiedUrl(false), 2000);
+            }}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border border-app-border bg-app-card hover:border-primary/50 text-xs font-semibold text-app-text transition-all cursor-pointer shadow-sm"
+            title="Copy employee login portal URL"
+          >
+            {copiedUrl ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} className="text-app-text-muted" />}
+            <span>{copiedUrl ? 'Copied URL!' : 'Copy Portal URL'}</span>
+          </button>
+          <a
+            href="https://vedhunt.in/employee/login"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary text-xs font-semibold transition-all"
+            title="Open Employee Login Portal"
+          >
+            <span>Open</span>
+            <ExternalLink size={13} />
+          </a>
+        </div>
+      </div>
+
       {/* Filter / Search */}
       <div className="flex items-center gap-4 bg-app-card p-4 rounded-xl border border-app-border">
         <div className="relative flex-1 max-w-md">
@@ -673,6 +727,13 @@ const EmployeeManager = () => {
             {/* Scrollable Form Body */}
             <form onSubmit={handleAddEmployee} noValidate className="flex flex-col flex-1 min-h-0">
               <div className="overflow-y-auto flex-1 px-6 py-5 space-y-4">
+                {/* Employee Login Notice */}
+                <div className="p-3 rounded-lg border border-blue-500/20 bg-blue-500/5 dark:bg-blue-950/20 flex items-start gap-2.5 text-xs text-app-text-muted">
+                  <Info size={16} className="text-blue-500 shrink-0 mt-0.5" />
+                  <p>
+                    Employees added here will log in at <strong className="text-primary font-mono select-all">https://vedhunt.in/employee/login</strong> using their registered email.
+                  </p>
+                </div>
 
                 {/* Name Row */}
                 <div className="grid grid-cols-2 gap-4">

@@ -24,16 +24,16 @@ export default function LandingPageManager() {
     <div className="mx-auto max-w-6xl space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">Manage Landing Page</h1>
-          <p className="mt-1 text-sm text-gray-400">
+          <h1 className="text-2xl font-bold text-app-text">Manage Landing Page</h1>
+          <p className="mt-1 text-sm text-app-text-muted">
             Manage all the content sections displayed on the homepage.
           </p>
         </div>
       </div>
 
       {/* Tabs Navigation */}
-      <div className="border-b border-white/10">
-        <nav className="-mb-px flex space-x-8 overflow-x-auto" aria-label="Tabs">
+      <div className="border-b border-app-border">
+        <nav className="-mb-px flex space-x-8 overflow-x-auto custom-scrollbar" aria-label="Tabs">
           {tabs.map((tab) => (
             <button
               key={tab.id}
@@ -42,7 +42,7 @@ export default function LandingPageManager() {
                 whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium transition-colors
                 ${activeTab === tab.id
                   ? 'border-[#FF6B00] text-[#FF6B00]'
-                  : 'border-transparent text-gray-400 hover:border-gray-300 hover:text-gray-300'
+                  : 'border-transparent text-app-text-muted hover:border-gray-400 hover:text-app-text'
                 }
               `}
             >

@@ -505,10 +505,8 @@ export default function LeadsManager({ stageGroup }) {
               <option className="bg-app-bg text-app-text" value="All">All Sources</option>
               <option className="bg-app-bg text-app-text" value="Google">Google</option>
               <option className="bg-app-bg text-app-text" value="Facebook">Facebook</option>
-              <option className="bg-app-bg text-app-text" value="LinkedIn">LinkedIn</option>
               <option className="bg-app-bg text-app-text" value="Instagram">Instagram</option>
-              <option className="bg-app-bg text-app-text" value="WhatsApp">WhatsApp</option>
-              <option className="bg-app-bg text-app-text" value="Twitter/X">Twitter/X</option>
+              <option className="bg-app-bg text-app-text" value="LinkedIn">LinkedIn</option>
               <option className="bg-app-bg text-app-text" value="YouTube">YouTube</option>
               <option className="bg-app-bg text-app-text" value="Referral">Referral</option>
               <option className="bg-app-bg text-app-text" value="Direct">Direct</option>

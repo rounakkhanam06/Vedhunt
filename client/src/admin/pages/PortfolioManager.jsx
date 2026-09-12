@@ -176,18 +176,18 @@ export default function PortfolioManager() {
     <div className="mx-auto max-w-6xl space-y-8">
       {isModalOpen ? (
         // Full Page Form View
-        <div className="bg-[#1a1a1a] border border-white/10 rounded-xl p-8">
-          <div className="flex items-center justify-between mb-8 pb-4 border-b border-white/10">
+        <div className="bg-app-card border border-app-border rounded-xl p-8 shadow-sm">
+          <div className="flex items-center justify-between mb-8 pb-4 border-b border-app-border">
             <div>
-              <h2 className="text-2xl font-bold text-white">
+              <h2 className="text-2xl font-bold text-app-text">
                 {editingId ? 'Edit Showcase' : 'Add New Showcase'}
               </h2>
-              <p className="text-gray-400 text-sm mt-1">Provide the details for this showcase project.</p>
+              <p className="text-app-text-muted text-sm mt-1">Provide the details for this showcase project.</p>
             </div>
             <button
               type="button"
               onClick={() => setIsModalOpen(false)}
-              className="px-5 py-2 border border-white/10 rounded-lg text-gray-300 hover:text-white hover:bg-white/5 transition-colors"
+              className="px-5 py-2 border border-app-border rounded-lg text-app-text hover:bg-surface-variant transition-colors cursor-pointer"
             >
               Back to List
             </button>
@@ -196,37 +196,37 @@ export default function PortfolioManager() {
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="text-sm font-medium text-gray-300 block mb-2">Title *</label>
+                <label className="text-sm font-medium text-app-text-muted block mb-2">Title *</label>
                 <input
                   required
                   type="text"
                   value={formData.title}
                   onChange={e => setFormData({ ...formData, title: e.target.value })}
                   placeholder="e.g. Visionsfinity Shipping"
-                  className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-primary"
+                  className="w-full bg-form-input-bg border border-app-border rounded-lg px-4 py-2.5 text-app-text placeholder-app-text-muted focus:outline-none focus:border-primary transition-colors"
                 />
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-300 block mb-2">Client URL *</label>
+                <label className="text-sm font-medium text-app-text-muted block mb-2">Client URL *</label>
                 <input
                   required
                   type="url"
                   value={formData.clientUrl}
                   onChange={e => setFormData({ ...formData, clientUrl: e.target.value })}
                   placeholder="https://..."
-                  className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-primary"
+                  className="w-full bg-form-input-bg border border-app-border rounded-lg px-4 py-2.5 text-app-text placeholder-app-text-muted focus:outline-none focus:border-primary transition-colors"
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="text-sm font-medium text-gray-300 block mb-2">Category *</label>
+                <label className="text-sm font-medium text-app-text-muted block mb-2">Category *</label>
                 <select
                   required
                   value={formData.category}
                   onChange={e => setFormData({ ...formData, category: e.target.value })}
-                  className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-primary"
+                  className="w-full bg-form-input-bg border border-app-border rounded-lg px-4 py-2.5 text-app-text focus:outline-none focus:border-primary transition-colors"
                 >
                   <option value="development">Web & App Engineering</option>
                   <option value="automation">Automation & Business Finance</option>
@@ -234,11 +234,11 @@ export default function PortfolioManager() {
                 </select>
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-300 block mb-2">Show on Main Portfolio Page? *</label>
+                <label className="text-sm font-medium text-app-text-muted block mb-2">Show on Main Portfolio Page? *</label>
                 <select
                   value={formData.status}
                   onChange={e => setFormData({ ...formData, status: e.target.value })}
-                  className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-primary"
+                  className="w-full bg-form-input-bg border border-app-border rounded-lg px-4 py-2.5 text-app-text focus:outline-none focus:border-primary transition-colors"
                 >
                   <option value="active">Yes, show on main Portfolio page</option>
                   <option value="inactive">No, hide from main Portfolio page (Draft)</option>
@@ -247,73 +247,73 @@ export default function PortfolioManager() {
             </div>
 
             <div>
-              <label className="text-sm font-medium text-gray-300 block mb-2">Tagline *</label>
+              <label className="text-sm font-medium text-app-text-muted block mb-2">Tagline *</label>
               <input
                 required
                 type="text"
                 value={formData.tagline}
                 onChange={e => setFormData({ ...formData, tagline: e.target.value })}
                 placeholder="e.g. Global Freight & Logistic Visualizers"
-                className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-primary"
+                className="w-full bg-form-input-bg border border-app-border rounded-lg px-4 py-2.5 text-app-text placeholder-app-text-muted focus:outline-none focus:border-primary transition-colors"
               />
             </div>
 
             <div>
-              <label className="text-sm font-medium text-gray-300 block mb-2">Description *</label>
+              <label className="text-sm font-medium text-app-text-muted block mb-2">Description *</label>
               <textarea
                 required
                 rows={4}
                 value={formData.description}
                 onChange={e => setFormData({ ...formData, description: e.target.value })}
                 placeholder="A detailed description of the project..."
-                className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-primary resize-none"
+                className="w-full bg-form-input-bg border border-app-border rounded-lg px-4 py-2.5 text-app-text placeholder-app-text-muted focus:outline-none focus:border-primary resize-none transition-colors"
               />
             </div>
 
             <div>
-              <label className="text-sm font-medium text-gray-300 block mb-2">Tags (Comma separated) *</label>
+              <label className="text-sm font-medium text-app-text-muted block mb-2">Tags (Comma separated) *</label>
               <input
                 required
                 type="text"
                 value={formData.tags}
                 onChange={e => setFormData({ ...formData, tags: e.target.value })}
                 placeholder="React, Node.js, MongoDB"
-                className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-primary"
+                className="w-full bg-form-input-bg border border-app-border rounded-lg px-4 py-2.5 text-app-text placeholder-app-text-muted focus:outline-none focus:border-primary transition-colors"
               />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="text-sm font-medium text-gray-300 block mb-2">Stat Label *</label>
+                <label className="text-sm font-medium text-app-text-muted block mb-2">Stat Label *</label>
                 <input
                   required
                   type="text"
                   value={formData.statLabel}
                   onChange={e => setFormData({ ...formData, statLabel: e.target.value })}
                   placeholder="Lighthouse Score"
-                  className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-primary"
+                  className="w-full bg-form-input-bg border border-app-border rounded-lg px-4 py-2.5 text-app-text placeholder-app-text-muted focus:outline-none focus:border-primary transition-colors"
                 />
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-300 block mb-2">Stat Value *</label>
+                <label className="text-sm font-medium text-app-text-muted block mb-2">Stat Value *</label>
                 <input
                   required
                   type="text"
                   value={formData.statValue}
                   onChange={e => setFormData({ ...formData, statValue: e.target.value })}
                   placeholder="98/100"
-                  className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-primary"
+                  className="w-full bg-form-input-bg border border-app-border rounded-lg px-4 py-2.5 text-app-text placeholder-app-text-muted focus:outline-none focus:border-primary transition-colors"
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="text-sm font-medium text-gray-300 block mb-2">Icon Type</label>
+                <label className="text-sm font-medium text-app-text-muted block mb-2">Icon Type</label>
                 <select
                   value={formData.icon}
                   onChange={e => setFormData({ ...formData, icon: e.target.value })}
-                  className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-primary"
+                  className="w-full bg-form-input-bg border border-app-border rounded-lg px-4 py-2.5 text-app-text focus:outline-none focus:border-primary transition-colors"
                 >
                   <option value="Laptop">Laptop (Development)</option>
                   <option value="Database">Database (Automation)</option>
@@ -321,36 +321,36 @@ export default function PortfolioManager() {
                 </select>
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-300 block mb-2">Display Order</label>
+                <label className="text-sm font-medium text-app-text-muted block mb-2">Display Order</label>
                 <input
                   type="number"
                   value={formData.displayOrder}
                   onChange={e => setFormData({ ...formData, displayOrder: parseInt(e.target.value) || 0 })}
-                  className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-primary"
+                  className="w-full bg-form-input-bg border border-app-border rounded-lg px-4 py-2.5 text-app-text focus:outline-none focus:border-primary transition-colors"
                 />
               </div>
             </div>
 
-            <div className="flex items-center gap-3 bg-black/30 p-4 rounded-lg border border-white/5">
+            <div className="flex items-center gap-3 bg-app-bg p-4 rounded-lg border border-app-border">
               <input
                 type="checkbox"
                 id="featured"
                 checked={formData.featured}
                 onChange={e => setFormData({ ...formData, featured: e.target.checked })}
-                className="w-5 h-5 bg-black/50 border border-white/10 rounded text-primary focus:ring-primary cursor-pointer"
+                className="w-5 h-5 rounded border-app-border text-primary focus:ring-primary cursor-pointer"
               />
-              <label htmlFor="featured" className="text-sm font-medium text-gray-300 cursor-pointer select-none">
+              <label htmlFor="featured" className="text-sm font-medium text-app-text cursor-pointer select-none">
                 Show on Homepage as Featured Project? (Checked = Yes)
               </label>
             </div>
 
-            <div className="flex items-center gap-6 bg-black/30 p-6 rounded-lg border border-white/5">
-              <div className="relative w-32 h-20 bg-black/50 rounded-lg overflow-hidden border border-white/10 shrink-0">
+            <div className="flex items-center gap-6 bg-app-bg p-6 rounded-lg border border-app-border">
+              <div className="relative w-32 h-20 bg-app-card rounded-lg overflow-hidden border border-app-border shrink-0">
                 {formData.image ? (
                   <img src={formData.image} alt="Preview" className="w-full h-full object-cover" />
                 ) : (
                   <div className="flex items-center justify-center w-full h-full">
-                    <ImageIcon className="w-8 h-8 text-white/25" />
+                    <ImageIcon className="w-8 h-8 text-app-text-muted/40" />
                   </div>
                 )}
                 {isUploading && (
@@ -360,13 +360,13 @@ export default function PortfolioManager() {
                 )}
               </div>
               <div className="flex-1">
-                <label className="text-sm font-medium text-gray-300 block mb-2">Upload Showcase Image *</label>
+                <label className="text-sm font-medium text-app-text-muted block mb-2">Upload Showcase Image *</label>
                 <input
                   type="file"
                   accept="image/*"
                   onChange={handleImageUpload}
                   disabled={isUploading || isSaving}
-                  className="block w-full text-sm text-gray-400
+                  className="block w-full text-sm text-app-text-muted
                     file:mr-4 file:py-2 file:px-4
                     file:rounded-lg file:border-0
                     file:text-sm file:font-semibold
@@ -377,18 +377,18 @@ export default function PortfolioManager() {
               </div>
             </div>
 
-            <div className="flex justify-end gap-4 pt-6 border-t border-white/10">
+            <div className="flex justify-end gap-4 pt-6 border-t border-app-border">
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="px-6 py-2.5 text-gray-400 hover:text-white transition-colors"
+                className="px-6 py-2.5 text-app-text-muted hover:text-app-text transition-colors cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={isSaving || isUploading || !formData.image}
-                className="flex items-center gap-2 px-8 py-2.5 bg-primary text-black font-semibold rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
+                className="flex items-center gap-2 px-8 py-2.5 bg-[#FF6B00] hover:bg-[#EA580C] text-white font-semibold rounded-lg shadow-[0_4px_15px_rgba(255,107,0,0.2)] transition-colors disabled:opacity-50 cursor-pointer"
               >
                 {isSaving ? <Loader className="w-5 h-5 animate-spin" /> : 'Save Showcase'}
               </button>
@@ -398,52 +398,52 @@ export default function PortfolioManager() {
       ) : (
         // Grid View
         <>
-          <div className="flex items-center justify-between border-b border-white/10 pb-4">
+          <div className="flex items-center justify-between border-b border-app-border pb-4">
             <div>
-              <h1 className="text-2xl font-bold text-white">Portfolio Management</h1>
-              <p className="text-gray-400 text-sm mt-1">Manage showcases, case studies, past projects, and metrics.</p>
+              <h1 className="text-2xl font-bold text-app-text">Portfolio Management</h1>
+              <p className="text-app-text-muted text-sm mt-1">Manage showcases, case studies, past projects, and metrics.</p>
             </div>
           </div>
 
           {/* Tab Navigation */}
-          <div className="border-b border-white/10 my-6 overflow-x-auto custom-scrollbar">
+          <div className="border-b border-app-border my-6 overflow-x-auto custom-scrollbar">
             <nav className="-mb-px flex space-x-4 sm:space-x-8 min-w-max pb-1" aria-label="Tabs">
               <button
                 onClick={() => setActiveTab('showcases')}
-                className={`whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium transition-colors ${
+                className={`whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium transition-colors cursor-pointer ${
                   activeTab === 'showcases'
                     ? 'border-[#FF6B00] text-[#FF6B00]'
-                    : 'border-transparent text-gray-400 hover:border-gray-300 hover:text-gray-300'
+                    : 'border-transparent text-app-text-muted hover:border-gray-400 hover:text-app-text'
                 }`}
               >
                 Project Showcases
               </button>
               <button
                 onClick={() => setActiveTab('metrics')}
-                className={`whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium transition-colors ${
+                className={`whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium transition-colors cursor-pointer ${
                   activeTab === 'metrics'
                     ? 'border-[#FF6B00] text-[#FF6B00]'
-                    : 'border-transparent text-gray-400 hover:border-gray-300 hover:text-gray-300'
+                    : 'border-transparent text-app-text-muted hover:border-gray-400 hover:text-app-text'
                 }`}
               >
                 Portfolio Metrics
               </button>
               <button
                 onClick={() => setActiveTab('hero')}
-                className={`whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium transition-colors ${
+                className={`whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium transition-colors cursor-pointer ${
                   activeTab === 'hero'
                     ? 'border-[#FF6B00] text-[#FF6B00]'
-                    : 'border-transparent text-gray-400 hover:border-gray-300 hover:text-gray-300'
+                    : 'border-transparent text-app-text-muted hover:border-gray-400 hover:text-app-text'
                 }`}
               >
                 Hero Section
               </button>
               <button
                 onClick={() => setActiveTab('cta')}
-                className={`whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium transition-colors ${
+                className={`whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium transition-colors cursor-pointer ${
                   activeTab === 'cta'
                     ? 'border-[#FF6B00] text-[#FF6B00]'
-                    : 'border-transparent text-gray-400 hover:border-gray-300 hover:text-gray-300'
+                    : 'border-transparent text-app-text-muted hover:border-gray-400 hover:text-app-text'
                 }`}
               >
                 CTA Section
@@ -456,7 +456,7 @@ export default function PortfolioManager() {
               <div className="flex justify-end mb-6">
                 <button
                   onClick={openAddModal}
-                  className="flex items-center gap-2 px-4 py-2 bg-primary text-black font-medium rounded-lg hover:bg-primary/90 transition-colors"
+                  className="flex items-center gap-2 px-4 py-2 bg-[#FF6B00] hover:bg-[#EA580C] text-white font-semibold rounded-lg shadow-[0_4px_15px_rgba(255,107,0,0.2)] transition-colors cursor-pointer"
                 >
                   <Plus className="w-4 h-4" /> Add Showcase
                 </button>
@@ -464,36 +464,36 @@ export default function PortfolioManager() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {portfolios.map((item) => (
-                  <div key={item._id} className={`bg-[#1a1a1a] border ${item.status === 'inactive' ? 'border-red-500/50' : 'border-white/10'} rounded-xl p-6 relative flex flex-col`}>
+                  <div key={item._id} className={`bg-app-card border ${item.status === 'inactive' ? 'border-red-500/50' : 'border-app-border'} rounded-xl p-6 relative flex flex-col shadow-sm hover:shadow-md transition-shadow`}>
                     {item.featured && (
-                      <span className="absolute -top-2 -right-2 bg-yellow-500 text-black text-[10px] font-bold px-2 py-1 rounded shadow">
+                      <span className="absolute -top-2 -right-2 bg-amber-500 text-white text-[10px] font-bold px-2 py-1 rounded shadow">
                         FEATURED
                       </span>
                     )}
                     <div className="flex gap-4 items-start mb-4">
                       {item.image ? (
-                        <img src={item.image} alt={item.title} className="w-16 h-12 rounded object-cover border border-white/10" />
+                        <img src={item.image} alt={item.title} className="w-16 h-12 rounded object-cover border border-app-border bg-app-bg" />
                       ) : (
-                        <div className="w-16 h-12 bg-white/5 rounded flex items-center justify-center">
-                          <ImageIcon className="w-6 h-6 text-white/20" />
+                        <div className="w-16 h-12 bg-app-bg rounded flex items-center justify-center border border-app-border">
+                          <ImageIcon className="w-6 h-6 text-app-text-muted/40" />
                         </div>
                       )}
                       <div className="flex-1 min-w-0">
-                        <h3 className="text-lg font-bold text-white truncate pr-2">{item.title}</h3>
-                        <span className="text-[10px] bg-primary/20 text-primary px-2 py-0.5 rounded-full uppercase tracking-wider">
+                        <h3 className="text-lg font-bold text-app-text truncate pr-2">{item.title}</h3>
+                        <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full uppercase tracking-wider font-semibold border border-primary/20">
                           {item.category}
                         </span>
                       </div>
                     </div>
                     
-                    <p className="text-xs text-gray-400 italic mb-2 line-clamp-1">{item.tagline}</p>
-                    <p className="text-xs text-gray-500 mb-4 line-clamp-2 flex-1">{item.description}</p>
+                    <p className="text-xs text-app-text-muted italic mb-2 line-clamp-1">{item.tagline}</p>
+                    <p className="text-xs text-app-text-muted/80 mb-4 line-clamp-2 flex-1">{item.description}</p>
 
-                    <div className="flex items-center justify-between pt-4 border-t border-white/10 mt-auto">
+                    <div className="flex items-center justify-between pt-4 border-t border-app-border mt-auto">
                       <div className="flex gap-2">
                         <button 
                           onClick={() => openEditModal(item)}
-                          className="p-2 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 rounded transition-colors"
+                          className="p-2 bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-500/20 rounded-lg transition-colors cursor-pointer"
                           title="Edit"
                         >
                           <Edit2 size={16} />
@@ -501,7 +501,7 @@ export default function PortfolioManager() {
                       </div>
                       <button 
                         onClick={() => deletePortfolio(item._id)}
-                        className="p-2 bg-red-500/10 text-red-500 hover:bg-red-500/20 rounded transition-colors"
+                        className="p-2 bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500/20 rounded-lg transition-colors cursor-pointer"
                         title="Delete"
                       >
                         <Trash2 size={16} />
@@ -523,13 +523,13 @@ export default function PortfolioManager() {
       {/* Delete Confirmation Modal */}
       {deleteModal.isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-[#1a1a1a] border border-white/10 rounded-xl p-6 w-full max-w-md shadow-2xl relative">
+          <div className="bg-app-card border border-app-border rounded-xl p-6 w-full max-w-md shadow-2xl relative">
             <div className="flex flex-col items-center text-center">
               <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center mb-4">
                 <AlertTriangle className="w-6 h-6 text-red-500" />
               </div>
-              <h3 className="text-xl font-bold text-white mb-2">Delete Showcase</h3>
-              <p className="text-gray-400 mb-6 text-sm">
+              <h3 className="text-xl font-bold text-app-text mb-2">Delete Showcase</h3>
+              <p className="text-app-text-muted mb-6 text-sm">
                 Are you sure you want to delete this showcase? This action cannot be undone.
               </p>
               <div className="flex gap-3 w-full">
@@ -537,7 +537,7 @@ export default function PortfolioManager() {
                   type="button"
                   onClick={() => setDeleteModal({ isOpen: false, itemId: null })}
                   disabled={isDeleting}
-                  className="flex-1 px-4 py-2.5 border border-white/10 rounded-lg text-gray-300 hover:text-white hover:bg-white/5 transition-colors disabled:opacity-50"
+                  className="flex-1 px-4 py-2.5 border border-app-border rounded-lg text-app-text hover:bg-surface-variant transition-colors disabled:opacity-50 cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -545,7 +545,7 @@ export default function PortfolioManager() {
                   type="button"
                   onClick={confirmDelete}
                   disabled={isDeleting}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-red-500 text-white font-semibold rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50"
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-red-500 text-white font-semibold rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50 cursor-pointer"
                 >
                   {isDeleting ? <Loader className="w-4 h-4 animate-spin" /> : 'Delete'}
                 </button>

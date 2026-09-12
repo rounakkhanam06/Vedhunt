@@ -63,19 +63,19 @@ const NavbarManager = ({ isNested = false }) => {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         {!isNested ? (
           <div>
-            <h1 className="text-2xl font-bold text-white">Manage Navbar</h1>
-            <p className="mt-1 text-sm text-gray-400">
+            <h1 className="text-2xl font-bold text-app-text">Manage Navbar</h1>
+            <p className="mt-1 text-sm text-app-text-muted">
               Rename or remove items from the top navigation bar.
             </p>
           </div>
         ) : <div />}
         
         <div className="relative w-full sm:w-64">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-app-text-muted w-4 h-4" />
           <input 
             type="text" 
             placeholder="Search links..." 
-            className="w-full pl-9 pr-4 py-2 bg-[#1A1A1A] border border-white/10 rounded-lg text-gray-100 placeholder-gray-500 focus:ring-[#FF6B00] focus:border-[#FF6B00] sm:text-sm"
+            className="w-full pl-9 pr-4 py-2 bg-form-input-bg border border-app-border rounded-lg text-app-text placeholder-app-text-muted focus:ring-[#FF6B00] focus:border-[#FF6B00] sm:text-sm outline-none transition-colors"
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);
@@ -85,23 +85,23 @@ const NavbarManager = ({ isNested = false }) => {
         </div>
       </div>
 
-      <div className="bg-[#222222] shadow-xl border border-white/10 rounded-xl overflow-hidden">
+      <div className="bg-app-card shadow-sm border border-app-border rounded-xl overflow-hidden">
         {isLoading && links.length === 0 ? (
           <div className="flex justify-center p-8">
             <Loader2 className="w-6 h-6 animate-spin text-[#FF6B00]" />
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-white/10">
-              <thead className="bg-[#1A1A1A]">
+            <table className="min-w-full divide-y divide-app-border">
+              <thead className="bg-surface-variant">
                 <tr>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-app-text-muted uppercase tracking-wider">
                     Label
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-app-text-muted uppercase tracking-wider">
                     Path
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-app-text-muted uppercase tracking-wider">
                     Order
                   </th>
                   <th scope="col" className="relative px-6 py-3">
@@ -109,33 +109,33 @@ const NavbarManager = ({ isNested = false }) => {
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-[#222222] divide-y divide-white/10">
+              <tbody className="bg-app-card divide-y divide-app-border">
                 {links.length > 0 ? links.map((link) => (
-                  <tr key={link._id} className="hover:bg-white/5">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-200">
+                  <tr key={link._id} className="hover:bg-surface-variant transition-colors">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-app-text">
                       {editingId === link._id ? (
                         <input
                           type="text"
                           value={editLabel}
                           onChange={(e) => setEditLabel(e.target.value)}
-                          className="border border-white/10 bg-[#1A1A1A] rounded px-2 py-1 text-white focus:ring-[#FF6B00] focus:border-[#FF6B00]"
+                          className="border border-app-border bg-form-input-bg rounded-lg px-2.5 py-1 text-app-text focus:ring-[#FF6B00] focus:border-[#FF6B00] outline-none"
                           autoFocus
                         />
                       ) : (
                         link.label
                       )}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-app-text-muted">
                       {link.path}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-app-text-muted">
                       {link.order}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-3">
                       {editingId === link._id ? (
                         <>
-                          <button onClick={() => handleSaveEdit(link._id)} className="text-green-600 hover:text-green-900">Save</button>
-                          <button onClick={() => setEditingId(null)} className="text-gray-600 hover:text-gray-900">Cancel</button>
+                          <button onClick={() => handleSaveEdit(link._id)} className="text-emerald-600 hover:text-emerald-700 font-semibold">Save</button>
+                          <button onClick={() => setEditingId(null)} className="text-app-text-muted hover:text-app-text">Cancel</button>
                         </>
                       ) : (
                         <>
@@ -151,7 +151,7 @@ const NavbarManager = ({ isNested = false }) => {
                   </tr>
                 )) : (
                   <tr>
-                    <td colSpan="4" className="px-6 py-4 text-center text-sm text-gray-500">
+                    <td colSpan="4" className="px-6 py-4 text-center text-sm text-app-text-muted">
                       No navbar links found.
                     </td>
                   </tr>
@@ -163,22 +163,22 @@ const NavbarManager = ({ isNested = false }) => {
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="bg-[#1A1A1A] px-4 py-3 border-t border-white/10 flex items-center justify-between sm:px-6">
+          <div className="bg-app-card px-4 py-3 border-t border-app-border flex items-center justify-between sm:px-6">
             <div className="flex-1 flex justify-between">
               <button
                 onClick={() => setPage(p => Math.max(1, p - 1))}
                 disabled={page === 1}
-                className="relative inline-flex items-center px-4 py-2 border border-white/10 text-sm font-medium rounded-md text-gray-300 bg-[#222222] hover:bg-[#2d2d33] disabled:opacity-50"
+                className="relative inline-flex items-center px-4 py-2 border border-app-border text-sm font-medium rounded-lg text-app-text bg-surface-variant hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50 transition-colors"
               >
                 Previous
               </button>
-              <span className="text-sm text-gray-400 self-center">
+              <span className="text-sm text-app-text-muted self-center">
                 Page {page} of {totalPages}
               </span>
               <button
                 onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                 disabled={page === totalPages}
-                className="relative inline-flex items-center px-4 py-2 border border-white/10 text-sm font-medium rounded-md text-gray-300 bg-[#222222] hover:bg-[#2d2d33] disabled:opacity-50"
+                className="relative inline-flex items-center px-4 py-2 border border-app-border text-sm font-medium rounded-lg text-app-text bg-surface-variant hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50 transition-colors"
               >
                 Next
               </button>

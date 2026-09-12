@@ -90,14 +90,6 @@ const TestimonialCarousel = ({ items }) => {
             <Quote className="w-16 h-16 text-primary opacity-20" />
           </div>
 
-          <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden border border-app-border flex-shrink-0 bg-app-bg shadow-sm relative">
-            <img 
-              src={t.avatar} 
-              alt={t.author} 
-              className="w-full h-full object-cover"
-            />
-          </div>
-
           <div className="space-y-4 text-center md:text-left flex-grow relative z-10">
             <div className="flex justify-center md:justify-start gap-1">
               {[1,2,3,4,5].map((star) => (
@@ -1146,26 +1138,6 @@ export default function ServiceDetails() {
                         <Quote className="w-16 h-16 text-primary" />
                       </motion.div>
 
-                      {/* Profile Image */}
-                      <motion.div 
-                        variants={{
-                          hidden: { opacity: 0, scale: 0.5, rotate: -15 },
-                          visible: { 
-                            opacity: 1, 
-                            scale: 1, 
-                            rotate: 0,
-                            transition: { type: "spring", stiffness: 100, damping: 15 } 
-                          }
-                        }}
-                        className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden border border-app-border flex-shrink-0 bg-app-bg shadow-sm relative group-hover:border-primary/40 transition-colors duration-300"
-                      >
-                        <img 
-                          src={validTestimonials[0].avatar} 
-                          alt={validTestimonials[0].author} 
-                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-primary/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                      </motion.div>
 
                       {/* Testimonial feedback */}
                       <div className="space-y-4 text-center md:text-left flex-grow relative z-10">

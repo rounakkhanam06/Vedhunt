@@ -118,7 +118,7 @@ export default function WhyChooseUsManager({ isNested = false }) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <Loader className="w-8 h-8 text-primary animate-spin" />
+        <Loader className="w-8 h-8 text-[#FF6B00] animate-spin" />
       </div>
     );
   }
@@ -130,51 +130,51 @@ export default function WhyChooseUsManager({ isNested = false }) {
         {!isNested && (
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-white">Why Choose Us Section</h1>
-              <p className="text-gray-400 text-sm mt-1">Manage the header text and the feature cards.</p>
+              <h1 className="text-2xl font-bold text-app-text">Why Choose Us Section</h1>
+              <p className="text-app-text-muted text-sm mt-1">Manage the header text and the feature cards.</p>
             </div>
           </div>
         )}
 
-        <div className="bg-[#1a1a1a] border border-white/10 rounded-xl p-6">
-          <h2 className="text-lg font-semibold text-white mb-4 border-b border-white/10 pb-2">Header Settings</h2>
+        <div className="bg-app-card border border-app-border rounded-xl p-6 shadow-sm">
+          <h2 className="text-lg font-semibold text-app-text mb-4 border-b border-app-border pb-2">Header Settings</h2>
           <form onSubmit={handleHeaderSubmit} className="space-y-6 max-w-3xl">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-300">Tagline</label>
+                <label className="text-sm font-medium text-app-text">Tagline</label>
                 <input
                   type="text"
                   value={headerForm.tagline}
                   onChange={e => setHeaderForm({ ...headerForm, tagline: e.target.value })}
-                  className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-primary"
+                  className="w-full bg-form-input-bg border border-app-border rounded-lg px-4 py-2.5 text-app-text placeholder-app-text-muted focus:outline-none focus:border-[#FF6B00] transition-colors"
                   placeholder="e.g. Why Vedhunt"
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-300">Highlight Text (Orange)</label>
+                <label className="text-sm font-medium text-app-text">Highlight Text (Orange)</label>
                 <input
                   type="text"
                   value={headerForm.highlightText}
                   onChange={e => setHeaderForm({ ...headerForm, highlightText: e.target.value })}
-                  className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-primary"
+                  className="w-full bg-form-input-bg border border-app-border rounded-lg px-4 py-2.5 text-app-text placeholder-app-text-muted focus:outline-none focus:border-[#FF6B00] transition-colors"
                   placeholder="e.g. Precision"
                 />
               </div>
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-300">Main Heading</label>
+              <label className="text-sm font-medium text-app-text">Main Heading</label>
               <input
                 type="text"
                 value={headerForm.heading}
                 onChange={e => setHeaderForm({ ...headerForm, heading: e.target.value })}
-                className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-primary"
+                className="w-full bg-form-input-bg border border-app-border rounded-lg px-4 py-2.5 text-app-text placeholder-app-text-muted focus:outline-none focus:border-[#FF6B00] transition-colors"
                 placeholder="e.g. Engineering Success with"
               />
             </div>
             <button
               type="submit"
               disabled={isSavingHeader}
-              className="flex items-center gap-2 px-4 py-2 bg-primary text-black font-semibold rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
+              className="flex items-center gap-2 px-5 py-2.5 bg-[#FF6B00] text-white font-semibold rounded-lg hover:bg-[#e66000] transition-colors disabled:opacity-50 shadow-sm"
             >
               {isSavingHeader ? <Loader className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
               Save Header
@@ -185,11 +185,11 @@ export default function WhyChooseUsManager({ isNested = false }) {
 
       {/* Cards Management Section */}
       <div className="space-y-4">
-        <div className="flex items-center justify-between border-b border-white/10 pb-4">
-          <h2 className="text-xl font-bold text-white">Feature Cards</h2>
+        <div className="flex items-center justify-between border-b border-app-border pb-4">
+          <h2 className="text-xl font-bold text-app-text">Feature Cards</h2>
           <button
             onClick={openAddModal}
-            className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 text-white font-medium rounded-lg transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-[#FF6B00] hover:bg-[#e66000] text-white font-semibold rounded-lg transition-colors shadow-sm"
           >
             <Plus className="w-4 h-4" /> Add Card
           </button>
@@ -199,26 +199,31 @@ export default function WhyChooseUsManager({ isNested = false }) {
           {data.cards.map((card) => {
             const Icon = LucideIcons[card.icon] || LucideIcons.HelpCircle;
             return (
-              <div key={card._id} className={`bg-[#1a1a1a] border border-white/10 rounded-xl p-6 relative ${!card.isActive ? 'opacity-50' : ''}`}>
+              <div key={card._id} className={`bg-app-card border border-app-border rounded-xl p-6 relative shadow-sm ${!card.isActive ? 'opacity-50' : ''}`}>
                 <div className="flex justify-between items-start mb-4">
-                  <div className="w-12 h-12 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+                  <div className="w-12 h-12 rounded-lg bg-[#FF6B00]/10 text-[#FF6B00] flex items-center justify-center">
                     <Icon size={24} />
                   </div>
                   <div className="flex gap-2">
-                    <button onClick={() => toggleCardStatus(card)} className="p-2 bg-white/5 hover:bg-white/10 rounded text-gray-300" title="Toggle Visibility">
+                    <button onClick={() => toggleCardStatus(card)} className="p-2 bg-surface-variant hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-app-text-muted transition-colors" title="Toggle Visibility">
                       {card.isActive ? <Eye size={16} /> : <EyeOff size={16} />}
                     </button>
-                    <button onClick={() => openEditModal(card)} className="p-2 bg-white/5 hover:bg-white/10 rounded text-blue-400">
+                    <button onClick={() => openEditModal(card)} className="p-2 bg-surface-variant hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-blue-500 transition-colors" title="Edit">
                       <Edit2 size={16} />
                     </button>
-                    <button onClick={() => handleDelete(card._id)} className="p-2 bg-white/5 hover:bg-red-500/20 rounded text-red-400">
+                    <button onClick={() => handleDelete(card._id)} className="p-2 bg-surface-variant hover:bg-red-500/20 rounded text-red-500 transition-colors" title="Delete">
                       <Trash2 size={16} />
                     </button>
                   </div>
                 </div>
-                <h3 className="text-lg font-bold text-white mb-2">{card.title}</h3>
-                <p className="text-sm text-gray-400 mb-4 line-clamp-3">{card.description}</p>
-                <div className="text-xs text-gray-500">Order: {card.order} | Status: {card.isActive ? 'Active' : 'Hidden'}</div>
+                <h3 className="text-lg font-bold text-app-text mb-2">{card.title}</h3>
+                <p className="text-sm text-app-text-muted mb-4 line-clamp-3">{card.description}</p>
+                <div className="text-xs text-app-text-muted flex items-center justify-between pt-2 border-t border-app-border">
+                  <span>Order: {card.order}</span>
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${card.isActive ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700'}`}>
+                    {card.isActive ? 'Active' : 'Hidden'}
+                  </span>
+                </div>
               </div>
             );
           })}
@@ -227,53 +232,53 @@ export default function WhyChooseUsManager({ isNested = false }) {
 
       {/* Add/Edit Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-          <div className="bg-[#1a1a1a] border border-white/10 rounded-xl p-6 w-full max-w-lg relative">
-            <h2 className="text-xl font-bold text-white mb-6">{editingCard ? 'Edit Card' : 'Add New Card'}</h2>
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-app-card border border-app-border rounded-xl p-6 w-full max-w-lg relative shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+            <h2 className="text-xl font-bold text-app-text mb-6">{editingCard ? 'Edit Card' : 'Add New Card'}</h2>
             
             <form onSubmit={handleCardSubmit} className="space-y-4">
               <div>
-                <label className="text-sm font-medium text-gray-300 block mb-1">Title</label>
+                <label className="text-sm font-medium text-app-text block mb-1">Title</label>
                 <input
                   required
                   type="text"
                   value={cardForm.title}
                   onChange={e => setCardForm({ ...cardForm, title: e.target.value })}
-                  className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-primary"
+                  className="w-full bg-form-input-bg border border-app-border rounded-lg px-4 py-2.5 text-app-text placeholder-app-text-muted focus:outline-none focus:border-[#FF6B00] transition-colors"
                 />
               </div>
 
               <div>
-                <label className="text-sm font-medium text-gray-300 block mb-1">Description</label>
+                <label className="text-sm font-medium text-app-text block mb-1">Description</label>
                 <textarea
                   required
                   rows={3}
                   value={cardForm.description}
                   onChange={e => setCardForm({ ...cardForm, description: e.target.value })}
-                  className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-primary resize-none"
+                  className="w-full bg-form-input-bg border border-app-border rounded-lg px-4 py-2.5 text-app-text placeholder-app-text-muted focus:outline-none focus:border-[#FF6B00] transition-colors resize-none"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium text-gray-300 block mb-1">Lucide Icon Name</label>
+                  <label className="text-sm font-medium text-app-text block mb-1">Lucide Icon Name</label>
                   <input
                     required
                     type="text"
                     value={cardForm.icon}
                     onChange={e => setCardForm({ ...cardForm, icon: e.target.value })}
                     placeholder="e.g. Target, Zap, Eye"
-                    className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-primary"
+                    className="w-full bg-form-input-bg border border-app-border rounded-lg px-4 py-2.5 text-app-text placeholder-app-text-muted focus:outline-none focus:border-[#FF6B00] transition-colors"
                   />
-                  <p className="text-[10px] text-gray-500 mt-1">Must be an exact exported name from lucide-react</p>
+                  <p className="text-[10px] text-app-text-muted mt-1">Must be an exact exported name from lucide-react</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-300 block mb-1">Display Order</label>
+                  <label className="text-sm font-medium text-app-text block mb-1">Display Order</label>
                   <input
                     type="number"
                     value={cardForm.order}
                     onChange={e => setCardForm({ ...cardForm, order: Number(e.target.value) })}
-                    className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-primary"
+                    className="w-full bg-form-input-bg border border-app-border rounded-lg px-4 py-2.5 text-app-text placeholder-app-text-muted focus:outline-none focus:border-[#FF6B00] transition-colors"
                   />
                 </div>
               </div>
@@ -284,23 +289,23 @@ export default function WhyChooseUsManager({ isNested = false }) {
                   id="isActive"
                   checked={cardForm.isActive}
                   onChange={e => setCardForm({ ...cardForm, isActive: e.target.checked })}
-                  className="w-4 h-4 rounded border-white/10 bg-black/50"
+                  className="w-4 h-4 rounded border-app-border bg-form-input-bg text-[#FF6B00] focus:ring-[#FF6B00]"
                 />
-                <label htmlFor="isActive" className="text-sm text-gray-300">Active (Visible)</label>
+                <label htmlFor="isActive" className="text-sm text-app-text">Active (Visible)</label>
               </div>
 
-              <div className="flex justify-end gap-4 mt-8 pt-4 border-t border-white/10">
+              <div className="flex justify-end gap-3 mt-8 pt-4 border-t border-app-border">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
+                  className="px-4 py-2 border border-app-border rounded-lg text-sm font-medium text-app-text-muted hover:bg-surface-variant transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSavingCard}
-                  className="flex items-center gap-2 px-6 py-2 bg-primary text-black font-semibold rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
+                  className="flex items-center gap-2 px-6 py-2.5 bg-[#FF6B00] text-white font-semibold rounded-lg hover:bg-[#e66000] transition-colors disabled:opacity-50 shadow-sm"
                 >
                   {isSavingCard ? <Loader className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                   Save Card

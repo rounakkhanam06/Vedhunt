@@ -162,19 +162,19 @@ export default function PortfolioMetricsManager({ isNested = false }) {
     <div className={isNested ? "space-y-6" : "max-w-4xl mx-auto space-y-6"}>
       {!isNested && (
         <div>
-          <h1 className="text-2xl font-bold text-white">Manage Portfolio Metrics</h1>
-          <p className="mt-1 text-sm text-gray-400">
+          <h1 className="text-2xl font-bold text-app-text">Manage Portfolio Metrics</h1>
+          <p className="mt-1 text-sm text-app-text-muted">
             Customize the animated counters displayed on the portfolio page.
           </p>
         </div>
       )}
 
-      <div className="bg-[#222222] border border-white/10 rounded-xl overflow-hidden shadow-xl">
-        <div className="p-6 border-b border-white/10 flex justify-between items-center bg-[#1A1A1A]">
-          <h2 className="text-lg font-semibold text-white">Portfolio Metrics Cards</h2>
+      <div className="bg-app-card border border-app-border rounded-xl overflow-hidden shadow-sm">
+        <div className="p-6 border-b border-app-border flex justify-between items-center bg-app-bg">
+          <h2 className="text-lg font-semibold text-app-text">Portfolio Metrics Cards</h2>
           <button
             onClick={() => handleOpenModal()}
-            className="flex items-center gap-2 px-4 py-2 bg-[#FF6B00] text-white text-sm font-semibold rounded-lg hover:bg-[#e66000] transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-[#FF6B00] text-white text-sm font-semibold rounded-lg hover:bg-[#e66000] transition-colors cursor-pointer shadow-[0_4px_15px_rgba(255,107,0,0.2)]"
           >
             <Plus className="w-4 h-4" />
             Add Metric
@@ -182,59 +182,59 @@ export default function PortfolioMetricsManager({ isNested = false }) {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-white/10">
-            <thead className="bg-[#1A1A1A]">
+          <table className="min-w-full divide-y divide-app-border">
+            <thead className="bg-app-bg">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase w-20">Order</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Label</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Value</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Description</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Icon</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Status</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase w-24">Actions</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-app-text-muted uppercase w-20">Order</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-app-text-muted uppercase">Label</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-app-text-muted uppercase">Value</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-app-text-muted uppercase">Description</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-app-text-muted uppercase">Icon</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-app-text-muted uppercase">Status</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-app-text-muted uppercase w-24">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/10">
+            <tbody className="bg-app-card divide-y divide-app-border">
               {metrics.map((metric, index) => (
-                <tr key={metric._id} className="hover:bg-white/5 transition-colors">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
+                <tr key={metric._id} className="hover:bg-surface-variant transition-colors">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-app-text">
                     <div className="flex flex-col gap-1 items-center w-min">
                       <button 
                         onClick={() => handleMove(index, -1)}
                         disabled={index === 0}
-                        className="text-gray-500 hover:text-white disabled:opacity-30"
+                        className="text-app-text-muted hover:text-app-text disabled:opacity-30 cursor-pointer"
                       >
                         <ArrowUp className="w-4 h-4" />
                       </button>
-                      <span className="text-xs">{metric.order}</span>
+                      <span className="text-xs font-mono">{metric.order}</span>
                       <button 
                         onClick={() => handleMove(index, 1)}
                         disabled={index === metrics.length - 1}
-                        className="text-gray-500 hover:text-white disabled:opacity-30"
+                        className="text-app-text-muted hover:text-app-text disabled:opacity-30 cursor-pointer"
                       >
                         <ArrowDown className="w-4 h-4" />
                       </button>
                     </div>
                   </td>
-                  <td className="px-6 py-4 text-sm text-white font-medium">{metric.label}</td>
-                  <td className="px-6 py-4 text-sm text-gray-300 whitespace-nowrap">{metric.numericValue}{metric.suffix}</td>
-                  <td className="px-6 py-4 text-sm text-gray-400 max-w-xs truncate">{metric.desc}</td>
-                  <td className="px-6 py-4 text-sm text-gray-400">{metric.icon}</td>
+                  <td className="px-6 py-4 text-sm text-app-text font-semibold">{metric.label}</td>
+                  <td className="px-6 py-4 text-sm text-app-text whitespace-nowrap font-medium">{metric.numericValue}{metric.suffix}</td>
+                  <td className="px-6 py-4 text-sm text-app-text-muted max-w-xs truncate">{metric.desc}</td>
+                  <td className="px-6 py-4 text-sm text-app-text-muted font-mono">{metric.icon}</td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <button 
                       onClick={() => toggleVisibility(metric)}
-                      className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full transition-colors ${
-                        metric.isActive ? 'bg-green-100/10 text-green-400 hover:bg-green-100/20' : 'bg-gray-100/10 text-gray-400 hover:bg-gray-100/20'
+                      className={`px-2.5 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full transition-colors cursor-pointer border ${
+                        metric.isActive ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700'
                       }`}
                     >
                       {metric.isActive ? 'Active' : 'Hidden'}
                     </button>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-3">
-                    <button onClick={() => handleOpenModal(metric)} className="text-[#FF6B00] hover:text-[#e66000]">
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-1">
+                    <button onClick={() => handleOpenModal(metric)} className="text-[#FF6B00] hover:text-[#e66000] p-1.5 rounded-lg hover:bg-orange-500/10 transition-colors cursor-pointer" title="Edit">
                       <Pencil className="w-4 h-4" />
                     </button>
-                    <button onClick={() => confirmDelete(metric)} className="text-red-500 hover:text-red-400">
+                    <button onClick={() => confirmDelete(metric)} className="text-red-500 hover:text-red-600 p-1.5 rounded-lg hover:bg-red-500/10 transition-colors cursor-pointer" title="Delete">
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </td>
@@ -242,7 +242,7 @@ export default function PortfolioMetricsManager({ isNested = false }) {
               ))}
               {metrics.length === 0 && (
                 <tr>
-                  <td colSpan="7" className="px-6 py-8 text-center text-gray-500 text-sm">
+                  <td colSpan="7" className="px-6 py-8 text-center text-app-text-muted text-sm">
                     No metrics found. Click "Add Metric" to create one.
                   </td>
                 </tr>
@@ -255,12 +255,12 @@ export default function PortfolioMetricsManager({ isNested = false }) {
       {/* Form Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-[#222222] rounded-xl shadow-2xl border border-white/10 w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            <div className="p-6 border-b border-white/10 flex justify-between items-center">
-              <h3 className="text-xl font-bold text-white">
+          <div className="bg-app-card rounded-xl shadow-2xl border border-app-border w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="p-6 border-b border-app-border flex justify-between items-center">
+              <h3 className="text-xl font-bold text-app-text">
                 {editingMetric ? 'Edit Portfolio Metric' : 'Add New Portfolio Metric'}
               </h3>
-              <button onClick={handleCloseModal} className="text-gray-400 hover:text-white">
+              <button onClick={handleCloseModal} className="text-app-text-muted hover:text-app-text cursor-pointer">
                 <span className="text-2xl leading-none">&times;</span>
               </button>
             </div>
@@ -268,72 +268,72 @@ export default function PortfolioMetricsManager({ isNested = false }) {
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="col-span-2">
-                  <label className="block text-sm font-medium text-gray-300 mb-1">Label (e.g. Deployments Delivered)</label>
+                  <label className="block text-sm font-medium text-app-text-muted mb-1">Label (e.g. Deployments Delivered)</label>
                   <input
                     type="text"
                     name="label"
                     required
-                    className="w-full rounded-lg border border-white/10 bg-[#1A1A1A] px-4 py-2 text-white focus:border-[#FF6B00] outline-none"
+                    className="w-full rounded-lg border border-app-border bg-form-input-bg px-4 py-2 text-app-text focus:border-[#FF6B00] outline-none transition-colors placeholder-app-text-muted"
                     value={formData.label}
                     onChange={handleChange}
                   />
                 </div>
 
                 <div className="col-span-2">
-                  <label className="block text-sm font-medium text-gray-300 mb-1">Description (e.g. Secure web systems...)</label>
+                  <label className="block text-sm font-medium text-app-text-muted mb-1">Description (e.g. Secure web systems...)</label>
                   <textarea
                     name="desc"
                     required
                     rows={2}
-                    className="w-full rounded-lg border border-white/10 bg-[#1A1A1A] px-4 py-2 text-white focus:border-[#FF6B00] outline-none resize-none"
+                    className="w-full rounded-lg border border-app-border bg-form-input-bg px-4 py-2 text-app-text focus:border-[#FF6B00] outline-none resize-none transition-colors placeholder-app-text-muted"
                     value={formData.desc}
                     onChange={handleChange}
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">Value (Number)</label>
+                  <label className="block text-sm font-medium text-app-text-muted mb-1">Value (Number)</label>
                   <input
                     type="number"
                     name="numericValue"
                     required
-                    className="w-full rounded-lg border border-white/10 bg-[#1A1A1A] px-4 py-2 text-white focus:border-[#FF6B00] outline-none"
+                    className="w-full rounded-lg border border-app-border bg-form-input-bg px-4 py-2 text-app-text focus:border-[#FF6B00] outline-none transition-colors placeholder-app-text-muted"
                     value={formData.numericValue}
                     onChange={handleChange}
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">Suffix (e.g. +, %)</label>
+                  <label className="block text-sm font-medium text-app-text-muted mb-1">Suffix (e.g. +, %)</label>
                   <input
                     type="text"
                     name="suffix"
-                    className="w-full rounded-lg border border-white/10 bg-[#1A1A1A] px-4 py-2 text-white focus:border-[#FF6B00] outline-none"
+                    className="w-full rounded-lg border border-app-border bg-form-input-bg px-4 py-2 text-app-text focus:border-[#FF6B00] outline-none transition-colors placeholder-app-text-muted"
                     value={formData.suffix}
                     onChange={handleChange}
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">Icon Name (Lucide)</label>
+                  <label className="block text-sm font-medium text-app-text-muted mb-1">Icon Name (Lucide)</label>
                   <input
                     type="text"
                     name="icon"
                     required
                     placeholder="e.g. Zap, Award, Share2, Database"
-                    className="w-full rounded-lg border border-white/10 bg-[#1A1A1A] px-4 py-2 text-white focus:border-[#FF6B00] outline-none"
+                    className="w-full rounded-lg border border-app-border bg-form-input-bg px-4 py-2 text-app-text focus:border-[#FF6B00] outline-none transition-colors placeholder-app-text-muted"
                     value={formData.icon}
                     onChange={handleChange}
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">Order</label>
+                  <label className="block text-sm font-medium text-app-text-muted mb-1">Order</label>
                   <input
                     type="number"
                     name="order"
                     required
-                    className="w-full rounded-lg border border-white/10 bg-[#1A1A1A] px-4 py-2 text-white focus:border-[#FF6B00] outline-none"
+                    className="w-full rounded-lg border border-app-border bg-form-input-bg px-4 py-2 text-app-text focus:border-[#FF6B00] outline-none transition-colors placeholder-app-text-muted"
                     value={formData.order}
                     onChange={handleChange}
                   />
@@ -345,27 +345,27 @@ export default function PortfolioMetricsManager({ isNested = false }) {
                   type="checkbox"
                   name="isActive"
                   id="isActive"
-                  className="w-4 h-4 rounded bg-[#1A1A1A] border-white/10 text-[#FF6B00] focus:ring-[#FF6B00]"
+                  className="w-4 h-4 rounded bg-form-input-bg border-app-border text-[#FF6B00] focus:ring-[#FF6B00] cursor-pointer"
                   checked={formData.isActive}
                   onChange={handleChange}
                 />
-                <label htmlFor="isActive" className="text-sm font-medium text-gray-300 cursor-pointer">
+                <label htmlFor="isActive" className="text-sm font-medium text-app-text cursor-pointer select-none">
                   Active (Visible on Portfolio Page)
                 </label>
               </div>
 
-              <div className="pt-4 flex justify-end gap-3">
+              <div className="pt-4 flex justify-end gap-3 border-t border-app-border">
                 <button
                   type="button"
                   onClick={handleCloseModal}
-                  className="px-4 py-2 border border-white/10 rounded-lg text-sm font-medium text-gray-300 hover:bg-white/5"
+                  className="px-4 py-2 border border-app-border rounded-lg text-sm font-medium text-app-text hover:bg-surface-variant transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSaving}
-                  className="flex items-center gap-2 px-6 py-2 bg-[#FF6B00] text-white font-semibold rounded-lg hover:bg-[#e66000] disabled:opacity-70"
+                  className="flex items-center gap-2 px-6 py-2 bg-[#FF6B00] text-white font-semibold rounded-lg hover:bg-[#e66000] disabled:opacity-70 transition-colors cursor-pointer shadow-[0_4px_15px_rgba(255,107,0,0.2)]"
                 >
                   {isSaving ? <Loader className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                   Save Metric
@@ -379,26 +379,26 @@ export default function PortfolioMetricsManager({ isNested = false }) {
       {/* Delete Confirmation Modal */}
       {metricToDelete && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[60]">
-          <div className="bg-[#222222] rounded-xl shadow-2xl border border-white/10 w-full max-w-sm overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+          <div className="bg-app-card rounded-xl shadow-2xl border border-app-border w-full max-w-sm overflow-hidden animate-in fade-in zoom-in-95 duration-200">
             <div className="p-6">
               <div className="flex items-center justify-center w-12 h-12 rounded-full bg-red-500/10 mx-auto mb-4">
                 <Trash2 className="w-6 h-6 text-red-500" />
               </div>
-              <h3 className="text-xl font-bold text-white text-center mb-2">Delete Metric</h3>
-              <p className="text-gray-400 text-sm text-center mb-6">
-                Are you sure you want to delete <span className="text-white font-semibold">{metricToDelete.label}</span>? This action cannot be undone.
+              <h3 className="text-xl font-bold text-app-text text-center mb-2">Delete Metric</h3>
+              <p className="text-app-text-muted text-sm text-center mb-6">
+                Are you sure you want to delete <span className="text-app-text font-semibold">{metricToDelete.label}</span>? This action cannot be undone.
               </p>
               
               <div className="flex gap-3">
                 <button
                   onClick={() => setMetricToDelete(null)}
-                  className="flex-1 px-4 py-2 border border-white/10 rounded-lg text-sm font-medium text-gray-300 hover:bg-white/5"
+                  className="flex-1 px-4 py-2 border border-app-border rounded-lg text-sm font-medium text-app-text hover:bg-surface-variant transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleDelete}
-                  className="flex-1 px-4 py-2 bg-red-500 text-white text-sm font-semibold rounded-lg hover:bg-red-600"
+                  className="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg text-sm font-semibold hover:bg-red-600 transition-colors cursor-pointer"
                 >
                   Delete
                 </button>

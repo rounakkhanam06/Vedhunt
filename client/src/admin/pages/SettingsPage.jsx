@@ -602,16 +602,16 @@ const SettingsPage = () => {
     { id: 'backups', label: 'Backups', icon: Database },
   ];
 
-  const inputClasses = "w-full bg-[#121215] border border-[#2D2D33] rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] transition-all duration-300";
-  const labelClasses = "block text-[12px] font-medium text-gray-400 mb-1.5 font-mono uppercase tracking-wider";
+  const inputClasses = "w-full bg-form-input-bg border border-app-border rounded-lg px-4 py-2 text-app-text placeholder-app-text-muted focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all duration-300";
+  const labelClasses = "block text-[12px] font-medium text-app-text-muted mb-1.5 font-mono uppercase tracking-wider";
 
   return (
-    <div className="relative min-h-[calc(100vh-80px)] bg-[#1A1A1A] rounded-xl border border-[#2D2D33] overflow-hidden flex flex-col md:flex-row">
+    <div className="relative min-h-[calc(100vh-80px)] bg-app-card rounded-xl border border-app-border shadow-sm overflow-hidden flex flex-col md:flex-row">
       
       {/* Sidebar Tabs */}
-      <div className="w-full md:w-64 bg-[#16161A] border-r border-[#2D2D33] flex flex-col">
+      <div className="w-full md:w-64 bg-app-bg border-r border-app-border flex flex-col">
         <div className="p-6">
-          <h2 className="text-xl font-bold text-white mb-6">Settings</h2>
+          <h2 className="text-xl font-bold text-app-text mb-6">Settings</h2>
           <nav className="space-y-2">
             {tabs.map((tab) => {
               const Icon = tab.icon;
@@ -622,11 +622,11 @@ const SettingsPage = () => {
                   onClick={() => setActiveTab(tab.id)}
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 text-sm font-medium ${
                     isActive 
-                      ? 'bg-[#FF6B00]/10 text-[#FF6B00] shadow-[0_0_15px_rgba(255,107,0,0.1)]' 
-                      : 'text-gray-400 hover:text-white hover:bg-white/5'
+                      ? 'bg-primary/10 text-primary shadow-sm font-semibold' 
+                      : 'text-app-text-muted hover:text-app-text hover:bg-surface-variant'
                   }`}
                 >
-                  <Icon size={18} className={isActive ? 'text-[#FF6B00]' : 'text-gray-500'} />
+                  <Icon size={18} className={isActive ? 'text-primary' : 'text-app-text-muted'} />
                   {tab.label}
                 </button>
               );
@@ -641,17 +641,17 @@ const SettingsPage = () => {
         {/* Contact Tab */}
         {activeTab === 'contact' && (
           <div className="max-w-3xl animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <h3 className="text-2xl font-bold text-white mb-2">Contact & Global Info</h3>
-            <p className="text-gray-400 text-sm mb-8">Manage the contact details displayed across the website.</p>
+            <h3 className="text-2xl font-bold text-app-text mb-2">Contact & Global Info</h3>
+            <p className="text-app-text-muted text-sm mb-8">Manage the contact details displayed across the website.</p>
 
             {loading ? (
-              <div className="text-gray-400">Loading...</div>
+              <div className="text-app-text-muted">Loading...</div>
             ) : (
               <div className="space-y-8">
                 <div>
-                  <h4 className="text-sm font-semibold text-[#FF6B00] uppercase tracking-widest mb-4 flex items-center gap-4">
+                  <h4 className="text-sm font-semibold text-[#FF5A1F] uppercase tracking-widest mb-4 flex items-center gap-4">
                     <span>Basic Details</span>
-                    <div className="h-[1px] flex-1 bg-gradient-to-r from-[#FF6B00]/30 to-transparent"></div>
+                    <div className="h-[1px] flex-1 bg-gradient-to-r from-[#FF5A1F]/30 to-transparent"></div>
                   </h4>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
@@ -686,9 +686,9 @@ const SettingsPage = () => {
                 </div>
 
                 <div>
-                  <h4 className="text-sm font-semibold text-[#FF6B00] uppercase tracking-widest mb-4 flex items-center gap-4">
+                  <h4 className="text-sm font-semibold text-[#FF5A1F] uppercase tracking-widest mb-4 flex items-center gap-4">
                     <span>Legal & Copyright</span>
-                    <div className="h-[1px] flex-1 bg-gradient-to-r from-[#FF6B00]/30 to-transparent"></div>
+                    <div className="h-[1px] flex-1 bg-gradient-to-r from-[#FF5A1F]/30 to-transparent"></div>
                   </h4>
                   <div className="grid grid-cols-1 gap-4">
                     <div>
@@ -707,9 +707,9 @@ const SettingsPage = () => {
                 </div>
 
                 <div>
-                  <h4 className="text-sm font-semibold text-[#FF6B00] uppercase tracking-widest mb-4 flex items-center gap-4">
+                  <h4 className="text-sm font-semibold text-[#FF5A1F] uppercase tracking-widest mb-4 flex items-center gap-4">
                     <span>Social Media Links</span>
-                    <div className="h-[1px] flex-1 bg-gradient-to-r from-[#FF6B00]/30 to-transparent"></div>
+                    <div className="h-[1px] flex-1 bg-gradient-to-r from-[#FF5A1F]/30 to-transparent"></div>
                   </h4>
                   <div className="space-y-4">
                     {contactData.socialLinks.map((link, index) => (
@@ -729,7 +729,7 @@ const SettingsPage = () => {
                         </div>
                       </div>
                     ))}
-                    <button onClick={addSocialLink} className="px-4 py-2 mt-2 bg-[#121215] border border-[#2D2D33] text-white hover:text-[#FF6B00] hover:border-[#FF6B00] rounded-lg transition-all text-sm font-medium">
+                    <button onClick={addSocialLink} className="px-4 py-2 mt-2 bg-app-bg border border-app-border text-white hover:text-[#FF5A1F] hover:border-[#FF5A1F] rounded-lg transition-all text-sm font-medium">
                       + Add Social Link
                     </button>
                   </div>
@@ -743,25 +743,25 @@ const SettingsPage = () => {
         {/* Integrations Tab */}
         {activeTab === 'integrations' && (
           <div className="max-w-3xl animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <h3 className="text-2xl font-bold text-white mb-2">API Integrations</h3>
-            <p className="text-gray-400 text-sm mb-8">Connect external services to power your workflows.</p>
+            <h3 className="text-2xl font-bold text-app-text mb-2">API Integrations</h3>
+            <p className="text-app-text-muted text-sm mb-8">Connect external services to power your workflows.</p>
 
             <div className="space-y-8">
               <div>
-                <h4 className="text-sm font-semibold text-[#FF6B00] uppercase tracking-widest mb-4 flex items-center gap-4">
+                <h4 className="text-sm font-semibold text-[#FF5A1F] uppercase tracking-widest mb-4 flex items-center gap-4">
                   <span>Communication APIs</span>
-                  <div className="h-[1px] flex-1 bg-gradient-to-r from-[#FF6B00]/30 to-transparent"></div>
+                  <div className="h-[1px] flex-1 bg-gradient-to-r from-[#FF5A1F]/30 to-transparent"></div>
                 </h4>
                 <div className="space-y-6">
-                  <div className="bg-[#121215] border border-[#2D2D33] p-6 rounded-xl relative overflow-hidden group">
+                  <div className="bg-app-bg border border-app-border p-6 rounded-xl relative overflow-hidden group">
                     <div className="absolute top-0 left-0 w-1 h-full bg-[#25D366]"></div>
                     <div className="flex items-center gap-4 mb-4">
                       <div className="w-10 h-10 rounded-full bg-[#25D366]/10 flex items-center justify-center">
                         <Smartphone size={20} className="text-[#25D366]" />
                       </div>
                       <div>
-                        <h5 className="text-white font-semibold">WhatsApp Business API</h5>
-                        <p className="text-xs text-gray-400">For lead notifications and client updates.</p>
+                        <h5 className="text-app-text font-semibold">WhatsApp Business API</h5>
+                        <p className="text-xs text-app-text-muted">For lead notifications and client updates.</p>
                       </div>
                     </div>
                     <div>
@@ -770,27 +770,27 @@ const SettingsPage = () => {
                     </div>
                   </div>
 
-                  <div className="bg-[#121215] border border-[#2D2D33] p-6 rounded-xl relative overflow-hidden group">
+                  <div className="bg-app-bg border border-app-border p-6 rounded-xl relative overflow-hidden group">
                     <div className="absolute top-0 left-0 w-1 h-full bg-[#EA4335]"></div>
                     <div className="flex items-center gap-4 mb-4">
                       <div className="w-10 h-10 rounded-full bg-[#EA4335]/10 flex items-center justify-center">
                         <Mail size={20} className="text-[#EA4335]" />
                       </div>
                       <div>
-                        <h5 className="text-white font-semibold">Email Service Settings</h5>
-                        <p className="text-xs text-gray-400">Configure global sender and receiver email addresses.</p>
+                        <h5 className="text-app-text font-semibold">Email Service Settings</h5>
+                        <p className="text-xs text-app-text-muted">Configure global sender and receiver email addresses.</p>
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="col-span-2">
                         <label className={labelClasses}>Sender Email (EMAIL_FROM)</label>
                         <input type="text" name="emailFrom" value={emailSettings.emailFrom} onChange={handleEmailSettingsChange} placeholder="e.g. noreply@vedhunt.in" className={inputClasses} />
-                        <p className="text-xs text-gray-500 mt-1">This email will be used to send all outgoing emails.</p>
+                        <p className="text-xs text-app-text-muted mt-1">This email will be used to send all outgoing emails.</p>
                       </div>
                       <div className="col-span-2">
                         <label className={labelClasses}>Admin Notification Email (HR_EMAIL)</label>
                         <input type="text" name="hrEmail" value={emailSettings.hrEmail} onChange={handleEmailSettingsChange} placeholder="e.g. hr@vedhunt.in" className={inputClasses} />
-                        <p className="text-xs text-gray-500 mt-1">This email will receive all lead notifications and application submissions.</p>
+                        <p className="text-xs text-app-text-muted mt-1">This email will receive all lead notifications and application submissions.</p>
                       </div>
                     </div>
                   </div>
@@ -803,41 +803,41 @@ const SettingsPage = () => {
         {/* Campaigns Tab */}
         {activeTab === 'campaigns' && (
           <div className="max-w-3xl animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <h3 className="text-2xl font-bold text-white mb-2">Campaign Control</h3>
-            <p className="text-gray-400 text-sm mb-4">Manage global tracking pixels and conversion labels across all platforms.</p>
+            <h3 className="text-2xl font-bold text-app-text mb-2">Campaign Control</h3>
+            <p className="text-app-text-muted text-sm mb-4">Manage global tracking pixels and conversion labels across all platforms.</p>
             
             {campaignData.audit && campaignData.audit.updatedAt && (
-              <div className="bg-[#121215] border border-[#2D2D33] p-4 rounded-xl mb-8 flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-[#FF6B00]/10 flex items-center justify-center">
-                  <User size={16} className="text-[#FF6B00]" />
+              <div className="bg-app-bg border border-app-border p-4 rounded-xl mb-8 flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-[#FF5A1F]/10 flex items-center justify-center">
+                  <User size={16} className="text-[#FF5A1F]" />
                 </div>
                 <div>
-                  <p className="text-sm text-gray-300">Last updated by <span className="font-semibold text-white">{campaignData.audit.updatedBy}</span></p>
-                  <p className="text-xs text-gray-500">{new Date(campaignData.audit.updatedAt).toLocaleString()}</p>
+                  <p className="text-sm text-app-text">Last updated by <span className="font-semibold text-app-text">{campaignData.audit.updatedBy}</span></p>
+                  <p className="text-xs text-app-text-muted">{new Date(campaignData.audit.updatedAt).toLocaleString()}</p>
                 </div>
               </div>
             )}
 
             {loading ? (
-              <div className="text-gray-400">Loading...</div>
+              <div className="text-app-text-muted">Loading...</div>
             ) : (
               <div className="space-y-6">
                 
                 {/* Facebook Pixel */}
-                <div className="bg-[#121215] border border-[#2D2D33] p-6 rounded-xl">
+                <div className="bg-app-bg border border-app-border p-6 rounded-xl">
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-lg bg-[#1877F2]/10 flex items-center justify-center">
                         <Share2 size={20} className="text-[#1877F2]" />
                       </div>
                       <div>
-                        <h4 className="text-white font-semibold">Meta (Facebook) Pixel</h4>
-                        <p className="text-xs text-gray-400">Track standard PageView and Lead events.</p>
+                        <h4 className="text-app-text font-semibold">Meta (Facebook) Pixel</h4>
+                        <p className="text-xs text-app-text-muted">Track standard PageView and Lead events.</p>
                       </div>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input type="checkbox" className="sr-only peer" checked={campaignData.facebookPixel?.enabled} onChange={(e) => handleCampaignChange('facebookPixel', 'enabled', e.target.checked)} />
-                      <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#FF6B00]"></div>
+                      <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#FF5A1F]"></div>
                     </label>
                   </div>
                   <div className={`transition-all duration-300 ${campaignData.facebookPixel?.enabled ? 'opacity-100 h-auto' : 'opacity-50 pointer-events-none'}`}>
@@ -850,20 +850,20 @@ const SettingsPage = () => {
 
 
                 {/* Google Tag Manager */}
-                <div className="bg-[#121215] border border-[#2D2D33] p-6 rounded-xl">
+                <div className="bg-app-bg border border-app-border p-6 rounded-xl">
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-lg bg-[#4285F4]/10 flex items-center justify-center">
                         <Plug size={20} className="text-[#4285F4]" />
                       </div>
                       <div>
-                        <h4 className="text-white font-semibold">Google Tag Manager</h4>
-                        <p className="text-xs text-gray-400">Manage all tags centrally via GTM.</p>
+                        <h4 className="text-app-text font-semibold">Google Tag Manager</h4>
+                        <p className="text-xs text-app-text-muted">Manage all tags centrally via GTM.</p>
                       </div>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input type="checkbox" className="sr-only peer" checked={campaignData.googleTagManager?.enabled} onChange={(e) => handleCampaignChange('googleTagManager', 'enabled', e.target.checked)} />
-                      <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#FF6B00]"></div>
+                      <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#FF5A1F]"></div>
                     </label>
                   </div>
                   <div className={`transition-all duration-300 ${campaignData.googleTagManager?.enabled ? 'opacity-100 h-auto' : 'opacity-50 pointer-events-none'}`}>
@@ -874,20 +874,20 @@ const SettingsPage = () => {
                 </div>
 
                 {/* Google Ads */}
-                <div className="bg-[#121215] border border-[#2D2D33] p-6 rounded-xl">
+                <div className="bg-app-bg border border-app-border p-6 rounded-xl">
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-lg bg-[#34A853]/10 flex items-center justify-center">
                         <Database size={20} className="text-[#34A853]" />
                       </div>
                       <div>
-                        <h4 className="text-white font-semibold">Google Ads Tracking</h4>
-                        <p className="text-xs text-gray-400">Track specific lead conversions directly in Google Ads.</p>
+                        <h4 className="text-app-text font-semibold">Google Ads Tracking</h4>
+                        <p className="text-xs text-app-text-muted">Track specific lead conversions directly in Google Ads.</p>
                       </div>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input type="checkbox" className="sr-only peer" checked={campaignData.googleAds?.enabled} onChange={(e) => handleCampaignChange('googleAds', 'enabled', e.target.checked)} />
-                      <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#FF6B00]"></div>
+                      <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#FF5A1F]"></div>
                     </label>
                   </div>
                   <div className={`transition-all duration-300 ${campaignData.googleAds?.enabled ? 'opacity-100 h-auto' : 'opacity-50 pointer-events-none'} space-y-4`}>
@@ -904,20 +904,20 @@ const SettingsPage = () => {
                 </div>
 
                 {/* LinkedIn Insight */}
-                <div className="bg-[#121215] border border-[#2D2D33] p-6 rounded-xl">
+                <div className="bg-app-bg border border-app-border p-6 rounded-xl">
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-lg bg-[#0077B5]/10 flex items-center justify-center">
                         <Share2 size={20} className="text-[#0077B5]" />
                       </div>
                       <div>
-                        <h4 className="text-white font-semibold">LinkedIn Insight Tag</h4>
-                        <p className="text-xs text-gray-400">Track professional demographics and B2B conversions.</p>
+                        <h4 className="text-app-text font-semibold">LinkedIn Insight Tag</h4>
+                        <p className="text-xs text-app-text-muted">Track professional demographics and B2B conversions.</p>
                       </div>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input type="checkbox" className="sr-only peer" checked={campaignData.linkedInInsight?.enabled} onChange={(e) => handleCampaignChange('linkedInInsight', 'enabled', e.target.checked)} />
-                      <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#FF6B00]"></div>
+                      <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#FF5A1F]"></div>
                     </label>
                   </div>
                   <div className={`transition-all duration-300 ${campaignData.linkedInInsight?.enabled ? 'opacity-100 h-auto' : 'opacity-50 pointer-events-none'}`}>
@@ -935,21 +935,21 @@ const SettingsPage = () => {
         {/* Payment Settings Tab */}
         {activeTab === 'payment' && (
           <div className="max-w-3xl animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <h3 className="text-2xl font-bold text-white mb-2">Payment Settings</h3>
-            <p className="text-gray-400 text-sm mb-8">
+            <h3 className="text-2xl font-bold text-app-text mb-2">Payment Settings</h3>
+            <p className="text-app-text-muted text-sm mb-8">
               Configure UPI and bank details shown to clients on unpaid invoices in the Client Portal.
             </p>
 
             <div className="space-y-6">
               {/* UPI */}
-              <div className="bg-[#121215] border border-[#2D2D33] p-6 rounded-xl">
+              <div className="bg-app-bg border border-app-border p-6 rounded-xl">
                 <div className="flex items-center gap-3 mb-5">
-                  <div className="w-10 h-10 rounded-lg bg-[#FF6B00]/10 flex items-center justify-center">
-                    <QrCode size={20} className="text-[#FF6B00]" />
+                  <div className="w-10 h-10 rounded-lg bg-[#FF5A1F]/10 flex items-center justify-center">
+                    <QrCode size={20} className="text-[#FF5A1F]" />
                   </div>
                   <div>
-                    <h4 className="text-white font-semibold">UPI Payment</h4>
-                    <p className="text-xs text-gray-400">Shown as a scannable QR and copyable UPI ID on invoices.</p>
+                    <h4 className="text-app-text font-semibold">UPI Payment</h4>
+                    <p className="text-xs text-app-text-muted">Shown as a scannable QR and copyable UPI ID on invoices.</p>
                   </div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -973,7 +973,7 @@ const SettingsPage = () => {
                         placeholder="https://res.cloudinary.com/..."
                         className={`flex-1 ${inputClasses}`}
                       />
-                      <label className="flex items-center justify-center px-4 bg-[#2D2D33] hover:bg-[#3D3D43] text-white rounded-lg cursor-pointer transition-colors whitespace-nowrap">
+                      <label className="flex items-center justify-center px-4 bg-surface-variant hover:bg-surface-variant/80 text-white rounded-lg cursor-pointer transition-colors whitespace-nowrap">
                         {uploadingQr ? (
                           <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                         ) : (
@@ -998,23 +998,23 @@ const SettingsPage = () => {
                     <img
                       src={paymentSettings.upiQrCodeUrl}
                       alt="UPI QR Preview"
-                      className="w-24 h-24 object-contain rounded-xl border border-[#2D2D33] bg-white p-1"
+                      className="w-24 h-24 object-contain rounded-xl border border-app-border bg-white p-1"
                       onError={e => { e.target.style.display = 'none'; }}
                     />
-                    <p className="text-gray-500 text-xs">QR Preview</p>
+                    <p className="text-app-text-muted text-xs">QR Preview</p>
                   </div>
                 )}
               </div>
 
               {/* Bank Transfer */}
-              <div className="bg-[#121215] border border-[#2D2D33] p-6 rounded-xl">
+              <div className="bg-app-bg border border-app-border p-6 rounded-xl">
                 <div className="flex items-center gap-3 mb-5">
-                  <div className="w-10 h-10 rounded-lg bg-[#FF6B00]/10 flex items-center justify-center">
-                    <CreditCard size={20} className="text-[#FF6B00]" />
+                  <div className="w-10 h-10 rounded-lg bg-[#FF5A1F]/10 flex items-center justify-center">
+                    <CreditCard size={20} className="text-[#FF5A1F]" />
                   </div>
                   <div>
-                    <h4 className="text-white font-semibold">Bank Transfer Details</h4>
-                    <p className="text-xs text-gray-400">Displayed as an alternative payment method on invoices.</p>
+                    <h4 className="text-app-text font-semibold">Bank Transfer Details</h4>
+                    <p className="text-xs text-app-text-muted">Displayed as an alternative payment method on invoices.</p>
                   </div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1043,7 +1043,7 @@ const SettingsPage = () => {
               <button
                 onClick={handleSavePaymentSettings}
                 disabled={saving}
-                className="flex items-center gap-2 px-6 py-2.5 bg-[#FF6B00] text-white font-semibold rounded-lg hover:bg-[#e55c00] disabled:opacity-60 transition-colors cursor-pointer"
+                className="flex items-center gap-2 px-6 py-2.5 bg-[#FF5A1F] text-app-text font-semibold rounded-lg hover:bg-[#e55c00] disabled:opacity-60 transition-colors cursor-pointer"
               >
                 {saving
                   ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -1058,15 +1058,15 @@ const SettingsPage = () => {
         {/* Backups Tab */}
         {activeTab === 'backups' && (
           <div className="max-w-3xl animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <h3 className="text-2xl font-bold text-white mb-2">Data & Backups</h3>
-            <p className="text-gray-400 text-sm mb-8">Export your system data securely.</p>
+            <h3 className="text-2xl font-bold text-app-text mb-2">Data & Backups</h3>
+            <p className="text-app-text-muted text-sm mb-8">Export your system data securely.</p>
             
-            <div className="bg-[#121215] border border-[#2D2D33] p-8 rounded-xl text-center">
-              <div className="w-16 h-16 rounded-full bg-[#FF6B00]/10 flex items-center justify-center mx-auto mb-4">
-                <DownloadCloud size={28} className="text-[#FF6B00]" />
+            <div className="bg-app-bg border border-app-border p-8 rounded-xl text-center">
+              <div className="w-16 h-16 rounded-full bg-[#FF5A1F]/10 flex items-center justify-center mx-auto mb-4">
+                <DownloadCloud size={28} className="text-[#FF5A1F]" />
               </div>
-              <h5 className="text-white font-semibold text-lg mb-2">Export Full Database</h5>
-              <p className="text-sm text-gray-400 max-w-md mx-auto mb-6">Download a complete Excel (.xlsx) backup of all leads, projects, and financial records.</p>
+              <h5 className="text-app-text font-semibold text-lg mb-2">Export Full Database</h5>
+              <p className="text-sm text-app-text-muted max-w-md mx-auto mb-6">Download a complete Excel (.xlsx) backup of all leads, projects, and financial records.</p>
               
               <button className="px-6 py-2.5 bg-white text-black font-semibold rounded-lg hover:bg-gray-200 transition-colors">
                 Generate Backup Archive
@@ -1078,13 +1078,13 @@ const SettingsPage = () => {
         {/* Office Timings Tab */}
         {activeTab === 'officeTimings' && (
           <div className="max-w-3xl animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <h3 className="text-2xl font-bold text-white mb-2">Office Timings</h3>
-            <p className="text-gray-400 text-sm mb-8">Manage standard clock-in and clock-out times to track late arrivals.</p>
+            <h3 className="text-2xl font-bold text-app-text mb-2">Office Timings</h3>
+            <p className="text-app-text-muted text-sm mb-8">Manage standard clock-in and clock-out times to track late arrivals.</p>
             
             {loading ? (
-              <div className="text-gray-400">Loading...</div>
+              <div className="text-app-text-muted">Loading...</div>
             ) : (
-              <div className="bg-[#121215] border border-[#2D2D33] p-6 rounded-xl">
+              <div className="bg-app-bg border border-app-border p-6 rounded-xl">
                 <div className="grid grid-cols-2 gap-6">
                   <div>
                     <label className={labelClasses}>Standard Start Time</label>
@@ -1095,7 +1095,7 @@ const SettingsPage = () => {
                       onChange={handleOfficeTimingsChange} 
                       className={inputClasses} 
                     />
-                    <p className="text-xs text-gray-500 mt-2">Employees clocking in after this time will receive a Late flag.</p>
+                    <p className="text-xs text-app-text-muted mt-2">Employees clocking in after this time will receive a Late flag.</p>
                   </div>
                   <div>
                     <label className={labelClasses}>Standard End Time</label>
@@ -1116,15 +1116,15 @@ const SettingsPage = () => {
         {/* Attendance Rules Tab */}
         {activeTab === 'attendanceRules' && (
           <div className="max-w-3xl animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <h3 className="text-2xl font-bold text-white mb-2">Attendance Rules</h3>
-            <p className="text-gray-400 text-sm mb-8">Manage half-day limits and default leave balances.</p>
+            <h3 className="text-2xl font-bold text-app-text mb-2">Attendance Rules</h3>
+            <p className="text-app-text-muted text-sm mb-8">Manage half-day limits and default leave balances.</p>
             
             {loading ? (
-              <div className="text-gray-400">Loading...</div>
+              <div className="text-app-text-muted">Loading...</div>
             ) : (
               <div className="space-y-6">
-                <div className="bg-[#121215] border border-[#2D2D33] p-6 rounded-xl">
-                  <h4 className="text-sm font-semibold text-[#FF6B00] uppercase tracking-widest mb-4">Half Day Rules</h4>
+                <div className="bg-app-bg border border-app-border p-6 rounded-xl">
+                  <h4 className="text-sm font-semibold text-[#FF5A1F] uppercase tracking-widest mb-4">Half Day Rules</h4>
                   <div className="grid grid-cols-2 gap-6">
                     <div>
                       <label className={labelClasses}>Late Check-In Limit (Half Day)</label>
@@ -1135,7 +1135,7 @@ const SettingsPage = () => {
                         onChange={handleAttendanceRulesChange} 
                         className={inputClasses} 
                       />
-                      <p className="text-xs text-gray-500 mt-2">Check-ins after this time will trigger a Half Day.</p>
+                      <p className="text-xs text-app-text-muted mt-2">Check-ins after this time will trigger a Half Day.</p>
                     </div>
                     <div>
                       <label className={labelClasses}>Min. Hours Threshold (Half Day)</label>
@@ -1147,21 +1147,21 @@ const SettingsPage = () => {
                         onChange={handleAttendanceRulesChange} 
                         className={inputClasses} 
                       />
-                      <p className="text-xs text-gray-500 mt-2">Less than these total working hours triggers a Half Day.</p>
+                      <p className="text-xs text-app-text-muted mt-2">Less than these total working hours triggers a Half Day.</p>
                     </div>
                   </div>
                 </div>
 
-                <div className="bg-[#121215] border border-[#2D2D33] p-6 rounded-xl">
+                <div className="bg-app-bg border border-app-border p-6 rounded-xl">
                   <div className="flex justify-between items-center mb-4">
-                    <h4 className="text-sm font-semibold text-[#FF6B00] uppercase tracking-widest">
+                    <h4 className="text-sm font-semibold text-[#FF5A1F] uppercase tracking-widest">
                       Leave Balances (Per {attendanceRules.leaveBalancePeriod || 'Year'})
                     </h4>
                     <select 
                       value={attendanceRules.leaveBalancePeriod || 'Year'}
                       onChange={(e) => handleAttendanceRulesChange(e, false, 'leaveBalancePeriod')}
                       name="leaveBalancePeriod"
-                      className="bg-[#1e1e21] border border-[#2D2D33] text-xs text-white px-2 py-1 rounded focus:outline-none focus:border-orange-500"
+                      className="bg-form-input-bg border border-app-border text-xs text-app-text px-2 py-1 rounded focus:outline-none focus:border-primary"
                     >
                       <option value="Year">Per Year</option>
                       <option value="Month">Per Month</option>
@@ -1208,15 +1208,15 @@ const SettingsPage = () => {
         {/* Holidays Tab */}
         {activeTab === 'holidays' && (
           <div className="max-w-3xl animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <h3 className="text-2xl font-bold text-white mb-2">Company Holiday Calendar</h3>
-            <p className="text-gray-400 text-sm mb-8">Manage official non-working holidays. Employees get paid leaves for these days.</p>
+            <h3 className="text-2xl font-bold text-app-text mb-2">Company Holiday Calendar</h3>
+            <p className="text-app-text-muted text-sm mb-8">Manage official non-working holidays. Employees get paid leaves for these days.</p>
             
             <div className="flex justify-between items-center mb-6">
-              <h4 className="text-sm font-semibold text-[#FF6B00] uppercase tracking-widest">Holidays for {selectedYear}</h4>
+              <h4 className="text-sm font-semibold text-[#FF5A1F] uppercase tracking-widest">Holidays for {selectedYear}</h4>
               <select 
                 value={selectedYear}
                 onChange={(e) => setSelectedYear(e.target.value)}
-                className="bg-[#121215] border border-[#2D2D33] rounded-lg px-4 py-2 text-white outline-none"
+                className="bg-app-bg border border-app-border rounded-lg px-4 py-2 text-white outline-none"
               >
                 {[...Array(5)].map((_, i) => {
                   const y = new Date().getFullYear() - 2 + i;
@@ -1225,7 +1225,7 @@ const SettingsPage = () => {
               </select>
             </div>
 
-            <div className="bg-[#121215] border border-[#2D2D33] p-6 rounded-xl mb-8">
+            <div className="bg-app-bg border border-app-border p-6 rounded-xl mb-8">
               <form onSubmit={handleAddHoliday} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-end">
                 <div className="col-span-1">
                   <label className={labelClasses}>Date</label>
@@ -1243,7 +1243,7 @@ const SettingsPage = () => {
                   </select>
                 </div>
                 <div className="col-span-1">
-                  <button type="submit" disabled={saving} className="w-full bg-[#FF6B00] hover:bg-[#EA580C] text-white px-4 py-2 rounded-lg font-bold transition-all h-[42px] whitespace-nowrap">
+                  <button type="submit" disabled={saving} className="w-full bg-[#FF5A1F] hover:bg-[#EA580C] text-white px-4 py-2 rounded-lg font-bold transition-all h-[42px] whitespace-nowrap">
                     Add Holiday
                   </button>
                 </div>
@@ -1251,11 +1251,11 @@ const SettingsPage = () => {
             </div>
 
             {loading ? (
-              <div className="text-gray-400">Loading...</div>
+              <div className="text-app-text-muted">Loading...</div>
             ) : (
-              <div className="bg-[#121215] border border-[#2D2D33] rounded-xl overflow-x-auto">
-                <table className="w-full text-left text-sm text-gray-300 min-w-[500px]">
-                  <thead className="bg-[#1A1A1E] text-xs uppercase text-gray-400 border-b border-[#2D2D33]">
+              <div className="bg-app-bg border border-app-border rounded-xl overflow-x-auto">
+                <table className="w-full text-left text-sm text-app-text min-w-[500px]">
+                  <thead className="bg-surface-variant text-xs uppercase text-app-text-muted border-b border-app-border">
                     <tr>
                       <th className="px-6 py-4">Date</th>
                       <th className="px-6 py-4">Name</th>
@@ -1265,12 +1265,12 @@ const SettingsPage = () => {
                   </thead>
                   <tbody className="divide-y divide-[#2D2D33]">
                     {holidays.length === 0 ? (
-                      <tr><td colSpan="4" className="px-6 py-8 text-center text-gray-500">No holidays found for {selectedYear}</td></tr>
+                      <tr><td colSpan="4" className="px-6 py-8 text-center text-app-text-muted">No holidays found for {selectedYear}</td></tr>
                     ) : (
                       holidays.map(h => (
                         <tr key={h._id} className="hover:bg-white/[0.02]">
                           <td className="px-6 py-4 font-mono">{new Date(h.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
-                          <td className="px-6 py-4 font-semibold text-white">{h.name}</td>
+                          <td className="px-6 py-4 font-semibold text-app-text">{h.name}</td>
                           <td className="px-6 py-4">
                             <span className={`px-2 py-1 rounded text-[10px] uppercase font-bold tracking-wider ${h.type === 'Public' ? 'bg-green-500/10 text-green-500' : 'bg-orange-500/10 text-orange-500'}`}>
                               {h.type}
@@ -1292,26 +1292,26 @@ const SettingsPage = () => {
         {/* Assignment Rules Tab */}
         {activeTab === 'assignmentRules' && (
           <div className="max-w-3xl animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <h3 className="text-2xl font-bold text-white mb-2">Lead Assignment Rules</h3>
-            <p className="text-gray-400 text-sm mb-8">
+            <h3 className="text-2xl font-bold text-app-text mb-2">Lead Assignment Rules</h3>
+            <p className="text-app-text-muted text-sm mb-8">
               Manual assignment is always available from the Leads page. Turn on automated round-robin here to have new leads assigned automatically per the rules below.
             </p>
 
-            <div className="bg-[#121215] border border-[#2D2D33] p-6 rounded-xl mb-8 flex items-center justify-between">
+            <div className="bg-app-bg border border-app-border p-6 rounded-xl mb-8 flex items-center justify-between">
               <div>
-                <h4 className="text-sm font-semibold text-white">Automated Round-Robin</h4>
-                <p className="text-xs text-gray-400 mt-1">When off, new leads are left Unassigned for manual assignment.</p>
+                <h4 className="text-sm font-semibold text-app-text">Automated Round-Robin</h4>
+                <p className="text-xs text-app-text-muted mt-1">When off, new leads are left Unassigned for manual assignment.</p>
               </div>
               <button
                 onClick={handleToggleAutoAssign}
-                className={`relative w-12 h-6 rounded-full transition-colors ${autoAssignEnabled ? 'bg-[#FF6B00]' : 'bg-[#2D2D33]'}`}
+                className={`relative w-12 h-6 rounded-full transition-colors ${autoAssignEnabled ? 'bg-[#FF5A1F]' : 'bg-surface-variant'}`}
               >
                 <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform ${autoAssignEnabled ? 'translate-x-6' : 'translate-x-0.5'}`} />
               </button>
             </div>
 
-            <div className="bg-[#121215] border border-[#2D2D33] p-6 rounded-xl mb-8">
-              <h4 className="text-sm font-semibold text-[#FF6B00] uppercase tracking-widest mb-4">
+            <div className="bg-app-bg border border-app-border p-6 rounded-xl mb-8">
+              <h4 className="text-sm font-semibold text-[#FF5A1F] uppercase tracking-widest mb-4">
                 {editingRuleId ? 'Edit Rule' : 'New Rule'}
               </h4>
               <form onSubmit={handleSubmitRule} className="space-y-4">
@@ -1340,7 +1340,7 @@ const SettingsPage = () => {
                 <div>
                   <label className={labelClasses}>BD Pool (rotation order)</label>
                   {bdRoster.length === 0 ? (
-                    <p className="text-xs text-gray-500">No BD accounts found yet — create BD team members first.</p>
+                    <p className="text-xs text-app-text-muted">No BD accounts found yet — create BD team members first.</p>
                   ) : (
                     <div className="flex flex-wrap gap-2">
                       {bdRoster.map((bd) => (
@@ -1350,8 +1350,8 @@ const SettingsPage = () => {
                           onClick={() => toggleBdInPool(bd._id)}
                           className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
                             ruleForm.bdPool.includes(bd._id)
-                              ? 'bg-[#FF6B00]/10 border-[#FF6B00] text-[#FF6B00]'
-                              : 'bg-transparent border-[#2D2D33] text-gray-400 hover:text-white'
+                              ? 'bg-[#FF5A1F]/10 border-[#FF5A1F] text-[#FF5A1F]'
+                              : 'bg-transparent border-app-border text-app-text-muted hover:text-app-text'
                           }`}
                         >
                           {bd.firstName} {bd.lastName} ({bd.activeLeadCount} active)
@@ -1361,11 +1361,11 @@ const SettingsPage = () => {
                   )}
                 </div>
                 <div className="flex gap-3">
-                  <button type="submit" disabled={saving} className="bg-[#FF6B00] hover:bg-[#EA580C] text-white px-4 py-2 rounded-lg font-bold transition-all">
+                  <button type="submit" disabled={saving} className="bg-[#FF5A1F] hover:bg-[#EA580C] text-white px-4 py-2 rounded-lg font-bold transition-all">
                     {editingRuleId ? 'Update Rule' : 'Add Rule'}
                   </button>
                   {editingRuleId && (
-                    <button type="button" onClick={() => { setEditingRuleId(null); setRuleForm(emptyRuleForm); }} className="px-4 py-2 rounded-lg font-bold text-gray-400 hover:text-white transition-all">
+                    <button type="button" onClick={() => { setEditingRuleId(null); setRuleForm(emptyRuleForm); }} className="px-4 py-2 rounded-lg font-bold text-app-text-muted hover:text-app-text transition-all">
                       Cancel
                     </button>
                   )}
@@ -1374,11 +1374,11 @@ const SettingsPage = () => {
             </div>
 
             {loading ? (
-              <div className="text-gray-400">Loading...</div>
+              <div className="text-app-text-muted">Loading...</div>
             ) : (
-              <div className="bg-[#121215] border border-[#2D2D33] rounded-xl overflow-x-auto">
-                <table className="w-full text-left text-sm text-gray-300 min-w-[600px]">
-                  <thead className="bg-[#1A1A1E] text-xs uppercase text-gray-400 border-b border-[#2D2D33]">
+              <div className="bg-app-bg border border-app-border rounded-xl overflow-x-auto">
+                <table className="w-full text-left text-sm text-app-text min-w-[600px]">
+                  <thead className="bg-surface-variant text-xs uppercase text-app-text-muted border-b border-app-border">
                     <tr>
                       <th className="px-6 py-4">Name</th>
                       <th className="px-6 py-4">Match</th>
@@ -1390,23 +1390,23 @@ const SettingsPage = () => {
                   </thead>
                   <tbody className="divide-y divide-[#2D2D33]">
                     {assignmentRules.length === 0 ? (
-                      <tr><td colSpan="6" className="px-6 py-8 text-center text-gray-500">No rules yet — new leads stay Unassigned until you add one.</td></tr>
+                      <tr><td colSpan="6" className="px-6 py-8 text-center text-app-text-muted">No rules yet — new leads stay Unassigned until you add one.</td></tr>
                     ) : (
                       assignmentRules.map(rule => (
                         <tr key={rule._id} className="hover:bg-white/[0.02]">
-                          <td className="px-6 py-4 font-semibold text-white">{rule.name}</td>
-                          <td className="px-6 py-4 text-xs text-gray-400">
+                          <td className="px-6 py-4 font-semibold text-app-text">{rule.name}</td>
+                          <td className="px-6 py-4 text-xs text-app-text-muted">
                             {rule.matchService || 'Any service'} · {rule.matchSource || 'Any source'}
                           </td>
-                          <td className="px-6 py-4 text-xs text-gray-400">{(rule.bdPool || []).length} BD(s)</td>
-                          <td className="px-6 py-4 text-xs text-gray-400">{rule.maxActiveLeads ?? 'Unlimited'}</td>
+                          <td className="px-6 py-4 text-xs text-app-text-muted">{(rule.bdPool || []).length} BD(s)</td>
+                          <td className="px-6 py-4 text-xs text-app-text-muted">{rule.maxActiveLeads ?? 'Unlimited'}</td>
                           <td className="px-6 py-4">
-                            <button onClick={() => handleToggleRuleActive(rule)} className={`px-2 py-1 rounded text-[10px] uppercase font-bold tracking-wider ${rule.active ? 'bg-green-500/10 text-green-500' : 'bg-gray-500/10 text-gray-400'}`}>
+                            <button onClick={() => handleToggleRuleActive(rule)} className={`px-2 py-1 rounded text-[10px] uppercase font-bold tracking-wider ${rule.active ? 'bg-green-500/10 text-green-500' : 'bg-gray-500/10 text-app-text-muted'}`}>
                               {rule.active ? 'Active' : 'Paused'}
                             </button>
                           </td>
                           <td className="px-6 py-4 text-right space-x-3 whitespace-nowrap">
-                            <button onClick={() => handleEditRule(rule)} className="text-[#FF6B00] hover:text-[#EA580C] font-medium text-xs">Edit</button>
+                            <button onClick={() => handleEditRule(rule)} className="text-[#FF5A1F] hover:text-[#EA580C] font-medium text-xs">Edit</button>
                             <button onClick={() => handleDeleteRule(rule._id)} className="text-red-500 hover:text-red-400 font-medium text-xs">Delete</button>
                           </td>
                         </tr>
@@ -1422,31 +1422,31 @@ const SettingsPage = () => {
         {/* Lead Scoring Tab */}
         {activeTab === 'leadScoring' && (
           <div className="max-w-3xl animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <h3 className="text-2xl font-bold text-white mb-2">Lead Scoring</h3>
-            <p className="text-gray-400 text-sm mb-8">
+            <h3 className="text-2xl font-bold text-app-text mb-2">Lead Scoring</h3>
+            <p className="text-app-text-muted text-sm mb-8">
               A configurable, supplementary score (0-100) shown alongside each lead — it never decides Lead Priority on its own, Priority stays derived from Decision Maker, Timeline and Budget directly. Every point value and threshold below is editable here; none of it is hard-coded in the app.
             </p>
 
             {loading || !leadScoring ? (
-              <div className="text-gray-400">Loading...</div>
+              <div className="text-app-text-muted">Loading...</div>
             ) : (
               <>
-                <div className="bg-[#121215] border border-[#2D2D33] p-6 rounded-xl mb-8 flex items-center justify-between">
+                <div className="bg-app-bg border border-app-border p-6 rounded-xl mb-8 flex items-center justify-between">
                   <div>
-                    <h4 className="text-sm font-semibold text-white">Lead Scoring Enabled</h4>
-                    <p className="text-xs text-gray-400 mt-1">When off, every lead's score shows as 0.</p>
+                    <h4 className="text-sm font-semibold text-app-text">Lead Scoring Enabled</h4>
+                    <p className="text-xs text-app-text-muted mt-1">When off, every lead's score shows as 0.</p>
                   </div>
                   <button
                     onClick={() => setLeadScoring((prev) => ({ ...prev, enabled: !prev.enabled }))}
-                    className={`relative w-12 h-6 rounded-full transition-colors ${leadScoring.enabled ? 'bg-[#FF6B00]' : 'bg-[#2D2D33]'}`}
+                    className={`relative w-12 h-6 rounded-full transition-colors ${leadScoring.enabled ? 'bg-[#FF5A1F]' : 'bg-surface-variant'}`}
                   >
                     <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform ${leadScoring.enabled ? 'translate-x-6' : 'translate-x-0.5'}`} />
                   </button>
                 </div>
 
-                <div className="bg-[#121215] border border-[#2D2D33] p-6 rounded-xl mb-8">
-                  <h4 className="text-sm font-semibold text-[#FF6B00] uppercase tracking-widest mb-4">Points per signal</h4>
-                  <p className="text-xs text-gray-500 mb-4">Positive signals add points, negative signals subtract. The total is clamped to 0-100 for display.</p>
+                <div className="bg-app-bg border border-app-border p-6 rounded-xl mb-8">
+                  <h4 className="text-sm font-semibold text-[#FF5A1F] uppercase tracking-widest mb-4">Points per signal</h4>
+                  <p className="text-xs text-app-text-muted mb-4">Positive signals add points, negative signals subtract. The total is clamped to 0-100 for display.</p>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className={labelClasses}>Service fit (target service selected)</label>
@@ -1483,8 +1483,8 @@ const SettingsPage = () => {
                   </div>
                 </div>
 
-                <div className="bg-[#121215] border border-[#2D2D33] p-6 rounded-xl mb-8">
-                  <h4 className="text-sm font-semibold text-[#FF6B00] uppercase tracking-widest mb-4">Thresholds</h4>
+                <div className="bg-app-bg border border-app-border p-6 rounded-xl mb-8">
+                  <h4 className="text-sm font-semibold text-[#FF5A1F] uppercase tracking-widest mb-4">Thresholds</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className={labelClasses}>Project Budget fit threshold</label>
@@ -1495,7 +1495,7 @@ const SettingsPage = () => {
                       >
                         {PROJECT_BUDGET_OPTIONS.filter((opt) => opt !== 'Not sure').map((opt) => <option key={opt} value={opt}>{opt}</option>)}
                       </select>
-                      <p className="text-[11px] text-gray-500 mt-1">A lead's Project Budget at or above this band counts as budget fit.</p>
+                      <p className="text-[11px] text-app-text-muted mt-1">A lead's Project Budget at or above this band counts as budget fit.</p>
                     </div>
                     <div>
                       <label className={labelClasses}>Monthly Marketing Budget fit threshold</label>
@@ -1506,7 +1506,7 @@ const SettingsPage = () => {
                       >
                         {MONTHLY_MARKETING_BUDGET_OPTIONS.filter((opt) => opt !== 'Not sure').map((opt) => <option key={opt} value={opt}>{opt}</option>)}
                       </select>
-                      <p className="text-[11px] text-gray-500 mt-1">A lead's Monthly Marketing Budget at or above this band counts as budget fit.</p>
+                      <p className="text-[11px] text-app-text-muted mt-1">A lead's Monthly Marketing Budget at or above this band counts as budget fit.</p>
                     </div>
                     <div>
                       <label className={labelClasses}>Unanswered attempts before "No response"</label>
@@ -1517,7 +1517,7 @@ const SettingsPage = () => {
                         onChange={(e) => setLeadScoring((prev) => ({ ...prev, noResponseAttempts: Number(e.target.value) }))}
                         className={inputClasses}
                       />
-                      <p className="text-[11px] text-gray-500 mt-1">Number of logged not-connected calls that trigger the No Response penalty.</p>
+                      <p className="text-[11px] text-app-text-muted mt-1">Number of logged not-connected calls that trigger the No Response penalty.</p>
                     </div>
                   </div>
                 </div>
@@ -1543,7 +1543,7 @@ const SettingsPage = () => {
             if (activeTab === 'leadScoring') handleSaveLeadScoring();
           }}
           disabled={saving}
-          className={`flex items-center gap-2 bg-[#FF6B00] hover:bg-[#EA580C] text-white px-6 py-3 rounded-full font-bold shadow-[0_4px_20px_rgba(255,107,0,0.4)] transition-all ${saving ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105 active:scale-95'}`}
+          className={`flex items-center gap-2 bg-[#FF5A1F] hover:bg-[#EA580C] text-white px-6 py-3 rounded-full font-bold shadow-[0_4px_20px_rgba(255,107,0,0.4)] transition-all ${saving ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105 active:scale-95'}`}
         >
           <Save size={18} />
           {saving ? 'Saving...' : 'Save Changes'}

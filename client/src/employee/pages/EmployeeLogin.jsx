@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useEmployeeStore } from '../../store/useEmployeeStore';
 import { Lock, Mail, Eye, EyeOff } from 'lucide-react';
-import lightLogo from '../../assets/logo_Square.jpg__1_-removebg-preview.png';
+import logo from '../../assets/DarkthemeLogo.png';
 
 const EmployeeLogin = () => {
   const [email, setEmail] = useState('');
@@ -48,7 +48,7 @@ const EmployeeLogin = () => {
     <div className="flex min-h-screen items-center justify-center bg-app-bg px-4 py-12 sm:px-6 lg:px-8">
       <div className="w-full max-w-md space-y-8 rounded-xl bg-app-card p-8 shadow-2xl border border-app-border">
         <div className="flex flex-col items-center">
-          <img src={lightLogo} alt="Vedhunt Logo" className="h-28 w-auto mb-6 object-contain" />
+          <img src={logo} alt="Vedhunt Logo" className="h-24 w-auto mb-4 object-contain" />
           <h2 className="text-center text-3xl font-extrabold tracking-tight text-app-text">
             Employee Portal
           </h2>

@@ -25,11 +25,14 @@ router.use(authMiddleware);
 // ADMIN HRMS ROUTES
 // ==========================================
 
-// List the roles selectable for a new/existing employee — returns all
-// roles available in Role Management so any defined role can be assigned.
+// List the roles selectable for a new/existing employee — only roles
+// flagged isEmployeeRole in Role Management (EMPLOYEE, BDE, and any custom
+// role marked that way). Admin-side roles (EDITOR, SUPER_ADMIN, ...) must
+// never be offered here — see the isEmployeeRole check in POST/PUT below,
+// which is the authoritative guard this list mirrors.
 router.get('/roles', requirePermission('team.manage'), async (req, res) => {
   try {
-    const roles = await Role.find({}).select('name label description permissions isEmployeeRole isSystem');
+    const roles = await Role.find({ isEmployeeRole: true }).select('name label description permissions isEmployeeRole isSystem');
     res.json({ success: true, roles });
   } catch (error) {
     logger.error('Error fetching employee roles:', error);
@@ -114,10 +117,18 @@ router.post('/', requirePermission('team.manage'), async (req, res) => {
       return res.status(400).json({ success: false, message: 'Please provide a valid phone number (10-15 digits).' });
     }
 
-    // Validate that the selected role exists in Role Management.
+    // Validate that the selected role exists in Role Management, and — the
+    // key guard that keeps HRMS employees out of the Admin panel — that it's
+    // actually an employee-type role. Without this, picking an admin-side
+    // role (e.g. EDITOR) here would create an Employee whose linked Admin
+    // login can pass the isEmployeeRole check in routes/auth.js and log
+    // straight into the Admin panel.
     const selectedRole = await Role.findById(roleId);
     if (!selectedRole) {
       return res.status(400).json({ success: false, message: 'Invalid role selected.' });
+    }
+    if (!selectedRole.isEmployeeRole) {
+      return res.status(400).json({ success: false, message: 'Selected role is not an employee role. Choose an employee role, or mark this role as an employee role in Role Management first.' });
     }
 
     // Join date parsing
@@ -155,9 +166,11 @@ router.post('/', requirePermission('team.manage'), async (req, res) => {
       return res.status(400).json({ success: false, message: 'Employment type must be Billable or Non-billable.' });
     }
 
-    // Duplicate email check
+    // Duplicate email check — also checked against Employee directly in case
+    // a prior create left an orphaned Employee doc with no linked Admin.
     const adminExists = await Admin.findOne({ email: strEmail.trim().toLowerCase() });
-    if (adminExists) {
+    const employeeExists = await Employee.findOne({ email: strEmail.trim().toLowerCase() });
+    if (adminExists || employeeExists) {
       return res.status(400).json({ success: false, message: 'An account with this email already exists in the system.' });
     }
     // ─────────────────────────────────────────────────────────────────────────
@@ -277,6 +290,9 @@ router.put('/:id', requirePermission('team.manage'), async (req, res) => {
       newRole = await Role.findById(roleId);
       if (!newRole) {
         return res.status(400).json({ success: false, message: 'Invalid role selected.' });
+      }
+      if (!newRole.isEmployeeRole) {
+        return res.status(400).json({ success: false, message: 'Selected role is not an employee role. Employees can only be assigned employee-type roles.' });
       }
     }
 

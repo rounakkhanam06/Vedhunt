@@ -359,34 +359,34 @@ const AboutManager = () => {
     <div className="mx-auto max-w-6xl space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">Manage About Page</h1>
-          <p className="mt-1 text-sm text-gray-400">
+          <h1 className="text-2xl font-bold text-app-text">Manage About Page</h1>
+          <p className="mt-1 text-sm text-app-text-muted">
             Edit content sections on the About page.
           </p>
         </div>
       </div>
 
       {/* Hero Content Manager */}
-      <div className="bg-[#222222] border border-white/10 rounded-xl overflow-hidden mb-6">
+      <div className="bg-app-card border border-app-border rounded-xl overflow-hidden mb-6 shadow-sm">
         <button
           onClick={() => setIsHeroOpen(!isHeroOpen)}
-          className="w-full flex items-center justify-between p-4 bg-[#1A1A1A] hover:bg-white/5 transition-colors cursor-pointer"
+          className="w-full flex items-center justify-between p-4 bg-app-card hover:bg-surface-variant transition-colors cursor-pointer"
         >
           <div>
-            <h3 className="text-lg font-bold text-white text-left">Hero Section</h3>
-            <p className="text-sm text-gray-400 text-left">Update the top heading, description, checklist, and stats on the About page.</p>
+            <h3 className="text-lg font-bold text-app-text text-left">Hero Section</h3>
+            <p className="text-sm text-app-text-muted text-left">Update the top heading, description, checklist, and stats on the About page.</p>
           </div>
-          {isHeroOpen ? <ChevronUp className="w-5 h-5 text-gray-400" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
+          {isHeroOpen ? <ChevronUp className="w-5 h-5 text-app-text-muted" /> : <ChevronDown className="w-5 h-5 text-app-text-muted" />}
         </button>
         
         {isHeroOpen && (
-          <div className="p-6 border-t border-white/10">
+          <div className="p-6 border-t border-app-border">
             <form onSubmit={handleHeroSubmit} className="space-y-5 text-left">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">Tagline</label>
+                <label className="block text-sm font-medium text-app-text mb-1">Tagline</label>
                 <input
                   type="text"
-                  className="w-full rounded-lg border border-white/10 bg-[#1A1A1A] px-3.5 py-2 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00] transition-colors"
+                  className="w-full rounded-lg border border-app-border bg-form-input-bg px-3.5 py-2 text-sm text-app-text focus:border-[#FF6B00] focus:outline-none transition-colors"
                   value={heroData.tagline}
                   onChange={(e) => setHeroData({ ...heroData, tagline: e.target.value })}
                 />
@@ -394,19 +394,19 @@ const AboutManager = () => {
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">Title Line 1</label>
+                  <label className="block text-sm font-medium text-app-text mb-1">Title Line 1</label>
                   <input
                     type="text"
-                    className="w-full rounded-lg border border-white/10 bg-[#1A1A1A] px-3.5 py-2 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00] transition-colors"
+                    className="w-full rounded-lg border border-app-border bg-form-input-bg px-3.5 py-2 text-sm text-app-text focus:border-[#FF6B00] focus:outline-none transition-colors"
                     value={heroData.titleLine1}
                     onChange={(e) => setHeroData({ ...heroData, titleLine1: e.target.value })}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">Title Line 2 (Highlighted)</label>
+                  <label className="block text-sm font-medium text-app-text mb-1">Title Line 2 (Highlighted)</label>
                   <input
                     type="text"
-                    className="w-full rounded-lg border border-white/10 bg-[#1A1A1A] px-3.5 py-2 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00] transition-colors"
+                    className="w-full rounded-lg border border-app-border bg-form-input-bg px-3.5 py-2 text-sm text-app-text focus:border-[#FF6B00] focus:outline-none transition-colors"
                     value={heroData.titleLine2}
                     onChange={(e) => setHeroData({ ...heroData, titleLine2: e.target.value })}
                   />
@@ -414,20 +414,20 @@ const AboutManager = () => {
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">Description</label>
+                <label className="block text-sm font-medium text-app-text mb-1">Description</label>
                 <textarea
                   rows={3}
-                  className="w-full rounded-lg border border-white/10 bg-[#1A1A1A] px-3.5 py-2 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00] transition-colors"
+                  className="w-full rounded-lg border border-app-border bg-form-input-bg px-3.5 py-2 text-sm text-app-text focus:border-[#FF6B00] focus:outline-none transition-colors"
                   value={heroData.description}
                   onChange={(e) => setHeroData({ ...heroData, description: e.target.value })}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">Services Checklist (One per line)</label>
+                <label className="block text-sm font-medium text-app-text mb-1">Services Checklist (One per line)</label>
                 <textarea
                   rows={4}
-                  className="w-full rounded-lg border border-white/10 bg-[#1A1A1A] px-3.5 py-2 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00] transition-colors"
+                  className="w-full rounded-lg border border-app-border bg-form-input-bg px-3.5 py-2 text-sm text-app-text focus:border-[#FF6B00] focus:outline-none transition-colors"
                   value={heroData.servicesList}
                   onChange={(e) => setHeroData({ ...heroData, servicesList: e.target.value })}
                 />
@@ -435,51 +435,51 @@ const AboutManager = () => {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">CTA Button Text</label>
+                  <label className="block text-sm font-medium text-app-text mb-1">CTA Button Text</label>
                   <input
                     type="text"
-                    className="w-full rounded-lg border border-white/10 bg-[#1A1A1A] px-3.5 py-2 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00] transition-colors"
+                    className="w-full rounded-lg border border-app-border bg-form-input-bg px-3.5 py-2 text-sm text-app-text focus:border-[#FF6B00] focus:outline-none transition-colors"
                     value={heroData.ctaText}
                     onChange={(e) => setHeroData({ ...heroData, ctaText: e.target.value })}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">CTA Button Link</label>
+                  <label className="block text-sm font-medium text-app-text mb-1">CTA Button Link</label>
                   <input
                     type="text"
-                    className="w-full rounded-lg border border-white/10 bg-[#1A1A1A] px-3.5 py-2 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00] transition-colors"
+                    className="w-full rounded-lg border border-app-border bg-form-input-bg px-3.5 py-2 text-sm text-app-text focus:border-[#FF6B00] focus:outline-none transition-colors"
                     value={heroData.ctaLink}
                     onChange={(e) => setHeroData({ ...heroData, ctaLink: e.target.value })}
                   />
                 </div>
               </div>
 
-              <div className="bg-[#1A1A1A] p-4 rounded-xl border border-white/5 space-y-4">
-                <h4 className="text-sm font-semibold text-white">Stat Bubble 1 (Top Left)</h4>
+              <div className="bg-surface-variant/40 p-4 rounded-xl border border-app-border space-y-4">
+                <h4 className="text-sm font-semibold text-app-text">Stat Bubble 1 (Top Left)</h4>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-xs font-medium text-gray-400 mb-1">Value</label>
+                    <label className="block text-xs font-medium text-app-text-muted mb-1">Value</label>
                     <input
                       type="text"
-                      className="w-full rounded-lg border border-white/10 bg-[#222222] px-3 py-1.5 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                      className="w-full rounded-lg border border-app-border bg-form-input-bg px-3 py-1.5 text-sm text-app-text focus:border-[#FF6B00] focus:outline-none"
                       value={heroData.stat1.value}
                       onChange={(e) => handleStatChange(1, 'value', e.target.value)}
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-400 mb-1">Label Top</label>
+                    <label className="block text-xs font-medium text-app-text-muted mb-1">Label Top</label>
                     <input
                       type="text"
-                      className="w-full rounded-lg border border-white/10 bg-[#222222] px-3 py-1.5 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                      className="w-full rounded-lg border border-app-border bg-form-input-bg px-3 py-1.5 text-sm text-app-text focus:border-[#FF6B00] focus:outline-none"
                       value={heroData.stat1.labelTop}
                       onChange={(e) => handleStatChange(1, 'labelTop', e.target.value)}
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-400 mb-1">Label Bottom</label>
+                    <label className="block text-xs font-medium text-app-text-muted mb-1">Label Bottom</label>
                     <input
                       type="text"
-                      className="w-full rounded-lg border border-white/10 bg-[#222222] px-3 py-1.5 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                      className="w-full rounded-lg border border-app-border bg-form-input-bg px-3 py-1.5 text-sm text-app-text focus:border-[#FF6B00] focus:outline-none"
                       value={heroData.stat1.labelBottom}
                       onChange={(e) => handleStatChange(1, 'labelBottom', e.target.value)}
                     />
@@ -487,32 +487,32 @@ const AboutManager = () => {
                 </div>
               </div>
 
-              <div className="bg-[#1A1A1A] p-4 rounded-xl border border-white/5 space-y-4">
-                <h4 className="text-sm font-semibold text-white">Stat Bubble 2 (Bottom Right)</h4>
+              <div className="bg-surface-variant/40 p-4 rounded-xl border border-app-border space-y-4">
+                <h4 className="text-sm font-semibold text-app-text">Stat Bubble 2 (Bottom Right)</h4>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-xs font-medium text-gray-400 mb-1">Value</label>
+                    <label className="block text-xs font-medium text-app-text-muted mb-1">Value</label>
                     <input
                       type="text"
-                      className="w-full rounded-lg border border-white/10 bg-[#222222] px-3 py-1.5 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                      className="w-full rounded-lg border border-app-border bg-form-input-bg px-3 py-1.5 text-sm text-app-text focus:border-[#FF6B00] focus:outline-none"
                       value={heroData.stat2.value}
                       onChange={(e) => handleStatChange(2, 'value', e.target.value)}
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-400 mb-1">Label Top</label>
+                    <label className="block text-xs font-medium text-app-text-muted mb-1">Label Top</label>
                     <input
                       type="text"
-                      className="w-full rounded-lg border border-white/10 bg-[#222222] px-3 py-1.5 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                      className="w-full rounded-lg border border-app-border bg-form-input-bg px-3 py-1.5 text-sm text-app-text focus:border-[#FF6B00] focus:outline-none"
                       value={heroData.stat2.labelTop}
                       onChange={(e) => handleStatChange(2, 'labelTop', e.target.value)}
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-400 mb-1">Label Bottom</label>
+                    <label className="block text-xs font-medium text-app-text-muted mb-1">Label Bottom</label>
                     <input
                       type="text"
-                      className="w-full rounded-lg border border-white/10 bg-[#222222] px-3 py-1.5 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                      className="w-full rounded-lg border border-app-border bg-form-input-bg px-3 py-1.5 text-sm text-app-text focus:border-[#FF6B00] focus:outline-none"
                       value={heroData.stat2.labelBottom}
                       onChange={(e) => handleStatChange(2, 'labelBottom', e.target.value)}
                     />
@@ -524,7 +524,7 @@ const AboutManager = () => {
                 <button
                   type="submit"
                   disabled={isSavingHero}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-[#FF6B00] text-white font-semibold rounded-lg hover:bg-[#e66000] transition-colors disabled:opacity-50 cursor-pointer shadow-lg shadow-[#FF6B00]/20"
+                  className="flex items-center gap-2 px-5 py-2.5 bg-[#FF6B00] text-white font-semibold rounded-lg hover:bg-[#e66000] transition-colors disabled:opacity-50 cursor-pointer shadow-sm"
                 >
                   {isSavingHero ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
                   Save Changes
@@ -536,26 +536,26 @@ const AboutManager = () => {
       </div>
 
       {/* About Company Manager */}
-      <div className="bg-[#222222] border border-white/10 rounded-xl overflow-hidden mb-6">
+      <div className="bg-app-card border border-app-border rounded-xl overflow-hidden mb-6 shadow-sm">
         <button
           onClick={() => setIsCompanyOpen(!isCompanyOpen)}
-          className="w-full flex items-center justify-between p-4 bg-[#1A1A1A] hover:bg-white/5 transition-colors cursor-pointer"
+          className="w-full flex items-center justify-between p-4 bg-app-card hover:bg-surface-variant transition-colors cursor-pointer"
         >
           <div>
-            <h3 className="text-lg font-bold text-white text-left">About Our Company Section</h3>
-            <p className="text-sm text-gray-400 text-left">Update the "About Our Company" description, central badge, and checklists.</p>
+            <h3 className="text-lg font-bold text-app-text text-left">About Our Company Section</h3>
+            <p className="text-sm text-app-text-muted text-left">Update the "About Our Company" description, central badge, and checklists.</p>
           </div>
-          {isCompanyOpen ? <ChevronUp className="w-5 h-5 text-gray-400" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
+          {isCompanyOpen ? <ChevronUp className="w-5 h-5 text-app-text-muted" /> : <ChevronDown className="w-5 h-5 text-app-text-muted" />}
         </button>
         
         {isCompanyOpen && (
-          <div className="p-6 border-t border-white/10">
+          <div className="p-6 border-t border-app-border">
             <form onSubmit={handleCompanySubmit} className="space-y-5 text-left">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">Tagline</label>
+                <label className="block text-sm font-medium text-app-text mb-1">Tagline</label>
                 <input
                   type="text"
-                  className="w-full rounded-lg border border-white/10 bg-[#1A1A1A] px-3.5 py-2 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                  className="w-full rounded-lg border border-app-border bg-form-input-bg px-3.5 py-2 text-sm text-app-text focus:border-[#FF6B00] focus:outline-none transition-colors"
                   value={companyData.tagline}
                   onChange={(e) => setCompanyData({ ...companyData, tagline: e.target.value })}
                 />
@@ -563,51 +563,51 @@ const AboutManager = () => {
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">Header Line 1</label>
+                  <label className="block text-sm font-medium text-app-text mb-1">Header Line 1</label>
                   <input
                     type="text"
-                    className="w-full rounded-lg border border-white/10 bg-[#1A1A1A] px-3.5 py-2 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                    className="w-full rounded-lg border border-app-border bg-form-input-bg px-3.5 py-2 text-sm text-app-text focus:border-[#FF6B00] focus:outline-none transition-colors"
                     value={companyData.headerLine1}
                     onChange={(e) => setCompanyData({ ...companyData, headerLine1: e.target.value })}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">Header Line 2 (Highlighted)</label>
+                  <label className="block text-sm font-medium text-app-text mb-1">Header Line 2 (Highlighted)</label>
                   <input
                     type="text"
-                    className="w-full rounded-lg border border-white/10 bg-[#1A1A1A] px-3.5 py-2 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                    className="w-full rounded-lg border border-app-border bg-form-input-bg px-3.5 py-2 text-sm text-app-text focus:border-[#FF6B00] focus:outline-none transition-colors"
                     value={companyData.headerLine2}
                     onChange={(e) => setCompanyData({ ...companyData, headerLine2: e.target.value })}
                   />
                 </div>
               </div>
               
-              <div className="bg-[#1A1A1A] p-4 rounded-xl border border-white/5 space-y-4">
-                <h4 className="text-sm font-semibold text-white">Central Glass Badge</h4>
+              <div className="bg-surface-variant/40 p-4 rounded-xl border border-app-border space-y-4">
+                <h4 className="text-sm font-semibold text-app-text">Central Glass Badge</h4>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-xs font-medium text-gray-400 mb-1">Value (e.g. 5+)</label>
+                    <label className="block text-xs font-medium text-app-text-muted mb-1">Value (e.g. 5+)</label>
                     <input
                       type="text"
-                      className="w-full rounded-lg border border-white/10 bg-[#222222] px-3 py-1.5 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                      className="w-full rounded-lg border border-app-border bg-form-input-bg px-3 py-1.5 text-sm text-app-text focus:border-[#FF6B00] focus:outline-none"
                       value={companyData.centralBadge.value}
                       onChange={(e) => setCompanyData(prev => ({ ...prev, centralBadge: { ...prev.centralBadge, value: e.target.value } }))}
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-400 mb-1">Label 1 (e.g. Years Of)</label>
+                    <label className="block text-xs font-medium text-app-text-muted mb-1">Label 1 (e.g. Years Of)</label>
                     <input
                       type="text"
-                      className="w-full rounded-lg border border-white/10 bg-[#222222] px-3 py-1.5 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                      className="w-full rounded-lg border border-app-border bg-form-input-bg px-3 py-1.5 text-sm text-app-text focus:border-[#FF6B00] focus:outline-none"
                       value={companyData.centralBadge.label1}
                       onChange={(e) => setCompanyData(prev => ({ ...prev, centralBadge: { ...prev.centralBadge, label1: e.target.value } }))}
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-400 mb-1">Label 2 (e.g. Excellence)</label>
+                    <label className="block text-xs font-medium text-app-text-muted mb-1">Label 2 (e.g. Excellence)</label>
                     <input
                       type="text"
-                      className="w-full rounded-lg border border-white/10 bg-[#222222] px-3 py-1.5 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                      className="w-full rounded-lg border border-app-border bg-form-input-bg px-3 py-1.5 text-sm text-app-text focus:border-[#FF6B00] focus:outline-none"
                       value={companyData.centralBadge.label2}
                       onChange={(e) => setCompanyData(prev => ({ ...prev, centralBadge: { ...prev.centralBadge, label2: e.target.value } }))}
                     />
@@ -616,55 +616,55 @@ const AboutManager = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">Description Paragraphs (Separate with empty line)</label>
-                <div className="text-xs text-gray-400 mb-2">Use *bold* for white bold text, and **highlight** for orange bold text.</div>
+                <label className="block text-sm font-medium text-app-text mb-1">Description Paragraphs (Separate with empty line)</label>
+                <div className="text-xs text-app-text-muted mb-2">Use *bold* for white bold text, and **highlight** for orange bold text.</div>
                 <textarea
                   rows={8}
-                  className="w-full rounded-lg border border-white/10 bg-[#1A1A1A] px-3.5 py-2 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                  className="w-full rounded-lg border border-app-border bg-form-input-bg px-3.5 py-2 text-sm text-app-text focus:border-[#FF6B00] focus:outline-none transition-colors"
                   value={companyData.descriptionParagraphs}
                   onChange={(e) => setCompanyData({ ...companyData, descriptionParagraphs: e.target.value })}
                 />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-[#1A1A1A] p-4 rounded-xl border border-white/5 space-y-4">
-                  <h4 className="text-sm font-semibold text-white">Checklist Item 1 (Shield)</h4>
+                <div className="bg-surface-variant/40 p-4 rounded-xl border border-app-border space-y-4">
+                  <h4 className="text-sm font-semibold text-app-text">Checklist Item 1 (Shield)</h4>
                   <div>
-                    <label className="block text-xs font-medium text-gray-400 mb-1">Title</label>
+                    <label className="block text-xs font-medium text-app-text-muted mb-1">Title</label>
                     <input
                       type="text"
-                      className="w-full rounded-lg border border-white/10 bg-[#222222] px-3 py-1.5 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                      className="w-full rounded-lg border border-app-border bg-form-input-bg px-3 py-1.5 text-sm text-app-text focus:border-[#FF6B00] focus:outline-none"
                       value={companyData.checklistItem1.title}
                       onChange={(e) => setCompanyData(prev => ({ ...prev, checklistItem1: { ...prev.checklistItem1, title: e.target.value } }))}
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-400 mb-1">Description</label>
+                    <label className="block text-xs font-medium text-app-text-muted mb-1">Description</label>
                     <textarea
                       rows={2}
-                      className="w-full rounded-lg border border-white/10 bg-[#222222] px-3 py-1.5 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                      className="w-full rounded-lg border border-app-border bg-form-input-bg px-3 py-1.5 text-sm text-app-text focus:border-[#FF6B00] focus:outline-none"
                       value={companyData.checklistItem1.description}
                       onChange={(e) => setCompanyData(prev => ({ ...prev, checklistItem1: { ...prev.checklistItem1, description: e.target.value } }))}
                     />
                   </div>
                 </div>
 
-                <div className="bg-[#1A1A1A] p-4 rounded-xl border border-white/5 space-y-4">
-                  <h4 className="text-sm font-semibold text-white">Checklist Item 2 (Award)</h4>
+                <div className="bg-surface-variant/40 p-4 rounded-xl border border-app-border space-y-4">
+                  <h4 className="text-sm font-semibold text-app-text">Checklist Item 2 (Award)</h4>
                   <div>
-                    <label className="block text-xs font-medium text-gray-400 mb-1">Title</label>
+                    <label className="block text-xs font-medium text-app-text-muted mb-1">Title</label>
                     <input
                       type="text"
-                      className="w-full rounded-lg border border-white/10 bg-[#222222] px-3 py-1.5 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                      className="w-full rounded-lg border border-app-border bg-form-input-bg px-3 py-1.5 text-sm text-app-text focus:border-[#FF6B00] focus:outline-none"
                       value={companyData.checklistItem2.title}
                       onChange={(e) => setCompanyData(prev => ({ ...prev, checklistItem2: { ...prev.checklistItem2, title: e.target.value } }))}
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-400 mb-1">Description</label>
+                    <label className="block text-xs font-medium text-app-text-muted mb-1">Description</label>
                     <textarea
                       rows={2}
-                      className="w-full rounded-lg border border-white/10 bg-[#222222] px-3 py-1.5 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                      className="w-full rounded-lg border border-app-border bg-form-input-bg px-3 py-1.5 text-sm text-app-text focus:border-[#FF6B00] focus:outline-none"
                       value={companyData.checklistItem2.description}
                       onChange={(e) => setCompanyData(prev => ({ ...prev, checklistItem2: { ...prev.checklistItem2, description: e.target.value } }))}
                     />
@@ -672,23 +672,23 @@ const AboutManager = () => {
                 </div>
               </div>
 
-              <div className="bg-[#1A1A1A] p-4 rounded-xl border border-white/5 space-y-4">
-                <h4 className="text-sm font-semibold text-white">Signature Block</h4>
+              <div className="bg-surface-variant/40 p-4 rounded-xl border border-app-border space-y-4">
+                <h4 className="text-sm font-semibold text-app-text">Signature Block</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-medium text-gray-400 mb-1">Name</label>
+                    <label className="block text-xs font-medium text-app-text-muted mb-1">Name</label>
                     <input
                       type="text"
-                      className="w-full rounded-lg border border-white/10 bg-[#222222] px-3 py-1.5 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                      className="w-full rounded-lg border border-app-border bg-form-input-bg px-3 py-1.5 text-sm text-app-text focus:border-[#FF6B00] focus:outline-none"
                       value={companyData.signature.name}
                       onChange={(e) => setCompanyData(prev => ({ ...prev, signature: { ...prev.signature, name: e.target.value } }))}
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-400 mb-1">Role / Designation</label>
+                    <label className="block text-xs font-medium text-app-text-muted mb-1">Role / Designation</label>
                     <input
                       type="text"
-                      className="w-full rounded-lg border border-white/10 bg-[#222222] px-3 py-1.5 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                      className="w-full rounded-lg border border-app-border bg-form-input-bg px-3 py-1.5 text-sm text-app-text focus:border-[#FF6B00] focus:outline-none"
                       value={companyData.signature.role}
                       onChange={(e) => setCompanyData(prev => ({ ...prev, signature: { ...prev.signature, role: e.target.value } }))}
                     />
@@ -700,7 +700,7 @@ const AboutManager = () => {
                 <button
                   type="submit"
                   disabled={isSavingCompany}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-[#FF6B00] text-white font-semibold rounded-lg hover:bg-[#e66000] transition-colors disabled:opacity-50 cursor-pointer shadow-lg shadow-[#FF6B00]/20"
+                  className="flex items-center gap-2 px-5 py-2.5 bg-[#FF6B00] text-white font-semibold rounded-lg hover:bg-[#e66000] transition-colors disabled:opacity-50 cursor-pointer shadow-sm"
                 >
                   {isSavingCompany ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
                   Save Changes
@@ -712,36 +712,36 @@ const AboutManager = () => {
       </div>
 
       {/* Video Presentation Manager */}
-      <div className="bg-[#222222] border border-white/10 rounded-xl overflow-hidden mb-6">
+      <div className="bg-app-card border border-app-border rounded-xl overflow-hidden mb-6 shadow-sm">
         <button
           onClick={() => setIsVideoOpen(!isVideoOpen)}
-          className="w-full flex items-center justify-between p-4 bg-[#1A1A1A] hover:bg-white/5 transition-colors cursor-pointer"
+          className="w-full flex items-center justify-between p-4 bg-app-card hover:bg-surface-variant transition-colors cursor-pointer"
         >
           <div>
-            <h3 className="text-lg font-bold text-white text-left">Video Presentation Section</h3>
-            <p className="text-sm text-gray-400 text-left">Update the headings, checklists, and YouTube embed URL. Duration is fetched automatically.</p>
+            <h3 className="text-lg font-bold text-app-text text-left">Video Presentation Section</h3>
+            <p className="text-sm text-app-text-muted text-left">Update the headings, checklists, and YouTube embed URL. Duration is fetched automatically.</p>
           </div>
-          {isVideoOpen ? <ChevronUp className="w-5 h-5 text-gray-400" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
+          {isVideoOpen ? <ChevronUp className="w-5 h-5 text-app-text-muted" /> : <ChevronDown className="w-5 h-5 text-app-text-muted" />}
         </button>
         
         {isVideoOpen && (
-          <div className="p-6 border-t border-white/10">
+          <div className="p-6 border-t border-app-border">
             <form onSubmit={handleVideoSubmit} className="space-y-5 text-left">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">Heading Line 1</label>
+                  <label className="block text-sm font-medium text-app-text-muted mb-1">Heading Line 1</label>
                   <input
                     type="text"
-                    className="w-full rounded-lg border border-white/10 bg-[#1A1A1A] px-3.5 py-2 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                    className="w-full rounded-lg border border-app-border bg-form-input-bg px-3.5 py-2 text-sm text-app-text placeholder-app-text-muted focus:border-[#FF6B00] focus:outline-none transition-colors"
                     value={videoData.headingLine1}
                     onChange={(e) => setVideoData({ ...videoData, headingLine1: e.target.value })}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">Heading Line 2 (Highlighted)</label>
+                  <label className="block text-sm font-medium text-app-text-muted mb-1">Heading Line 2 (Highlighted)</label>
                   <input
                     type="text"
-                    className="w-full rounded-lg border border-white/10 bg-[#1A1A1A] px-3.5 py-2 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                    className="w-full rounded-lg border border-app-border bg-form-input-bg px-3.5 py-2 text-sm text-app-text placeholder-app-text-muted focus:border-[#FF6B00] focus:outline-none transition-colors"
                     value={videoData.headingLine2}
                     onChange={(e) => setVideoData({ ...videoData, headingLine2: e.target.value })}
                   />
@@ -749,42 +749,42 @@ const AboutManager = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">Description</label>
+                <label className="block text-sm font-medium text-app-text-muted mb-1">Description</label>
                 <textarea
                   rows={3}
-                  className="w-full rounded-lg border border-white/10 bg-[#1A1A1A] px-3.5 py-2 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                  className="w-full rounded-lg border border-app-border bg-form-input-bg px-3.5 py-2 text-sm text-app-text placeholder-app-text-muted focus:border-[#FF6B00] focus:outline-none transition-colors"
                   value={videoData.description}
                   onChange={(e) => setVideoData({ ...videoData, description: e.target.value })}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">Checklists (One per line, up to 4)</label>
+                <label className="block text-sm font-medium text-app-text-muted mb-1">Checklists (One per line, up to 4)</label>
                 <textarea
                   rows={4}
-                  className="w-full rounded-lg border border-white/10 bg-[#1A1A1A] px-3.5 py-2 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                  className="w-full rounded-lg border border-app-border bg-form-input-bg px-3.5 py-2 text-sm text-app-text placeholder-app-text-muted focus:border-[#FF6B00] focus:outline-none transition-colors"
                   value={videoData.checklists}
                   onChange={(e) => setVideoData({ ...videoData, checklists: e.target.value })}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">YouTube Embed URL</label>
+                <label className="block text-sm font-medium text-app-text-muted mb-1">YouTube Embed URL</label>
                 <input
                   type="text"
                   placeholder="https://www.youtube.com/embed/hb6CFtZnj2c?autoplay=0&rel=0&modestbranding=1"
-                  className="w-full rounded-lg border border-white/10 bg-[#1A1A1A] px-3.5 py-2 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                  className="w-full rounded-lg border border-app-border bg-form-input-bg px-3.5 py-2 text-sm text-app-text placeholder-app-text-muted focus:border-[#FF6B00] focus:outline-none transition-colors"
                   value={videoData.videoUrl}
                   onChange={(e) => setVideoData({ ...videoData, videoUrl: e.target.value })}
                 />
-                <p className="text-xs text-gray-400 mt-1">Duration will be extracted automatically when you save.</p>
+                <p className="text-xs text-app-text-muted mt-1">Duration will be extracted automatically when you save.</p>
               </div>
 
               <div className="flex justify-end pt-2">
                 <button
                   type="submit"
                   disabled={isSavingVideo}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-[#FF6B00] text-white font-semibold rounded-lg hover:bg-[#e66000] transition-colors disabled:opacity-50 cursor-pointer shadow-lg shadow-[#FF6B00]/20"
+                  className="flex items-center gap-2 px-5 py-2.5 bg-[#FF6B00] text-white font-semibold rounded-lg hover:bg-[#e66000] transition-colors disabled:opacity-50 cursor-pointer shadow-sm"
                 >
                   {isSavingVideo ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
                   Save Video Section
@@ -796,39 +796,39 @@ const AboutManager = () => {
       </div>
 
       {/* What We Do Section Manager */}
-      <div className="bg-[#222222] border border-white/10 rounded-xl overflow-hidden mb-6">
+      <div className="bg-app-card border border-app-border rounded-xl overflow-hidden mb-6 shadow-sm">
         <button
           onClick={() => setIsWhatWeDoOpen(!isWhatWeDoOpen)}
-          className="w-full flex items-center justify-between p-4 bg-[#1A1A1A] hover:bg-white/5 transition-colors cursor-pointer"
+          className="w-full flex items-center justify-between p-4 bg-app-card hover:bg-surface-variant transition-colors cursor-pointer"
         >
           <div>
-            <h3 className="text-lg font-bold text-white text-left">What We Do Section</h3>
-            <p className="text-sm text-gray-400 text-left">Manage the section header and the grid of service cards dynamically.</p>
+            <h3 className="text-lg font-bold text-app-text text-left">What We Do Section</h3>
+            <p className="text-sm text-app-text-muted text-left">Manage the section header and the grid of service cards dynamically.</p>
           </div>
-          {isWhatWeDoOpen ? <ChevronUp className="w-5 h-5 text-gray-400" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
+          {isWhatWeDoOpen ? <ChevronUp className="w-5 h-5 text-app-text-muted" /> : <ChevronDown className="w-5 h-5 text-app-text-muted" />}
         </button>
         
         {isWhatWeDoOpen && (
-          <div className="p-6 border-t border-white/10">
+          <div className="p-6 border-t border-app-border">
             <form onSubmit={handleWhatWeDoSubmit} className="space-y-6 text-left">
               
               <div className="space-y-4">
-                <h4 className="text-md font-bold text-white border-b border-white/10 pb-2">Header Texts</h4>
+                <h4 className="text-md font-bold text-app-text border-b border-app-border pb-2">Header Texts</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-1">Tagline</label>
+                    <label className="block text-sm font-medium text-app-text-muted mb-1">Tagline</label>
                     <input
                       type="text"
-                      className="w-full rounded-lg border border-white/10 bg-[#1A1A1A] px-3.5 py-2 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                      className="w-full rounded-lg border border-app-border bg-form-input-bg px-3.5 py-2 text-sm text-app-text placeholder-app-text-muted focus:border-[#FF6B00] focus:outline-none transition-colors"
                       value={whatWeDoData.tagline}
                       onChange={(e) => setWhatWeDoData({ ...whatWeDoData, tagline: e.target.value })}
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-1">Title</label>
+                    <label className="block text-sm font-medium text-app-text-muted mb-1">Title</label>
                     <input
                       type="text"
-                      className="w-full rounded-lg border border-white/10 bg-[#1A1A1A] px-3.5 py-2 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                      className="w-full rounded-lg border border-app-border bg-form-input-bg px-3.5 py-2 text-sm text-app-text placeholder-app-text-muted focus:border-[#FF6B00] focus:outline-none transition-colors"
                       value={whatWeDoData.title}
                       onChange={(e) => setWhatWeDoData({ ...whatWeDoData, title: e.target.value })}
                     />
@@ -836,10 +836,10 @@ const AboutManager = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">Description</label>
+                  <label className="block text-sm font-medium text-app-text-muted mb-1">Description</label>
                   <textarea
                     rows={2}
-                    className="w-full rounded-lg border border-white/10 bg-[#1A1A1A] px-3.5 py-2 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                    className="w-full rounded-lg border border-app-border bg-form-input-bg px-3.5 py-2 text-sm text-app-text placeholder-app-text-muted focus:border-[#FF6B00] focus:outline-none transition-colors"
                     value={whatWeDoData.description}
                     onChange={(e) => setWhatWeDoData({ ...whatWeDoData, description: e.target.value })}
                   />
@@ -847,8 +847,8 @@ const AboutManager = () => {
               </div>
 
               <div className="space-y-4 pt-4">
-                <div className="flex items-center justify-between border-b border-white/10 pb-2">
-                  <h4 className="text-md font-bold text-white">Service Cards ({whatWeDoData.cards.length})</h4>
+                <div className="flex items-center justify-between border-b border-app-border pb-2">
+                  <h4 className="text-md font-bold text-app-text">Service Cards ({whatWeDoData.cards.length})</h4>
                   <button
                     type="button"
                     onClick={handleAddWhatWeDoCard}
@@ -861,7 +861,7 @@ const AboutManager = () => {
                 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   {whatWeDoData.cards.map((card, index) => (
-                    <div key={index} className="bg-[#1A1A1A] border border-white/5 p-4 rounded-xl relative group">
+                    <div key={index} className="bg-surface-variant/40 border border-app-border p-4 rounded-xl relative group">
                       <button
                         type="button"
                         onClick={() => handleRemoveWhatWeDoCard(index)}
@@ -873,29 +873,29 @@ const AboutManager = () => {
                       
                       <div className="space-y-3 pr-8">
                         <div>
-                          <label className="block text-xs font-medium text-gray-400 mb-1">Icon Name (lucide-react)</label>
+                          <label className="block text-xs font-medium text-app-text-muted mb-1">Icon Name (lucide-react)</label>
                           <input
                             type="text"
                             placeholder="e.g. Code, Share2, Calculator"
-                            className="w-full rounded-lg border border-white/10 bg-[#222222] px-3 py-1.5 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                            className="w-full rounded-lg border border-app-border bg-form-input-bg px-3 py-1.5 text-sm text-app-text placeholder-app-text-muted focus:border-[#FF6B00] focus:outline-none transition-colors"
                             value={card.icon}
                             onChange={(e) => handleWhatWeDoCardChange(index, 'icon', e.target.value)}
                           />
                         </div>
                         <div>
-                          <label className="block text-xs font-medium text-gray-400 mb-1">Title</label>
+                          <label className="block text-xs font-medium text-app-text-muted mb-1">Title</label>
                           <input
                             type="text"
-                            className="w-full rounded-lg border border-white/10 bg-[#222222] px-3 py-1.5 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                            className="w-full rounded-lg border border-app-border bg-form-input-bg px-3 py-1.5 text-sm text-app-text placeholder-app-text-muted focus:border-[#FF6B00] focus:outline-none transition-colors"
                             value={card.title}
                             onChange={(e) => handleWhatWeDoCardChange(index, 'title', e.target.value)}
                           />
                         </div>
                         <div>
-                          <label className="block text-xs font-medium text-gray-400 mb-1">Description</label>
+                          <label className="block text-xs font-medium text-app-text-muted mb-1">Description</label>
                           <textarea
                             rows={2}
-                            className="w-full rounded-lg border border-white/10 bg-[#222222] px-3 py-1.5 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                            className="w-full rounded-lg border border-app-border bg-form-input-bg px-3 py-1.5 text-sm text-app-text placeholder-app-text-muted focus:border-[#FF6B00] focus:outline-none transition-colors"
                             value={card.desc}
                             onChange={(e) => handleWhatWeDoCardChange(index, 'desc', e.target.value)}
                           />
@@ -910,7 +910,7 @@ const AboutManager = () => {
                 <button
                   type="submit"
                   disabled={isSavingWhatWeDo}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-[#FF6B00] text-white font-semibold rounded-lg hover:bg-[#e66000] transition-colors disabled:opacity-50 cursor-pointer shadow-lg shadow-[#FF6B00]/20"
+                  className="flex items-center gap-2 px-5 py-2.5 bg-[#FF6B00] text-white font-semibold rounded-lg hover:bg-[#e66000] transition-colors disabled:opacity-50 cursor-pointer shadow-sm"
                 >
                   {isSavingWhatWeDo ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
                   Save What We Do Section
@@ -922,50 +922,50 @@ const AboutManager = () => {
       </div>
 
       {/* Vision and Mission Section Manager */}
-      <div className="bg-[#222222] border border-white/10 rounded-xl overflow-hidden mb-6">
+      <div className="bg-app-card border border-app-border rounded-xl overflow-hidden mb-6 shadow-sm">
         <button
           onClick={() => setIsVisionMissionOpen(!isVisionMissionOpen)}
-          className="w-full flex items-center justify-between p-4 bg-[#1A1A1A] hover:bg-white/5 transition-colors cursor-pointer"
+          className="w-full flex items-center justify-between p-4 bg-app-card hover:bg-surface-variant transition-colors cursor-pointer"
         >
           <div>
-            <h3 className="text-lg font-bold text-white text-left">Our Vision & Mission Section</h3>
-            <p className="text-sm text-gray-400 text-left">Update the Vision and Mission cards.</p>
+            <h3 className="text-lg font-bold text-app-text text-left">Our Vision & Mission Section</h3>
+            <p className="text-sm text-app-text-muted text-left">Update the Vision and Mission cards.</p>
           </div>
-          {isVisionMissionOpen ? <ChevronUp className="w-5 h-5 text-gray-400" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
+          {isVisionMissionOpen ? <ChevronUp className="w-5 h-5 text-app-text-muted" /> : <ChevronDown className="w-5 h-5 text-app-text-muted" />}
         </button>
         
         {isVisionMissionOpen && (
-          <div className="p-6 border-t border-white/10">
+          <div className="p-6 border-t border-app-border">
             <form onSubmit={handleVisionMissionSubmit} className="space-y-6 text-left">
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 
                 {/* Vision Block */}
-                <div className="space-y-4 bg-[#1A1A1A] p-4 rounded-xl border border-white/5">
-                  <h4 className="text-md font-bold text-white border-b border-white/10 pb-2">Our Vision Card</h4>
+                <div className="space-y-4 bg-surface-variant/40 p-4 rounded-xl border border-app-border">
+                  <h4 className="text-md font-bold text-app-text border-b border-app-border pb-2">Our Vision Card</h4>
                   <div>
-                    <label className="block text-xs font-medium text-gray-300 mb-1">Tagline</label>
+                    <label className="block text-xs font-medium text-app-text-muted mb-1">Tagline</label>
                     <input
                       type="text"
-                      className="w-full rounded-lg border border-white/10 bg-[#222222] px-3.5 py-2 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                      className="w-full rounded-lg border border-app-border bg-form-input-bg px-3.5 py-2 text-sm text-app-text placeholder-app-text-muted focus:border-[#FF6B00] focus:outline-none transition-colors"
                       value={visionMissionData.visionTagline}
                       onChange={(e) => setVisionMissionData({ ...visionMissionData, visionTagline: e.target.value })}
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-300 mb-1">Title</label>
+                    <label className="block text-xs font-medium text-app-text-muted mb-1">Title</label>
                     <input
                       type="text"
-                      className="w-full rounded-lg border border-white/10 bg-[#222222] px-3.5 py-2 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                      className="w-full rounded-lg border border-app-border bg-form-input-bg px-3.5 py-2 text-sm text-app-text placeholder-app-text-muted focus:border-[#FF6B00] focus:outline-none transition-colors"
                       value={visionMissionData.visionTitle}
                       onChange={(e) => setVisionMissionData({ ...visionMissionData, visionTitle: e.target.value })}
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-300 mb-1">Description</label>
+                    <label className="block text-xs font-medium text-app-text-muted mb-1">Description</label>
                     <textarea
                       rows={3}
-                      className="w-full rounded-lg border border-white/10 bg-[#222222] px-3.5 py-2 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                      className="w-full rounded-lg border border-app-border bg-form-input-bg px-3.5 py-2 text-sm text-app-text placeholder-app-text-muted focus:border-[#FF6B00] focus:outline-none transition-colors"
                       value={visionMissionData.visionDescription}
                       onChange={(e) => setVisionMissionData({ ...visionMissionData, visionDescription: e.target.value })}
                     />
@@ -973,31 +973,31 @@ const AboutManager = () => {
                 </div>
 
                 {/* Mission Block */}
-                <div className="space-y-4 bg-[#1A1A1A] p-4 rounded-xl border border-white/5">
-                  <h4 className="text-md font-bold text-white border-b border-white/10 pb-2">Our Mission Card</h4>
+                <div className="space-y-4 bg-surface-variant/40 p-4 rounded-xl border border-app-border">
+                  <h4 className="text-md font-bold text-app-text border-b border-app-border pb-2">Our Mission Card</h4>
                   <div>
-                    <label className="block text-xs font-medium text-gray-300 mb-1">Tagline</label>
+                    <label className="block text-xs font-medium text-app-text-muted mb-1">Tagline</label>
                     <input
                       type="text"
-                      className="w-full rounded-lg border border-white/10 bg-[#222222] px-3.5 py-2 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                      className="w-full rounded-lg border border-app-border bg-form-input-bg px-3.5 py-2 text-sm text-app-text placeholder-app-text-muted focus:border-[#FF6B00] focus:outline-none transition-colors"
                       value={visionMissionData.missionTagline}
                       onChange={(e) => setVisionMissionData({ ...visionMissionData, missionTagline: e.target.value })}
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-300 mb-1">Title</label>
+                    <label className="block text-xs font-medium text-app-text-muted mb-1">Title</label>
                     <input
                       type="text"
-                      className="w-full rounded-lg border border-white/10 bg-[#222222] px-3.5 py-2 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                      className="w-full rounded-lg border border-app-border bg-form-input-bg px-3.5 py-2 text-sm text-app-text placeholder-app-text-muted focus:border-[#FF6B00] focus:outline-none transition-colors"
                       value={visionMissionData.missionTitle}
                       onChange={(e) => setVisionMissionData({ ...visionMissionData, missionTitle: e.target.value })}
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-300 mb-1">Description</label>
+                    <label className="block text-xs font-medium text-app-text-muted mb-1">Description</label>
                     <textarea
                       rows={3}
-                      className="w-full rounded-lg border border-white/10 bg-[#222222] px-3.5 py-2 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                      className="w-full rounded-lg border border-app-border bg-form-input-bg px-3.5 py-2 text-sm text-app-text placeholder-app-text-muted focus:border-[#FF6B00] focus:outline-none transition-colors"
                       value={visionMissionData.missionDescription}
                       onChange={(e) => setVisionMissionData({ ...visionMissionData, missionDescription: e.target.value })}
                     />
@@ -1010,7 +1010,7 @@ const AboutManager = () => {
                 <button
                   type="submit"
                   disabled={isSavingVisionMission}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-[#FF6B00] text-white font-semibold rounded-lg hover:bg-[#e66000] transition-colors disabled:opacity-50 cursor-pointer shadow-lg shadow-[#FF6B00]/20"
+                  className="flex items-center gap-2 px-5 py-2.5 bg-[#FF6B00] text-white font-semibold rounded-lg hover:bg-[#e66000] transition-colors disabled:opacity-50 cursor-pointer shadow-sm"
                 >
                   {isSavingVisionMission ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
                   Save Vision & Mission
@@ -1022,39 +1022,39 @@ const AboutManager = () => {
       </div>
 
       {/* Our Edge Section Manager */}
-      <div className="bg-[#222222] border border-white/10 rounded-xl overflow-hidden mb-6">
+      <div className="bg-app-card border border-app-border rounded-xl overflow-hidden mb-6 shadow-sm">
         <button
           onClick={() => setIsOurEdgeOpen(!isOurEdgeOpen)}
-          className="w-full flex items-center justify-between p-4 bg-[#1A1A1A] hover:bg-white/5 transition-colors cursor-pointer"
+          className="w-full flex items-center justify-between p-4 bg-app-card hover:bg-surface-variant transition-colors cursor-pointer"
         >
           <div>
-            <h3 className="text-lg font-bold text-white text-left">Our Edge Section</h3>
-            <p className="text-sm text-gray-400 text-left">Manage the staggered "Why Choose Us" cards dynamically.</p>
+            <h3 className="text-lg font-bold text-app-text text-left">Our Edge Section</h3>
+            <p className="text-sm text-app-text-muted text-left">Manage the staggered "Why Choose Us" cards dynamically.</p>
           </div>
-          {isOurEdgeOpen ? <ChevronUp className="w-5 h-5 text-gray-400" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
+          {isOurEdgeOpen ? <ChevronUp className="w-5 h-5 text-app-text-muted" /> : <ChevronDown className="w-5 h-5 text-app-text-muted" />}
         </button>
         
         {isOurEdgeOpen && (
-          <div className="p-6 border-t border-white/10">
+          <div className="p-6 border-t border-app-border">
             <form onSubmit={handleOurEdgeSubmit} className="space-y-6 text-left">
               
               <div className="space-y-4">
-                <h4 className="text-md font-bold text-white border-b border-white/10 pb-2">Header Texts</h4>
+                <h4 className="text-md font-bold text-app-text border-b border-app-border pb-2">Header Texts</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-1">Tagline</label>
+                    <label className="block text-sm font-medium text-app-text-muted mb-1">Tagline</label>
                     <input
                       type="text"
-                      className="w-full rounded-lg border border-white/10 bg-[#1A1A1A] px-3.5 py-2 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                      className="w-full rounded-lg border border-app-border bg-form-input-bg px-3.5 py-2 text-sm text-app-text placeholder-app-text-muted focus:border-[#FF6B00] focus:outline-none transition-colors"
                       value={ourEdgeData.tagline}
                       onChange={(e) => setOurEdgeData({ ...ourEdgeData, tagline: e.target.value })}
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-1">Title</label>
+                    <label className="block text-sm font-medium text-app-text-muted mb-1">Title</label>
                     <input
                       type="text"
-                      className="w-full rounded-lg border border-white/10 bg-[#1A1A1A] px-3.5 py-2 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                      className="w-full rounded-lg border border-app-border bg-form-input-bg px-3.5 py-2 text-sm text-app-text placeholder-app-text-muted focus:border-[#FF6B00] focus:outline-none transition-colors"
                       value={ourEdgeData.title}
                       onChange={(e) => setOurEdgeData({ ...ourEdgeData, title: e.target.value })}
                     />
@@ -1062,10 +1062,10 @@ const AboutManager = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">Description</label>
+                  <label className="block text-sm font-medium text-app-text-muted mb-1">Description</label>
                   <textarea
                     rows={2}
-                    className="w-full rounded-lg border border-white/10 bg-[#1A1A1A] px-3.5 py-2 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                    className="w-full rounded-lg border border-app-border bg-form-input-bg px-3.5 py-2 text-sm text-app-text placeholder-app-text-muted focus:border-[#FF6B00] focus:outline-none transition-colors"
                     value={ourEdgeData.description}
                     onChange={(e) => setOurEdgeData({ ...ourEdgeData, description: e.target.value })}
                   />
@@ -1073,8 +1073,8 @@ const AboutManager = () => {
               </div>
 
               <div className="space-y-4 pt-4">
-                <div className="flex items-center justify-between border-b border-white/10 pb-2">
-                  <h4 className="text-md font-bold text-white">Staggered Cards ({ourEdgeData.cards.length})</h4>
+                <div className="flex items-center justify-between border-b border-app-border pb-2">
+                  <h4 className="text-md font-bold text-app-text">Staggered Cards ({ourEdgeData.cards.length})</h4>
                   <button
                     type="button"
                     onClick={handleAddOurEdgeCard}
@@ -1087,7 +1087,7 @@ const AboutManager = () => {
                 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   {ourEdgeData.cards.map((card, index) => (
-                    <div key={index} className="bg-[#1A1A1A] border border-white/5 p-4 rounded-xl relative group">
+                    <div key={index} className="bg-surface-variant/40 border border-app-border p-4 rounded-xl relative group">
                       <div className="absolute top-3 left-3 bg-[#FF6B00]/10 text-[#FF6B00] font-bold px-2 py-0.5 rounded text-xs">
                         {String(index + 1).padStart(2, '0')}
                       </div>
@@ -1102,19 +1102,19 @@ const AboutManager = () => {
                       
                       <div className="space-y-3 mt-6 pr-8">
                         <div>
-                          <label className="block text-xs font-medium text-gray-400 mb-1">Title</label>
+                          <label className="block text-xs font-medium text-app-text-muted mb-1">Title</label>
                           <input
                             type="text"
-                            className="w-full rounded-lg border border-white/10 bg-[#222222] px-3 py-1.5 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                            className="w-full rounded-lg border border-app-border bg-form-input-bg px-3 py-1.5 text-sm text-app-text placeholder-app-text-muted focus:border-[#FF6B00] focus:outline-none transition-colors"
                             value={card.title}
                             onChange={(e) => handleOurEdgeCardChange(index, 'title', e.target.value)}
                           />
                         </div>
                         <div>
-                          <label className="block text-xs font-medium text-gray-400 mb-1">Description</label>
+                          <label className="block text-xs font-medium text-app-text-muted mb-1">Description</label>
                           <textarea
                             rows={2}
-                            className="w-full rounded-lg border border-white/10 bg-[#222222] px-3 py-1.5 text-sm text-gray-100 focus:border-[#FF6B00] focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+                            className="w-full rounded-lg border border-app-border bg-form-input-bg px-3 py-1.5 text-sm text-app-text placeholder-app-text-muted focus:border-[#FF6B00] focus:outline-none transition-colors"
                             value={card.desc}
                             onChange={(e) => handleOurEdgeCardChange(index, 'desc', e.target.value)}
                           />
@@ -1129,7 +1129,7 @@ const AboutManager = () => {
                 <button
                   type="submit"
                   disabled={isSavingOurEdge}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-[#FF6B00] text-white font-semibold rounded-lg hover:bg-[#e66000] transition-colors disabled:opacity-50 cursor-pointer shadow-lg shadow-[#FF6B00]/20"
+                  className="flex items-center gap-2 px-5 py-2.5 bg-[#FF6B00] text-white font-semibold rounded-lg hover:bg-[#e66000] transition-colors disabled:opacity-50 cursor-pointer shadow-sm"
                 >
                   {isSavingOurEdge ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
                   Save Our Edge Section

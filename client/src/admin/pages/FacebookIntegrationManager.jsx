@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
-import { Save, AlertCircle, RefreshCw, Share2, ExternalLink, Code, ClipboardList } from 'lucide-react';
+import { Save, AlertCircle, Share2, Code, ClipboardList } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export default function FacebookIntegrationManager() {
@@ -13,15 +13,6 @@ export default function FacebookIntegrationManager() {
   });
   const [leadForms, setLeadForms] = useState([]);
   const [savingFormId, setSavingFormId] = useState(null);
-
-  // Derive the webhook URL from the API this panel is actually talking to.
-  // It used to be hardcoded, which is how it came to point at a hostname that
-  // did not resolve — Facebook silently dropped every lead against it.
-  const apiBase = api.defaults.baseURL || '/api';
-  const apiOrigin = /^https?:\/\//.test(apiBase)
-    ? apiBase
-    : `${window.location.origin}${apiBase}`;
-  const webhookUrl = `${apiOrigin.replace(/\/$/, '')}/leads/webhook/facebook`;
 
   useEffect(() => {
     fetchSettings();
@@ -191,42 +182,6 @@ export default function FacebookIntegrationManager() {
               </table>
             </div>
           )}
-        </div>
-
-        {/* Webhook Configuration Instructions */}
-        <div className="bg-app-card border border-app-border rounded-xl p-6 shadow-sm space-y-4">
-          <h2 className="text-lg font-bold text-app-text flex items-center gap-2">
-            <RefreshCw size={18} className="text-primary" /> Lead Ads Webhook Setup
-          </h2>
-          
-          <div className="bg-primary/5 border border-primary/20 rounded-lg p-4 flex gap-3 text-sm">
-            <AlertCircle className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-            <div className="space-y-2 text-app-text">
-              <p>
-                To receive leads automatically from Facebook & Instagram Instant Forms, you need to configure the webhook in your Facebook Developer App.
-              </p>
-              <p className="break-all">
-                <strong>Webhook URL:</strong>{' '}
-                <code className="bg-app-bg px-2 py-1 rounded text-primary">{webhookUrl}</code>
-              </p>
-              <p className="text-xs text-app-text-muted">
-                Paste this exactly into your Facebook App → Webhooks → Page → Callback URL.
-                The hostname must be publicly reachable — if it does not resolve, Facebook
-                drops every lead without any error showing up on your side.
-              </p>
-            </div>
-          </div>
-
-          <div className="pt-4 border-t border-app-border">
-            <a 
-              href="https://developers.facebook.com/docs/graph-api/webhooks/getting-started" 
-              target="_blank" 
-              rel="noreferrer"
-              className="inline-flex items-center gap-1.5 text-sm font-bold text-[#1877F2] hover:underline"
-            >
-              View Facebook Webhook Documentation <ExternalLink className="w-4 h-4" />
-            </a>
-          </div>
         </div>
       </div>
     </div>

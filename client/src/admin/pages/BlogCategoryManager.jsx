@@ -123,58 +123,62 @@ export default function BlogCategoryManager() {
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center justify-between border-b border-white/10 pb-4">
+      <div className="flex items-center justify-between border-b border-app-border pb-4">
         <div>
-          <h2 className="text-xl font-bold text-white">Categories</h2>
-          <p className="text-gray-400 text-sm mt-1">Manage categories for your blog posts.</p>
+          <h2 className="text-xl font-bold text-app-text">Categories</h2>
+          <p className="text-app-text-muted text-sm mt-1">Manage categories for your blog posts.</p>
         </div>
         <button
           onClick={openAddModal}
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-black font-medium rounded-lg hover:bg-primary/90 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-[#FF6B00] text-white font-semibold rounded-lg hover:bg-[#e66000] transition-colors shadow-sm"
         >
           <Plus className="w-4 h-4" /> Add Category
         </button>
       </div>
 
       {categories.length === 0 ? (
-        <div className="text-center text-gray-500 py-12 bg-[#1a1a1a] rounded-xl border border-white/5">
-          <Tag className="w-12 h-12 mx-auto mb-3 opacity-20" />
+        <div className="text-center text-app-text-muted py-12 bg-app-card rounded-xl border border-app-border shadow-sm">
+          <Tag className="w-12 h-12 mx-auto mb-3 opacity-30 text-app-text-muted" />
           <p>No categories found.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {categories.map((category) => (
-            <div key={category._id} className="bg-[#1a1a1a] border border-white/10 rounded-xl p-6 relative flex flex-col">
+            <div key={category._id} className="bg-app-card border border-app-border rounded-xl p-6 relative flex flex-col shadow-sm">
               <div className="flex justify-between items-start mb-4">
                 <div>
-                  <h3 className="text-xl font-bold text-white">{category.name}</h3>
+                  <h3 className="text-xl font-bold text-app-text">{category.name}</h3>
                 </div>
               </div>
               
-              <div className="space-y-1 mb-6 text-sm text-gray-400 flex-1">
-                <p>
-                  <strong>Status:</strong>{' '}
-                  <span className={category.isActive ? 'text-green-500' : 'text-gray-500'}>
+              <div className="space-y-1 mb-6 text-sm text-app-text-muted flex-1">
+                <p className="flex items-center gap-2">
+                  <strong className="text-app-text">Status:</strong>
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                    category.isActive 
+                      ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20' 
+                      : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700'
+                  }`}>
                     {category.isActive ? 'Active' : 'Inactive'}
                   </span>
                 </p>
               </div>
 
-              <div className="flex items-center justify-between pt-4 border-t border-white/10 mt-auto">
+              <div className="flex items-center justify-between pt-4 border-t border-app-border mt-auto">
                 <div className="flex gap-2">
                   <button 
                     onClick={() => openEditModal(category)}
-                    className="p-2 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 rounded transition-colors"
+                    className="p-2 bg-blue-500/10 text-blue-500 hover:bg-blue-500/20 rounded-lg transition-colors"
                     title="Edit"
                   >
                     <Edit2 size={16} />
                   </button>
                   <button 
                     onClick={() => toggleStatus(category)}
-                    className={`p-2 rounded transition-colors cursor-pointer ${
+                    className={`p-2 rounded-lg transition-colors cursor-pointer ${
                       category.isActive 
-                        ? 'bg-green-500/10 text-green-500 hover:bg-green-500/20' 
-                        : 'bg-gray-500/10 text-gray-400 hover:bg-gray-500/20'
+                        ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20' 
+                        : 'bg-gray-100 dark:bg-gray-800 text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700'
                     }`}
                     title={category.isActive ? 'Deactivate' : 'Activate'}
                   >
@@ -184,7 +188,7 @@ export default function BlogCategoryManager() {
                 
                 <button 
                   onClick={() => deleteCategory(category._id)}
-                  className="p-2 bg-red-500/10 text-red-500 hover:bg-red-500/20 rounded transition-colors"
+                  className="p-2 bg-red-500/10 text-red-500 hover:bg-red-500/20 rounded-lg transition-colors"
                   title="Delete Category"
                 >
                   <Trash2 size={16} />
@@ -196,22 +200,22 @@ export default function BlogCategoryManager() {
       )}
 
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-          <div className="bg-[#1a1a1a] border border-white/10 rounded-xl p-6 w-full max-w-md relative">
-            <h2 className="text-xl font-bold text-white mb-6">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-app-card border border-app-border rounded-xl p-6 w-full max-w-md relative shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+            <h2 className="text-xl font-bold text-app-text mb-6">
               {editingId ? 'Edit Category' : 'Add New Category'}
             </h2>
             
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="text-sm font-medium text-gray-300 block mb-1">Category Name *</label>
+                <label className="text-sm font-medium text-app-text block mb-1">Category Name *</label>
                 <input
                   required
                   type="text"
                   value={formData.name}
                   onChange={e => setFormData({ ...formData, name: e.target.value })}
                   placeholder="e.g. TECHNOLOGY"
-                  className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-primary uppercase"
+                  className="w-full bg-form-input-bg border border-app-border rounded-lg px-4 py-2.5 text-app-text placeholder-app-text-muted focus:outline-none focus:border-[#FF6B00] uppercase transition-colors"
                 />
               </div>
 
@@ -221,25 +225,25 @@ export default function BlogCategoryManager() {
                   id="isActive"
                   checked={formData.isActive}
                   onChange={e => setFormData({ ...formData, isActive: e.target.checked })}
-                  className="w-4 h-4 text-primary bg-black/50 border-white/10 rounded focus:ring-primary focus:ring-offset-black"
+                  className="w-4 h-4 text-[#FF6B00] bg-form-input-bg border-app-border rounded focus:ring-[#FF6B00]"
                 />
-                <label htmlFor="isActive" className="text-sm font-medium text-gray-300">
+                <label htmlFor="isActive" className="text-sm font-medium text-app-text">
                   Active
                 </label>
               </div>
 
-              <div className="flex justify-end gap-3 pt-6 border-t border-white/10 mt-6">
+              <div className="flex justify-end gap-3 pt-6 border-t border-app-border mt-6">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-6 py-2 text-gray-400 hover:text-white transition-colors"
+                  className="px-5 py-2.5 border border-app-border rounded-lg text-sm font-medium text-app-text-muted hover:bg-surface-variant transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSaving}
-                  className="flex items-center gap-2 px-6 py-2 bg-primary text-black font-semibold rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
+                  className="flex items-center gap-2 px-6 py-2.5 bg-[#FF6B00] text-white font-semibold rounded-lg hover:bg-[#e66000] transition-colors disabled:opacity-50 shadow-sm"
                 >
                   {isSaving ? <Loader className="w-4 h-4 animate-spin" /> : 'Save Category'}
                 </button>

@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { createBrowserRouter } from 'react-router-dom';
+import { createBrowserRouter, useParams } from 'react-router-dom';
 import MainLayout from '../components/layout/MainLayout';
 import LandingPageLayout from '../components/layout/LandingPageLayout';
 
@@ -164,6 +164,21 @@ const withSuspense = (Component) => (
     </Suspense>
   </ChunkLoadErrorBoundary>
 );
+
+// React Router keeps the same component instance mounted when only a route
+// param changes (e.g. going Back then opening a different lead), so all of a
+// workspace page's local state — including uncontrolled `defaultValue`
+// inputs, which never re-sync on prop/state changes — silently carries over
+// from the previous record. Keying the component by :id forces a clean
+// remount whenever it points at a different record, the same way switching
+// `key` on a list item does.
+const withSuspenseKeyedById = (Component) => {
+  const KeyedById = () => {
+    const { id } = useParams();
+    return <Component key={id} />;
+  };
+  return withSuspense(KeyedById);
+};
 
 const withPermission = (Component, requiredPermission) => (
   <ProtectedRoute requiredPermission={requiredPermission}>
@@ -507,7 +522,7 @@ export const router = createBrowserRouter([
           },
           {
             path: 'leads/:id',
-            element: withSuspense(LeadWorkspace)
+            element: withSuspenseKeyedById(LeadWorkspace)
           },
           {
             path: 'audit/activity',
@@ -581,7 +596,7 @@ export const router = createBrowserRouter([
               },
               {
                 path: 'leads/:id',
-                element: withSuspense(EmployeeLeadWorkspace)
+                element: withSuspenseKeyedById(EmployeeLeadWorkspace)
               },
               {
                 path: '',
