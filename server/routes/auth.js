@@ -299,32 +299,108 @@ router.post('/logout', authMiddleware, async (req, res) => {
   res.json({ success: true, message: 'Logged out successfully' });
 });
 
-// @route   POST /api/auth/reset-temp-password
-// @desc    Reset temporary password on first login
+// @route   PUT /api/auth/profile
+// @desc    Update current logged-in admin profile (firstName, lastName, email)
 // @access  Private
-router.post('/reset-temp-password', authMiddleware, async (req, res) => {
+router.put('/profile', authMiddleware, async (req, res) => {
   try {
-    const { newPassword } = req.body;
-    if (!newPassword || newPassword.length < 6) {
-      return res.status(400).json({ success: false, message: 'Password must be at least 6 characters long' });
-    }
+    const { firstName, lastName, email } = req.body;
     const admin = await Admin.findById(req.user._id);
     if (!admin) {
-      return res.status(404).json({ success: false, message: 'User not found' });
+      return res.status(404).json({ success: false, message: 'Admin account not found' });
     }
+
+    if (firstName) admin.firstName = firstName.trim();
+    if (lastName) admin.lastName = lastName.trim();
+
+    if (email && email.trim().toLowerCase() !== admin.email) {
+      const emailLower = email.trim().toLowerCase();
+      const existing = await Admin.findOne({ email: emailLower, _id: { $ne: admin._id } });
+      if (existing) {
+        return res.status(400).json({ success: false, message: 'This email is already in use by another account.' });
+      }
+      admin.email = emailLower;
+    }
+
+    await admin.save();
+
+    // If linked to Employee profile, keep Employee names/email in sync
+    await Employee.findOneAndUpdate(
+      { adminId: admin._id },
+      {
+        firstName: admin.firstName,
+        lastName: admin.lastName,
+        email: admin.email
+      }
+    );
+
+    const populatedAdmin = await Admin.findById(admin._id).populate('roles');
+
+    const permissionsSet = new Set();
+    if (populatedAdmin.roles && populatedAdmin.roles.length > 0) {
+      populatedAdmin.roles.forEach(role => {
+        if (role.permissions && Array.isArray(role.permissions)) {
+          role.permissions.forEach(perm => permissionsSet.add(perm));
+        }
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Profile updated successfully',
+      admin: {
+        _id: populatedAdmin._id,
+        firstName: populatedAdmin.firstName,
+        lastName: populatedAdmin.lastName,
+        email: populatedAdmin.email,
+        roles: populatedAdmin.roles,
+        permissions: Array.from(permissionsSet)
+      }
+    });
+  } catch (error) {
+    logger.error('Error updating admin profile:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// @route   PUT /api/auth/password
+// @desc    Change current logged-in admin password (requires current password verification)
+// @access  Private
+router.put('/password', authMiddleware, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ success: false, message: 'Both current password and new password are required.' });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ success: false, message: 'New password must be at least 6 characters long.' });
+    }
+
+    const admin = await Admin.findById(req.user._id);
+    if (!admin) {
+      return res.status(404).json({ success: false, message: 'User not found.' });
+    }
+
+    const isMatch = await admin.matchPassword(currentPassword);
+    if (!isMatch) {
+      return res.status(400).json({ success: false, message: 'Incorrect current password.' });
+    }
+
     admin.password = newPassword;
     admin.isTemporaryPassword = false;
     await admin.save();
 
-    // Update Employee document to reflect the new password for admin visibility
+    // Update Employee document to reflect the new password for vault visibility
     await Employee.findOneAndUpdate(
       { adminId: req.user._id },
       { tempPassword: newPassword }
     );
 
-    res.json({ success: true, message: 'Password reset successfully' });
+    res.json({ success: true, message: 'Password changed successfully.' });
   } catch (error) {
-    logger.error('Error resetting temp password:', error);
+    logger.error('Error changing admin password:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });

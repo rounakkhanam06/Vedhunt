@@ -112,8 +112,8 @@ const DPAManager = () => {
     }
   };
 
-  const inputClasses = "w-full bg-[#121215] border border-[#2D2D33] rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] transition-all duration-300";
-  const labelClasses = "block text-[12px] font-medium text-gray-400 mb-1.5 font-mono uppercase tracking-wider";
+  const inputClasses = "w-full bg-app-bg border border-app-border rounded-lg px-4 py-2 text-app-text placeholder-app-text-muted focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all duration-300";
+  const labelClasses = "block text-[12px] font-medium text-app-text-muted mb-1.5 font-mono uppercase tracking-wider";
 
   const modules = {
     toolbar: [
@@ -126,20 +126,20 @@ const DPAManager = () => {
   };
 
   if (loading) {
-    return <div className="p-8 text-white">Loading...</div>;
+    return <div className="p-8 text-app-text">Loading...</div>;
   }
 
   return (
     <div className="p-8 max-w-5xl mx-auto pb-24">
       <div className="flex justify-between items-center mb-8">
         <div>
-          <h2 className="text-3xl font-bold text-white mb-2">Data Processing Agreement Manager</h2>
-          <p className="text-gray-400">Manage the content of the DPA page.</p>
+          <h2 className="text-3xl font-bold text-app-text mb-2">Data Processing Agreement Manager</h2>
+          <p className="text-app-text-muted">Manage the content of the DPA page.</p>
         </div>
         <button 
           onClick={handleSave}
           disabled={saving}
-          className={`flex items-center gap-2 bg-[#FF6B00] hover:bg-[#EA580C] text-white px-6 py-3 rounded-xl font-bold shadow-[0_4px_20px_rgba(255,107,0,0.4)] transition-all ${saving ? 'opacity-50' : 'hover:scale-105 active:scale-95'}`}
+          className={`flex items-center gap-2 bg-primary hover:bg-primary/90 text-white px-6 py-3 rounded-xl font-bold shadow-[0_4px_20px_rgba(255,107,0,0.4)] transition-all ${saving ? 'opacity-50' : 'hover:scale-105 active:scale-95'}`}
         >
           <Save size={18} />
           {saving ? 'Saving...' : 'Save Changes'}
@@ -148,10 +148,10 @@ const DPAManager = () => {
 
       <div className="space-y-8">
         {/* Hero Section Editing */}
-        <div className="bg-[#1A1A1A] border border-[#2D2D33] rounded-xl p-6">
-          <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+        <div className="bg-app-card border border-app-border rounded-xl p-6 shadow-sm">
+          <h3 className="text-xl font-bold text-app-text mb-6 flex items-center gap-2">
             Hero Section
-            <AlertCircle size={16} className="text-gray-500" />
+            <AlertCircle size={16} className="text-app-text-muted" />
           </h3>
           <div className="grid grid-cols-2 gap-6 mb-6">
             <div>
@@ -193,17 +193,17 @@ const DPAManager = () => {
         </div>
 
         {/* Accordion Sections Editing */}
-        <div className="bg-[#1A1A1A] border border-[#2D2D33] rounded-xl p-6">
+        <div className="bg-app-card border border-app-border rounded-xl p-6 shadow-sm">
           <div className="flex justify-between items-center mb-6">
-            <h3 className="text-xl font-bold text-white">Policy Sections (Accordion)</h3>
-            <button onClick={addSection} className="flex items-center gap-2 bg-white/5 hover:bg-white/10 text-white px-4 py-2 rounded-lg text-sm transition-colors">
+            <h3 className="text-xl font-bold text-app-text">Policy Sections (Accordion)</h3>
+            <button onClick={addSection} className="flex items-center gap-2 bg-app-bg hover:bg-app-border/40 text-app-text border border-app-border px-4 py-2 rounded-lg text-sm transition-colors shadow-sm">
               <Plus size={16} /> Add Section
             </button>
           </div>
 
           <div className="space-y-6">
             {policyData.policyData?.map((section, idx) => (
-              <div key={section.id || idx} className="bg-[#121215] border border-[#2D2D33] rounded-xl p-6">
+              <div key={section.id || idx} className="bg-app-bg border border-app-border rounded-xl p-6 shadow-sm">
                 <div className="flex items-start justify-between gap-4 mb-4">
                   <div className="flex-1">
                     <label className={labelClasses}>Section Title</label>
@@ -221,7 +221,7 @@ const DPAManager = () => {
                 
                 <div>
                   <label className={labelClasses}>Content (Rich Text)</label>
-                  <div className="bg-white rounded-lg text-black overflow-hidden">
+                  <div className="bg-white rounded-lg text-black overflow-hidden border border-app-border">
                     <ReactQuill 
                       theme="snow" 
                       value={section.content} 
@@ -236,8 +236,8 @@ const DPAManager = () => {
         </div>
 
         {/* Agreement Acceptance Editing */}
-        <div className="bg-[#1A1A1A] border border-[#2D2D33] rounded-xl p-6">
-          <h3 className="text-xl font-bold text-white mb-6">Agreement Acceptance Section</h3>
+        <div className="bg-app-card border border-app-border rounded-xl p-6 shadow-sm">
+          <h3 className="text-xl font-bold text-app-text mb-6">Agreement Acceptance Section</h3>
           <div className="space-y-4">
             <div>
               <label className={labelClasses}>Title</label>

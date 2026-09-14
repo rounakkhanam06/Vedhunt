@@ -1,31 +1,20 @@
 // ============================================================
-// Tracking Configuration
+// Dynamic Campaign & Tracking Configuration
 // ============================================================
-//
-// FB Pixel ID: VITE_FB_PIXEL_ID in client/.env takes priority. If it is not
-//              set, the Pixel ID saved in Admin → Facebook Integration is used.
-// Google Ads:  Hardcoded in index.html (gtag AW-10976080417)
-// GA4:         Hardcoded in index.html (G-9JFTTEVSL0)
-// GTM / LinkedIn: set VITE_GTM_ID / VITE_LINKEDIN_PARTNER_ID in .env
+// Reads tracking configuration dynamically from Admin → Settings → Campaign Control
+// (/api/settings/campaigns). If values are enabled in Campaign Control, they are
+// loaded and fired dynamically on the client side.
 // ============================================================
 
 import { initAttribution } from './attribution';
 import api from '../services/api';
 
-// Read pixel IDs directly from Vite env vars
-const ENV_FB_PIXEL_ID   = import.meta.env.VITE_FB_PIXEL_ID       || null;
-const GTM_ID            = import.meta.env.VITE_GTM_ID            || null;
-const LINKEDIN_PARTNER  = import.meta.env.VITE_LINKEDIN_PARTNER_ID || null;
-
-// Resolved at init — either from the env var or from admin settings
-let FB_PIXEL_ID = ENV_FB_PIXEL_ID;
-
+let activeCampaignSettings = null;
 let isInitialized = false;
 
+// Dynamic loader for Facebook / Meta Pixel
 const loadFacebookPixel = (pixelId) => {
-  if (!pixelId) return;
-  FB_PIXEL_ID = pixelId;
-
+  if (!pixelId || window.fbq) return;
   !function(f,b,e,v,n,t,s)
   {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
   n.callMethod.apply(n,arguments):n.queue.push(arguments)};
@@ -38,68 +27,116 @@ const loadFacebookPixel = (pixelId) => {
   window.fbq('track', 'PageView');
 };
 
-// 1. Initialize all tracking platforms once (called from MainLayout on mount)
-export const initTracking = () => {
-  // Always run first-touch attribution check on page load/init
-  initAttribution();
+// Dynamic loader for Google Tag Manager (GTM)
+const loadGoogleTagManager = (gtmId) => {
+  if (!gtmId || window._gtmLoaded) return;
+  window._gtmLoaded = true;
+  (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+  new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+  j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+  'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+  })(window,document,'script','dataLayer', gtmId);
+};
 
-  if (isInitialized) return;
-  isInitialized = true;
-
-  // Facebook Pixel — the env var wins so a deploy-time override is always
-  // authoritative; otherwise fall back to the Pixel ID saved in the admin panel.
-  if (ENV_FB_PIXEL_ID) {
-    loadFacebookPixel(ENV_FB_PIXEL_ID);
-  } else {
-    api.get('/settings/facebook')
-      .then((res) => loadFacebookPixel(res.data?.pixelId))
-      .catch(() => { /* tracking is best-effort — never block the page */ });
-  }
-
-  // Google Tag Manager (optional — set VITE_GTM_ID)
-  if (GTM_ID) {
-    (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-    })(window,document,'script','dataLayer', GTM_ID);
-  }
-
-  // LinkedIn Insight Tag (optional — set VITE_LINKEDIN_PARTNER_ID)
-  if (LINKEDIN_PARTNER) {
-    window._linkedin_data_partner_ids = window._linkedin_data_partner_ids || [];
-    window._linkedin_data_partner_ids.push(LINKEDIN_PARTNER);
-    (function(l) {
+// Dynamic loader for LinkedIn Insight Tag
+const loadLinkedInInsight = (partnerId) => {
+  if (!partnerId || window.lintrk) return;
+  window._linkedin_data_partner_ids = window._linkedin_data_partner_ids || [];
+  window._linkedin_data_partner_ids.push(partnerId);
+  (function(l) {
     if (!l){window.lintrk = function(a,b){window.lintrk.q.push([a,b])};
     window.lintrk.q=[]}
     var s = document.getElementsByTagName("script")[0];
     var b = document.createElement("script");
     b.type = "text/javascript";b.async = true;
     b.src = "https://snap.licdn.com/li.lms-analytics/insight.min.js";
-    s.parentNode.insertBefore(b, s);})(window.lintrk);
+    s.parentNode.insertBefore(b, s);
+  })(window.lintrk);
+};
+
+// Dynamic loader for Google Ads config (gtag)
+const configureGoogleAds = (googleAdsId) => {
+  if (!googleAdsId || !window.gtag) return;
+  window.gtag('config', googleAdsId);
+};
+
+// 1. Initialize all tracking platforms dynamically
+export const initTracking = async () => {
+  initAttribution();
+
+  if (isInitialized) return;
+  isInitialized = true;
+
+  try {
+    const res = await api.get('/settings/campaigns');
+    const settings = res.data;
+    activeCampaignSettings = settings;
+
+    // 1. Meta (Facebook) Pixel
+    if (settings?.facebookPixel?.enabled && settings.facebookPixel.id) {
+      loadFacebookPixel(settings.facebookPixel.id);
+    } else {
+      // Fallback: check legacy Facebook Integration endpoint
+      api.get('/settings/facebook')
+        .then((fbRes) => {
+          if (fbRes.data?.pixelId && !window.fbq) {
+            loadFacebookPixel(fbRes.data.pixelId);
+          }
+        })
+        .catch(() => {});
+    }
+
+    // 2. Google Tag Manager
+    if (settings?.googleTagManager?.enabled && settings.googleTagManager.id) {
+      loadGoogleTagManager(settings.googleTagManager.id);
+    }
+
+    // 3. Google Ads
+    if (settings?.googleAds?.enabled && settings.googleAds.id) {
+      configureGoogleAds(settings.googleAds.id);
+    }
+
+    // 4. LinkedIn Insight Tag
+    if (settings?.linkedInInsight?.enabled && settings.linkedInInsight.id) {
+      loadLinkedInInsight(settings.linkedInInsight.id);
+    }
+  } catch (error) {
+    console.error('Error loading dynamic tracking settings:', error);
   }
 };
 
-// 2. Global Conversion Tracker — call this after any lead form is submitted
-//    Usage: window.trackConversion({ value: 0, currency: 'INR', service: 'SEO' })
-window.trackConversion = (eventDetails = {}) => {
+// 2. Global Conversion Tracker — called when lead forms are submitted
+export const trackConversion = (eventDetails = {}) => {
   // Facebook Lead Event
-  if (FB_PIXEL_ID && window.fbq) {
+  if (window.fbq) {
     window.fbq('track', 'Lead', eventDetails);
   }
 
-  // Google Ads Conversion (hardcoded label from GetQuote.jsx)
-  // Additional gtag conversions can be fired from individual form pages directly
-
-  // Google Analytics 4 (GA4 is hardcoded in index.html)
+  // Google Analytics 4 (GA4 generate_lead)
   if (window.gtag) {
     window.gtag('event', 'generate_lead', {
       ...eventDetails
     });
   }
 
+  // Dynamic Google Ads Conversion
+  const googleAds = activeCampaignSettings?.googleAds;
+  if (googleAds?.enabled && googleAds.id && googleAds.conversionLabel && window.gtag) {
+    window.gtag('event', 'conversion', {
+      send_to: `${googleAds.id}/${googleAds.conversionLabel}`,
+      value: eventDetails.value || 1.0,
+      currency: eventDetails.currency || 'INR'
+    });
+  }
+
   // LinkedIn Conversion
-  if (LINKEDIN_PARTNER && window.lintrk) {
-    window.lintrk('track', { conversion_id: LINKEDIN_PARTNER });
+  const linkedIn = activeCampaignSettings?.linkedInInsight;
+  if (linkedIn?.enabled && linkedIn.id && window.lintrk) {
+    window.lintrk('track', { conversion_id: linkedIn.id });
   }
 };
+
+// Attach to window so existing pages calling window.trackConversion keep working seamlessly
+if (typeof window !== 'undefined') {
+  window.trackConversion = trackConversion;
+}

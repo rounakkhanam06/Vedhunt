@@ -542,19 +542,13 @@ exports.getDPA = async (req, res) => {
 exports.updateDPA = async (req, res) => {
   try {
     const updatedData = req.body;
-    let settings = await Settings.findOne({ key: 'dpa' });
+    const updated = await Settings.findOneAndUpdate(
+      { key: 'dpa' },
+      { $set: { value: updatedData } },
+      { returnDocument: 'after', upsert: true }
+    );
     
-    if (settings) {
-      settings.value = updatedData;
-      await settings.save();
-    } else {
-      settings = await Settings.create({
-        key: 'dpa',
-        value: updatedData,
-      });
-    }
-    
-    res.json(settings.value);
+    res.json(updated ? updated.value : updatedData);
   } catch (error) {
     console.error('Error updating DPA:', error);
     res.status(500).json({ message: 'Server error while updating DPA' });
@@ -666,19 +660,13 @@ exports.getRefundPolicy = async (req, res) => {
 exports.updateRefundPolicy = async (req, res) => {
   try {
     const updatedData = req.body;
-    let settings = await Settings.findOne({ key: 'refund_policy' });
+    const updated = await Settings.findOneAndUpdate(
+      { key: 'refund_policy' },
+      { $set: { value: updatedData } },
+      { returnDocument: 'after', upsert: true }
+    );
     
-    if (settings) {
-      settings.value = updatedData;
-      await settings.save();
-    } else {
-      settings = await Settings.create({
-        key: 'refund_policy',
-        value: updatedData,
-      });
-    }
-    
-    res.json(settings.value);
+    res.json(updated ? updated.value : updatedData);
   } catch (error) {
     console.error('Error updating Refund Policy:', error);
     res.status(500).json({ message: 'Server error while updating Refund Policy' });
@@ -720,19 +708,13 @@ exports.getFacebookSettings = async (req, res) => {
 exports.updateFacebookSettings = async (req, res) => {
   try {
     const updatedData = req.body;
-    let settings = await Settings.findOne({ key: 'facebookIntegration' });
+    const updated = await Settings.findOneAndUpdate(
+      { key: 'facebookIntegration' },
+      { $set: { value: updatedData } },
+      { returnDocument: 'after', upsert: true }
+    );
     
-    if (settings) {
-      settings.value = updatedData;
-      await settings.save();
-    } else {
-      settings = await Settings.create({
-        key: 'facebookIntegration',
-        value: updatedData,
-      });
-    }
-    
-    res.json(settings.value);
+    res.json(updated ? updated.value : updatedData);
   } catch (error) {
     console.error('Error updating Facebook Settings:', error);
     res.status(500).json({ message: 'Server error while updating Facebook Settings' });
@@ -813,22 +795,16 @@ exports.updateCampaignSettings = async (req, res) => {
       updatedAt: new Date()
     };
 
-    let settings = await Settings.findOne({ key: 'campaign_settings' });
+    const updatedSettings = await Settings.findOneAndUpdate(
+      { key: 'campaign_settings' },
+      { $set: { value: data } },
+      { returnDocument: 'after', upsert: true }
+    );
     
-    if (settings) {
-      settings.value = data;
-      await settings.save();
-    } else {
-      settings = await Settings.create({
-        key: 'campaign_settings',
-        value: data,
-      });
-    }
-    
-    res.json(settings.value);
+    res.json(updatedSettings ? updatedSettings.value : data);
   } catch (error) {
     console.error('Error updating Campaign Settings:', error);
-    res.status(500).json({ message: 'Server error while updating Campaign Settings' });
+    res.status(500).json({ message: error.message || 'Server error while updating Campaign Settings' });
   }
 };
 
@@ -864,19 +840,13 @@ exports.getEmailSettings = async (req, res) => {
 exports.updateEmailSettings = async (req, res) => {
   try {
     const updatedData = req.body;
-    let settings = await Settings.findOne({ key: 'email_settings' });
+    const updated = await Settings.findOneAndUpdate(
+      { key: 'email_settings' },
+      { $set: { value: updatedData } },
+      { returnDocument: 'after', upsert: true }
+    );
     
-    if (settings) {
-      settings.value = updatedData;
-      await settings.save();
-    } else {
-      settings = await Settings.create({
-        key: 'email_settings',
-        value: updatedData,
-      });
-    }
-    
-    res.json(settings.value);
+    res.json(updated ? updated.value : updatedData);
   } catch (error) {
     console.error('Error updating Email Settings:', error);
     res.status(500).json({ message: 'Server error while updating Email Settings' });
@@ -912,19 +882,13 @@ exports.getOfficeTimings = async (req, res) => {
 exports.updateOfficeTimings = async (req, res) => {
   try {
     const updatedData = req.body;
-    let settings = await Settings.findOne({ key: 'office_timings' });
+    const updated = await Settings.findOneAndUpdate(
+      { key: 'office_timings' },
+      { $set: { value: updatedData } },
+      { returnDocument: 'after', upsert: true }
+    );
     
-    if (settings) {
-      settings.value = updatedData;
-      await settings.save();
-    } else {
-      settings = await Settings.create({
-        key: 'office_timings',
-        value: updatedData,
-      });
-    }
-    
-    res.json(settings.value);
+    res.json(updated ? updated.value : updatedData);
   } catch (error) {
     console.error('Error updating Office Timings Settings:', error);
     res.status(500).json({ message: 'Server error while updating Office Timings Settings' });
@@ -964,19 +928,13 @@ exports.getAttendanceRules = async (req, res) => {
 exports.updateAttendanceRules = async (req, res) => {
   try {
     const updatedData = req.body;
-    let settings = await Settings.findOne({ key: 'attendance_rules' });
+    const updated = await Settings.findOneAndUpdate(
+      { key: 'attendance_rules' },
+      { $set: { value: updatedData } },
+      { returnDocument: 'after', upsert: true }
+    );
     
-    if (settings) {
-      settings.value = updatedData;
-      await settings.save();
-    } else {
-      settings = await Settings.create({
-        key: 'attendance_rules',
-        value: updatedData,
-      });
-    }
-    
-    res.json(settings.value);
+    res.json(updated ? updated.value : updatedData);
   } catch (error) {
     console.error('Error updating Attendance Rules:', error);
     res.status(500).json({ message: 'Server error while updating Attendance Rules' });
@@ -1074,19 +1032,13 @@ exports.getSupportCategories = async (req, res) => {
 exports.updateSupportCategories = async (req, res) => {
   try {
     const updatedData = req.body;
-    let settings = await Settings.findOne({ key: 'support_categories' });
+    const updated = await Settings.findOneAndUpdate(
+      { key: 'support_categories' },
+      { $set: { value: updatedData } },
+      { returnDocument: 'after', upsert: true }
+    );
     
-    if (settings) {
-      settings.value = updatedData;
-      await settings.save();
-    } else {
-      settings = await Settings.create({
-        key: 'support_categories',
-        value: updatedData,
-      });
-    }
-    
-    res.json(settings.value);
+    res.json(updated ? updated.value : updatedData);
   } catch (error) {
     console.error('Error updating support categories:', error);
     res.status(500).json({ message: 'Server error while updating support categories' });

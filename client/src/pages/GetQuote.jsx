@@ -367,19 +367,10 @@ export default function GetQuote() {
       
       // Success message will remain until the user manually clicks "Submit New Inquiry"
       
-      // Google Ads specific conversion (kept here — unique conversion label not in trackConversion)
-      if (window.gtag) {
-        window.gtag('event', 'conversion', {
-          'send_to': 'AW-10976080417/8TJtCIb2vMIcEKHk5vEo',
-          'value': 1.0,
-          'currency': 'INR'
-        });
-      }
-
-      // trackConversion() handles FB Pixel + GA4 generate_lead + LinkedIn
+      // trackConversion() dynamically fires FB Pixel, Google Ads (AW-ID/label), GA4 generate_lead, and LinkedIn
       if (window.trackConversion) {
         window.trackConversion({
-          value: 0,
+          value: 1.0,
           currency: 'INR',
           service: finalData.service,
           timeline: finalData.timeline,

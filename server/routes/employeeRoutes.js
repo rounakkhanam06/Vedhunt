@@ -266,6 +266,10 @@ router.put('/:id', requirePermission('team.manage'), async (req, res) => {
     const {
       firstName,
       lastName,
+      email,
+      phone,
+      password,
+      isActive,
       roleId,
       employmentType,
       joinDate,
@@ -296,14 +300,27 @@ router.put('/:id', requirePermission('team.manage'), async (req, res) => {
       }
     }
 
-    if (firstName) employee.firstName = firstName;
-    if (lastName) employee.lastName = lastName;
+    if (firstName) employee.firstName = firstName.trim();
+    if (lastName) employee.lastName = lastName.trim();
+    if (email && email.trim().toLowerCase() !== employee.email) {
+      const emailLower = email.trim().toLowerCase();
+      // Check if email already exists on another employee or admin
+      const existingAdmin = await Admin.findOne({ email: emailLower, _id: { $ne: employee.adminId } });
+      if (existingAdmin) {
+        return res.status(400).json({ success: false, message: 'An account with this email already exists.' });
+      }
+      employee.email = emailLower;
+    }
+    if (phone) employee.phone = phone.trim();
+    if (password && password.trim().length >= 6) {
+      employee.tempPassword = password.trim();
+    }
     if (newRole) employee.roleDept = newRole.label || newRole.name;
     if (employmentType) employee.employmentType = employmentType;
     if (joinDate) employee.joinDate = joinDate;
-    if (salaryCTC) employee.salaryCTC = salaryCTC;
-    if (panNumber) employee.panNumber = encrypt(panNumber);
-    if (aadhaarNumber) employee.aadhaarNumber = encrypt(aadhaarNumber);
+    if (salaryCTC) employee.salaryCTC = Number(salaryCTC);
+    if (panNumber) employee.panNumber = encrypt(panNumber.toUpperCase());
+    if (aadhaarNumber) employee.aadhaarNumber = encrypt(aadhaarNumber.replace(/\s+/g, ''));
     if (leaveBalances) employee.leaveBalances = leaveBalances;
 
     if (newTask) {
@@ -329,19 +346,36 @@ router.put('/:id', requirePermission('team.manage'), async (req, res) => {
 
     await employee.save();
 
-    // Also update the linked Admin login: name changes stay display-only,
-    // but a role change swaps their actual permission set.
-    if ((firstName || lastName || newRole) && employee.adminId) {
-      const adminUpdate = {};
-      if (firstName || lastName) {
-        adminUpdate.firstName = employee.firstName;
-        adminUpdate.lastName = employee.lastName;
+    // Also update the linked Admin login
+    if (employee.adminId) {
+      const admin = await Admin.findById(employee.adminId);
+      if (admin) {
+        if (firstName) admin.firstName = employee.firstName;
+        if (lastName) admin.lastName = employee.lastName;
+        if (email) admin.email = employee.email;
+        if (newRole) admin.roles = [newRole._id];
+        if (typeof isActive === 'boolean') {
+          admin.isActive = isActive;
+        }
+        if (password && password.trim().length >= 6) {
+          admin.password = password.trim();
+          admin.isTemporaryPassword = true;
+          // Invalidate active refresh tokens so any current session is disconnected
+          admin.refreshToken = undefined;
+        }
+        await admin.save();
       }
-      if (newRole) adminUpdate.roles = [newRole._id];
-      await Admin.findByIdAndUpdate(employee.adminId, adminUpdate);
     }
 
-    res.json({ success: true, employee });
+    // Fetch and return updated employee with populated adminId
+    const updatedEmployee = await Employee.findById(employee._id)
+      .populate('adminId', 'isActive')
+      .populate('tasks.assignedBy', 'firstName lastName email');
+    const decrypted = updatedEmployee.toObject();
+    decrypted.panNumber = decrypt(decrypted.panNumber);
+    decrypted.aadhaarNumber = decrypt(decrypted.aadhaarNumber);
+
+    res.json({ success: true, employee: decrypted });
   } catch (error) {
     logger.error('Error updating employee:', error);
     res.status(500).json({ success: false, message: error.message || 'Server error' });

@@ -80,22 +80,22 @@ const RefundPolicyManager = () => {
     });
   };
 
-  const inputClasses = "w-full bg-[#121215] border border-[#2D2D33] rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] transition-all duration-300";
-  const labelClasses = "block text-[12px] font-medium text-gray-400 mb-1.5 font-mono uppercase tracking-wider";
+  const inputClasses = "w-full bg-app-bg border border-app-border rounded-lg px-4 py-2 text-app-text placeholder-app-text-muted focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all duration-300";
+  const labelClasses = "block text-[12px] font-medium text-app-text-muted mb-1.5 font-mono uppercase tracking-wider";
 
-  if (loading) return <div className="p-8 text-white">Loading...</div>;
+  if (loading) return <div className="p-8 text-app-text">Loading...</div>;
 
   return (
     <div className="p-8 max-w-5xl mx-auto pb-24">
       <div className="flex justify-between items-center mb-8">
         <div>
-          <h2 className="text-3xl font-bold text-white mb-2">Refund & Billing Policy Manager</h2>
-          <p className="text-gray-400">Manage the content of the Refund Policy page.</p>
+          <h2 className="text-3xl font-bold text-app-text mb-2">Refund & Billing Policy Manager</h2>
+          <p className="text-app-text-muted">Manage the content of the Refund Policy page.</p>
         </div>
         <button 
           onClick={handleSave}
           disabled={saving}
-          className={`flex items-center gap-2 bg-[#FF6B00] hover:bg-[#EA580C] text-white px-6 py-3 rounded-xl font-bold transition-all ${saving ? 'opacity-50' : 'hover:scale-105 active:scale-95'}`}
+          className={`flex items-center gap-2 bg-primary hover:bg-primary/90 text-white px-6 py-3 rounded-xl font-bold shadow-[0_4px_20px_rgba(255,107,0,0.4)] transition-all ${saving ? 'opacity-50' : 'hover:scale-105 active:scale-95'}`}
         >
           <Save size={18} />
           {saving ? 'Saving...' : 'Save Changes'}
@@ -104,8 +104,8 @@ const RefundPolicyManager = () => {
 
       <div className="space-y-8">
         {/* HERO SECTION */}
-        <div className="bg-[#1A1A1A] border border-[#2D2D33] rounded-xl p-6">
-          <h3 className="text-xl font-bold text-white mb-6">Hero Section</h3>
+        <div className="bg-app-card border border-app-border rounded-xl p-6 shadow-sm">
+          <h3 className="text-xl font-bold text-app-text mb-6">Hero Section</h3>
           <div className="grid grid-cols-2 gap-6 mb-6">
             <div>
               <label className={labelClasses}>Heading</label>
@@ -125,16 +125,16 @@ const RefundPolicyManager = () => {
             {policyData.hero?.paragraphs?.map((p, idx) => (
               <div key={idx} className="flex gap-2 mb-2">
                 <textarea value={p} onChange={(e) => updateArrayItem('hero', 'paragraphs', idx, e.target.value)} className={`${inputClasses} min-h-[60px]`} />
-                <button onClick={() => removeArrayItem('hero', 'paragraphs', idx)} className="p-2 bg-red-500/10 text-red-500 rounded-lg h-fit mt-1"><Trash2 size={16} /></button>
+                <button onClick={() => removeArrayItem('hero', 'paragraphs', idx)} className="p-2 bg-red-500/10 text-red-500 hover:bg-red-500/20 rounded-lg h-fit mt-1"><Trash2 size={16} /></button>
               </div>
             ))}
-            <button onClick={() => addArrayItem('hero', 'paragraphs')} className="text-sm text-primary flex items-center gap-1 mt-2 hover:underline"><Plus size={14} /> Add Paragraph</button>
+            <button onClick={() => addArrayItem('hero', 'paragraphs')} className="text-sm text-primary flex items-center gap-1 mt-2 font-medium hover:underline"><Plus size={14} /> Add Paragraph</button>
           </div>
         </div>
 
         {/* SECTION 1: SCOPE */}
-        <div className="bg-[#1A1A1A] border border-[#2D2D33] rounded-xl p-6">
-          <h3 className="text-xl font-bold text-white mb-6">Section 1: Scope</h3>
+        <div className="bg-app-card border border-app-border rounded-xl p-6 shadow-sm">
+          <h3 className="text-xl font-bold text-app-text mb-6">Section 1: Scope</h3>
           <div className="grid grid-cols-2 gap-6 mb-4">
             <div>
               <label className={labelClasses}>Section Title</label>
@@ -150,23 +150,23 @@ const RefundPolicyManager = () => {
             {policyData.scope?.items?.map((item, idx) => (
               <div key={idx} className="flex gap-2 mb-2">
                 <input type="text" value={item} onChange={(e) => updateArrayItem('scope', 'items', idx, e.target.value)} className={inputClasses} />
-                <button onClick={() => removeArrayItem('scope', 'items', idx)} className="p-2 bg-red-500/10 text-red-500 rounded-lg"><Trash2 size={16} /></button>
+                <button onClick={() => removeArrayItem('scope', 'items', idx)} className="p-2 bg-red-500/10 text-red-500 hover:bg-red-500/20 rounded-lg"><Trash2 size={16} /></button>
               </div>
             ))}
-            <button onClick={() => addArrayItem('scope', 'items')} className="text-sm text-primary flex items-center gap-1 mt-2 hover:underline"><Plus size={14} /> Add Scope Item</button>
+            <button onClick={() => addArrayItem('scope', 'items')} className="text-sm text-primary flex items-center gap-1 mt-2 font-medium hover:underline"><Plus size={14} /> Add Scope Item</button>
           </div>
         </div>
 
         {/* SECTION 2: BILLING TERMS */}
-        <div className="bg-[#1A1A1A] border border-[#2D2D33] rounded-xl p-6">
-          <h3 className="text-xl font-bold text-white mb-6">Section 2: Billing Terms (Accordion)</h3>
+        <div className="bg-app-card border border-app-border rounded-xl p-6 shadow-sm">
+          <h3 className="text-xl font-bold text-app-text mb-6">Section 2: Billing Terms (Accordion)</h3>
           <div className="mb-6">
             <label className={labelClasses}>Section Title</label>
             <input type="text" value={policyData.billingTerms?.title || ''} onChange={(e) => updateNestedState('billingTerms', 'title', e.target.value)} className={inputClasses} />
           </div>
           <div className="space-y-4">
             {policyData.billingTerms?.items?.map((item, idx) => (
-              <div key={idx} className="bg-[#121215] border border-[#2D2D33] rounded-xl p-4">
+              <div key={idx} className="bg-app-bg border border-app-border rounded-xl p-4 shadow-sm">
                 <div className="flex gap-4 mb-4">
                   <div className="flex-1">
                     <label className={labelClasses}>Accordion Title</label>
@@ -176,11 +176,11 @@ const RefundPolicyManager = () => {
                       updateNestedState('billingTerms', 'items', newItems);
                     }} className={inputClasses} />
                   </div>
-                  <button onClick={() => removeArrayItem('billingTerms', 'items', idx)} className="p-2 bg-red-500/10 text-red-500 rounded-lg h-fit mt-6"><Trash2 size={16} /></button>
+                  <button onClick={() => removeArrayItem('billingTerms', 'items', idx)} className="p-2 bg-red-500/10 text-red-500 hover:bg-red-500/20 rounded-lg h-fit mt-6"><Trash2 size={16} /></button>
                 </div>
                 <div>
                   <label className={labelClasses}>Content (Rich Text)</label>
-                  <div className="bg-white rounded-lg text-black overflow-hidden">
+                  <div className="bg-white rounded-lg text-black overflow-hidden border border-app-border">
                     <ReactQuill theme="snow" value={item.content} onChange={(val) => {
                       const newItems = [...policyData.billingTerms.items];
                       newItems[idx].content = val;
@@ -190,13 +190,13 @@ const RefundPolicyManager = () => {
                 </div>
               </div>
             ))}
-            <button onClick={() => addArrayItem('billingTerms', 'items', { title: 'New Term', content: '' })} className="bg-white/5 hover:bg-white/10 text-white px-4 py-2 rounded-lg text-sm flex items-center gap-2"><Plus size={14} /> Add Billing Term</button>
+            <button onClick={() => addArrayItem('billingTerms', 'items', { title: 'New Term', content: '' })} className="bg-app-bg hover:bg-app-border/40 text-app-text border border-app-border px-4 py-2 rounded-lg text-sm flex items-center gap-2 shadow-sm"><Plus size={14} /> Add Billing Term</button>
           </div>
         </div>
 
         {/* SECTION 3: NO REFUND POLICY */}
-        <div className="bg-[#1A1A1A] border border-[#2D2D33] rounded-xl p-6">
-          <h3 className="text-xl font-bold text-white mb-6">Section 3: No Refund Policy</h3>
+        <div className="bg-app-card border border-app-border rounded-xl p-6 shadow-sm">
+          <h3 className="text-xl font-bold text-app-text mb-6">Section 3: No Refund Policy</h3>
           <div className="grid grid-cols-2 gap-6 mb-4">
             <div>
               <label className={labelClasses}>Section Title</label>
@@ -220,14 +220,14 @@ const RefundPolicyManager = () => {
             {policyData.noRefund?.noRefundItems?.map((item, idx) => (
               <div key={idx} className="flex gap-2 mb-2">
                 <input type="text" value={item} onChange={(e) => updateArrayItem('noRefund', 'noRefundItems', idx, e.target.value)} className={inputClasses} />
-                <button onClick={() => removeArrayItem('noRefund', 'noRefundItems', idx)} className="p-2 bg-red-500/10 text-red-500 rounded-lg"><Trash2 size={16} /></button>
+                <button onClick={() => removeArrayItem('noRefund', 'noRefundItems', idx)} className="p-2 bg-red-500/10 text-red-500 hover:bg-red-500/20 rounded-lg"><Trash2 size={16} /></button>
               </div>
             ))}
-            <button onClick={() => addArrayItem('noRefund', 'noRefundItems')} className="text-sm text-primary flex items-center gap-1 mt-2 hover:underline"><Plus size={14} /> Add Item</button>
+            <button onClick={() => addArrayItem('noRefund', 'noRefundItems')} className="text-sm text-primary flex items-center gap-1 mt-2 font-medium hover:underline"><Plus size={14} /> Add Item</button>
           </div>
 
           <div className="p-4 border border-primary/30 bg-primary/5 rounded-xl space-y-4">
-            <h4 className="font-bold text-white mb-2">Our Commitment Box</h4>
+            <h4 className="font-bold text-app-text mb-2">Our Commitment Box</h4>
             <div>
               <label className={labelClasses}>Title</label>
               <input type="text" value={policyData.noRefund?.commitment?.title || ''} onChange={(e) => {
@@ -247,13 +247,13 @@ const RefundPolicyManager = () => {
                      const arr = [...policyData.noRefund.commitment.items];
                      arr.splice(idx, 1);
                      setPolicyData(prev => ({...prev, noRefund: {...prev.noRefund, commitment: {...prev.noRefund.commitment, items: arr}}}));
-                  }} className="p-2 bg-red-500/10 text-red-500 rounded-lg"><Trash2 size={16} /></button>
+                  }} className="p-2 bg-red-500/10 text-red-500 hover:bg-red-500/20 rounded-lg"><Trash2 size={16} /></button>
                 </div>
               ))}
               <button onClick={() => {
                 const arr = [...(policyData.noRefund?.commitment?.items || []), ''];
                 setPolicyData(prev => ({...prev, noRefund: {...prev.noRefund, commitment: {...prev.noRefund.commitment, items: arr}}}));
-              }} className="text-sm text-primary flex items-center gap-1 mt-2 hover:underline"><Plus size={14} /> Add Commitment Item</button>
+              }} className="text-sm text-primary flex items-center gap-1 mt-2 font-medium hover:underline"><Plus size={14} /> Add Commitment Item</button>
             </div>
             <div>
               <label className={labelClasses}>Footer Text</label>
@@ -265,8 +265,8 @@ const RefundPolicyManager = () => {
         </div>
 
         {/* SECTION 4: PROJECT CANCELLATION */}
-        <div className="bg-[#1A1A1A] border border-[#2D2D33] rounded-xl p-6">
-          <h3 className="text-xl font-bold text-white mb-6">Section 4: Project Cancellation</h3>
+        <div className="bg-app-card border border-app-border rounded-xl p-6 shadow-sm">
+          <h3 className="text-xl font-bold text-app-text mb-6">Section 4: Project Cancellation</h3>
           <div className="grid grid-cols-2 gap-6 mb-4">
             <div>
               <label className={labelClasses}>Section Title</label>
@@ -282,10 +282,10 @@ const RefundPolicyManager = () => {
             {policyData.cancellation?.items?.map((item, idx) => (
               <div key={idx} className="flex gap-2 mb-2">
                 <input type="text" value={item} onChange={(e) => updateArrayItem('cancellation', 'items', idx, e.target.value)} className={inputClasses} />
-                <button onClick={() => removeArrayItem('cancellation', 'items', idx)} className="p-2 bg-red-500/10 text-red-500 rounded-lg"><Trash2 size={16} /></button>
+                <button onClick={() => removeArrayItem('cancellation', 'items', idx)} className="p-2 bg-red-500/10 text-red-500 hover:bg-red-500/20 rounded-lg"><Trash2 size={16} /></button>
               </div>
             ))}
-            <button onClick={() => addArrayItem('cancellation', 'items')} className="text-sm text-primary flex items-center gap-1 mt-2 hover:underline"><Plus size={14} /> Add Cancellation Item</button>
+            <button onClick={() => addArrayItem('cancellation', 'items')} className="text-sm text-primary flex items-center gap-1 mt-2 font-medium hover:underline"><Plus size={14} /> Add Cancellation Item</button>
           </div>
         </div>
 

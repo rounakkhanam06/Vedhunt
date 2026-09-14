@@ -339,11 +339,12 @@ export default function FAQ() {
                     
                     const data = await response.json();
                     if (data.success) {
-                      if (window.gtag) {
-                        window.gtag('event', 'conversion', {
-                          'send_to': 'AW-10976080417/8TJtCIb2vMIcEKHk5vEo',
-                          'value': 1.0,
-                          'currency': 'INR'
+                      if (window.trackConversion) {
+                        window.trackConversion({
+                          value: 1.0,
+                          currency: 'INR',
+                          service: 'FAQ Inquiry',
+                          source: 'FAQ Form'
                         });
                       }
                       setSubmitMessage('Message sent successfully!');

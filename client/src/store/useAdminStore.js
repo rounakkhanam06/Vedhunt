@@ -25,6 +25,10 @@ export const useAdminStore = create((set, get) => ({
     return data;
   },
 
+  updateProfile: (updatedAdmin) => {
+    set({ admin: updatedAdmin });
+  },
+
   logout: async () => {
     try {
       await authService.logout();

@@ -28,5 +28,13 @@ export const authService = {
   resetTempPassword: async (newPassword) => {
     const response = await api.post('/auth/reset-temp-password', { newPassword });
     return response.data;
+  },
+  updateProfile: async ({ firstName, lastName, email }) => {
+    const response = await api.put('/auth/profile', { firstName, lastName, email });
+    return response.data;
+  },
+  changePassword: async ({ currentPassword, newPassword }) => {
+    const response = await api.put('/auth/password', { currentPassword, newPassword });
+    return response.data;
   }
 };

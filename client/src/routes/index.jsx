@@ -478,7 +478,7 @@ export const router = createBrowserRouter([
           },
           {
             path: 'service-agreement',
-            element: withSuspense(ServiceAgreementManager)
+            element: withPermission(ServiceAgreementManager, 'team.manage')
           },
           {
             path: 'clients',

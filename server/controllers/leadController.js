@@ -458,9 +458,9 @@ exports.getAssignmentHistory = async (req, res, next) => {
 
     const history = await AssignmentLog.find({ lead: lead._id })
       .sort({ createdAt: -1 })
-      .populate('fromAdmin', 'firstName lastName')
-      .populate('toAdmin', 'firstName lastName')
-      .populate('assignedBy', 'firstName lastName');
+      .populate('fromAdmin', 'firstName lastName email')
+      .populate('toAdmin', 'firstName lastName email')
+      .populate('assignedBy', 'firstName lastName email');
 
     res.status(200).json({ success: true, data: history });
   } catch (error) {
@@ -507,9 +507,9 @@ exports.getAllAssignmentLogs = async (req, res, next) => {
       .skip(startIndex)
       .limit(limit)
       .populate('lead', 'leadId fullName email phone')
-      .populate('fromAdmin', 'firstName lastName')
-      .populate('toAdmin', 'firstName lastName')
-      .populate('assignedBy', 'firstName lastName');
+      .populate('fromAdmin', 'firstName lastName email')
+      .populate('toAdmin', 'firstName lastName email')
+      .populate('assignedBy', 'firstName lastName email');
 
     res.status(200).json({
       success: true,

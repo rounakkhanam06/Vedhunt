@@ -162,52 +162,52 @@ export default function LifeAtVedhuntManager() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-8">
-      <div className="flex items-center justify-between border-b border-white/10 pb-4">
+      <div className="flex items-center justify-between border-b border-app-border pb-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">Life at Vedhunt</h1>
-          <p className="text-gray-400 text-sm mt-1">Manage the culture section on the Career page.</p>
+          <h1 className="text-2xl font-bold text-app-text">Life at Vedhunt</h1>
+          <p className="text-app-text-muted text-sm mt-1">Manage the culture section on the Career page.</p>
         </div>
       </div>
 
       {/* Header Section Form */}
-      <div className="bg-[#1a1a1a] border border-white/10 rounded-xl p-6">
-        <h2 className="text-lg font-bold text-white mb-4">Section Header</h2>
+      <div className="bg-app-card border border-app-border rounded-xl p-6 shadow-sm">
+        <h2 className="text-lg font-bold text-app-text mb-4">Section Header</h2>
         <form onSubmit={handleHeaderSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="text-sm font-medium text-gray-300 block mb-1">Heading Part 1</label>
+              <label className="text-sm font-medium text-app-text-muted block mb-1">Heading Part 1</label>
               <input
                 type="text"
                 value={headerForm.heading}
                 onChange={e => setHeaderForm({ ...headerForm, heading: e.target.value })}
-                className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-primary"
+                className="w-full bg-app-bg border border-app-border rounded-lg px-4 py-2 text-app-text focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-sm"
                 placeholder="Life at"
               />
             </div>
             <div>
-              <label className="text-sm font-medium text-gray-300 block mb-1">Highlighted Text</label>
+              <label className="text-sm font-medium text-app-text-muted block mb-1">Highlighted Text</label>
               <input
                 type="text"
                 value={headerForm.highlightText}
                 onChange={e => setHeaderForm({ ...headerForm, highlightText: e.target.value })}
-                className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-primary"
+                className="w-full bg-app-bg border border-app-border rounded-lg px-4 py-2 text-app-text focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-sm"
                 placeholder="Vedhunt"
               />
             </div>
           </div>
           <div>
-            <label className="text-sm font-medium text-gray-300 block mb-1">Description Paragraph</label>
+            <label className="text-sm font-medium text-app-text-muted block mb-1">Description Paragraph</label>
             <textarea
               rows={3}
               value={headerForm.description}
               onChange={e => setHeaderForm({ ...headerForm, description: e.target.value })}
-              className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-primary"
+              className="w-full bg-app-bg border border-app-border rounded-lg px-4 py-2 text-app-text focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-sm resize-none"
             />
           </div>
           <button
             type="submit"
             disabled={isHeaderSaving}
-            className="px-6 py-2 bg-primary/10 text-primary border border-primary/20 font-medium rounded-lg hover:bg-primary/20 transition-colors flex items-center gap-2"
+            className="px-6 py-2.5 bg-primary text-white font-semibold rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2 text-sm shadow-sm cursor-pointer disabled:opacity-50"
           >
             {isHeaderSaving && <Loader className="w-4 h-4 animate-spin" />}
             Save Header
@@ -216,12 +216,12 @@ export default function LifeAtVedhuntManager() {
       </div>
 
       {/* Cards List */}
-      <div className="bg-[#1a1a1a] border border-white/10 rounded-xl p-6">
+      <div className="bg-app-card border border-app-border rounded-xl p-6 shadow-sm">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-bold text-white">Culture Cards</h2>
+          <h2 className="text-lg font-bold text-app-text">Culture Cards</h2>
           <button
             onClick={openAddModal}
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-black font-medium rounded-lg hover:bg-primary/90 transition-colors text-sm"
+            className="flex items-center gap-2 px-4 py-2 bg-primary text-white font-semibold rounded-lg hover:bg-primary/90 transition-colors text-sm shadow-sm cursor-pointer"
           >
             <Plus className="w-4 h-4" /> Add Card
           </button>
@@ -229,30 +229,30 @@ export default function LifeAtVedhuntManager() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {data.cards.map((card) => (
-            <div key={card._id} className={`bg-black/40 border border-white/5 rounded-xl p-4 flex flex-col relative ${card.isActive ? '' : 'opacity-50'}`}>
-              <div className="aspect-video w-full mb-4 bg-black rounded-lg overflow-hidden relative">
+            <div key={card._id} className={`bg-app-bg border border-app-border rounded-xl p-4 flex flex-col relative shadow-sm transition-shadow hover:shadow-md ${card.isActive ? '' : 'opacity-60'}`}>
+              <div className="aspect-video w-full mb-4 bg-app-card rounded-lg overflow-hidden relative border border-app-border">
                 <img src={card.image} alt={card.title} className="w-full h-full object-cover" />
-                <div className="absolute top-2 left-2 bg-black/70 px-2 py-1 rounded text-xs font-mono text-white">
+                <div className="absolute top-2 left-2 bg-black/70 backdrop-blur-xs px-2.5 py-1 rounded text-xs font-mono text-white">
                   Order: {card.order} | Span: {card.span}
                 </div>
               </div>
               <div className="flex-1">
-                <span className="text-[10px] uppercase tracking-wider text-primary font-bold bg-primary/10 px-2 py-1 rounded inline-block mb-2">
+                <span className="text-[11px] uppercase tracking-wider text-primary font-bold bg-primary/10 border border-primary/20 px-2.5 py-0.5 rounded inline-block mb-2">
                   {card.tag}
                 </span>
-                <h3 className="text-white font-bold">{card.title}</h3>
+                <h3 className="text-app-text font-bold text-base">{card.title}</h3>
               </div>
               
-              <div className="flex items-center gap-2 mt-4 pt-4 border-t border-white/10">
+              <div className="flex items-center gap-2 mt-4 pt-4 border-t border-app-border">
                 <button 
                   onClick={() => openEditModal(card)}
-                  className="flex-1 flex justify-center items-center gap-2 py-1.5 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 rounded transition-colors text-xs font-medium"
+                  className="flex-1 flex justify-center items-center gap-1.5 py-1.5 bg-blue-500/10 text-blue-600 hover:bg-blue-500/20 rounded-lg transition-colors text-xs font-semibold cursor-pointer"
                 >
                   <Edit2 size={14} /> Edit
                 </button>
                 <button 
                   onClick={() => deleteCard(card._id)}
-                  className="flex-1 flex justify-center items-center gap-2 py-1.5 bg-red-500/10 text-red-500 hover:bg-red-500/20 rounded transition-colors text-xs font-medium"
+                  className="flex-1 flex justify-center items-center gap-1.5 py-1.5 bg-red-500/10 text-red-500 hover:bg-red-500/20 rounded-lg transition-colors text-xs font-semibold cursor-pointer"
                 >
                   <Trash2 size={14} /> Delete
                 </button>
@@ -260,7 +260,7 @@ export default function LifeAtVedhuntManager() {
             </div>
           ))}
           {data.cards.length === 0 && (
-            <div className="col-span-full text-center py-8 text-gray-500">
+            <div className="col-span-full text-center py-8 text-app-text-muted">
               No cards found.
             </div>
           )}
@@ -269,53 +269,53 @@ export default function LifeAtVedhuntManager() {
 
       {/* Add/Edit Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-          <div className="bg-[#1a1a1a] border border-white/10 rounded-xl p-6 w-full max-w-lg relative max-h-[90vh] overflow-y-auto">
-            <h2 className="text-xl font-bold text-white mb-6">
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-app-card border border-app-border rounded-xl p-6 w-full max-w-lg relative max-h-[90vh] overflow-y-auto shadow-2xl">
+            <h2 className="text-xl font-bold text-app-text mb-6">
               {editingId ? 'Edit Card' : 'Add New Card'}
             </h2>
             
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="text-sm font-medium text-gray-300 block mb-1">Title *</label>
+                <label className="text-sm font-medium text-app-text-muted block mb-1">Title *</label>
                 <input
                   required
                   type="text"
                   value={formData.title}
                   onChange={e => setFormData({ ...formData, title: e.target.value })}
                   placeholder="e.g. Modern Tools"
-                  className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-primary"
+                  className="w-full bg-app-bg border border-app-border rounded-lg px-4 py-2 text-app-text focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-sm"
                 />
               </div>
 
               <div>
-                <label className="text-sm font-medium text-gray-300 block mb-1">Tag (Badge Text) *</label>
+                <label className="text-sm font-medium text-app-text-muted block mb-1">Tag (Badge Text) *</label>
                 <input
                   required
                   type="text"
                   value={formData.tag}
                   onChange={e => setFormData({ ...formData, tag: e.target.value })}
                   placeholder="e.g. WORKSPACE"
-                  className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-primary"
+                  className="w-full bg-app-bg border border-app-border rounded-lg px-4 py-2 text-app-text focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-sm"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium text-gray-300 block mb-1">Order</label>
+                  <label className="text-sm font-medium text-app-text-muted block mb-1">Order</label>
                   <input
                     type="number"
                     value={formData.order}
                     onChange={e => setFormData({ ...formData, order: Number(e.target.value) })}
-                    className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-primary"
+                    className="w-full bg-app-bg border border-app-border rounded-lg px-4 py-2 text-app-text focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-sm"
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-300 block mb-1">Card Span (Grid Size)</label>
+                  <label className="text-sm font-medium text-app-text-muted block mb-1">Card Span (Grid Size)</label>
                   <select
                     value={formData.span}
                     onChange={e => setFormData({ ...formData, span: e.target.value })}
-                    className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-primary"
+                    className="w-full bg-app-bg border border-app-border rounded-lg px-4 py-2 text-app-text focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-sm"
                   >
                     <option value="1x">1 Column (1x)</option>
                     <option value="2x">2 Columns (2x)</option>
@@ -323,8 +323,8 @@ export default function LifeAtVedhuntManager() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-between bg-black/50 border border-white/10 rounded-lg p-3">
-                <span className="text-sm font-medium text-gray-300">Is Active</span>
+              <div className="flex items-center justify-between bg-app-bg border border-app-border rounded-lg p-3">
+                <span className="text-sm font-medium text-app-text">Is Active</span>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input 
                     type="checkbox" 
@@ -332,14 +332,14 @@ export default function LifeAtVedhuntManager() {
                     checked={formData.isActive}
                     onChange={(e) => setFormData({...formData, isActive: e.target.checked})}
                   />
-                  <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                  <div className="w-11 h-6 bg-gray-300 dark:bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
                 </label>
               </div>
 
               <div>
-                <label className="text-sm font-medium text-gray-300 block mb-2">Card Image *</label>
+                <label className="text-sm font-medium text-app-text-muted block mb-2">Card Image *</label>
                 {formData.image && (
-                  <div className="relative aspect-video rounded-lg overflow-hidden border border-white/10 mb-3 bg-black">
+                  <div className="relative aspect-video rounded-lg overflow-hidden border border-app-border mb-3 bg-app-bg">
                     <img src={formData.image} alt="Preview" className="w-full h-full object-cover" />
                   </div>
                 )}
@@ -349,7 +349,7 @@ export default function LifeAtVedhuntManager() {
                     accept="image/*"
                     onChange={handleImageUpload}
                     disabled={isUploading}
-                    className="block w-full text-sm text-gray-400
+                    className="block w-full text-sm text-app-text-muted
                       file:mr-4 file:py-2 file:px-4
                       file:rounded-full file:border-0
                       file:text-sm file:font-semibold
@@ -365,18 +365,18 @@ export default function LifeAtVedhuntManager() {
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3 pt-4 border-t border-white/10 mt-6">
+              <div className="flex justify-end gap-3 pt-4 border-t border-app-border mt-6">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-6 py-2 text-gray-400 hover:text-white transition-colors"
+                  className="px-5 py-2 border border-app-border rounded-lg text-app-text-muted hover:text-app-text hover:bg-app-bg transition-colors text-sm font-medium cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSaving || isUploading}
-                  className="flex items-center gap-2 px-6 py-2 bg-primary text-black font-semibold rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
+                  className="flex items-center gap-2 px-6 py-2 bg-primary text-white font-semibold rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 shadow-sm text-sm cursor-pointer"
                 >
                   {isSaving ? <Loader className="w-4 h-4 animate-spin" /> : 'Save Card'}
                 </button>

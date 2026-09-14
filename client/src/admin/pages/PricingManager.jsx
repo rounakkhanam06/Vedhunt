@@ -235,61 +235,61 @@ export default function PricingManager() {
       
       {/* Forms logic handling */}
       {isCategoryModalOpen && (
-        <div className="bg-[#1a1a1a] border border-white/10 rounded-xl p-8">
-          <div className="flex items-center justify-between mb-8 pb-4 border-b border-white/10">
+        <div className="bg-app-card border border-app-border rounded-xl p-6 sm:p-8 shadow-sm">
+          <div className="flex items-center justify-between mb-8 pb-4 border-b border-app-border">
             <div>
-              <h2 className="text-2xl font-bold text-white">
+              <h2 className="text-2xl font-bold text-app-text">
                 {editingId ? 'Edit Category' : 'Add New Category'}
               </h2>
             </div>
-            <button onClick={() => setIsCategoryModalOpen(false)} className="px-5 py-2 border border-white/10 rounded-lg text-gray-300 hover:text-white hover:bg-white/5 transition-colors cursor-pointer">
+            <button onClick={() => setIsCategoryModalOpen(false)} className="px-5 py-2 border border-app-border rounded-lg text-app-text-muted hover:text-app-text hover:bg-app-bg transition-colors cursor-pointer text-sm font-medium">
               Back
             </button>
           </div>
           <form onSubmit={handleCategorySubmit} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="text-sm font-medium text-gray-300 block mb-2">Name *</label>
-                <input required type="text" value={categoryForm.name} onChange={e => setCategoryForm({...categoryForm, name: e.target.value})} className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-primary" />
+                <label className="text-sm font-medium text-app-text-muted block mb-2">Name *</label>
+                <input required type="text" value={categoryForm.name} onChange={e => setCategoryForm({...categoryForm, name: e.target.value})} className="w-full bg-app-bg border border-app-border rounded-lg px-4 py-2.5 text-app-text focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-sm" />
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-300 block mb-2">Icon ID</label>
-                <input type="text" value={categoryForm.icon} onChange={e => setCategoryForm({...categoryForm, icon: e.target.value})} className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-primary" placeholder="e.g. web, app, branding" />
+                <label className="text-sm font-medium text-app-text-muted block mb-2">Icon ID</label>
+                <input type="text" value={categoryForm.icon} onChange={e => setCategoryForm({...categoryForm, icon: e.target.value})} className="w-full bg-app-bg border border-app-border rounded-lg px-4 py-2.5 text-app-text focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-sm" placeholder="e.g. web, app, branding" />
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-300 block mb-2">Display Order</label>
-                <input type="number" value={categoryForm.order} onChange={e => setCategoryForm({...categoryForm, order: parseInt(e.target.value) || 0})} className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-primary" />
+                <label className="text-sm font-medium text-app-text-muted block mb-2">Display Order</label>
+                <input type="number" value={categoryForm.order} onChange={e => setCategoryForm({...categoryForm, order: parseInt(e.target.value) || 0})} className="w-full bg-app-bg border border-app-border rounded-lg px-4 py-2.5 text-app-text focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-sm" />
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-300 block mb-2">Status</label>
-                <select value={categoryForm.status} onChange={e => setCategoryForm({...categoryForm, status: e.target.value})} className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-primary">
+                <label className="text-sm font-medium text-app-text-muted block mb-2">Status</label>
+                <select value={categoryForm.status} onChange={e => setCategoryForm({...categoryForm, status: e.target.value})} className="w-full bg-app-bg border border-app-border rounded-lg px-4 py-2.5 text-app-text focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-sm">
                   <option value="active">Active</option>
                   <option value="inactive">Inactive</option>
                 </select>
               </div>
             </div>
             <div>
-              <label className="text-sm font-medium text-gray-300 block mb-2">Description</label>
-              <textarea rows={2} value={categoryForm.description} onChange={e => setCategoryForm({...categoryForm, description: e.target.value})} className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-primary resize-none" />
+              <label className="text-sm font-medium text-app-text-muted block mb-2">Description</label>
+              <textarea rows={2} value={categoryForm.description} onChange={e => setCategoryForm({...categoryForm, description: e.target.value})} className="w-full bg-app-bg border border-app-border rounded-lg px-4 py-2.5 text-app-text focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary resize-none text-sm" />
             </div>
-            <h3 className="text-lg font-bold text-white border-b border-white/10 pb-2 mt-6">SEO Fields</h3>
+            <h3 className="text-lg font-bold text-app-text border-b border-app-border pb-2 mt-6">SEO Fields</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="text-sm font-medium text-gray-300 block mb-2">Meta Title</label>
-                <input type="text" value={categoryForm.seo.metaTitle} onChange={e => setCategoryForm({...categoryForm, seo: {...categoryForm.seo, metaTitle: e.target.value}})} className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-primary" />
+                <label className="text-sm font-medium text-app-text-muted block mb-2">Meta Title</label>
+                <input type="text" value={categoryForm.seo.metaTitle} onChange={e => setCategoryForm({...categoryForm, seo: {...categoryForm.seo, metaTitle: e.target.value}})} className="w-full bg-app-bg border border-app-border rounded-lg px-4 py-2.5 text-app-text focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-sm" />
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-300 block mb-2">Meta Keywords</label>
-                <input type="text" value={categoryForm.seo.keywords} onChange={e => setCategoryForm({...categoryForm, seo: {...categoryForm.seo, keywords: e.target.value}})} placeholder="Comma separated" className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-primary" />
+                <label className="text-sm font-medium text-app-text-muted block mb-2">Meta Keywords</label>
+                <input type="text" value={categoryForm.seo.keywords} onChange={e => setCategoryForm({...categoryForm, seo: {...categoryForm.seo, keywords: e.target.value}})} placeholder="Comma separated" className="w-full bg-app-bg border border-app-border rounded-lg px-4 py-2.5 text-app-text focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-sm" />
               </div>
             </div>
             <div>
-              <label className="text-sm font-medium text-gray-300 block mb-2">Meta Description</label>
-              <textarea rows={2} value={categoryForm.seo.metaDescription} onChange={e => setCategoryForm({...categoryForm, seo: {...categoryForm.seo, metaDescription: e.target.value}})} className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-primary resize-none" />
+              <label className="text-sm font-medium text-app-text-muted block mb-2">Meta Description</label>
+              <textarea rows={2} value={categoryForm.seo.metaDescription} onChange={e => setCategoryForm({...categoryForm, seo: {...categoryForm.seo, metaDescription: e.target.value}})} className="w-full bg-app-bg border border-app-border rounded-lg px-4 py-2.5 text-app-text focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary resize-none text-sm" />
             </div>
             
-            <div className="flex justify-end pt-6 border-t border-white/10">
-              <button type="submit" disabled={isSaving} className="flex items-center gap-2 px-8 py-2.5 bg-primary text-black font-semibold rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 cursor-pointer">
+            <div className="flex justify-end pt-6 border-t border-app-border">
+              <button type="submit" disabled={isSaving} className="flex items-center gap-2 px-8 py-2.5 bg-primary text-white font-semibold rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 cursor-pointer shadow-sm">
                 {isSaving ? <Loader className="w-5 h-5 animate-spin" /> : 'Save Category'}
               </button>
             </div>
@@ -298,120 +298,120 @@ export default function PricingManager() {
       )}
 
       {isPlanModalOpen && (
-        <div className="bg-[#1a1a1a] border border-white/10 rounded-xl p-8">
-          <div className="flex items-center justify-between mb-8 pb-4 border-b border-white/10">
+        <div className="bg-app-card border border-app-border rounded-xl p-6 sm:p-8 shadow-sm">
+          <div className="flex items-center justify-between mb-8 pb-4 border-b border-app-border">
             <div>
-              <h2 className="text-2xl font-bold text-white">
+              <h2 className="text-2xl font-bold text-app-text">
                 {editingId ? 'Edit Plan' : 'Add New Plan'}
               </h2>
             </div>
-            <button onClick={() => setIsPlanModalOpen(false)} className="px-5 py-2 border border-white/10 rounded-lg text-gray-300 hover:text-white hover:bg-white/5 transition-colors cursor-pointer">
+            <button onClick={() => setIsPlanModalOpen(false)} className="px-5 py-2 border border-app-border rounded-lg text-app-text-muted hover:text-app-text hover:bg-app-bg transition-colors cursor-pointer text-sm font-medium">
               Back
             </button>
           </div>
           <form onSubmit={handlePlanSubmit} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="text-sm font-medium text-gray-300 block mb-2">Category *</label>
-                <select required value={planForm.category} onChange={e => setPlanForm({...planForm, category: e.target.value})} className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-primary">
+                <label className="text-sm font-medium text-app-text-muted block mb-2">Category *</label>
+                <select required value={planForm.category} onChange={e => setPlanForm({...planForm, category: e.target.value})} className="w-full bg-app-bg border border-app-border rounded-lg px-4 py-2.5 text-app-text focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-sm">
                   <option value="" disabled>Select Category</option>
                   {categories.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
                 </select>
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-300 block mb-2">Title *</label>
-                <input required type="text" value={planForm.title} onChange={e => setPlanForm({...planForm, title: e.target.value})} className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-primary" />
+                <label className="text-sm font-medium text-app-text-muted block mb-2">Title *</label>
+                <input required type="text" value={planForm.title} onChange={e => setPlanForm({...planForm, title: e.target.value})} className="w-full bg-app-bg border border-app-border rounded-lg px-4 py-2.5 text-app-text focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-sm" />
               </div>
               <div className="md:col-span-2">
-                <label className="text-sm font-medium text-gray-300 block mb-2">Tech Stack / Subtitle *</label>
-                <input required type="text" value={planForm.tech} onChange={e => setPlanForm({...planForm, tech: e.target.value})} placeholder="e.g. Next.js · React · Tailwind" className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-primary" />
+                <label className="text-sm font-medium text-app-text-muted block mb-2">Tech Stack / Subtitle *</label>
+                <input required type="text" value={planForm.tech} onChange={e => setPlanForm({...planForm, tech: e.target.value})} placeholder="e.g. Next.js · React · Tailwind" className="w-full bg-app-bg border border-app-border rounded-lg px-4 py-2.5 text-app-text focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-sm" />
               </div>
             </div>
 
-            <h3 className="text-lg font-bold text-white border-b border-white/10 pb-2 mt-6">Pricing Configuration</h3>
+            <h3 className="text-lg font-bold text-app-text border-b border-app-border pb-2 mt-6">Pricing Configuration</h3>
             <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
               <div>
-                <label className="text-sm font-medium text-gray-300 block mb-2">Amount *</label>
+                <label className="text-sm font-medium text-app-text-muted block mb-2">Amount *</label>
                 <input required type="number" value={planForm.pricing.amount} onChange={e => {
                   let val = e.target.value;
                   if (val.length > 1 && val.startsWith('0')) {
                     val = val.replace(/^0+/, '');
                   }
                   setPlanForm({...planForm, pricing: {...planForm.pricing, amount: val}});
-                }} className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-primary" />
+                }} className="w-full bg-app-bg border border-app-border rounded-lg px-4 py-2.5 text-app-text focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-sm" />
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-300 block mb-2">Offer Price</label>
+                <label className="text-sm font-medium text-app-text-muted block mb-2">Offer Price</label>
                 <input type="number" value={planForm.pricing.discountedAmount} onChange={e => {
                   let val = e.target.value;
                   if (val.length > 1 && val.startsWith('0')) {
                     val = val.replace(/^0+/, '');
                   }
                   setPlanForm({...planForm, pricing: {...planForm.pricing, discountedAmount: val}});
-                }} placeholder="Optional" className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-primary" />
+                }} placeholder="Optional" className="w-full bg-app-bg border border-app-border rounded-lg px-4 py-2.5 text-app-text focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-sm" />
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-300 block mb-2">Currency</label>
-                <select value={planForm.pricing.currency} onChange={e => setPlanForm({...planForm, pricing: {...planForm.pricing, currency: e.target.value}})} className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-primary">
+                <label className="text-sm font-medium text-app-text-muted block mb-2">Currency</label>
+                <select value={planForm.pricing.currency} onChange={e => setPlanForm({...planForm, pricing: {...planForm.pricing, currency: e.target.value}})} className="w-full bg-app-bg border border-app-border rounded-lg px-4 py-2.5 text-app-text focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-sm">
                   <option value="INR">INR</option>
                   <option value="USD">USD</option>
                 </select>
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-300 block mb-2">Period</label>
-                <select value={planForm.pricing.period} onChange={e => setPlanForm({...planForm, pricing: {...planForm.pricing, period: e.target.value}})} className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-primary">
+                <label className="text-sm font-medium text-app-text-muted block mb-2">Period</label>
+                <select value={planForm.pricing.period} onChange={e => setPlanForm({...planForm, pricing: {...planForm.pricing, period: e.target.value}})} className="w-full bg-app-bg border border-app-border rounded-lg px-4 py-2.5 text-app-text focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-sm">
                   <option value="one-time">One-Time</option>
                   <option value="monthly">Monthly (/mo)</option>
                   <option value="yearly">Yearly (/yr)</option>
                 </select>
               </div>
               <div className="flex items-center gap-3 pt-6">
-                <input type="checkbox" id="isStartingAt" checked={planForm.pricing.isStartingAt} onChange={e => setPlanForm({...planForm, pricing: {...planForm.pricing, isStartingAt: e.target.checked}})} className="w-5 h-5 bg-black/50 border border-white/10 rounded text-primary focus:ring-primary cursor-pointer" />
-                <label htmlFor="isStartingAt" className="text-sm font-medium text-gray-300 cursor-pointer">Append '+'</label>
+                <input type="checkbox" id="isStartingAt" checked={planForm.pricing.isStartingAt} onChange={e => setPlanForm({...planForm, pricing: {...planForm.pricing, isStartingAt: e.target.checked}})} className="w-4 h-4 rounded border-app-border text-primary focus:ring-primary cursor-pointer" />
+                <label htmlFor="isStartingAt" className="text-sm font-medium text-app-text cursor-pointer">Append '+'</label>
               </div>
             </div>
 
             <div>
-              <label className="text-sm font-medium text-gray-300 block mb-2">Features (One per line) *</label>
-              <textarea required rows={6} value={planForm.features} onChange={e => setPlanForm({...planForm, features: e.target.value})} placeholder="Custom UI/UX design&#10;SEO-friendly architecture&#10;Fully responsive design" className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-primary resize-none" />
+              <label className="text-sm font-medium text-app-text-muted block mb-2">Features (One per line) *</label>
+              <textarea required rows={6} value={planForm.features} onChange={e => setPlanForm({...planForm, features: e.target.value})} placeholder="Custom UI/UX design&#10;SEO-friendly architecture&#10;Fully responsive design" className="w-full bg-app-bg border border-app-border rounded-lg px-4 py-2.5 text-app-text focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary resize-none text-sm" />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div>
-                <label className="text-sm font-medium text-gray-300 block mb-2">Display Order</label>
-                <input type="number" value={planForm.order} onChange={e => setPlanForm({...planForm, order: parseInt(e.target.value) || 0})} className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-primary" />
+                <label className="text-sm font-medium text-app-text-muted block mb-2">Display Order</label>
+                <input type="number" value={planForm.order} onChange={e => setPlanForm({...planForm, order: parseInt(e.target.value) || 0})} className="w-full bg-app-bg border border-app-border rounded-lg px-4 py-2.5 text-app-text focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-sm" />
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-300 block mb-2">Status</label>
-                <select value={planForm.status} onChange={e => setPlanForm({...planForm, status: e.target.value})} className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-primary">
+                <label className="text-sm font-medium text-app-text-muted block mb-2">Status</label>
+                <select value={planForm.status} onChange={e => setPlanForm({...planForm, status: e.target.value})} className="w-full bg-app-bg border border-app-border rounded-lg px-4 py-2.5 text-app-text focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-sm">
                   <option value="active">Active</option>
                   <option value="inactive">Inactive</option>
                 </select>
               </div>
               <div className="flex items-center gap-3 pt-6">
-                <input type="checkbox" id="highlight" checked={planForm.highlight} onChange={e => setPlanForm({...planForm, highlight: e.target.checked})} className="w-5 h-5 bg-black/50 border border-white/10 rounded text-primary focus:ring-primary cursor-pointer" />
-                <label htmlFor="highlight" className="text-sm font-medium text-gray-300 cursor-pointer">Best Choice Highlight</label>
+                <input type="checkbox" id="highlight" checked={planForm.highlight} onChange={e => setPlanForm({...planForm, highlight: e.target.checked})} className="w-4 h-4 rounded border-app-border text-primary focus:ring-primary cursor-pointer" />
+                <label htmlFor="highlight" className="text-sm font-medium text-app-text cursor-pointer">Best Choice Highlight</label>
               </div>
             </div>
 
-            <h3 className="text-lg font-bold text-white border-b border-white/10 pb-2 mt-6">SEO Fields</h3>
+            <h3 className="text-lg font-bold text-app-text border-b border-app-border pb-2 mt-6">SEO Fields</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="text-sm font-medium text-gray-300 block mb-2">Meta Title</label>
-                <input type="text" value={planForm.seo.metaTitle} onChange={e => setPlanForm({...planForm, seo: {...planForm.seo, metaTitle: e.target.value}})} className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-primary" />
+                <label className="text-sm font-medium text-app-text-muted block mb-2">Meta Title</label>
+                <input type="text" value={planForm.seo.metaTitle} onChange={e => setPlanForm({...planForm, seo: {...planForm.seo, metaTitle: e.target.value}})} className="w-full bg-app-bg border border-app-border rounded-lg px-4 py-2.5 text-app-text focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-sm" />
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-300 block mb-2">Meta Keywords</label>
-                <input type="text" value={planForm.seo.keywords} onChange={e => setPlanForm({...planForm, seo: {...planForm.seo, keywords: e.target.value}})} placeholder="Comma separated" className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-primary" />
+                <label className="text-sm font-medium text-app-text-muted block mb-2">Meta Keywords</label>
+                <input type="text" value={planForm.seo.keywords} onChange={e => setPlanForm({...planForm, seo: {...planForm.seo, keywords: e.target.value}})} placeholder="Comma separated" className="w-full bg-app-bg border border-app-border rounded-lg px-4 py-2.5 text-app-text focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-sm" />
               </div>
             </div>
             <div>
-              <label className="text-sm font-medium text-gray-300 block mb-2">Meta Description</label>
-              <textarea rows={2} value={planForm.seo.metaDescription} onChange={e => setPlanForm({...planForm, seo: {...planForm.seo, metaDescription: e.target.value}})} className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-primary resize-none" />
+              <label className="text-sm font-medium text-app-text-muted block mb-2">Meta Description</label>
+              <textarea rows={2} value={planForm.seo.metaDescription} onChange={e => setPlanForm({...planForm, seo: {...planForm.seo, metaDescription: e.target.value}})} className="w-full bg-app-bg border border-app-border rounded-lg px-4 py-2.5 text-app-text focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary resize-none text-sm" />
             </div>
 
-            <div className="flex justify-end pt-6 border-t border-white/10">
-              <button type="submit" disabled={isSaving} className="flex items-center gap-2 px-8 py-2.5 bg-primary text-black font-semibold rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 cursor-pointer">
+            <div className="flex justify-end pt-6 border-t border-app-border">
+              <button type="submit" disabled={isSaving} className="flex items-center gap-2 px-8 py-2.5 bg-primary text-white font-semibold rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 cursor-pointer shadow-sm">
                 {isSaving ? <Loader className="w-5 h-5 animate-spin" /> : 'Save Plan'}
               </button>
             </div>
@@ -422,19 +422,19 @@ export default function PricingManager() {
       {/* Main Listing View */}
       {!isCategoryModalOpen && !isPlanModalOpen && (
         <>
-          <div className="flex items-center justify-between border-b border-white/10 pb-4">
+          <div className="flex items-center justify-between border-b border-app-border pb-4">
             <div>
-              <h1 className="text-2xl font-bold text-white">Pricing Management</h1>
-              <p className="text-gray-400 text-sm mt-1">Manage pricing categories, plans, and SEO metrics.</p>
+              <h1 className="text-2xl font-bold text-app-text">Pricing Management</h1>
+              <p className="text-app-text-muted text-sm mt-1">Manage pricing categories, plans, and SEO metrics.</p>
             </div>
           </div>
 
-          <div className="border-b border-white/10 my-6">
+          <div className="border-b border-app-border my-6">
             <nav className="-mb-px flex space-x-8" aria-label="Tabs">
-              <button onClick={() => setActiveTab('plans')} className={`whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium transition-colors ${activeTab === 'plans' ? 'border-[#FF6B00] text-[#FF6B00]' : 'border-transparent text-gray-400 hover:border-gray-300 hover:text-gray-300'}`}>
+              <button onClick={() => setActiveTab('plans')} className={`whitespace-nowrap border-b-2 py-3 px-1 text-sm font-semibold transition-colors cursor-pointer ${activeTab === 'plans' ? 'border-primary text-primary' : 'border-transparent text-app-text-muted hover:border-app-border hover:text-app-text'}`}>
                 Pricing Plans
               </button>
-              <button onClick={() => setActiveTab('categories')} className={`whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium transition-colors ${activeTab === 'categories' ? 'border-[#FF6B00] text-[#FF6B00]' : 'border-transparent text-gray-400 hover:border-gray-300 hover:text-gray-300'}`}>
+              <button onClick={() => setActiveTab('categories')} className={`whitespace-nowrap border-b-2 py-3 px-1 text-sm font-semibold transition-colors cursor-pointer ${activeTab === 'categories' ? 'border-primary text-primary' : 'border-transparent text-app-text-muted hover:border-app-border hover:text-app-text'}`}>
                 Categories
               </button>
             </nav>
@@ -443,33 +443,35 @@ export default function PricingManager() {
           {activeTab === 'plans' && (
             <div>
               <div className="flex justify-end mb-6">
-                <button onClick={openAddPlan} className="flex items-center gap-2 px-4 py-2 bg-primary text-black font-medium rounded-lg hover:bg-primary/90 transition-colors cursor-pointer">
+                <button onClick={openAddPlan} className="flex items-center gap-2 px-4 py-2 bg-primary text-white font-semibold rounded-lg hover:bg-primary/90 transition-colors cursor-pointer shadow-sm text-sm">
                   <Plus className="w-4 h-4" /> Add Plan
                 </button>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {plans.map((item) => (
-                  <div key={item._id} className={`bg-[#1a1a1a] border ${item.status === 'inactive' ? 'border-red-500/50' : 'border-white/10'} rounded-xl p-6 relative flex flex-col`}>
+                  <div key={item._id} className={`bg-app-card border ${item.status === 'inactive' ? 'border-red-500/50' : 'border-app-border'} rounded-xl p-6 relative flex flex-col shadow-sm transition-shadow hover:shadow-md`}>
                     {item.highlight && (
-                      <span className="absolute -top-2 -right-2 bg-primary text-black text-[10px] font-bold px-2 py-1 rounded shadow">
+                      <span className="absolute -top-2.5 -right-2 bg-primary text-white text-[10px] font-bold px-2.5 py-0.5 rounded shadow">
                         BEST CHOICE
                       </span>
                     )}
-                    <h3 className="text-lg font-bold text-white mb-1">{item.title}</h3>
-                    <span className="text-[10px] bg-primary/20 text-primary px-2 py-0.5 rounded-full uppercase tracking-wider inline-block mb-3">
-                      {item.category?.name || 'Uncategorized'}
-                    </span>
-                    <p className="text-xs text-gray-400 mb-3">{item.tech}</p>
-                    <div className="text-xl font-black text-white mb-4">
+                    <h3 className="text-lg font-bold text-app-text mb-1">{item.title}</h3>
+                    <div className="mb-3">
+                      <span className="text-[11px] font-semibold bg-primary/10 text-primary border border-primary/20 px-2.5 py-0.5 rounded-md inline-block">
+                        {item.category?.name || 'Uncategorized'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-app-text-muted mb-3">{item.tech}</p>
+                    <div className="text-xl font-black text-app-text mb-4">
                       {item.pricing?.amount} {item.pricing?.currency} {item.pricing?.isStartingAt ? '+' : ''} {item.pricing?.period === 'monthly' ? '/mo' : ''}
                     </div>
                     
-                    <div className="flex items-center justify-between pt-4 border-t border-white/10 mt-auto">
-                      <button onClick={() => openEditPlan(item)} className="p-2 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 rounded transition-colors cursor-pointer" title="Edit">
-                        <Edit2 size={16} />
+                    <div className="flex items-center justify-between pt-4 border-t border-app-border mt-auto">
+                      <button onClick={() => openEditPlan(item)} className="px-3 py-1.5 bg-blue-500/10 text-blue-600 hover:bg-blue-500/20 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-semibold" title="Edit">
+                        <Edit2 size={15} /> Edit
                       </button>
-                      <button onClick={() => handleDelete(item._id, 'plan')} className="p-2 bg-red-500/10 text-red-500 hover:bg-red-500/20 rounded transition-colors cursor-pointer" title="Delete">
-                        <Trash2 size={16} />
+                      <button onClick={() => handleDelete(item._id, 'plan')} className="px-3 py-1.5 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-semibold" title="Delete">
+                        <Trash2 size={15} /> Delete
                       </button>
                     </div>
                   </div>
@@ -481,21 +483,21 @@ export default function PricingManager() {
           {activeTab === 'categories' && (
             <div>
               <div className="flex justify-end mb-6">
-                <button onClick={openAddCategory} className="flex items-center gap-2 px-4 py-2 bg-primary text-black font-medium rounded-lg hover:bg-primary/90 transition-colors cursor-pointer">
+                <button onClick={openAddCategory} className="flex items-center gap-2 px-4 py-2 bg-primary text-white font-semibold rounded-lg hover:bg-primary/90 transition-colors cursor-pointer shadow-sm text-sm">
                   <Plus className="w-4 h-4" /> Add Category
                 </button>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {categories.map((item) => (
-                  <div key={item._id} className="bg-[#1a1a1a] border border-white/10 rounded-xl p-6 relative flex flex-col">
-                    <h3 className="text-lg font-bold text-white mb-2">{item.name}</h3>
-                    <p className="text-xs text-gray-400 mb-4">{item.description}</p>
-                    <div className="flex items-center justify-between pt-4 border-t border-white/10 mt-auto">
-                      <button onClick={() => openEditCategory(item)} className="p-2 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 rounded transition-colors cursor-pointer" title="Edit">
-                        <Edit2 size={16} />
+                  <div key={item._id} className="bg-app-card border border-app-border rounded-xl p-6 relative flex flex-col shadow-sm transition-shadow hover:shadow-md">
+                    <h3 className="text-lg font-bold text-app-text mb-2">{item.name}</h3>
+                    <p className="text-xs text-app-text-muted mb-4">{item.description}</p>
+                    <div className="flex items-center justify-between pt-4 border-t border-app-border mt-auto">
+                      <button onClick={() => openEditCategory(item)} className="px-3 py-1.5 bg-blue-500/10 text-blue-600 hover:bg-blue-500/20 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-semibold" title="Edit">
+                        <Edit2 size={15} /> Edit
                       </button>
-                      <button onClick={() => handleDelete(item._id, 'category')} className="p-2 bg-red-500/10 text-red-500 hover:bg-red-500/20 rounded transition-colors cursor-pointer" title="Delete">
-                        <Trash2 size={16} />
+                      <button onClick={() => handleDelete(item._id, 'category')} className="px-3 py-1.5 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-semibold" title="Delete">
+                        <Trash2 size={15} /> Delete
                       </button>
                     </div>
                   </div>
@@ -508,21 +510,21 @@ export default function PricingManager() {
 
       {/* Delete Confirmation Modal */}
       {deleteModal.isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-[#1a1a1a] border border-white/10 rounded-xl p-6 w-full max-w-md shadow-2xl relative">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-app-card border border-app-border rounded-xl p-6 w-full max-w-md shadow-2xl relative">
             <div className="flex flex-col items-center text-center">
               <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center mb-4">
                 <AlertTriangle className="w-6 h-6 text-red-500" />
               </div>
-              <h3 className="text-xl font-bold text-white mb-2">Delete {deleteModal.type === 'category' ? 'Category' : 'Plan'}</h3>
-              <p className="text-gray-400 mb-6 text-sm">
+              <h3 className="text-xl font-bold text-app-text mb-2">Delete {deleteModal.type === 'category' ? 'Category' : 'Plan'}</h3>
+              <p className="text-app-text-muted mb-6 text-sm">
                 Are you sure? This action cannot be undone. {deleteModal.type === 'category' && 'Deleting a category will NOT delete its plans automatically.'}
               </p>
               <div className="flex gap-3 w-full">
-                <button type="button" onClick={() => setDeleteModal({ isOpen: false, itemId: null, type: null })} disabled={isDeleting} className="flex-1 px-4 py-2.5 border border-white/10 rounded-lg text-gray-300 hover:text-white hover:bg-white/5 transition-colors disabled:opacity-50 cursor-pointer">
+                <button type="button" onClick={() => setDeleteModal({ isOpen: false, itemId: null, type: null })} disabled={isDeleting} className="flex-1 px-4 py-2.5 border border-app-border rounded-lg text-app-text-muted hover:text-app-text hover:bg-app-bg transition-colors disabled:opacity-50 cursor-pointer text-sm font-medium">
                   Cancel
                 </button>
-                <button type="button" onClick={confirmDelete} disabled={isDeleting} className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-red-500 text-white font-semibold rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50 cursor-pointer">
+                <button type="button" onClick={confirmDelete} disabled={isDeleting} className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-red-500 text-white font-semibold rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50 cursor-pointer text-sm shadow-sm">
                   {isDeleting ? <Loader className="w-4 h-4 animate-spin" /> : 'Delete'}
                 </button>
               </div>

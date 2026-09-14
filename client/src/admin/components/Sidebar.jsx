@@ -141,7 +141,6 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
         { name: 'Cookie Policy', path: '/admin/cookie-policy' },
         { name: 'Data Processing Agreement', path: '/admin/data-processing-agreement' },
         { name: 'Refund & Billing Policy', path: '/admin/refund-policy' },
-        { name: 'Service Agreement', path: '/admin/service-agreement' },
       ]
     },
     {
@@ -166,7 +165,6 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
         { name: 'Applications', path: '/admin/applications' },
       ]
     },
-    { name: 'Team Management', path: '/admin/team', icon: ShieldCheck, requiredPermission: 'team.manage' },
     { 
       name: 'HRMS (Module)', 
       icon: Users, 
@@ -180,9 +178,11 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
         { name: 'Productivity Reports', path: '/admin/manager-dashboard' },
         { name: 'Performance Cycles', path: '/admin/performance-cycles' },
         { name: 'KPI Goal Assigner', path: '/admin/performance-goals' },
-        { name: 'Company Performance Matrix', path: '/admin/performance-matrix' }
+        { name: 'Company Performance Matrix', path: '/admin/performance-matrix' },
+        { name: 'Client Service Agreement', path: '/admin/service-agreement' },
       ]
     },
+    { name: 'Team Management', path: '/admin/team', icon: ShieldCheck, requiredPermission: 'team.manage' },
     { name: 'Role Management', path: '/admin/roles', icon: ShieldCheck, requiredPermission: 'roles.manage' },
     { name: 'Facebook Integration', path: '/admin/facebook-integration', icon: Share2, requiredPermission: 'settings.manage' },
     { name: 'Settings', path: '/admin/settings', icon: Settings, requiredPermission: 'settings.manage' },
@@ -224,7 +224,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
         <div className={`mb-12 flex justify-between items-start shrink-0 ${isEmployeeOnly ? 'pr-6' : 'pl-1'}`}>
           <div className="relative flex items-start">
             {isEmployeeOnly ? (
-              <img src={lightLogo} alt="Vedhunt Logo" className={`h-12 md:h-14 w-auto object-contain scale-[1.6] origin-left brightness-0 invert`} />
+              <img src={darkLogo} alt="Vedhunt Logo" className={`h-12 md:h-14 w-auto object-contain scale-[1.6] origin-left`} />
             ) : (
               <>
                 <img src={lightLogo} alt="Vedhunt Logo" className="h-12 md:h-14 w-auto object-contain scale-[1.6] origin-left dark:hidden" />

@@ -5,11 +5,12 @@ import { CheckCircle2, ArrowLeft } from 'lucide-react';
 
 export default function ThankYou() {
   React.useEffect(() => {
-    if (window.gtag) {
-      window.gtag('event', 'conversion', {
-        'send_to': 'AW-10976080417/8TJtCIb2vMIcEKHk5vEo',
-        'value': 1.0,
-        'currency': 'INR'
+    if (window.trackConversion) {
+      window.trackConversion({
+        value: 1.0,
+        currency: 'INR',
+        service: 'Thank You Conversion',
+        source: 'Thank You Page'
       });
     }
   }, []);

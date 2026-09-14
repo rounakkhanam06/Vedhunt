@@ -307,7 +307,16 @@ const TeamManagement = () => {
                         </div>
                       )}
                       {currentAdmin?._id === user._id && (
-                        <span className="text-xs text-app-text-muted italic mr-2">You</span>
+                        <div className="flex items-center justify-end gap-2">
+                          <span className="text-xs text-app-text-muted italic mr-1">You</span>
+                          <a
+                            href="/admin/settings"
+                            className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg bg-orange-500/10 text-[#FF6B00] border border-orange-500/20 hover:bg-orange-500 hover:text-white transition-all font-medium cursor-pointer"
+                            title="Edit Your Profile & Password"
+                          >
+                            <Edit2 size={13} /> Edit Profile & Password
+                          </a>
+                        </div>
                       )}
                       {currentAdmin?._id !== user._id && user.employeeId && (
                         <span className="text-xs text-app-text-muted italic mr-2">Use Employee Manager</span>

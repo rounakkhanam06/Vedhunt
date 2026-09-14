@@ -2,15 +2,17 @@ const rateLimit = require('express-rate-limit');
 
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per `window` (here, per 15 minutes)
+  max: 2000, // Generous limit for modern SPA with frequent polling & multiple active users per office IP
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
   message: { success: false, message: 'Too many requests from this IP, please try again after 15 minutes' },
-  // Ad-platform webhooks must never be rate limited. Facebook delivers leads in
-  // bursts from a small pool of IPs; a 429 makes it retry and, if failures
-  // persist, Facebook disables the webhook subscription entirely — silently
-  // losing every lead until it is manually re-enabled.
-  skip: (req) => req.path.startsWith('/api/leads/webhook'),
+  // 1. Ad-platform webhooks must never be rate limited (Facebook leads, Shiprocket, etc.)
+  // 2. Notification polling from active dashboard sessions must not choke on rate limiting
+  skip: (req) => {
+    if (req.path.startsWith('/api/leads/webhook')) return true;
+    if (req.path.includes('/notifications')) return true;
+    return false;
+  },
 });
 
 const authLimiter = rateLimit({

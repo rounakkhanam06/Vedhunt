@@ -167,30 +167,30 @@ export default function ApplicationManager() {
   return (
     <>
       <div className="mx-auto max-w-6xl space-y-8">
-      <div className="flex items-center justify-between border-b border-white/10 pb-4">
+      <div className="flex items-center justify-between border-b border-app-border pb-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">Application Manager</h1>
-          <p className="text-gray-400 text-sm mt-1">Review candidate applications submitted from the career page.</p>
+          <h1 className="text-2xl font-bold text-app-text">Application Manager</h1>
+          <p className="text-app-text-muted text-sm mt-1">Review candidate applications submitted from the career page.</p>
         </div>
         <div className="relative group">
           <button
             disabled={applications.length === 0}
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm font-semibold text-sm cursor-pointer"
           >
             <Download className="w-4 h-4" />
-            <span className="text-sm font-medium">Export</span>
+            <span>Export</span>
           </button>
           {applications.length > 0 && (
-            <div className="absolute right-0 top-full mt-2 w-48 bg-[#2a2a2a] border border-white/10 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 overflow-hidden">
+            <div className="absolute right-0 top-full mt-2 w-48 bg-app-card border border-app-border rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 overflow-hidden">
               <button
                 onClick={() => handleExport('csv')}
-                className="w-full text-left px-4 py-3 text-sm text-gray-300 hover:bg-white/5 hover:text-white transition-colors flex items-center gap-2"
+                className="w-full text-left px-4 py-3 text-sm text-app-text hover:bg-app-bg transition-colors flex items-center gap-2 cursor-pointer"
               >
                 Download in CSV
               </button>
               <button
                 onClick={() => handleExport('excel')}
-                className="w-full text-left px-4 py-3 text-sm text-gray-300 hover:bg-white/5 hover:text-white transition-colors flex items-center gap-2 border-t border-white/5"
+                className="w-full text-left px-4 py-3 text-sm text-app-text hover:bg-app-bg transition-colors flex items-center gap-2 border-t border-app-border cursor-pointer"
               >
                 Download in Excel
               </button>
@@ -200,44 +200,44 @@ export default function ApplicationManager() {
       </div>
 
       {applications.length === 0 ? (
-        <div className="text-center text-gray-500 py-12 bg-[#1a1a1a] rounded-xl border border-white/5">
-          <Users className="w-12 h-12 mx-auto mb-3 opacity-20" />
-          <p>No applications found.</p>
+        <div className="text-center text-app-text-muted py-12 bg-app-card rounded-xl border border-app-border shadow-sm">
+          <Users className="w-12 h-12 mx-auto mb-3 opacity-30 text-primary" />
+          <p className="text-sm">No applications found.</p>
         </div>
       ) : (
-        <div className="overflow-x-auto bg-[#1a1a1a] border border-white/10 rounded-xl">
+        <div className="overflow-x-auto bg-app-card border border-app-border rounded-xl shadow-sm">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="border-b border-white/10 bg-black/20">
-                <th className="px-6 py-4 text-sm font-semibold text-gray-300">Name</th>
-                <th className="px-6 py-4 text-sm font-semibold text-gray-300">Email</th>
-                <th className="px-6 py-4 text-sm font-semibold text-gray-300">Phone</th>
-                <th className="px-6 py-4 text-sm font-semibold text-gray-300">Status</th>
-                <th className="px-6 py-4 text-sm font-semibold text-gray-300">Job Role</th>
-                <th className="px-6 py-4 text-sm font-semibold text-gray-300">Experience</th>
-                <th className="px-6 py-4 text-sm font-semibold text-gray-300">CTC Details</th>
-                <th className="px-6 py-4 text-sm font-semibold text-gray-300">Notice Period</th>
-                <th className="px-6 py-4 text-sm font-semibold text-gray-300">Application Date</th>
-                <th className="px-6 py-4 text-sm font-semibold text-gray-300">Links</th>
+              <tr className="border-b border-app-border bg-app-bg/50">
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-app-text">Name</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-app-text">Email</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-app-text">Phone</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-app-text">Status</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-app-text">Job Role</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-app-text">Experience</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-app-text">CTC Details</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-app-text">Notice Period</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-app-text">Application Date</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-app-text">Links</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/5">
+            <tbody className="divide-y divide-app-border">
               {applications.map((app) => (
-                <tr key={app._id} className="hover:bg-white/5 transition-colors">
-                  <td className="px-6 py-4 text-sm text-gray-300 font-medium whitespace-nowrap">
+                <tr key={app._id} className="hover:bg-app-bg/60 transition-colors">
+                  <td className="px-6 py-4 text-sm text-app-text font-medium whitespace-nowrap">
                     {app.fullName}
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-400">
+                  <td className="px-6 py-4 text-sm text-app-text-muted whitespace-nowrap">
                     {app.email}
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-400">
+                  <td className="px-6 py-4 text-sm text-app-text-muted whitespace-nowrap">
                     {app.phone}
                   </td>
                   <td className="px-6 py-4">
                     <select
                       value={app.status || 'Pending'}
                       onChange={(e) => handleStatusChange(app, e.target.value)}
-                      className="bg-[#2a2a2a] text-sm text-white border border-white/10 rounded px-2 py-1 outline-none focus:border-primary transition-colors"
+                      className="bg-app-bg text-xs font-semibold text-app-text border border-app-border rounded-lg px-2.5 py-1.5 outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors cursor-pointer"
                     >
                       <option value="Pending">Pending</option>
                       <option value="Interviewing">Interviewing</option>
@@ -246,34 +246,34 @@ export default function ApplicationManager() {
                     </select>
                   </td>
                   <td className="px-6 py-4">
-                    <span className="inline-flex items-center px-3 py-1 rounded-md text-xs font-medium bg-primary/10 text-primary whitespace-nowrap">
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-semibold bg-primary/10 text-primary border border-primary/20 whitespace-nowrap">
                       {app.jobId ? app.jobId.title : 'General Application'}
                     </span>
-                    {app.jobId && <div className="text-xs text-gray-500 mt-1 whitespace-nowrap">{app.jobId.department}</div>}
+                    {app.jobId && <div className="text-xs text-app-text-muted mt-1 whitespace-nowrap">{app.jobId.department}</div>}
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-300 whitespace-nowrap">
+                  <td className="px-6 py-4 text-sm text-app-text whitespace-nowrap">
                     {app.experienceYears}
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-300 whitespace-nowrap">
-                    <div><span className="text-gray-500">Cur:</span> {app.currentCTC || 'N/A'}</div>
-                    <div><span className="text-gray-500">Exp:</span> {app.expectedCTC || 'N/A'}</div>
+                  <td className="px-6 py-4 text-xs text-app-text whitespace-nowrap">
+                    <div><span className="text-app-text-muted">Cur:</span> {app.currentCTC || 'N/A'}</div>
+                    <div><span className="text-app-text-muted">Exp:</span> {app.expectedCTC || 'N/A'}</div>
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-300 whitespace-nowrap">
+                  <td className="px-6 py-4 text-sm text-app-text whitespace-nowrap">
                     {app.noticePeriod || 'N/A'}
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-300 whitespace-nowrap">
+                  <td className="px-6 py-4 text-sm text-app-text-muted whitespace-nowrap">
                     {formatDate(app.createdAt)}
                   </td>
                   <td className="px-6 py-4">
-                    <div className="flex flex-col gap-2">
+                    <div className="flex flex-col gap-1.5">
                       {app.resumeUrl && (
                         <a 
                           href={app.resumeUrl?.startsWith('http') ? app.resumeUrl : (process.env.NODE_ENV === 'production' ? app.resumeUrl : `http://localhost:5000${app.resumeUrl}`)}
                           target="_blank" 
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300"
+                          className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-500 hover:underline"
                         >
-                          <Download size={14} /> Resume
+                          <Download size={13} /> Resume
                         </a>
                       )}
                       {app.linkedinUrl && (
@@ -281,9 +281,9 @@ export default function ApplicationManager() {
                           href={app.linkedinUrl} 
                           target="_blank" 
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300"
+                          className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-500 hover:underline"
                         >
-                          <ExternalLink size={14} /> LinkedIn
+                          <ExternalLink size={13} /> LinkedIn
                         </a>
                       )}
                       {app.portfolioUrl && (
@@ -291,9 +291,9 @@ export default function ApplicationManager() {
                           href={app.portfolioUrl} 
                           target="_blank" 
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300"
+                          className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-500 hover:underline"
                         >
-                          <ExternalLink size={14} /> Portfolio
+                          <ExternalLink size={13} /> Portfolio
                         </a>
                       )}
                     </div>
@@ -308,13 +308,13 @@ export default function ApplicationManager() {
 
       {/* Onboarding Modal */}
       {onboardingCandidate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="bg-[#1a1a1a] rounded-xl border border-white/10 w-full max-w-xl shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between p-6 border-b border-white/10 bg-white/5">
-              <h2 className="text-xl font-bold text-white">Onboard Employee - {onboardingCandidate.fullName}</h2>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-app-card rounded-xl border border-app-border w-full max-w-xl shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between p-6 border-b border-app-border bg-app-bg/50">
+              <h2 className="text-xl font-bold text-app-text">Onboard Employee - {onboardingCandidate.fullName}</h2>
               <button 
                 onClick={() => setOnboardingCandidate(null)}
-                className="text-gray-400 hover:text-white transition-colors"
+                className="text-app-text-muted hover:text-app-text transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -322,41 +322,41 @@ export default function ApplicationManager() {
             
             <div className="p-6 space-y-6">
               {/* Read-only fields */}
-              <div className="grid grid-cols-2 gap-4 opacity-70">
+              <div className="grid grid-cols-2 gap-4 opacity-80">
                 <div>
-                  <label className="block text-xs font-medium text-gray-400 mb-1">First Name</label>
-                  <input type="text" readOnly value={onboardingCandidate.fullName.split(' ')[0]} className="w-full bg-[#2a2a2a] border border-white/10 rounded-lg px-4 py-2 text-white cursor-not-allowed" />
+                  <label className="block text-xs font-medium text-app-text-muted mb-1">First Name</label>
+                  <input type="text" readOnly value={onboardingCandidate.fullName.split(' ')[0]} className="w-full bg-app-bg border border-app-border rounded-lg px-4 py-2 text-app-text cursor-not-allowed text-sm" />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-400 mb-1">Email</label>
-                  <input type="text" readOnly value={onboardingCandidate.email} className="w-full bg-[#2a2a2a] border border-white/10 rounded-lg px-4 py-2 text-white cursor-not-allowed" />
+                  <label className="block text-xs font-medium text-app-text-muted mb-1">Email</label>
+                  <input type="text" readOnly value={onboardingCandidate.email} className="w-full bg-app-bg border border-app-border rounded-lg px-4 py-2 text-app-text cursor-not-allowed text-sm" />
                 </div>
                 <div className="col-span-2">
-                  <label className="block text-xs font-medium text-gray-400 mb-1">Phone Number</label>
-                  <input type="text" readOnly value={onboardingCandidate.phone} className="w-full bg-[#2a2a2a] border border-white/10 rounded-lg px-4 py-2 text-white cursor-not-allowed" />
+                  <label className="block text-xs font-medium text-app-text-muted mb-1">Phone Number</label>
+                  <input type="text" readOnly value={onboardingCandidate.phone} className="w-full bg-app-bg border border-app-border rounded-lg px-4 py-2 text-app-text cursor-not-allowed text-sm" />
                 </div>
               </div>
 
-              <hr className="border-white/10" />
+              <hr className="border-app-border" />
 
               {/* Editable fields */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-medium text-gray-400 mb-1">Role / Department</label>
+                  <label className="block text-xs font-medium text-app-text-muted mb-1">Role / Department</label>
                   <input 
                     type="text" 
                     value={onboardingData.role || ''}
                     onChange={(e) => setOnboardingData({...onboardingData, role: e.target.value})}
-                    className="w-full bg-[#2a2a2a] border border-white/10 rounded-lg px-4 py-2 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all" 
+                    className="w-full bg-app-bg border border-app-border rounded-lg px-4 py-2 text-app-text focus:border-primary focus:ring-1 focus:ring-primary outline-none text-sm transition-all" 
                     placeholder="e.g. Engineering"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-400 mb-1">Employment Type</label>
+                  <label className="block text-xs font-medium text-app-text-muted mb-1">Employment Type</label>
                   <select 
                     value={onboardingData.employmentType}
                     onChange={(e) => setOnboardingData({...onboardingData, employmentType: e.target.value})}
-                    className="w-full bg-[#2a2a2a] border border-white/10 rounded-lg px-4 py-2 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all"
+                    className="w-full bg-app-bg border border-app-border rounded-lg px-4 py-2 text-app-text focus:border-primary focus:ring-1 focus:ring-primary outline-none text-sm transition-all"
                   >
                     <option value="Billable">Billable</option>
                     <option value="Non-billable">Non-billable</option>
@@ -365,28 +365,28 @@ export default function ApplicationManager() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-400 mb-1">Joining Date</label>
+                  <label className="block text-xs font-medium text-app-text-muted mb-1">Joining Date</label>
                   <input 
                     type="date" 
                     value={onboardingData.joiningDate}
                     onChange={(e) => setOnboardingData({...onboardingData, joiningDate: e.target.value})}
-                    className="w-full bg-[#2a2a2a] border border-white/10 rounded-lg px-4 py-2 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all" 
+                    className="w-full bg-app-bg border border-app-border rounded-lg px-4 py-2 text-app-text focus:border-primary focus:ring-1 focus:ring-primary outline-none text-sm transition-all" 
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-400 mb-1">Salary CTC (INR)</label>
+                  <label className="block text-xs font-medium text-app-text-muted mb-1">Salary CTC (INR)</label>
                   <div className="relative">
                     <input 
                       type={showSalary ? "text" : "password"} 
                       value={onboardingData.salaryCTC || ''}
                       onChange={(e) => setOnboardingData({...onboardingData, salaryCTC: e.target.value})}
-                      className="w-full bg-[#2a2a2a] border border-white/10 rounded-lg pl-4 pr-10 py-2 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all" 
+                      className="w-full bg-app-bg border border-app-border rounded-lg pl-4 pr-10 py-2 text-app-text focus:border-primary focus:ring-1 focus:ring-primary outline-none text-sm transition-all" 
                       placeholder="e.g. 1200000"
                     />
                     <button 
                       type="button"
                       onClick={() => setShowSalary(!showSalary)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-app-text-muted hover:text-app-text cursor-pointer"
                     >
                       {showSalary ? <EyeOff size={16} /> : <Eye size={16} />}
                     </button>
@@ -395,17 +395,17 @@ export default function ApplicationManager() {
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-3 p-6 border-t border-white/10 bg-white/5">
+            <div className="flex items-center justify-end gap-3 p-6 border-t border-app-border bg-app-bg/50">
               <button 
                 onClick={() => setOnboardingCandidate(null)}
-                className="px-4 py-2 text-sm font-medium text-gray-300 hover:text-white transition-colors"
+                className="px-4 py-2 text-sm font-medium text-app-text-muted hover:text-app-text transition-colors cursor-pointer"
               >
                 Cancel
               </button>
               <button 
                 onClick={handleOnboardConfirm}
                 disabled={!onboardingData.role || !onboardingData.joiningDate || !onboardingData.salaryCTC}
-                className="px-6 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-6 py-2 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm cursor-pointer"
               >
                 Confirm Onboard & Register
               </button>

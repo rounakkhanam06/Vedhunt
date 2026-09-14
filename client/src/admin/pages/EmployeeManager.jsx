@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
-import { Plus, Trash2, Eye, Shield, Award, AlertCircle, CheckCircle, Search, IndianRupee, Copy, Check, ExternalLink, Info } from 'lucide-react';
+import { Plus, Trash2, Eye, Shield, Award, AlertCircle, CheckCircle, Search, IndianRupee, Copy, Check, ExternalLink, Info, Edit2, Lock, Key, Power } from 'lucide-react';
 
 // ─── Validation Rules ────────────────────────────────────────────────────────
 const NAME_REGEX = /^[a-zA-Z\s'-]{2,50}$/;
@@ -94,6 +94,19 @@ const EmployeeManager = () => {
   const [roles, setRoles] = useState([]);
   const [changeRoleId, setChangeRoleId] = useState('');
 
+  // Edit Employee State
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editForm, setEditForm] = useState(initialForm);
+  const [editErrors, setEditErrors] = useState({});
+  const [editTouched, setEditTouched] = useState({});
+  const [isUpdatingEmp, setIsUpdatingEmp] = useState(false);
+
+  // Quick Password Reset State
+  const [showPasswordReset, setShowPasswordReset] = useState(false);
+  const [newAdminPassword, setNewAdminPassword] = useState('');
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+  const [isTogglingStatus, setIsTogglingStatus] = useState(false);
+
   // Sub-action states
   const [goalText, setGoalText] = useState('');
   const [goalTargetDate, setGoalTargetDate] = useState('');
@@ -165,6 +178,124 @@ const EmployeeManager = () => {
       }
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to update role.');
+    }
+  };
+
+  const handleToggleStatus = async () => {
+    if (!selectedEmp) return;
+    const currentStatus = selectedEmp.adminId?.isActive ?? true;
+    const newStatus = !currentStatus;
+    const actionText = newStatus ? 'activate' : 'deactivate';
+    if (!window.confirm(`Are you sure you want to ${actionText} this employee account? ${!newStatus ? 'They will not be able to log in to the portal.' : ''}`)) {
+      return;
+    }
+    setIsTogglingStatus(true);
+    try {
+      const res = await api.put(`/employees/${selectedEmp._id}`, { isActive: newStatus });
+      if (res.data.success) {
+        toast.success(`Employee account ${newStatus ? 'activated' : 'deactivated'}.`);
+        setSelectedEmp(res.data.employee);
+        fetchEmployees();
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || `Failed to ${actionText} employee.`);
+    } finally {
+      setIsTogglingStatus(false);
+    }
+  };
+
+  const handleResetPassword = async (e) => {
+    e.preventDefault();
+    if (!newAdminPassword || newAdminPassword.trim().length < 6) {
+      toast.error('Password must be at least 6 characters long.');
+      return;
+    }
+    setIsUpdatingPassword(true);
+    try {
+      const res = await api.put(`/employees/${selectedEmp._id}`, { password: newAdminPassword.trim() });
+      if (res.data.success) {
+        toast.success('Password updated successfully!');
+        setSelectedEmp(res.data.employee);
+        setNewAdminPassword('');
+        setShowPasswordReset(false);
+        fetchEmployees();
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to update password.');
+    } finally {
+      setIsUpdatingPassword(false);
+    }
+  };
+
+  const handleOpenEditModal = () => {
+    if (!selectedEmp) return;
+    // Map existing roleDept to roleId if available
+    const matchedRole = roles.find(r => (r.label || r.name).toLowerCase() === String(selectedEmp.roleDept).toLowerCase());
+    setEditForm({
+      firstName: selectedEmp.firstName || '',
+      lastName: selectedEmp.lastName || '',
+      email: selectedEmp.email || '',
+      phone: selectedEmp.phone || '',
+      roleId: matchedRole ? matchedRole._id : '',
+      employmentType: selectedEmp.employmentType || 'Billable',
+      joinDate: selectedEmp.joinDate ? selectedEmp.joinDate.substring(0, 10) : '',
+      salaryCTC: selectedEmp.salaryCTC || '',
+      panNumber: selectedEmp.panNumber || '',
+      aadhaarNumber: selectedEmp.aadhaarNumber || '',
+    });
+    setEditErrors({});
+    setEditTouched({});
+    setIsEditModalOpen(true);
+  };
+
+  const handleEditChange = (e) => {
+    const { name, value } = e.target;
+    setEditForm(prev => ({ ...prev, [name]: value }));
+    if (editTouched[name]) {
+      setEditErrors(prev => ({ ...prev, [name]: validateField(name, value) }));
+    }
+  };
+
+  const handleEditBlur = (e) => {
+    const { name, value } = e.target;
+    setEditTouched(prev => ({ ...prev, [name]: true }));
+    setEditErrors(prev => ({ ...prev, [name]: validateField(name, value) }));
+  };
+
+  const handleUpdateEmployee = async (e) => {
+    e.preventDefault();
+    const fields = ['firstName', 'lastName', 'email', 'phone', 'joinDate', 'salaryCTC', 'panNumber', 'aadhaarNumber'];
+    const newTouched = {};
+    const newErrors = {};
+    fields.forEach(f => {
+      newTouched[f] = true;
+      newErrors[f] = validateField(f, editForm[f]);
+    });
+    setEditTouched(newTouched);
+    setEditErrors(newErrors);
+
+    if (Object.values(newErrors).some(Boolean)) {
+      toast.error('Please fix highlighted errors.');
+      return;
+    }
+
+    setIsUpdatingEmp(true);
+    try {
+      const res = await api.put(`/employees/${selectedEmp._id}`, {
+        ...editForm,
+        salaryCTC: Number(editForm.salaryCTC),
+        panNumber: editForm.panNumber.toUpperCase(),
+      });
+      if (res.data.success) {
+        toast.success('Employee details updated successfully!');
+        setSelectedEmp(res.data.employee);
+        setIsEditModalOpen(false);
+        fetchEmployees();
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to update employee details.');
+    } finally {
+      setIsUpdatingEmp(false);
     }
   };
 
@@ -551,22 +682,97 @@ const EmployeeManager = () => {
             <div className="w-full xl:w-[420px] flex-shrink-0 bg-app-card p-6 rounded-xl border border-app-border space-y-6 overflow-y-auto max-h-[85vh] sticky top-6 shadow-xl">
               <div className="flex justify-between items-start border-b border-app-border pb-4">
                 <div>
-                  <h2 className="text-xl font-bold">{selectedEmp.firstName} {selectedEmp.lastName}</h2>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-xl font-bold">{selectedEmp.firstName} {selectedEmp.lastName}</h2>
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${selectedEmp.adminId?.isActive ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'}`}>
+                      {selectedEmp.adminId?.isActive ? 'Active' : 'Deactivated'}
+                    </span>
+                  </div>
                   <div className="text-xs text-orange-500 font-mono mt-0.5">{selectedEmp.employeeId}</div>
                 </div>
-                <button onClick={() => setIsDetailOpen(false)} className="text-app-text-muted hover:text-app-text text-xs cursor-pointer">Close ✕</button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleOpenEditModal}
+                    className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg bg-orange-600/15 text-orange-400 border border-orange-500/20 hover:bg-orange-600 hover:text-white transition-all cursor-pointer font-medium"
+                    title="Edit Employee Details"
+                  >
+                    <Edit2 size={13} /> Edit
+                  </button>
+                  <button onClick={() => setIsDetailOpen(false)} className="text-app-text-muted hover:text-app-text text-xs cursor-pointer p-1">Close ✕</button>
+                </div>
               </div>
 
-              <div className="bg-orange-500/5 border border-orange-500/10 rounded-xl p-4 space-y-2">
-                <div className="flex items-center gap-2 text-orange-500 font-bold text-sm"><Shield size={16} /> Credentials & Vault</div>
+              {/* Account Security & Access Control */}
+              <div className="bg-surface-variant/40 border border-app-border rounded-xl p-3.5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-app-text flex items-center gap-1.5">
+                    <Power size={14} className={selectedEmp.adminId?.isActive ? 'text-emerald-400' : 'text-rose-400'} />
+                    Login Access Status
+                  </span>
+                  <button
+                    onClick={handleToggleStatus}
+                    disabled={isTogglingStatus}
+                    className={`text-xs px-3 py-1 rounded-lg font-semibold transition-all cursor-pointer border disabled:opacity-50 ${
+                      selectedEmp.adminId?.isActive
+                        ? 'bg-rose-500/15 text-rose-400 border-rose-500/25 hover:bg-rose-600 hover:text-white'
+                        : 'bg-emerald-500/15 text-emerald-400 border-emerald-500/25 hover:bg-emerald-600 hover:text-white'
+                    }`}
+                  >
+                    {isTogglingStatus ? 'Updating...' : selectedEmp.adminId?.isActive ? 'Deactivate Access' : 'Activate Access'}
+                  </button>
+                </div>
+                <p className="text-[11px] text-app-text-muted">
+                  {selectedEmp.adminId?.isActive
+                    ? 'Account is active. Deactivating will immediately revoke login access to the portal.'
+                    : 'Account is deactivated. Employee cannot log in or perform any actions.'}
+                </p>
+              </div>
+
+              <div className="bg-orange-500/5 border border-orange-500/10 rounded-xl p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-orange-500 font-bold text-sm">
+                    <Shield size={16} /> Credentials & Vault
+                  </div>
+                  <button
+                    onClick={() => setShowPasswordReset(v => !v)}
+                    className="text-xs text-orange-400 hover:text-orange-300 font-semibold flex items-center gap-1 cursor-pointer"
+                  >
+                    <Key size={13} /> {showPasswordReset ? 'Cancel' : 'Change Password'}
+                  </button>
+                </div>
+
+                {showPasswordReset ? (
+                  <form onSubmit={handleResetPassword} className="space-y-2 bg-app-bg/60 p-3 rounded-lg border border-orange-500/20">
+                    <label className="block text-[10px] font-semibold text-app-text-muted uppercase tracking-wider">New Password (min 6 chars) *</label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="Enter new password"
+                        value={newAdminPassword}
+                        onChange={e => setNewAdminPassword(e.target.value)}
+                        className="flex-1 text-xs rounded-lg border border-app-border bg-form-input-bg px-3 py-2 text-app-text focus:outline-none"
+                      />
+                      <button
+                        type="submit"
+                        disabled={isUpdatingPassword || !newAdminPassword || newAdminPassword.length < 6}
+                        className="px-3 py-2 rounded-lg bg-orange-600 text-white text-xs font-semibold hover:bg-orange-700 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        {isUpdatingPassword ? 'Saving...' : 'Set'}
+                      </button>
+                    </div>
+                  </form>
+                ) : null}
+
                 <div className="text-xs space-y-1 text-app-text-muted font-mono">
                   {selectedEmp.tempPassword && (
-                    <div className="mb-2 pb-2 border-b border-orange-500/10">
-                      <span className="text-orange-400 font-semibold">Password:</span> {selectedEmp.tempPassword}
+                    <div className="mb-2 pb-2 border-b border-orange-500/10 flex items-center justify-between">
+                      <div>
+                        <span className="text-orange-400 font-semibold">Current Password:</span> {selectedEmp.tempPassword}
+                      </div>
                     </div>
                   )}
-                  <div>PAN: {selectedEmp.panNumber}</div>
-                  <div>Aadhaar: {selectedEmp.aadhaarNumber}</div>
+                  <div>PAN: {selectedEmp.panNumber || 'N/A'}</div>
+                  <div>Aadhaar: {selectedEmp.aadhaarNumber || 'N/A'}</div>
                 </div>
               </div>
 
@@ -896,6 +1102,183 @@ const EmployeeManager = () => {
                       Creating...
                     </span>
                   ) : 'Create & Send Credentials'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* ─── Edit Employee Modal ─────────────────────────────────────────────── */}
+      {isEditModalOpen && selectedEmp && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+          onClick={(e) => { if (e.target === e.currentTarget) setIsEditModalOpen(false); }}
+        >
+          <div className="bg-app-card border border-app-border rounded-2xl w-full max-w-lg shadow-2xl text-app-text flex flex-col max-h-[90vh]">
+            <div className="flex justify-between items-center px-6 py-4 border-b border-app-border bg-app-bg rounded-t-2xl flex-shrink-0">
+              <div>
+                <h3 className="text-lg font-bold text-app-text">Edit Employee Details</h3>
+                <p className="text-xs text-orange-500 font-mono mt-0.5">{selectedEmp.employeeId}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsEditModalOpen(false)}
+                className="text-app-text-muted hover:text-app-text text-sm cursor-pointer p-1"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateEmployee} className="flex flex-col flex-1 overflow-hidden" noValidate>
+              <div className="p-6 space-y-4 overflow-y-auto flex-1">
+                {/* Name */}
+                <div className="grid grid-cols-2 gap-4">
+                  <Field label="First Name" error={editErrors.firstName} touched={editTouched.firstName}>
+                    <input
+                      name="firstName"
+                      type="text"
+                      className="w-full text-sm rounded-lg border border-app-border bg-form-input-bg p-2.5 text-app-text focus:outline-none focus:ring-1 focus:ring-orange-500"
+                      value={editForm.firstName}
+                      onChange={handleEditChange}
+                      onBlur={handleEditBlur}
+                    />
+                  </Field>
+                  <Field label="Last Name" error={editErrors.lastName} touched={editTouched.lastName}>
+                    <input
+                      name="lastName"
+                      type="text"
+                      className="w-full text-sm rounded-lg border border-app-border bg-form-input-bg p-2.5 text-app-text focus:outline-none focus:ring-1 focus:ring-orange-500"
+                      value={editForm.lastName}
+                      onChange={handleEditChange}
+                      onBlur={handleEditBlur}
+                    />
+                  </Field>
+                </div>
+
+                {/* Email & Phone */}
+                <div className="grid grid-cols-2 gap-4">
+                  <Field label="Email Address" error={editErrors.email} touched={editTouched.email}>
+                    <input
+                      name="email"
+                      type="email"
+                      className="w-full text-sm rounded-lg border border-app-border bg-form-input-bg p-2.5 text-app-text focus:outline-none focus:ring-1 focus:ring-orange-500"
+                      value={editForm.email}
+                      onChange={handleEditChange}
+                      onBlur={handleEditBlur}
+                    />
+                  </Field>
+                  <Field label="Phone Number" error={editErrors.phone} touched={editTouched.phone}>
+                    <input
+                      name="phone"
+                      type="text"
+                      className="w-full text-sm rounded-lg border border-app-border bg-form-input-bg p-2.5 text-app-text focus:outline-none focus:ring-1 focus:ring-orange-500"
+                      value={editForm.phone}
+                      onChange={handleEditChange}
+                      onBlur={handleEditBlur}
+                    />
+                  </Field>
+                </div>
+
+                {/* Role & Employment Type */}
+                <div className="grid grid-cols-2 gap-4">
+                  <Field label="Role" error={editErrors.roleId} touched={editTouched.roleId}>
+                    <select
+                      name="roleId"
+                      className="w-full text-sm rounded-lg border border-app-border bg-form-input-bg p-2.5 text-app-text focus:outline-none focus:ring-1 focus:ring-orange-500"
+                      value={editForm.roleId}
+                      onChange={handleEditChange}
+                      onBlur={handleEditBlur}
+                    >
+                      <option value="" className="bg-white dark:bg-[#1a1f2b] text-gray-900 dark:text-white">Select a role...</option>
+                      {roles.map(r => (
+                        <option key={r._id} value={r._id} className="bg-white dark:bg-[#1a1f2b] text-gray-900 dark:text-white">{r.label || r.name.replace(/_/g, ' ')}</option>
+                      ))}
+                    </select>
+                  </Field>
+                  <div>
+                    <label className="block text-xs font-medium text-app-text-muted mb-1">Employment Type</label>
+                    <select
+                      name="employmentType"
+                      className="w-full text-sm rounded-lg border border-app-border bg-form-input-bg p-2.5 text-app-text focus:outline-none focus:ring-1 focus:ring-orange-500"
+                      value={editForm.employmentType}
+                      onChange={handleEditChange}
+                    >
+                      <option value="Billable" className="bg-white dark:bg-[#1a1f2b] text-gray-900 dark:text-white">Billable</option>
+                      <option value="Non-billable" className="bg-white dark:bg-[#1a1f2b] text-gray-900 dark:text-white">Non-billable</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Join Date & Salary CTC */}
+                <div className="grid grid-cols-2 gap-4">
+                  <Field label="Joining Date" error={editErrors.joinDate} touched={editTouched.joinDate}>
+                    <input
+                      name="joinDate"
+                      type="date"
+                      className="w-full text-sm rounded-lg border border-app-border bg-form-input-bg p-2.5 text-app-text focus:outline-none focus:ring-1 focus:ring-orange-500"
+                      value={editForm.joinDate}
+                      onChange={handleEditChange}
+                      onBlur={handleEditBlur}
+                    />
+                  </Field>
+                  <Field label="Annual Salary CTC (₹)" error={editErrors.salaryCTC} touched={editTouched.salaryCTC}>
+                    <input
+                      name="salaryCTC"
+                      type="number"
+                      className="w-full text-sm rounded-lg border border-app-border bg-form-input-bg p-2.5 text-app-text focus:outline-none focus:ring-1 focus:ring-orange-500"
+                      value={editForm.salaryCTC}
+                      onChange={handleEditChange}
+                      onBlur={handleEditBlur}
+                    />
+                  </Field>
+                </div>
+
+                {/* Vault: PAN & Aadhaar */}
+                <div className="rounded-xl border border-orange-500/15 bg-orange-500/[0.04] p-4 space-y-3">
+                  <div className="flex items-center gap-2 text-orange-400 text-xs font-semibold">
+                    <Shield size={13} /> Identity Documents (Encrypted)
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <Field label="PAN Number" error={editErrors.panNumber} touched={editTouched.panNumber}>
+                      <input
+                        name="panNumber"
+                        type="text"
+                        maxLength={10}
+                        className="w-full text-sm rounded-lg border border-app-border bg-form-input-bg p-2.5 text-app-text focus:outline-none focus:ring-1 focus:ring-orange-500 font-mono tracking-widest uppercase"
+                        value={editForm.panNumber}
+                        onChange={handleEditChange}
+                        onBlur={handleEditBlur}
+                      />
+                    </Field>
+                    <Field label="Aadhaar Number" error={editErrors.aadhaarNumber} touched={editTouched.aadhaarNumber}>
+                      <input
+                        name="aadhaarNumber"
+                        type="text"
+                        maxLength={12}
+                        className="w-full text-sm rounded-lg border border-app-border bg-form-input-bg p-2.5 text-app-text focus:outline-none focus:ring-1 focus:ring-orange-500 font-mono tracking-widest"
+                        value={editForm.aadhaarNumber}
+                        onChange={handleEditChange}
+                        onBlur={handleEditBlur}
+                      />
+                    </Field>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-3 px-6 py-4 border-t border-app-border bg-app-bg rounded-b-2xl flex-shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setIsEditModalOpen(false)}
+                  className="flex-1 px-4 py-2.5 rounded-lg border border-app-border text-app-text-muted hover:bg-surface-variant hover:text-app-text transition-all cursor-pointer text-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isUpdatingEmp}
+                  className="flex-1 px-4 py-2.5 rounded-lg bg-orange-600 hover:bg-orange-700 text-white font-semibold transition-all cursor-pointer text-sm disabled:opacity-60"
+                >
+                  {isUpdatingEmp ? 'Saving...' : 'Save Changes'}
                 </button>
               </div>
             </form>

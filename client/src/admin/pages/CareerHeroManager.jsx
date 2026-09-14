@@ -71,58 +71,59 @@ const CareerHeroManager = ({ isNested = false }) => {
     <div className={isNested ? "space-y-6" : "mx-auto max-w-4xl space-y-6"}>
       {!isNested && (
         <div>
-          <h1 className="text-2xl font-bold text-white">Manage Career Hero Section</h1>
-          <p className="mt-1 text-sm text-gray-400">
+          <h1 className="text-2xl font-bold text-app-text">Manage Career Hero Section</h1>
+          <p className="mt-1 text-sm text-app-text-muted">
             Update the title, description, and benefits list for the career page header.
           </p>
         </div>
       )}
 
-      <div className="rounded-xl bg-[#222222] p-6 shadow-xl border border-white/10">
+      <div className="rounded-xl bg-app-card p-6 shadow-sm border border-app-border">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="flex flex-col space-y-1">
-              <label className="text-sm font-medium text-gray-300">Top Heading Text (e.g. Join the)</label>
+              <label className="text-sm font-medium text-app-text-muted">Top Heading Text (e.g. Join the)</label>
               <input
                 {...register("headingTop")}
                 type="text"
-                className="rounded-md border border-white/10 bg-[#1A1A1A] px-3 py-2 text-sm text-gray-100 focus:border-orange-500 focus:outline-none"
+                className="rounded-md border border-app-border bg-app-bg px-3.5 py-2 text-sm text-app-text focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
               />
             </div>
             
             <div className="flex flex-col space-y-1">
-              <label className="text-sm font-medium text-gray-300">Highlighted Text (e.g. Vedhunt Team)</label>
+              <label className="text-sm font-medium text-app-text-muted">Highlighted Text (e.g. Vedhunt Team)</label>
               <input
                 {...register("headingHighlight")}
                 type="text"
-                className="rounded-md border border-white/10 bg-[#1A1A1A] px-3 py-2 text-sm text-gray-100 focus:border-orange-500 focus:outline-none"
+                className="rounded-md border border-app-border bg-app-bg px-3.5 py-2 text-sm text-app-text focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
               />
             </div>
           </div>
 
           <div className="flex flex-col space-y-1">
-            <label className="text-sm font-medium text-gray-300">Description</label>
+            <label className="text-sm font-medium text-app-text-muted">Description</label>
             <textarea
               {...register("description")}
               rows={3}
-              className="rounded-md border border-white/10 bg-[#1A1A1A] px-3 py-2 text-sm text-gray-100 focus:border-orange-500 focus:outline-none"
+              className="rounded-md border border-app-border bg-app-bg px-3.5 py-2 text-sm text-app-text focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none resize-none"
             />
           </div>
 
           <div className="space-y-3">
-            <label className="text-sm font-medium text-gray-300 block">Why Work With Us (Benefits List)</label>
+            <label className="text-sm font-medium text-app-text-muted block">Why Work With Us (Benefits List)</label>
             <div className="space-y-3">
               {fields.map((field, index) => (
                 <div key={field.id} className="flex items-center gap-3">
                   <input
                     {...register(`benefits.${index}.value`, { required: true })}
                     placeholder="e.g. Flexible Work"
-                    className="flex-1 rounded-md border border-white/10 bg-[#1A1A1A] px-3 py-2 text-sm text-gray-100 focus:border-orange-500 focus:outline-none"
+                    className="flex-1 rounded-md border border-app-border bg-app-bg px-3.5 py-2 text-sm text-app-text focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
                   />
                   <button
                     type="button"
                     onClick={() => remove(index)}
-                    className="rounded-md bg-red-900/50 p-2 text-red-400 hover:bg-red-900/70 hover:text-red-300 transition-colors"
+                    className="rounded-md bg-red-500/10 p-2.5 text-red-500 hover:bg-red-500/20 transition-colors cursor-pointer"
+                    title="Remove Benefit"
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
@@ -132,17 +133,17 @@ const CareerHeroManager = ({ isNested = false }) => {
             <button
               type="button"
               onClick={() => append({ value: '' })}
-              className="mt-3 flex items-center gap-2 rounded-md bg-white/5 px-3 py-2 text-sm font-medium text-gray-300 hover:bg-white/10 transition-colors"
+              className="mt-3 flex items-center gap-2 rounded-md bg-app-bg border border-app-border px-3.5 py-2 text-sm font-medium text-app-text hover:border-primary/50 transition-colors cursor-pointer"
             >
-              <Plus className="h-4 w-4" /> Add Benefit
+              <Plus className="h-4 w-4 text-primary" /> Add Benefit
             </button>
           </div>
 
-          <div className="pt-4">
+          <div className="pt-4 border-t border-app-border">
             <button
               type="submit"
               disabled={updateHeroMutation.isPending}
-              className="flex justify-center rounded-md border border-transparent bg-[#FF6B00] px-6 py-2.5 text-sm font-medium text-white hover:bg-[#e66000] focus:outline-none disabled:opacity-50 transition-colors"
+              className="flex justify-center rounded-md bg-primary px-6 py-2.5 text-sm font-semibold text-white hover:bg-primary/90 focus:outline-none disabled:opacity-50 transition-colors shadow-sm cursor-pointer"
             >
               {updateHeroMutation.isPending ? 'Saving...' : 'Save Changes'}
             </button>

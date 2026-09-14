@@ -79,7 +79,7 @@ const EmployeeLayout = () => {
       `}>
         <div className="mb-12 flex justify-between items-start shrink-0 pr-6">
           <div className="relative flex items-start">
-            <img src={lightLogo} alt="Vedhunt Logo" className="h-12 md:h-14 w-auto object-contain scale-[1.6] origin-left brightness-0 invert" />
+            <img src={darkLogo} alt="Vedhunt Logo" className="h-12 md:h-14 w-auto object-contain scale-[1.6] origin-left" />
           </div>
           <button onClick={() => setIsMobileMenuOpen(false)} className="text-white hover:text-white/80 lg:hidden" title="Close Sidebar">
             <X size={24} />

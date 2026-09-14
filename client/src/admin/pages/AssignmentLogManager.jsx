@@ -61,7 +61,7 @@ export default function AssignmentLogManager() {
   const displayName = (user) => {
     if (!user) return 'System / Unassigned';
     const name = `${user.firstName || ''} ${user.lastName || ''}`.trim();
-    return name || 'Unknown User';
+    return name || user.name || user.email || 'Unknown User';
   };
 
   return (

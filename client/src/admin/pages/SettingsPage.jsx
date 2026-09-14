@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { User, Plug, BarChart2, Database, Save, Mail, Lock, Smartphone, DownloadCloud, AlertCircle, Phone, MapPin, Share2, Clock, CreditCard, QrCode, UploadCloud, LifeBuoy, Gauge } from 'lucide-react';
+import { User, Plug, BarChart2, Database, Save, Mail, Lock, Smartphone, DownloadCloud, AlertCircle, Phone, MapPin, Share2, Clock, CreditCard, QrCode, UploadCloud, LifeBuoy, Gauge, Key, ShieldCheck } from 'lucide-react';
 import { useAdminStore } from '../../store/useAdminStore';
+import { authService } from '../../services/authService';
 import { settingsService } from '../../services/settingsService';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
@@ -8,11 +9,35 @@ import { usePermissions } from '../hooks/usePermissions';
 import { PROJECT_BUDGET_OPTIONS, MONTHLY_MARKETING_BUDGET_OPTIONS } from '../../shared/serviceQualification';
 
 const SettingsPage = () => {
-  const { admin } = useAdminStore();
+  const { admin, updateProfile } = useAdminStore();
   const { can } = usePermissions();
-  const [activeTab, setActiveTab] = useState('contact');
+  const [activeTab, setActiveTab] = useState('profile');
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  // Profile & Security State
+  const [profileForm, setProfileForm] = useState({
+    firstName: admin?.firstName || '',
+    lastName: admin?.lastName || '',
+    email: admin?.email || ''
+  });
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+
+  useEffect(() => {
+    if (admin) {
+      setProfileForm({
+        firstName: admin.firstName || '',
+        lastName: admin.lastName || '',
+        email: admin.email || ''
+      });
+    }
+  }, [admin]);
 
   const [contactData, setContactData] = useState({
     phone: '',
@@ -589,7 +614,63 @@ const SettingsPage = () => {
     }
   };
 
+  const handleSaveProfile = async (e) => {
+    if (e) e.preventDefault();
+    if (!profileForm.email || !profileForm.email.includes('@')) {
+      toast.error('Please provide a valid email address.');
+      return;
+    }
+    setIsUpdatingProfile(true);
+    try {
+      const res = await authService.updateProfile({
+        firstName: profileForm.firstName,
+        lastName: profileForm.lastName,
+        email: profileForm.email
+      });
+      if (res.success) {
+        toast.success('Profile and email updated successfully!');
+        if (res.admin) updateProfile(res.admin);
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to update profile.');
+    } finally {
+      setIsUpdatingProfile(false);
+    }
+  };
+
+  const handleChangePassword = async (e) => {
+    if (e) e.preventDefault();
+    if (!passwordForm.currentPassword) {
+      toast.error('Please enter your current password.');
+      return;
+    }
+    if (!passwordForm.newPassword || passwordForm.newPassword.length < 6) {
+      toast.error('New password must be at least 6 characters long.');
+      return;
+    }
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      toast.error('New password and confirmation do not match.');
+      return;
+    }
+    setIsChangingPassword(true);
+    try {
+      const res = await authService.changePassword({
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword
+      });
+      if (res.success) {
+        toast.success('Password changed successfully!');
+        setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to change password.');
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
+
   const tabs = [
+    { id: 'profile', label: 'My Profile & Security', icon: User },
     { id: 'contact', label: 'Contact Info', icon: Phone },
     { id: 'officeTimings', label: 'Office Timings', icon: Clock },
     { id: 'attendanceRules', label: 'Attendance Rules', icon: Clock },
@@ -599,7 +680,6 @@ const SettingsPage = () => {
     { id: 'integrations', label: 'Integrations', icon: Plug },
     { id: 'campaigns', label: 'Campaign Control', icon: BarChart2 },
     { id: 'payment', label: 'Payment Settings', icon: CreditCard },
-    { id: 'backups', label: 'Backups', icon: Database },
   ];
 
   const inputClasses = "w-full bg-form-input-bg border border-app-border rounded-lg px-4 py-2 text-app-text placeholder-app-text-muted focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all duration-300";
@@ -638,6 +718,142 @@ const SettingsPage = () => {
       {/* Content Area */}
       <div className="flex-1 p-8 overflow-y-auto custom-scrollbar relative pb-24">
         
+        {/* Profile & Security Tab */}
+        {activeTab === 'profile' && (
+          <div className="max-w-3xl animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-10">
+            <div>
+              <h3 className="text-2xl font-bold text-app-text mb-2">My Profile & Security</h3>
+              <p className="text-app-text-muted text-sm mb-6">Manage your administrator profile details, email address, and login password.</p>
+              
+              <div className="flex items-center gap-3 p-4 bg-orange-500/10 border border-orange-500/20 rounded-xl mb-6">
+                <div className="w-10 h-10 rounded-full bg-orange-500/20 text-orange-500 flex items-center justify-center font-bold">
+                  {admin?.email?.charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <div className="text-sm font-bold text-app-text">{admin?.firstName} {admin?.lastName}</div>
+                  <div className="text-xs text-app-text-muted font-mono">{admin?.email}</div>
+                </div>
+                <div className="ml-auto">
+                  <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-orange-500/20 text-orange-400 border border-orange-500/30">
+                    {admin?.roles?.map(r => r.name || r.label).join(', ') || 'Administrator'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Profile Info Section */}
+            <form onSubmit={handleSaveProfile} className="bg-app-bg border border-app-border rounded-xl p-6 space-y-6">
+              <h4 className="text-sm font-semibold text-[#FF5A1F] uppercase tracking-widest flex items-center gap-4">
+                <span>Personal Information & Email</span>
+                <div className="h-[1px] flex-1 bg-gradient-to-r from-[#FF5A1F]/30 to-transparent"></div>
+              </h4>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className={labelClasses}>First Name</label>
+                  <input
+                    type="text"
+                    value={profileForm.firstName}
+                    onChange={e => setProfileForm(f => ({ ...f, firstName: e.target.value }))}
+                    className={inputClasses}
+                    placeholder="e.g. Super"
+                  />
+                </div>
+                <div>
+                  <label className={labelClasses}>Last Name</label>
+                  <input
+                    type="text"
+                    value={profileForm.lastName}
+                    onChange={e => setProfileForm(f => ({ ...f, lastName: e.target.value }))}
+                    className={inputClasses}
+                    placeholder="e.g. Admin"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className={labelClasses}>Email Address (Login ID)</label>
+                <input
+                  type="email"
+                  value={profileForm.email}
+                  onChange={e => setProfileForm(f => ({ ...f, email: e.target.value }))}
+                  className={inputClasses}
+                  placeholder="admin@vedhunt.com"
+                  required
+                />
+                <p className="text-[11px] text-app-text-muted mt-1.5">This email is your login username. Changing it will update your login credentials immediately.</p>
+              </div>
+
+              <div className="flex justify-end">
+                <button
+                  type="submit"
+                  disabled={isUpdatingProfile}
+                  className="flex items-center gap-2 bg-[#FF5A1F] hover:bg-[#EA580C] text-white px-5 py-2.5 rounded-lg font-semibold transition-all cursor-pointer disabled:opacity-50 text-sm"
+                >
+                  <Save size={16} />
+                  {isUpdatingProfile ? 'Saving...' : 'Update Profile Info'}
+                </button>
+              </div>
+            </form>
+
+            {/* Change Password Section */}
+            <form onSubmit={handleChangePassword} className="bg-app-bg border border-app-border rounded-xl p-6 space-y-6">
+              <h4 className="text-sm font-semibold text-[#FF5A1F] uppercase tracking-widest flex items-center gap-4">
+                <span>Change Password</span>
+                <div className="h-[1px] flex-1 bg-gradient-to-r from-[#FF5A1F]/30 to-transparent"></div>
+              </h4>
+
+              <div>
+                <label className={labelClasses}>Current Password</label>
+                <input
+                  type="password"
+                  value={passwordForm.currentPassword}
+                  onChange={e => setPasswordForm(f => ({ ...f, currentPassword: e.target.value }))}
+                  className={inputClasses}
+                  placeholder="Enter your current password"
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className={labelClasses}>New Password</label>
+                  <input
+                    type="password"
+                    value={passwordForm.newPassword}
+                    onChange={e => setPasswordForm(f => ({ ...f, newPassword: e.target.value }))}
+                    className={inputClasses}
+                    placeholder="Min. 6 characters"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className={labelClasses}>Confirm New Password</label>
+                  <input
+                    type="password"
+                    value={passwordForm.confirmPassword}
+                    onChange={e => setPasswordForm(f => ({ ...f, confirmPassword: e.target.value }))}
+                    className={inputClasses}
+                    placeholder="Repeat new password"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end">
+                <button
+                  type="submit"
+                  disabled={isChangingPassword}
+                  className="flex items-center gap-2 bg-[#FF5A1F] hover:bg-[#EA580C] text-white px-5 py-2.5 rounded-lg font-semibold transition-all cursor-pointer disabled:opacity-50 text-sm"
+                >
+                  <Key size={16} />
+                  {isChangingPassword ? 'Updating Password...' : 'Change Password'}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
         {/* Contact Tab */}
         {activeTab === 'contact' && (
           <div className="max-w-3xl animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -1055,26 +1271,6 @@ const SettingsPage = () => {
           </div>
         )}
 
-        {/* Backups Tab */}
-        {activeTab === 'backups' && (
-          <div className="max-w-3xl animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <h3 className="text-2xl font-bold text-app-text mb-2">Data & Backups</h3>
-            <p className="text-app-text-muted text-sm mb-8">Export your system data securely.</p>
-            
-            <div className="bg-app-bg border border-app-border p-8 rounded-xl text-center">
-              <div className="w-16 h-16 rounded-full bg-[#FF5A1F]/10 flex items-center justify-center mx-auto mb-4">
-                <DownloadCloud size={28} className="text-[#FF5A1F]" />
-              </div>
-              <h5 className="text-app-text font-semibold text-lg mb-2">Export Full Database</h5>
-              <p className="text-sm text-app-text-muted max-w-md mx-auto mb-6">Download a complete Excel (.xlsx) backup of all leads, projects, and financial records.</p>
-              
-              <button className="px-6 py-2.5 bg-white text-black font-semibold rounded-lg hover:bg-gray-200 transition-colors">
-                Generate Backup Archive
-              </button>
-            </div>
-          </div>
-        )}
-
         {/* Office Timings Tab */}
         {activeTab === 'officeTimings' && (
           <div className="max-w-3xl animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -1303,10 +1499,19 @@ const SettingsPage = () => {
                 <p className="text-xs text-app-text-muted mt-1">When off, new leads are left Unassigned for manual assignment.</p>
               </div>
               <button
+                type="button"
                 onClick={handleToggleAutoAssign}
-                className={`relative w-12 h-6 rounded-full transition-colors ${autoAssignEnabled ? 'bg-[#FF5A1F]' : 'bg-surface-variant'}`}
+                className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                  autoAssignEnabled ? 'bg-primary' : 'bg-slate-300 dark:bg-slate-700'
+                }`}
+                role="switch"
+                aria-checked={autoAssignEnabled}
               >
-                <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform ${autoAssignEnabled ? 'translate-x-6' : 'translate-x-0.5'}`} />
+                <span
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                    autoAssignEnabled ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
               </button>
             </div>
 
@@ -1437,10 +1642,19 @@ const SettingsPage = () => {
                     <p className="text-xs text-app-text-muted mt-1">When off, every lead's score shows as 0.</p>
                   </div>
                   <button
+                    type="button"
                     onClick={() => setLeadScoring((prev) => ({ ...prev, enabled: !prev.enabled }))}
-                    className={`relative w-12 h-6 rounded-full transition-colors ${leadScoring.enabled ? 'bg-[#FF5A1F]' : 'bg-surface-variant'}`}
+                    className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                      leadScoring.enabled ? 'bg-primary' : 'bg-slate-300 dark:bg-slate-700'
+                    }`}
+                    role="switch"
+                    aria-checked={leadScoring.enabled}
                   >
-                    <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform ${leadScoring.enabled ? 'translate-x-6' : 'translate-x-0.5'}`} />
+                    <span
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                        leadScoring.enabled ? 'translate-x-5' : 'translate-x-0'
+                      }`}
+                    />
                   </button>
                 </div>
 
@@ -1528,27 +1742,29 @@ const SettingsPage = () => {
 
       </div>
 
-      {/* Sticky Floating Action Button */}
-      <div className="absolute bottom-6 right-6 z-10">
-        <button 
-          onClick={() => {
-            if (activeTab === 'contact') handleSaveContact();
-            if (activeTab === 'integrations') handleSaveIntegrations();
-            if (activeTab === 'campaigns') handleSaveCampaigns();
-            if (activeTab === 'officeTimings') handleSaveOfficeTimings();
-            if (activeTab === 'attendanceRules') handleSaveAttendanceRules();
-            if (activeTab === 'holidays') fetchHolidays();
-            if (activeTab === 'payment') handleSavePaymentSettings();
-            if (activeTab === 'assignmentRules') fetchAssignmentRules();
-            if (activeTab === 'leadScoring') handleSaveLeadScoring();
-          }}
-          disabled={saving}
-          className={`flex items-center gap-2 bg-[#FF5A1F] hover:bg-[#EA580C] text-white px-6 py-3 rounded-full font-bold shadow-[0_4px_20px_rgba(255,107,0,0.4)] transition-all ${saving ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105 active:scale-95'}`}
-        >
-          <Save size={18} />
-          {saving ? 'Saving...' : 'Save Changes'}
-        </button>
-      </div>
+      {/* Sticky Floating Action Button (for global config tabs) */}
+      {activeTab !== 'profile' && (
+        <div className="absolute bottom-6 right-6 z-10">
+          <button 
+            onClick={() => {
+              if (activeTab === 'contact') handleSaveContact();
+              if (activeTab === 'integrations') handleSaveIntegrations();
+              if (activeTab === 'campaigns') handleSaveCampaigns();
+              if (activeTab === 'officeTimings') handleSaveOfficeTimings();
+              if (activeTab === 'attendanceRules') handleSaveAttendanceRules();
+              if (activeTab === 'holidays') fetchHolidays();
+              if (activeTab === 'payment') handleSavePaymentSettings();
+              if (activeTab === 'assignmentRules') fetchAssignmentRules();
+              if (activeTab === 'leadScoring') handleSaveLeadScoring();
+            }}
+            disabled={saving}
+            className={`flex items-center gap-2 bg-[#FF5A1F] hover:bg-[#EA580C] text-white px-6 py-3 rounded-full font-bold shadow-[0_4px_20px_rgba(255,107,0,0.4)] transition-all ${saving ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105 active:scale-95'}`}
+          >
+            <Save size={18} />
+            {saving ? 'Saving...' : 'Save Changes'}
+          </button>
+        </div>
+      )}
 
     </div>
   );
