@@ -7,8 +7,8 @@ import api from '../../services/api';
 /**
  * Bulk lead import (Excel/CSV) — the manual-spreadsheet counterpart to the
  * Facebook webhook/sync ingestion. Posts straight to POST /leads/import
- * (server/services/leadImport.js), which reuses the same dedup logic as
- * every other lead-creation path, then shows the resulting summary.
+ * (server/services/leadImport.js). Supports upsert: rows matching an existing
+ * lead (by phone or email) update the existing record instead of being skipped.
  */
 export default function ImportLeadsModal({ onClose, onImported }) {
   const [file, setFile] = useState(null);
@@ -25,10 +25,17 @@ export default function ImportLeadsModal({ onClose, onImported }) {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       if (res.data.success) {
-        setSummary(res.data.data);
-        if (res.data.data.imported > 0) {
-          toast.success(`Imported ${res.data.data.imported} lead(s)`);
+        const s = res.data.data;
+        setSummary(s);
+        const totalChanged = (s.imported || 0) + (s.updated || 0);
+        if (totalChanged > 0) {
+          const parts = [];
+          if (s.imported > 0) parts.push(`${s.imported} new lead(s) imported`);
+          if (s.updated  > 0) parts.push(`${s.updated} lead(s) updated`);
+          toast.success(parts.join(', '));
           onImported?.();
+        } else {
+          toast(`No changes — all rows were already up to date.`, { icon: 'ℹ️' });
         }
       }
     } catch (err) {
@@ -54,7 +61,7 @@ export default function ImportLeadsModal({ onClose, onImported }) {
 
         <div className="p-5 space-y-4">
           <p className="text-sm text-app-text-muted">
-            Upload an .xlsx or .csv file with columns for name and phone (email, city, country, service, etc. are picked up automatically if present). Leads already in the system (by phone or email) are skipped.
+            Upload an .xlsx or .csv file with <strong className="text-app-text">Full Name</strong> and <strong className="text-app-text">Phone</strong> columns. If a lead already exists (matched by phone or email), it will be <strong className="text-app-text">updated</strong> with data from the sheet (status, remark, service, city, etc.). New rows create new leads.
           </p>
 
           <input
@@ -67,9 +74,13 @@ export default function ImportLeadsModal({ onClose, onImported }) {
           {summary && (
             <div className="bg-app-bg border border-app-border rounded-lg p-3 space-y-2 text-sm">
               <div className="flex items-center gap-2 text-emerald-500 font-semibold">
-                <CheckCircle2 size={16} /> {summary.imported} imported
+                <CheckCircle2 size={16} /> {summary.imported} new lead(s) imported
               </div>
-              <div className="text-app-text-muted">{summary.duplicates} already existed — skipped</div>
+              {summary.updated > 0 && (
+                <div className="flex items-center gap-2 text-blue-400 font-semibold">
+                  <CheckCircle2 size={16} /> {summary.updated} existing lead(s) updated
+                </div>
+              )}
               {summary.invalid.length > 0 && (
                 <div>
                   <div className="flex items-center gap-2 text-amber-500 font-semibold">

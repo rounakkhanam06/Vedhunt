@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
 import { Loader, Edit2, Trash2, Plus, Briefcase, Eye, EyeOff } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 export default function JobManager() {
   const [jobs, setJobs] = useState([]);
@@ -31,7 +32,7 @@ export default function JobManager() {
       const res = await api.get('/jobs');
       setJobs(res.data || []);
     } catch (error) {
-      alert('Failed to load jobs');
+      toast.error('Failed to load jobs');
       console.error(error);
     } finally {
       setIsLoading(false);
@@ -42,9 +43,10 @@ export default function JobManager() {
     if (!window.confirm('Are you sure you want to delete this job completely?')) return;
     try {
       await api.delete(`/jobs/${id}`);
+      toast.success('Job deleted successfully');
       fetchJobs();
     } catch (error) {
-      alert('Failed to delete job');
+      toast.error(error.response?.data?.message || 'Failed to delete job');
       console.error(error);
     }
   };
@@ -53,9 +55,10 @@ export default function JobManager() {
     try {
       const newStatus = job.status === 'Published' ? 'Unpublished' : 'Published';
       await api.put(`/jobs/${job._id}`, { status: newStatus });
+      toast.success(`Job ${newStatus.toLowerCase()} successfully`);
       fetchJobs();
     } catch (error) {
-      alert('Failed to update status');
+      toast.error(error.response?.data?.message || 'Failed to update status');
       console.error(error);
     }
   };
@@ -66,17 +69,17 @@ export default function JobManager() {
     try {
       if (editingId) {
         await api.put(`/jobs/${editingId}`, formData);
-        alert('Job updated successfully!');
+        toast.success('Job updated successfully!');
       } else {
         await api.post('/jobs', formData);
-        alert('Job added successfully!');
+        toast.success('Job added successfully!');
       }
       setIsModalOpen(false);
       setFormData(initialFormState);
       setEditingId(null);
       fetchJobs();
     } catch (error) {
-      alert(error.response?.data?.message || 'Failed to save job');
+      toast.error(error.response?.data?.message || 'Failed to save job');
     } finally {
       setIsSaving(false);
     }

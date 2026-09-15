@@ -1,6 +1,20 @@
 const WhyChooseUsHeader = require('../models/WhyChooseUsHeader');
 const WhyChooseUsCard = require('../models/WhyChooseUsCard');
 const { SuccessResponse } = require('../utils/apiResponse');
+const mongoose = require('mongoose');
+
+// Helper to query by id whether stored as ObjectId or String
+const buildIdFilter = (id) => {
+  if (mongoose.Types.ObjectId.isValid(id)) {
+    return {
+      $or: [
+        { _id: new mongoose.Types.ObjectId(id) },
+        { _id: id }
+      ]
+    };
+  }
+  return { _id: id };
+};
 
 // Default initial data for migration
 const defaultCards = [
@@ -117,7 +131,8 @@ exports.updateWhyChooseUsCard = async (req, res, next) => {
     const updates = req.body;
     updates.updatedBy = req.user._id;
 
-    const card = await WhyChooseUsCard.findByIdAndUpdate(id, updates, { new: true }).lean();
+    const filter = buildIdFilter(id);
+    const card = await WhyChooseUsCard.findOneAndUpdate(filter, updates, { new: true }).lean();
     if (!card) {
       const error = new Error('Card not found');
       error.statusCode = 404;
@@ -133,7 +148,8 @@ exports.updateWhyChooseUsCard = async (req, res, next) => {
 exports.deleteWhyChooseUsCard = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const card = await WhyChooseUsCard.findByIdAndUpdate(id, { isActive: false, updatedBy: req.user._id }, { new: true }).lean();
+    const filter = buildIdFilter(id);
+    const card = await WhyChooseUsCard.findOneAndUpdate(filter, { isActive: false, updatedBy: req.user._id }, { new: true }).lean();
     
     if (!card) {
       const error = new Error('Card not found');
