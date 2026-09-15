@@ -1,4 +1,18 @@
 const Job = require('../models/Job');
+const mongoose = require('mongoose');
+
+// Helper to query by id whether stored as ObjectId or String
+const buildIdFilter = (id) => {
+  if (mongoose.Types.ObjectId.isValid(id)) {
+    return {
+      $or: [
+        { _id: new mongoose.Types.ObjectId(id) },
+        { _id: id }
+      ]
+    };
+  }
+  return { _id: id };
+};
 
 // Get all jobs (admin can see all, public only sees published)
 exports.getJobs = async (req, res) => {
@@ -15,7 +29,7 @@ exports.getJobs = async (req, res) => {
 // Get single job
 exports.getJobById = async (req, res) => {
   try {
-    const job = await Job.findById(req.params.id).lean();
+    const job = await Job.findOne(buildIdFilter(req.params.id)).lean();
     if (!job) {
       return res.status(404).json({ message: 'Job not found' });
     }
@@ -39,8 +53,8 @@ exports.createJob = async (req, res) => {
 // Update a job
 exports.updateJob = async (req, res) => {
   try {
-    const updatedJob = await Job.findByIdAndUpdate(
-      req.params.id,
+    const updatedJob = await Job.findOneAndUpdate(
+      buildIdFilter(req.params.id),
       req.body,
       { new: true, runValidators: true }
     );
@@ -56,7 +70,7 @@ exports.updateJob = async (req, res) => {
 // Delete a job
 exports.deleteJob = async (req, res) => {
   try {
-    const deletedJob = await Job.findByIdAndDelete(req.params.id);
+    const deletedJob = await Job.findOneAndDelete(buildIdFilter(req.params.id));
     if (!deletedJob) {
       return res.status(404).json({ message: 'Job not found' });
     }
@@ -65,3 +79,4 @@ exports.deleteJob = async (req, res) => {
     res.status(500).json({ message: 'Error deleting job', error: error.message });
   }
 };
+

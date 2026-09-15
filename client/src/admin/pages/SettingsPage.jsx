@@ -1544,6 +1544,9 @@ const SettingsPage = () => {
                 </div>
                 <div>
                   <label className={labelClasses}>BD Pool (rotation order)</label>
+                  <p className="text-xs text-app-text-muted mb-2">
+                    Leave everyone unselected to auto-include every active BD — new hires join the rotation on their own, and no one lingers after their account is removed. Select specific BDs only to restrict this rule to them.
+                  </p>
                   {bdRoster.length === 0 ? (
                     <p className="text-xs text-app-text-muted">No BD accounts found yet — create BD team members first.</p>
                   ) : (
@@ -1603,7 +1606,7 @@ const SettingsPage = () => {
                           <td className="px-6 py-4 text-xs text-app-text-muted">
                             {rule.matchService || 'Any service'} · {rule.matchSource || 'Any source'}
                           </td>
-                          <td className="px-6 py-4 text-xs text-app-text-muted">{(rule.bdPool || []).length} BD(s)</td>
+                          <td className="px-6 py-4 text-xs text-app-text-muted">{(rule.bdPool || []).length ? `${rule.bdPool.length} BD(s)` : 'All active BDs'}</td>
                           <td className="px-6 py-4 text-xs text-app-text-muted">{rule.maxActiveLeads ?? 'Unlimited'}</td>
                           <td className="px-6 py-4">
                             <button onClick={() => handleToggleRuleActive(rule)} className={`px-2 py-1 rounded text-[10px] uppercase font-bold tracking-wider ${rule.active ? 'bg-green-500/10 text-green-500' : 'bg-gray-500/10 text-app-text-muted'}`}>

@@ -59,14 +59,21 @@ async function applyAssignment(leadRef, { toAdmin, assignedBy = null, mode, reas
   let assignedToDoc = null;
   let bdName = '';
   if (toAdminId) {
-    assignedToDoc = await Admin.findById(toAdminId).select('firstName lastName email');
+    assignedToDoc = await Admin.findById(toAdminId).select('firstName lastName email isActive');
+    // Assigning to an account that no longer exists strands the lead: it shows
+    // as assigned, appears in nobody's queue, and its notification lands in a
+    // mailbox that cannot be opened. Deleting a BD used to leave their id
+    // behind in AssignmentRule.bdPool and every subsequent round-robin hit it.
+    if (!assignedToDoc || !assignedToDoc.isActive) {
+      const err = new Error(`Cannot assign lead to ${toAdminId} — no active Admin account with that id.`);
+      err.status = 400;
+      throw err;
+    }
     // firstName/lastName aren't guaranteed on every Admin account (the
     // original legacy seed account predates those fields being required) —
     // fall back to email rather than storing "undefined undefined".
-    if (assignedToDoc) {
-      const name = `${assignedToDoc.firstName || ''} ${assignedToDoc.lastName || ''}`.trim();
-      bdName = name || assignedToDoc.email || '';
-    }
+    const name = `${assignedToDoc.firstName || ''} ${assignedToDoc.lastName || ''}`.trim();
+    bdName = name || assignedToDoc.email || '';
   }
 
   const updateFields = { assignedTo: toAdminObjectId, assignedAt, bd: bdName, updatedAt: new Date() };
@@ -142,23 +149,49 @@ async function autoAssignLead(lead) {
     if (!settings?.value?.autoAssignEnabled) return null;
 
     const rules = await AssignmentRule.find({ active: true }).sort({ priority: 1, createdAt: 1 });
+    // Lazily resolved only if some rule actually needs it (most deployments
+    // have one rule) — see the empty-bdPool branch below.
+    let allActiveBDs = null;
 
     for (const rule of rules) {
       const serviceMatches = !rule.matchService || rule.matchService.toLowerCase() === String(lead.service || '').toLowerCase();
       const sourceMatches = !rule.matchSource || rule.matchSource.toLowerCase() === String(lead.platform || '').toLowerCase();
       if (!serviceMatches || !sourceMatches) continue;
-      if (!rule.bdPool.length) continue;
 
-      for (let i = 0; i < rule.bdPool.length; i++) {
-        const idx = (rule.cursor + i) % rule.bdPool.length;
-        const bdId = rule.bdPool[idx];
+      // An explicit bdPool curates a fixed subset (e.g. "only these two BDs
+      // handle enterprise leads"). Leaving it empty instead means "every
+      // active BD" resolved fresh on each assignment — so removing a BD's
+      // account (or hiring a new one) takes effect immediately, with nothing
+      // in this rule to go stale. This is why an empty pool used to just skip
+      // the rule; that state was never useful, so repurposing it is safe.
+      let pool = rule.bdPool;
+      if (!pool.length) {
+        if (!allActiveBDs) {
+          const bdeRole = await getBDERole();
+          allActiveBDs = (await Admin.find({ roles: bdeRole._id, isActive: true }).sort({ _id: 1 }).select('_id')).map((a) => a._id);
+        }
+        pool = allActiveBDs;
+      }
+      if (!pool.length) continue;
+
+      for (let i = 0; i < pool.length; i++) {
+        const idx = (rule.cursor + i) % pool.length;
+        const bdId = pool[idx];
+
+        // A curated pool can still list someone since deleted/deactivated —
+        // skip past them rather than stranding the lead on a dead account.
+        const bd = await Admin.findById(bdId).select('isActive').lean();
+        if (!bd || !bd.isActive) {
+          logger.warn(`Assignment rule "${rule.name}" lists BD ${bdId}, which is not an active Admin — skipping.`);
+          continue;
+        }
 
         if (rule.maxActiveLeads != null) {
           const count = await activeLeadCount(bdId);
           if (count >= rule.maxActiveLeads) continue;
         }
 
-        rule.cursor = (idx + 1) % rule.bdPool.length;
+        rule.cursor = (idx + 1) % pool.length;
         await rule.save();
 
         return applyAssignment(lead, { toAdmin: bdId, assignedBy: null, mode: 'Auto-RoundRobin', reason: `Matched rule "${rule.name}"` });

@@ -4,8 +4,13 @@ const mongoose = require('mongoose');
  * Round-robin routing config for the Lead Assignment Engine. Rules are
  * evaluated in priority order (lowest first); the first rule whose
  * matchService/matchSource match the incoming lead is used. Within that
- * rule's bdPool, assignment rotates from `cursor`, skipping any BD already
+ * rule's pool, assignment rotates from `cursor`, skipping any BD already
  * at `maxActiveLeads`. See server/services/leadAssignment.js.
+ *
+ * bdPool: [] (the default) means "every active BDE admin," resolved fresh on
+ * each assignment — a new hire joins the rotation immediately and a removed
+ * account drops out, with no list here to fall out of sync. A non-empty
+ * bdPool instead curates a fixed subset for this rule.
  */
 const assignmentRuleSchema = new mongoose.Schema({
   name: {
