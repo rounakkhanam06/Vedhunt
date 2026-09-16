@@ -5,8 +5,12 @@ const logger = require('../utils/logger');
 const { syncFacebookLeads } = require('./leadSync');
 const { runFollowUpChecks, runEODEscalation, runBreachFlagging } = require('./followUpEngine');
 const { runPayrollTick } = require('./payrollCron');
+const { startProbationScheduler } = require('./probationScheduler');
 
 const startCronJobs = () => {
+  // Start probation lifecycle scheduler (EL accrual, auto-promote, reminders)
+  startProbationScheduler();
+
   // 1. Check for Active Timers running for more than 12 hours (Run every hour)
   cron.schedule('0 * * * *', async () => {
     try {

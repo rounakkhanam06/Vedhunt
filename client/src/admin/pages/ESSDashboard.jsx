@@ -34,8 +34,8 @@ const ESSDashboard = () => {
 
   // Leave Request State
   const [leaveRequests, setLeaveRequests] = useState([]);
-  const [leaveBalances, setLeaveBalances] = useState({ CL: 0, SL: 0, PL: 0 });
-  const [leavesUsed, setLeavesUsed] = useState({ CL: 0, SL: 0, PL: 0 });
+  const [leaveBalances, setLeaveBalances] = useState({ CL: 0, SL: 0, PL: 0, EL: 0 });
+  const [leavesUsed, setLeavesUsed] = useState({ CL: 0, SL: 0, PL: 0, EL: 0 });
   const [leaveBalancePeriod, setLeaveBalancePeriod] = useState('Year');
   const [showLeaveModal, setShowLeaveModal] = useState(false);
 
@@ -293,6 +293,24 @@ const ESSDashboard = () => {
   const isClockedIn = todayLog && !todayLog.clockOut;
   const isClockedOut = todayLog && todayLog.clockOut;
 
+  // ── Probation Computed Values ─────────────────────────────────────────────
+  const onProbation = employee.employmentStatus === 'Probation' && employee.probation?.isApplicable;
+  const probationDaysLeft = onProbation && employee.probation?.endDate
+    ? Math.max(0, Math.ceil((new Date(employee.probation.endDate) - Date.now()) / 86400000))
+    : 0;
+  const probationEndDate = employee.probation?.endDate
+    ? new Date(employee.probation.endDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })
+    : '';
+  // Probationary employees can only apply EL; permanent employees can apply CL/SL/PL
+  const availableLeaveTypes = onProbation
+    ? [{ value: 'EL', label: 'Emergency Leave (EL)' }]
+    : [
+        { value: 'CL', label: 'Casual Leave (CL)' },
+        { value: 'SL', label: 'Sick Leave (SL)' },
+        { value: 'PL', label: 'Paid Leave (PL)' },
+      ];
+  // ──────────────────────────────────────────────────────────────────────────
+
   return (
     <div className="bg-[#0d0d0f] text-white p-2 sm:p-6 space-y-6">
       {/* Welcome Banner */}
@@ -337,6 +355,24 @@ const ESSDashboard = () => {
           />
         </div>
       </div>
+
+      {/* ── Probation Banner ──────────────────────────────────────────────── */}
+      {onProbation && (
+        <div className="flex items-start gap-4 bg-blue-500/10 border border-blue-500/20 rounded-xl p-4">
+          <Clock size={20} className="text-blue-400 flex-shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-blue-300 text-sm">You are currently in your probation period</p>
+            <p className="text-xs text-blue-400/80 mt-0.5">
+              Probation ends on <strong>{probationEndDate}</strong> &mdash; <strong>{probationDaysLeft} day{probationDaysLeft !== 1 ? 's' : ''}</strong> remaining.
+              During this period, only <strong>Emergency Leave (EL)</strong> is available.
+            </p>
+          </div>
+          <div className="flex-shrink-0 text-right">
+            <div className="text-2xl font-extrabold text-blue-300">{leaveBalances.EL}</div>
+            <div className="text-[10px] text-blue-400/70 uppercase tracking-wide">EL Available</div>
+          </div>
+        </div>
+      )}
 
       {/* Tab Panels */}
       <div className="space-y-6">
@@ -532,24 +568,35 @@ const ESSDashboard = () => {
           <div className="space-y-6">
             <h2 className="text-lg font-bold text-gray-300">Leave Balances (Per {leaveBalancePeriod})</h2>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="bg-[#141416] p-4 rounded-xl border border-white/5 flex flex-col justify-between items-center text-center">
-                <div className="text-gray-400 text-xs font-bold uppercase">Casual Leave (CL)</div>
-                <div className="text-2xl font-black text-orange-500 font-mono mt-2">
-                  {(leaveBalances.CL || 0) - (leavesUsed.CL || 0)} <span className="text-sm text-gray-400 font-normal">/ {leaveBalances.CL || 0}</span>
+              {onProbation ? (
+                <div className="bg-[#141416] p-4 rounded-xl border border-blue-500/20 flex flex-col justify-between items-center text-center">
+                  <div className="text-blue-400 text-xs font-bold uppercase">Emergency Leave (EL)</div>
+                  <div className="text-2xl font-black text-blue-500 font-mono mt-2">
+                    {(leaveBalances.EL || 0) - (leavesUsed.EL || 0)} <span className="text-sm text-blue-400/60 font-normal">/ {leaveBalances.EL || 0}</span>
+                  </div>
                 </div>
-              </div>
-              <div className="bg-[#141416] p-4 rounded-xl border border-white/5 flex flex-col justify-between items-center text-center">
-                <div className="text-gray-400 text-xs font-bold uppercase">Sick Leave (SL)</div>
-                <div className="text-2xl font-black text-orange-500 font-mono mt-2">
-                  {(leaveBalances.SL || 0) - (leavesUsed.SL || 0)} <span className="text-sm text-gray-400 font-normal">/ {leaveBalances.SL || 0}</span>
-                </div>
-              </div>
-              <div className="bg-[#141416] p-4 rounded-xl border border-white/5 flex flex-col justify-between items-center text-center">
-                <div className="text-gray-400 text-xs font-bold uppercase">Paid Leave (PL)</div>
-                <div className="text-2xl font-black text-orange-500 font-mono mt-2">
-                  {(leaveBalances.PL || 0) - (leavesUsed.PL || 0)} <span className="text-sm text-gray-400 font-normal">/ {leaveBalances.PL || 0}</span>
-                </div>
-              </div>
+              ) : (
+                <>
+                  <div className="bg-[#141416] p-4 rounded-xl border border-white/5 flex flex-col justify-between items-center text-center">
+                    <div className="text-gray-400 text-xs font-bold uppercase">Casual Leave (CL)</div>
+                    <div className="text-2xl font-black text-orange-500 font-mono mt-2">
+                      {(leaveBalances.CL || 0) - (leavesUsed.CL || 0)} <span className="text-sm text-gray-400 font-normal">/ {leaveBalances.CL || 0}</span>
+                    </div>
+                  </div>
+                  <div className="bg-[#141416] p-4 rounded-xl border border-white/5 flex flex-col justify-between items-center text-center">
+                    <div className="text-gray-400 text-xs font-bold uppercase">Sick Leave (SL)</div>
+                    <div className="text-2xl font-black text-orange-500 font-mono mt-2">
+                      {(leaveBalances.SL || 0) - (leavesUsed.SL || 0)} <span className="text-sm text-gray-400 font-normal">/ {leaveBalances.SL || 0}</span>
+                    </div>
+                  </div>
+                  <div className="bg-[#141416] p-4 rounded-xl border border-white/5 flex flex-col justify-between items-center text-center">
+                    <div className="text-gray-400 text-xs font-bold uppercase">Paid Leave (PL)</div>
+                    <div className="text-2xl font-black text-orange-500 font-mono mt-2">
+                      {(leaveBalances.PL || 0) - (leavesUsed.PL || 0)} <span className="text-sm text-gray-400 font-normal">/ {leaveBalances.PL || 0}</span>
+                    </div>
+                  </div>
+                </>
+              )}
               <div className="bg-[#141416] p-4 rounded-xl border border-white/5 flex items-center justify-center">
                 <button
                   onClick={() => setShowLeaveModal(true)}
@@ -663,6 +710,12 @@ const ESSDashboard = () => {
                     <h2 className="text-lg font-bold">Submit Leave Request</h2>
                     <button onClick={() => setShowLeaveModal(false)} className="text-gray-400 hover:text-white cursor-pointer">✕</button>
                   </div>
+                  {onProbation && (
+                    <div className="px-5 pt-4 flex items-start gap-2 text-xs text-blue-400 bg-blue-500/5 border-b border-blue-500/15 pb-3">
+                      <Clock size={13} className="flex-shrink-0 mt-0.5" />
+                      <span>You are on probation — only <strong>Emergency Leave (EL)</strong> is available. Remaining: <strong>{leaveBalances.EL}</strong></span>
+                    </div>
+                  )}
                   <form onSubmit={handleRequestLeave} className="p-5 space-y-4">
                     <div>
                       <label className="block text-xs text-gray-400 mb-1">Leave Type</label>
@@ -671,9 +724,9 @@ const ESSDashboard = () => {
                         onChange={(e) => setLeaveType(e.target.value)}
                         className="w-full text-sm rounded-lg border border-white/10 bg-[#1e1e21] px-4 py-2 text-white outline-none focus:border-orange-500"
                       >
-                        <option value="CL">Casual Leave (CL)</option>
-                        <option value="SL">Sick Leave (SL)</option>
-                        <option value="PL">Paid Leave (PL)</option>
+                        {availableLeaveTypes.map(lt => (
+                          <option key={lt.value} value={lt.value}>{lt.label}</option>
+                        ))}
                       </select>
                     </div>
                     <div className="grid grid-cols-2 gap-4">

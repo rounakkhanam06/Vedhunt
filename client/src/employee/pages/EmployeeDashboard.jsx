@@ -109,6 +109,7 @@ const EmployeeDashboard = () => {
       document.body.classList.remove('modal-open');
     };
   }, [showLeaveModal]);
+  const [leaveType, setLeaveType] = useState('CL');
   const [leaveStartDate, setLeaveStartDate] = useState('');
   const [leaveEndDate, setLeaveEndDate] = useState('');
   const [leaveReason, setLeaveReason] = useState('');
@@ -130,6 +131,15 @@ const EmployeeDashboard = () => {
   });
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
 
+  // Derived state for probation
+  const onProbation = employee?.employmentStatus === 'Probation' && employee?.probation?.isApplicable;
+  const availableLeaveTypes = onProbation 
+    ? [{ value: 'EL', label: 'Emergency Leave (EL)' }]
+    : [
+        { value: 'CL', label: 'Casual Leave (CL)' },
+        { value: 'SL', label: 'Sick Leave (SL)' },
+        { value: 'PL', label: 'Paid Leave (PL)' }
+      ];
   const fetchProfile = async () => {
     setIsLoading(true);
     try {
@@ -524,96 +534,99 @@ const EmployeeDashboard = () => {
         {activeTab === 'dashboard' && (
           <div className="space-y-6">
             {/* BD Home — lead pipeline widgets (12.1) */}
-            <div>
-              <h2 className="text-lg font-bold text-app-text mb-3">Lead Pipeline</h2>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {(() => {
-                  const wonThisMonth = leads.filter((l) => l.status === 'Won' && isThisMonth(l.closedDate || l.updatedAt));
-                  const widgets = [
-                    {
-                      key: 'new',
-                      label: 'New Leads',
-                      count: leads.filter((l) => l.status === 'New').length,
-                      icon: UserPlus,
-                      onClick: () => navigate('/employee/dashboard?tab=raw-leads')
-                    },
-                    {
-                      key: 'call-pending',
-                      label: 'Call Pending',
-                      count: leads.filter(isCallPending).length,
-                      icon: PhoneCall,
-                      onClick: () => navigate('/employee/dashboard?tab=raw-leads&urgent=1')
-                    },
-                    {
-                      key: 'followups-today',
-                      label: 'Follow-ups Today',
-                      count: leads.filter((l) => followUpBucket(l.nextFollowUpDate) === 'today').length,
-                      icon: CalendarClock,
-                      onClick: () => navigate('/employee/dashboard?tab=followups&bucket=Today')
-                    },
-                    {
-                      key: 'followups-overdue',
-                      label: 'Overdue Follow-ups',
-                      count: leads.filter((l) => followUpBucket(l.nextFollowUpDate) === 'overdue').length,
-                      icon: AlertCircle,
-                      tone: 'danger',
-                      onClick: () => navigate('/employee/dashboard?tab=followups&bucket=Overdue')
-                    },
-                    {
-                      key: 'hot',
-                      label: 'Hot Leads',
-                      count: leads.filter((l) => l.interestLevel === 'Hot Lead').length,
-                      icon: Flame,
-                      onClick: () => navigate('/employee/dashboard?tab=working-leads&interest=Hot Lead')
-                    },
-                    {
-                      key: 'proposal',
-                      label: 'Proposal Sent',
-                      count: leads.filter((l) => l.status === 'Proposal Sent').length,
-                      icon: FileText,
-                      onClick: () => navigate('/employee/dashboard?tab=working-leads&status=Proposal Sent')
-                    },
-                    {
-                      key: 'negotiation',
-                      label: 'Negotiation',
-                      count: leads.filter((l) => l.status === 'Negotiation').length,
-                      icon: Handshake,
-                      onClick: () => navigate('/employee/dashboard?tab=working-leads&status=Negotiation')
-                    },
-                    {
-                      key: 'won',
-                      label: 'Won This Month',
-                      count: wonThisMonth.length,
-                      icon: Trophy,
-                      tone: 'success',
-                      onClick: () => navigate('/employee/dashboard?tab=working-leads&status=Won&period=thisMonth')
-                    }
-                  ];
-                  return widgets.map((w) => {
-                    const Icon = w.icon;
-                    return (
-                      <button
-                        key={w.key}
-                        onClick={w.onClick}
-                        className="bg-app-card border border-app-border hover:border-primary/40 rounded-xl p-4 text-left transition-colors group"
-                      >
-                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center mb-3 ${
-                          w.tone === 'danger' ? 'bg-red-500/10 text-red-400' :
-                          w.tone === 'success' ? 'bg-emerald-500/10 text-emerald-400' :
-                          'bg-primary/10 text-primary'
-                        }`}>
-                          <Icon size={16} />
-                        </div>
-                        <div className="text-2xl font-extrabold text-app-text group-hover:text-primary transition-colors">
-                          {isLeadsLoading ? '—' : w.count}
-                        </div>
-                        <div className="text-xs text-app-text-muted mt-0.5">{w.label}</div>
-                      </button>
-                    );
-                  });
-                })()}
+            {canViewLeads && (
+              <div>
+                <h2 className="text-lg font-bold text-app-text mb-3">Lead Pipeline</h2>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {(() => {
+                    const wonThisMonth = leads.filter((l) => l.status === 'Won' && isThisMonth(l.closedDate || l.updatedAt));
+                    const widgets = [
+                      {
+                        key: 'new',
+                        label: 'New Leads',
+                        count: leads.filter((l) => l.status === 'New').length,
+                        icon: UserPlus,
+                        onClick: () => navigate('/employee/dashboard?tab=raw-leads')
+                      },
+                      {
+                        key: 'call-pending',
+                        label: 'Call Pending',
+                        count: leads.filter(isCallPending).length,
+                        icon: PhoneCall,
+                        onClick: () => navigate('/employee/dashboard?tab=raw-leads&urgent=1')
+                      },
+                      {
+                        key: 'followups-today',
+                        label: 'Follow-ups Today',
+                        count: leads.filter((l) => followUpBucket(l.nextFollowUpDate) === 'today').length,
+                        icon: CalendarClock,
+                        onClick: () => navigate('/employee/dashboard?tab=followups&bucket=Today')
+                      },
+                      {
+                        key: 'followups-overdue',
+                        label: 'Overdue Follow-ups',
+                        count: leads.filter((l) => followUpBucket(l.nextFollowUpDate) === 'overdue').length,
+                        icon: AlertCircle,
+                        tone: 'danger',
+                        onClick: () => navigate('/employee/dashboard?tab=followups&bucket=Overdue')
+                      },
+                      {
+                        key: 'hot',
+                        label: 'Hot Leads',
+                        count: leads.filter((l) => l.interestLevel === 'Hot Lead').length,
+                        icon: Flame,
+                        onClick: () => navigate('/employee/dashboard?tab=working-leads&interest=Hot Lead')
+                      },
+                      {
+                        key: 'proposal',
+                        label: 'Proposal Sent',
+                        count: leads.filter((l) => l.status === 'Proposal Sent').length,
+                        icon: FileText,
+                        onClick: () => navigate('/employee/dashboard?tab=working-leads&status=Proposal Sent')
+                      },
+                      {
+                        key: 'negotiation',
+                        label: 'Negotiation',
+                        count: leads.filter((l) => l.status === 'Negotiation').length,
+                        icon: Handshake,
+                        onClick: () => navigate('/employee/dashboard?tab=working-leads&status=Negotiation')
+                      },
+                      {
+                        key: 'won',
+                        label: 'Won This Month',
+                        count: wonThisMonth.length,
+                        icon: Trophy,
+                        tone: 'success',
+                        onClick: () => navigate('/employee/dashboard?tab=working-leads&status=Won&period=thisMonth')
+                      }
+                    ];
+                    return widgets.map((w) => {
+                      const Icon = w.icon;
+                      return (
+                        <button
+                          key={w.key}
+                          onClick={w.onClick}
+                          className="bg-app-card border border-app-border hover:border-primary/40 rounded-xl p-4 text-left transition-colors group"
+                        >
+                          <div className={`w-9 h-9 rounded-lg flex items-center justify-center mb-3 ${
+                            w.tone === 'danger' ? 'bg-red-500/10 text-red-400' :
+                            w.tone === 'success' ? 'bg-emerald-500/10 text-emerald-400' :
+                            'bg-primary/10 text-primary'
+                          }`}>
+                            <Icon size={16} />
+                          </div>
+                          <div className="text-2xl font-extrabold text-app-text group-hover:text-primary transition-colors">
+                            {isLeadsLoading ? '—' : w.count}
+                          </div>
+                          <div className="text-xs text-app-text-muted mt-0.5">{w.label}</div>
+                        </button>
+                      );
+                    });
+                  })()}
+                </div>
               </div>
-            </div>
+            )}
+
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="md:col-span-2 space-y-6">
@@ -1125,24 +1138,35 @@ const EmployeeDashboard = () => {
           <div className="space-y-6">
             <h2 className="text-lg font-bold text-app-text">Leave Balances (Per {leaveBalancePeriod})</h2>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="bg-app-card p-4 rounded-xl border border-app-border flex flex-col justify-between items-center text-center">
-                <div className="text-app-text-muted text-xs font-bold uppercase">Casual Leave (CL)</div>
-                <div className="text-2xl font-black text-primary font-mono mt-2">
-                  {(leaveBalances.CL || 0) - (leavesUsed.CL || 0)} <span className="text-sm text-app-text-muted font-normal">/ {leaveBalances.CL || 0}</span>
+              {onProbation ? (
+                <div className="bg-app-card p-4 rounded-xl border border-blue-500/20 flex flex-col justify-between items-center text-center">
+                  <div className="text-blue-400 text-xs font-bold uppercase">Emergency Leave (EL)</div>
+                  <div className="text-2xl font-black text-blue-500 font-mono mt-2">
+                    {(leaveBalances.EL || 0) - (leavesUsed.EL || 0)} <span className="text-sm text-blue-400/60 font-normal">/ {leaveBalances.EL || 0}</span>
+                  </div>
                 </div>
-              </div>
-              <div className="bg-app-card p-4 rounded-xl border border-app-border flex flex-col justify-between items-center text-center">
-                <div className="text-app-text-muted text-xs font-bold uppercase">Sick Leave (SL)</div>
-                <div className="text-2xl font-black text-primary font-mono mt-2">
-                  {(leaveBalances.SL || 0) - (leavesUsed.SL || 0)} <span className="text-sm text-app-text-muted font-normal">/ {leaveBalances.SL || 0}</span>
-                </div>
-              </div>
-              <div className="bg-app-card p-4 rounded-xl border border-app-border flex flex-col justify-between items-center text-center">
-                <div className="text-app-text-muted text-xs font-bold uppercase">Paid Leave (PL)</div>
-                <div className="text-2xl font-black text-primary font-mono mt-2">
-                  {(leaveBalances.PL || 0) - (leavesUsed.PL || 0)} <span className="text-sm text-app-text-muted font-normal">/ {leaveBalances.PL || 0}</span>
-                </div>
-              </div>
+              ) : (
+                <>
+                  <div className="bg-app-card p-4 rounded-xl border border-app-border flex flex-col justify-between items-center text-center">
+                    <div className="text-app-text-muted text-xs font-bold uppercase">Casual Leave (CL)</div>
+                    <div className="text-2xl font-black text-primary font-mono mt-2">
+                      {(leaveBalances.CL || 0) - (leavesUsed.CL || 0)} <span className="text-sm text-app-text-muted font-normal">/ {leaveBalances.CL || 0}</span>
+                    </div>
+                  </div>
+                  <div className="bg-app-card p-4 rounded-xl border border-app-border flex flex-col justify-between items-center text-center">
+                    <div className="text-app-text-muted text-xs font-bold uppercase">Sick Leave (SL)</div>
+                    <div className="text-2xl font-black text-primary font-mono mt-2">
+                      {(leaveBalances.SL || 0) - (leavesUsed.SL || 0)} <span className="text-sm text-app-text-muted font-normal">/ {leaveBalances.SL || 0}</span>
+                    </div>
+                  </div>
+                  <div className="bg-app-card p-4 rounded-xl border border-app-border flex flex-col justify-between items-center text-center">
+                    <div className="text-app-text-muted text-xs font-bold uppercase">Paid Leave (PL)</div>
+                    <div className="text-2xl font-black text-primary font-mono mt-2">
+                      {(leaveBalances.PL || 0) - (leavesUsed.PL || 0)} <span className="text-sm text-app-text-muted font-normal">/ {leaveBalances.PL || 0}</span>
+                    </div>
+                  </div>
+                </>
+              )}
               <div className="bg-app-card p-4 rounded-xl border border-app-border flex items-center justify-center">
                 <button
                   onClick={() => setShowLeaveModal(true)}
@@ -1256,6 +1280,12 @@ const EmployeeDashboard = () => {
                     <h2 className="text-lg font-bold">Submit Leave Request</h2>
                     <button onClick={() => setShowLeaveModal(false)} className="text-app-text-muted hover:text-app-text cursor-pointer">✕</button>
                   </div>
+                  {onProbation && (
+                    <div className="px-5 pt-4 flex items-start gap-2 text-xs text-blue-400 bg-blue-500/5 border-b border-blue-500/15 pb-3">
+                      <Clock size={13} className="flex-shrink-0 mt-0.5" />
+                      <span>You are on probation — only <strong>Emergency Leave (EL)</strong> is available. Remaining: <strong>{leaveBalances.EL}</strong></span>
+                    </div>
+                  )}
                   <form onSubmit={handleRequestLeave} className="p-5 space-y-4">
                     <div>
                       <label className="block text-xs text-app-text-muted mb-1">Leave Type</label>
@@ -1264,9 +1294,9 @@ const EmployeeDashboard = () => {
                         onChange={(e) => setLeaveType(e.target.value)}
                         className="w-full text-sm rounded-lg border border-app-border bg-form-input-bg px-4 py-2 text-app-text outline-none focus:border-primary"
                       >
-                        <option value="CL">Casual Leave (CL)</option>
-                        <option value="SL">Sick Leave (SL)</option>
-                        <option value="PL">Paid Leave (PL)</option>
+                        {availableLeaveTypes.map(lt => (
+                          <option key={lt.value} value={lt.value}>{lt.label}</option>
+                        ))}
                       </select>
                     </div>
                     <div className="grid grid-cols-2 gap-4">

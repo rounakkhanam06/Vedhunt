@@ -40,6 +40,34 @@ const paginatedResponse = (res, { data, total, page, limit }) => {
 
 const isValidId = (id) => mongoose.Types.ObjectId.isValid(id);
 
+const validateClientInput = (data) => {
+  const errors = [];
+  if (data.businessName !== undefined) {
+    if (data.businessName.length < 2 || data.businessName.length > 100) {
+      errors.push('Business name must be between 2 and 100 characters');
+    }
+  }
+  if (data.contactName !== undefined) {
+    if (data.contactName.length < 2 || data.contactName.length > 50) {
+      errors.push('Contact name must be between 2 and 50 characters');
+    }
+    if (!/^[A-Za-z\s]+$/.test(data.contactName)) {
+      errors.push('Contact name cannot contain numbers or special characters');
+    }
+  }
+  if (data.email !== undefined) {
+    if (!/^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$/.test(data.email)) {
+      errors.push('Please enter a valid email address');
+    }
+  }
+  if (data.phone !== undefined && data.phone !== '') {
+    if (!/^\+?[1-9]\d{9,14}$/.test(data.phone)) {
+      errors.push('Please enter a valid phone number (10-15 digits)');
+    }
+  }
+  return errors;
+};
+
 // ══════════════════════════════════════════════════════════════════════════════
 // CLIENTS
 // ══════════════════════════════════════════════════════════════════════════════
@@ -151,6 +179,14 @@ router.post('/clients', async (req, res) => {
       });
     }
 
+    const validationErrors = validateClientInput(req.body);
+    if (validationErrors.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: validationErrors.join(', '),
+      });
+    }
+
     const existingClient = await Client.findOne({ email: email.toLowerCase().trim() }).lean();
     if (existingClient) {
       return res.status(409).json({ success: false, message: 'A client with this email already exists' });
@@ -205,6 +241,14 @@ router.put('/clients/:id', async (req, res) => {
     }
 
     const { businessName, contactName, email, phone, notes, isActive, newPassword, agreementDetails } = req.body;
+
+    const validationErrors = validateClientInput(req.body);
+    if (validationErrors.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: validationErrors.join(', '),
+      });
+    }
 
     const client = await Client.findById(req.params.id).select('+password');
     if (!client) {

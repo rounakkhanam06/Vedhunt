@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
-import { Menu, Search, User, Sun, Moon } from 'lucide-react';
+import { Menu, Search, User, Sun, Moon, ArrowLeft } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import NotificationBell from './components/NotificationBell';
 import { Toaster } from 'react-hot-toast';
@@ -50,7 +50,6 @@ const AdminLayout = () => {
               {isEmployeeOnly ? 'Employee Dashboard' : 'Admin Dashboard'}
             </span>
             
-
           </div>
 
           <div className="flex items-center gap-3 sm:gap-4 relative">
@@ -79,6 +78,12 @@ const AdminLayout = () => {
         
         {/* Page Body */}
         <main className="flex-1 p-4 sm:p-6 space-y-6 min-w-0 max-w-full overflow-x-hidden">
+          <button
+            onClick={() => navigate(-1)}
+            className="flex items-center gap-2 text-sm text-app-text-muted hover:text-app-text font-medium transition-colors mb-2 w-fit cursor-pointer"
+          >
+            <ArrowLeft size={16} /> Back
+          </button>
           <Outlet />
         </main>
       </div>

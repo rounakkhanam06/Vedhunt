@@ -4,6 +4,7 @@ const PayrollRun = require('../models/PayrollRun');
 const Payslip = require('../models/Payslip');
 const Settings = require('../models/Settings');
 const AuditLog = require('../models/AuditLog');
+const Employee = require('../models/Employee');
 const authMiddleware = require('../middleware/authMiddleware');
 const requirePermission = require('../middleware/requirePermission');
 const logger = require('../utils/logger');
@@ -21,13 +22,26 @@ const router = express.Router();
 router.use(authMiddleware);
 router.use(requirePermission('payroll.manage'));
 
-// ── Salary Revisions ─────────────────────────────────────────────────────
+// ── Salary Revisions ─────────────────────────────────────────────────────────────────
 router.post('/salary-revisions', async (req, res) => {
   try {
     const { employeeId, ctc, components, effectiveFrom, reason } = req.body;
     if (!employeeId || !ctc || !effectiveFrom || !reason?.trim()) {
       return res.status(400).json({ success: false, message: 'employeeId, ctc, effectiveFrom, and reason are required.' });
     }
+
+    // ── Probation Guard ─────────────────────────────────────────────────────────────
+    // Employees on probation are not eligible for salary revisions or appraisals.
+    // This is enforced here (API) and in the UI (form is disabled with a tooltip).
+    const empCheck = await Employee.findById(employeeId).select('employmentStatus firstName lastName employeeId');
+    if (empCheck && empCheck.employmentStatus === 'Probation') {
+      return res.status(403).json({
+        success: false,
+        message: `Salary revision not allowed: ${empCheck.firstName} ${empCheck.lastName} (${empCheck.employeeId}) is currently on probation.`
+      });
+    }
+    // ────────────────────────────────────────────────────────────────────────────
+
     const revision = await addSalaryRevision({
       employeeId, ctc: Number(ctc), components: components || {}, effectiveFrom, reason: reason.trim(), revisedBy: req.user._id
     });

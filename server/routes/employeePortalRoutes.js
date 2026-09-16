@@ -351,6 +351,26 @@ router.post('/ess/leave-requests', async (req, res) => {
     const employee = await Employee.findOne({ adminId: req.user._id });
     if (!employee) return res.status(404).json({ success: false, message: 'Employee not found' });
 
+    // \u2500\u2500 Probation Leave Guard \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+    if (employee.employmentStatus === 'Probation') {
+      // Probationary employees may only use EL (Emergency Leave)
+      if (leaveType !== 'EL') {
+        return res.status(403).json({
+          success: false,
+          message: 'Only Emergency Leave (EL) is available during the probation period.'
+        });
+      }
+    } else {
+      // Permanent employees cannot use EL (that type is only for probation)
+      if (leaveType === 'EL') {
+        return res.status(400).json({
+          success: false,
+          message: 'Emergency Leave (EL) is only available during the probation period.'
+        });
+      }
+    }
+    // \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+
     const leaveRequest = await LeaveRequest.create({
       employeeId: employee._id,
       leaveType,

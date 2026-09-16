@@ -73,7 +73,8 @@ router.post('/', requirePermission('team.manage'), async (req, res) => {
       joinDate,
       salaryCTC,
       panNumber,
-      aadhaarNumber
+      aadhaarNumber,
+      probation: probationInput  // Optional: { isApplicable, durationDays }
     } = req.body;
 
     // ── Server-Side Validation ─────────────────────────────────────────────
@@ -226,7 +227,29 @@ router.post('/', requirePermission('team.manage'), async (req, res) => {
         panNumber: encrypt(panUpper),
         aadhaarNumber: encrypt(aadhaarClean),
         bankDetails: { accountName: '', accountNumber: '', bankName: '', ifscCode: '' },
-        attendance: [], tasks: [], timesheet: [], payslips: [], performance: []
+        attendance: [], tasks: [], timesheet: [], payslips: [], performance: [],
+        // ── Probation ─────────────────────────────────────────────────────────
+        employmentStatus: (probationInput?.isApplicable) ? 'Probation' : 'Permanent',
+        probation: (() => {
+          if (!probationInput?.isApplicable) return { isApplicable: false };
+          const durationDays = Number(probationInput.durationDays) || 90;
+          const startDate = parsedJoinDate;
+          const endDate = new Date(startDate);
+          endDate.setDate(endDate.getDate() + durationDays);
+          return {
+            isApplicable: true,
+            durationDays,
+            startDate,
+            endDate,
+            status: 'Probation',
+            reviewReminderSent: false,
+            elAccruedMonths: []
+          };
+        })(),
+        leaveBalances: (probationInput?.isApplicable) 
+          ? { CL: 0, SL: 0, PL: 0, EL: 0 }
+          : undefined // undefined lets Mongoose schema defaults handle Permanent employees
+        // ──────────────────────────────────────────────────────────────────────
       });
     } catch (employeeCreateError) {
       await Admin.findByIdAndDelete(admin._id);
@@ -257,6 +280,122 @@ router.post('/', requirePermission('team.manage'), async (req, res) => {
   } catch (error) {
     logger.error('Error creating employee:', error);
     res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// ── GET Probation Status ──────────────────────────────────────────────────────
+router.get('/:id/probation', requirePermission('team.manage'), async (req, res) => {
+  try {
+    const employee = await Employee.findById(req.params.id);
+    if (!employee) return res.status(404).json({ success: false, message: 'Employee not found' });
+
+    const p = employee.probation || {};
+    let daysRemaining = null;
+    if (p.endDate) {
+      daysRemaining = Math.ceil((new Date(p.endDate) - new Date()) / (1000 * 60 * 60 * 24));
+    }
+
+    res.json({
+      success: true,
+      employmentStatus: employee.employmentStatus,
+      probation: {
+        ...p.toObject ? p.toObject() : p,
+        daysRemaining
+      }
+    });
+  } catch (error) {
+    logger.error('Error fetching probation status:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// ── PUT Probation Action ──────────────────────────────────────────────────────
+// action: 'confirm' | 'extend' | 'terminate'
+router.put('/:id/probation', requirePermission('team.manage'), async (req, res) => {
+  try {
+    const { action, extensionDays, extensionNote } = req.body;
+    if (!['confirm', 'extend', 'terminate'].includes(action)) {
+      return res.status(400).json({ success: false, message: 'Invalid action. Use confirm, extend, or terminate.' });
+    }
+
+    const employee = await Employee.findById(req.params.id);
+    if (!employee) return res.status(404).json({ success: false, message: 'Employee not found' });
+    if (!employee.probation?.isApplicable) {
+      return res.status(400).json({ success: false, message: 'Probation is not applicable for this employee.' });
+    }
+
+    const Settings = require('../models/Settings');
+    const Notification = require('../models/Notification');
+    const Role = require('../models/Role');
+
+    const policy = await Settings.findOne({ key: 'probation_policy' });
+    const policyVal = policy?.value || {};
+    const CL = policyVal.defaultCLOnConfirm ?? 6;
+    const SL = policyVal.defaultSLOnConfirm ?? 6;
+    const PL = policyVal.defaultPLOnConfirm ?? 12;
+    const autoDeactivate = policyVal.autoDeactivateOnTermination ?? false;
+
+    const now = new Date();
+
+    if (action === 'confirm') {
+      employee.probation.status = 'Confirmed';
+      employee.probation.confirmedAt = now;
+      employee.employmentStatus = 'Permanent';
+      employee.leaveBalances.CL = CL;
+      employee.leaveBalances.SL = SL;
+      employee.leaveBalances.PL = PL;
+    } else if (action === 'extend') {
+      const days = Number(extensionDays);
+      if (!days || days <= 0) {
+        return res.status(400).json({ success: false, message: 'extensionDays must be a positive number.' });
+      }
+      const currentEnd = employee.probation.endDate ? new Date(employee.probation.endDate) : now;
+      currentEnd.setDate(currentEnd.getDate() + days);
+      employee.probation.endDate = currentEnd;
+      employee.probation.extensionDays = days;
+      employee.probation.extensionNote = extensionNote || '';
+      employee.probation.status = 'Extended';
+      employee.probation.reviewReminderSent = false; // Allow re-triggering reminder at new end date
+    } else if (action === 'terminate') {
+      employee.probation.status = 'Terminated';
+      employee.probation.terminatedAt = now;
+      if (autoDeactivate && employee.adminId) {
+        const linkedAdmin = await Admin.findById(employee.adminId);
+        if (linkedAdmin) {
+          linkedAdmin.isActive = false;
+          await linkedAdmin.save();
+        }
+      }
+    }
+
+    await employee.save();
+
+    // Notify super admins
+    const superRole = await Role.findOne({ name: 'SUPER_ADMIN' }).select('_id');
+    if (superRole) {
+      const superAdmins = await Admin.find({ roles: superRole._id, isActive: true }).select('_id');
+      const actionLabels = { confirm: 'Confirmed as Permanent', extend: 'Probation Extended', terminate: 'Terminated' };
+      for (const sa of superAdmins) {
+        if (sa._id.toString() === req.user._id.toString()) continue; // skip self
+        await Notification.create({
+          recipient: sa._id,
+          type: 'probation_action',
+          title: `Probation: ${actionLabels[action]}`,
+          message: `${employee.firstName} ${employee.lastName} (${employee.employeeId}) — ${actionLabels[action]} by ${req.user.firstName || 'Admin'}.`,
+          link: '/admin/employees',
+        });
+      }
+    }
+
+    const updated = await Employee.findById(employee._id).populate('adminId', 'isActive');
+    const decrypted = updated.toObject();
+    decrypted.panNumber = require('../utils/encryption').decrypt(decrypted.panNumber);
+    decrypted.aadhaarNumber = require('../utils/encryption').decrypt(decrypted.aadhaarNumber);
+
+    res.json({ success: true, message: `Employee probation ${action}ed successfully.`, employee: decrypted });
+  } catch (error) {
+    logger.error('Error updating probation:', error);
+    res.status(500).json({ success: false, message: error.message || 'Server error' });
   }
 });
 
@@ -298,6 +437,31 @@ router.put('/:id', requirePermission('team.manage'), async (req, res) => {
       if (!newRole.isEmployeeRole) {
         return res.status(400).json({ success: false, message: 'Selected role is not an employee role. Employees can only be assigned employee-type roles.' });
       }
+    }
+
+    const NAME_REGEX = /^[a-zA-Z\s'-]{2,50}$/;
+    const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const PHONE_REGEX = /^[0-9+\-\s()]{10,15}$/;
+    const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
+    const AADHAAR_REGEX = /^[2-9]{1}[0-9]{11}$/;
+
+    if (firstName && !NAME_REGEX.test(firstName.trim())) {
+      return res.status(400).json({ success: false, message: 'First name: only letters, spaces, hyphens allowed (2–50 chars).' });
+    }
+    if (lastName && !NAME_REGEX.test(lastName.trim())) {
+      return res.status(400).json({ success: false, message: 'Last name: only letters, spaces, hyphens allowed (2–50 chars).' });
+    }
+    if (email && !EMAIL_REGEX.test(email.trim().toLowerCase())) {
+      return res.status(400).json({ success: false, message: 'Please provide a valid email address.' });
+    }
+    if (phone && !PHONE_REGEX.test(phone.trim())) {
+      return res.status(400).json({ success: false, message: 'Please provide a valid phone number (10-15 digits).' });
+    }
+    if (panNumber && !PAN_REGEX.test(panNumber.trim().toUpperCase())) {
+      return res.status(400).json({ success: false, message: 'Invalid PAN number.' });
+    }
+    if (aadhaarNumber && !AADHAAR_REGEX.test(aadhaarNumber.replace(/\s+/g, ''))) {
+      return res.status(400).json({ success: false, message: 'Invalid Aadhaar number.' });
     }
 
     if (firstName) employee.firstName = firstName.trim();

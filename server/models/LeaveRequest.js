@@ -9,7 +9,7 @@ const leaveRequestSchema = new mongoose.Schema(
     },
     leaveType: {
       type: String,
-      enum: ['CL', 'SL', 'PL'],
+      enum: ['CL', 'SL', 'PL', 'EL'],  // EL = Emergency Leave (probation employees only)
       required: true
     },
     startDate: {

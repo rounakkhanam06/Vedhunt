@@ -48,6 +48,32 @@ const performanceSchema = new mongoose.Schema({
   status: { type: String, enum: ['Pending', 'Achieved'], default: 'Pending' }
 });
 
+// ── Probation sub-document ──────────────────────────────────────────────────
+// Tracks whether a probation period applies to this employee, its duration,
+// computed end date, current lifecycle status, and review-reminder state.
+// All fields are optional so existing employees are unaffected (isApplicable
+// defaults to false = day-one permanent).
+const probationSchema = new mongoose.Schema({
+  isApplicable:  { type: Boolean, default: false },
+  durationDays:  { type: Number, default: 90 },       // Super Admin configures per employee
+  startDate:     { type: Date },                       // Defaults to joinDate on creation
+  endDate:       { type: Date },                       // Computed: startDate + durationDays
+  status: {
+    type: String,
+    enum: ['Probation', 'Confirmed', 'Extended', 'Terminated'],
+    default: 'Probation'
+  },
+  reviewReminderSent: { type: Boolean, default: false }, // Prevents duplicate bell notifications
+  extensionDays:  { type: Number },                    // Extra days added on last extension
+  extensionNote:  { type: String },                    // Reason for extension
+  confirmedAt:    { type: Date },
+  terminatedAt:   { type: Date },
+  // Monthly EL accrual tracker — stores YYYY-MM strings that have already
+  // been credited so the daily cron never double-credits the same month.
+  elAccruedMonths: [{ type: String }]
+}, { _id: false });
+// ───────────────────────────────────────────────────────────────────────────
+
 const employeeSchema = new mongoose.Schema(
   {
     employeeId: {
@@ -88,6 +114,14 @@ const employeeSchema = new mongoose.Schema(
       type: String,
       required: true
     },
+    // Tracks whether the employee has completed probation and is now permanent.
+    // Probationary employees have restricted leave access and are ineligible
+    // for salary revisions and appraisals.
+    employmentStatus: {
+      type: String,
+      enum: ['Probation', 'Permanent'],
+      default: 'Permanent'
+    },
     employmentType: {
       type: String,
       enum: ['Billable', 'Non-billable', 'Partner', 'Founder'],
@@ -118,13 +152,16 @@ const employeeSchema = new mongoose.Schema(
     leaveBalances: {
       CL: { type: Number, default: 6 },
       SL: { type: Number, default: 6 },
-      PL: { type: Number, default: 12 }
+      PL: { type: Number, default: 12 },
+      EL: { type: Number, default: 0 }  // Emergency Leave — probation only
     },
     leavesUsed: {
       CL: { type: Number, default: 0 },
       SL: { type: Number, default: 0 },
-      PL: { type: Number, default: 0 }
+      PL: { type: Number, default: 0 },
+      EL: { type: Number, default: 0 }
     },
+    probation: { type: probationSchema, default: () => ({ isApplicable: false }) },
     attendance: [attendanceSchema],
     tasks: [taskSchema],
     timesheet: [timesheetSchema],

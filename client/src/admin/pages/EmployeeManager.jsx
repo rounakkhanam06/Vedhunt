@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
-import { Plus, Trash2, Eye, Shield, Award, AlertCircle, CheckCircle, Search, IndianRupee, Copy, Check, ExternalLink, Info, Edit2, Lock, Key, Power } from 'lucide-react';
+import { Plus, Trash2, Eye, Shield, Award, AlertCircle, CheckCircle, Search, IndianRupee, Copy, Check, ExternalLink, Info, Edit2, Lock, Key, Power, Clock, UserCheck, UserX, ChevronDown, ChevronUp } from 'lucide-react';
 
 // ─── Validation Rules ────────────────────────────────────────────────────────
 const NAME_REGEX = /^[a-zA-Z\s'-]{2,50}$/;
@@ -87,6 +87,8 @@ const EmployeeManager = () => {
     firstName: '', lastName: '', email: '', phone: '', roleId: '',
     employmentType: 'Billable', joinDate: '', salaryCTC: '',
     panNumber: '', aadhaarNumber: '',
+    probationApplicable: false,
+    probationDays: 90,
   };
   const [form, setForm] = useState(initialForm);
   const [errors, setErrors] = useState({});
@@ -119,6 +121,13 @@ const EmployeeManager = () => {
   const [showRevisionForm, setShowRevisionForm] = useState(false);
   const [revisionForm, setRevisionForm] = useState({ ctc: '', effectiveFrom: '', reason: '' });
   const [isSavingRevision, setIsSavingRevision] = useState(false);
+
+  // Probation State
+  const [showProbationPanel, setShowProbationPanel] = useState(false);
+  const [probationAction, setProbationAction] = useState(''); // 'confirm' | 'extend' | 'terminate'
+  const [probationExtendDays, setProbationExtendDays] = useState('');
+  const [probationExtendNote, setProbationExtendNote] = useState('');
+  const [isProbationSubmitting, setIsProbationSubmitting] = useState(false);
 
   useEffect(() => { fetchEmployees(); fetchRoles(); }, []);
 
@@ -250,9 +259,20 @@ const EmployeeManager = () => {
 
   const handleEditChange = (e) => {
     const { name, value } = e.target;
-    setEditForm(prev => ({ ...prev, [name]: value }));
+    let finalValue = value;
+    
+    if (name === 'firstName' || name === 'lastName') {
+      finalValue = finalValue.replace(/[^a-zA-Z\s'-]/g, '');
+    } else if (name === 'phone') {
+      finalValue = finalValue.replace(/[^\d+-\s()]/g, '');
+      if (finalValue.length > 15) finalValue = finalValue.substring(0, 15);
+    } else if (name === 'panNumber') {
+      finalValue = finalValue.toUpperCase();
+    }
+
+    setEditForm(prev => ({ ...prev, [name]: finalValue }));
     if (editTouched[name]) {
-      setEditErrors(prev => ({ ...prev, [name]: validateField(name, value) }));
+      setEditErrors(prev => ({ ...prev, [name]: validateField(name, finalValue) }));
     }
   };
 
@@ -410,10 +430,20 @@ const EmployeeManager = () => {
   // ── Per-field change with instant validation ──────────────────────────────
   const handleChange = useCallback((e) => {
     const { name, value } = e.target;
-    const upperVal = (name === 'panNumber') ? value.toUpperCase() : value;
-    setForm(prev => ({ ...prev, [name]: upperVal }));
+    let finalValue = value;
+    
+    if (name === 'firstName' || name === 'lastName') {
+      finalValue = finalValue.replace(/[^a-zA-Z\s'-]/g, '');
+    } else if (name === 'phone') {
+      finalValue = finalValue.replace(/[^\d+-\s()]/g, '');
+      if (finalValue.length > 15) finalValue = finalValue.substring(0, 15);
+    } else if (name === 'panNumber') {
+      finalValue = finalValue.toUpperCase();
+    }
+    
+    setForm(prev => ({ ...prev, [name]: finalValue }));
     if (touched[name]) {
-      setErrors(prev => ({ ...prev, [name]: validateField(name, upperVal) }));
+      setErrors(prev => ({ ...prev, [name]: validateField(name, finalValue) }));
     }
   }, [touched]);
 
@@ -449,6 +479,10 @@ const EmployeeManager = () => {
         ...form,
         salaryCTC: Number(form.salaryCTC),
         panNumber: form.panNumber.toUpperCase(),
+        probation: {
+          isApplicable: form.probationApplicable,
+          durationDays: form.probationApplicable ? Number(form.probationDays) || 90 : 0
+        }
       });
       if (res.data.success) {
         toast.success(
@@ -473,7 +507,49 @@ const EmployeeManager = () => {
     setIsModalOpen(true);
   };
 
-  const closeModal = () => setIsModalOpen(false);
+  const closeModal = () => {
+    setIsModalOpen(false);
+  };
+
+  // ── Probation Action Handler ──────────────────────────────────────────────
+  const handleProbationAction = async (action) => {
+    if (!selectedEmp) return;
+    if (action === 'terminate' && !window.confirm(`Are you sure you want to terminate ${selectedEmp.firstName} ${selectedEmp.lastName}'s employment? This cannot be undone.`)) return;
+    if (action === 'confirm' && !window.confirm(`Confirm ${selectedEmp.firstName} ${selectedEmp.lastName} as a permanent employee?`)) return;
+
+    if (action === 'extend') {
+      const days = Number(probationExtendDays);
+      if (!days || days <= 0) { toast.error('Please enter a valid number of extension days.'); return; }
+      if (!probationExtendNote.trim()) { toast.error('Please provide a reason for the extension.'); return; }
+    }
+
+    setIsProbationSubmitting(true);
+    try {
+      const payload = { action };
+      if (action === 'extend') {
+        payload.extensionDays = Number(probationExtendDays);
+        payload.extensionNote = probationExtendNote.trim();
+      }
+      const res = await api.put(`/employees/${selectedEmp._id}/probation`, payload);
+      if (res.data.success) {
+        const msgs = {
+          confirm: '✅ Employee confirmed as permanent!',
+          extend: '📅 Probation period extended.',
+          terminate: '🚫 Employee terminated.',
+        };
+        toast.success(msgs[action] || 'Probation updated.');
+        setSelectedEmp(res.data.employee);
+        setProbationAction('');
+        setProbationExtendDays('');
+        setProbationExtendNote('');
+        fetchEmployees();
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to update probation status.');
+    } finally {
+      setIsProbationSubmitting(false);
+    }
+  };
 
   const handleDeleteEmployee = async (id) => {
     if (!window.confirm('Are you sure? This will also remove their user account.')) return;
@@ -810,6 +886,141 @@ const EmployeeManager = () => {
                 </div>
               </div>
 
+              {/* ── Probation Status Card ──────────────────────────────────────── */}
+              {selectedEmp.probation?.isApplicable && (
+                <div className={`rounded-xl border p-4 space-y-3 ${
+                  selectedEmp.probation.status === 'Confirmed' ? 'border-emerald-500/20 bg-emerald-500/5'
+                  : selectedEmp.probation.status === 'Terminated' ? 'border-rose-500/20 bg-rose-500/5'
+                  : selectedEmp.probation.status === 'Extended' ? 'border-orange-500/20 bg-orange-500/5'
+                  : 'border-blue-500/20 bg-blue-500/5'
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-sm font-bold text-app-text">
+                      <Clock size={14} className="text-blue-400" /> Probation Status
+                    </div>
+                    {['Probation', 'Extended'].includes(selectedEmp.probation.status) && (
+                      <button
+                        onClick={() => setShowProbationPanel(v => !v)}
+                        className="text-[11px] text-blue-400 hover:text-blue-300 font-semibold flex items-center gap-1 cursor-pointer"
+                      >
+                        Actions {showProbationPanel ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Status Badge + Days */}
+                  <div className="flex items-center gap-3">
+                    <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${
+                      selectedEmp.probation.status === 'Confirmed' ? 'bg-emerald-500/15 text-emerald-400'
+                      : selectedEmp.probation.status === 'Terminated' ? 'bg-rose-500/15 text-rose-400'
+                      : selectedEmp.probation.status === 'Extended' ? 'bg-orange-500/15 text-orange-400'
+                      : 'bg-blue-500/15 text-blue-400'
+                    }`}>
+                      {selectedEmp.probation.status === 'Confirmed' ? '✅ Confirmed' 
+                       : selectedEmp.probation.status === 'Terminated' ? '🚫 Terminated'
+                       : selectedEmp.probation.status === 'Extended' ? '📅 Extended'
+                       : '⏳ On Probation'}
+                    </span>
+                    {selectedEmp.probation.endDate && (
+                      <span className="text-[11px] text-app-text-muted">
+                        Ends: {new Date(selectedEmp.probation.endDate).toLocaleDateString('en-IN')}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Progress bar for active probation */}
+                  {['Probation', 'Extended'].includes(selectedEmp.probation.status) && selectedEmp.probation.startDate && selectedEmp.probation.endDate && (() => {
+                    const total = new Date(selectedEmp.probation.endDate) - new Date(selectedEmp.probation.startDate);
+                    const elapsed = Date.now() - new Date(selectedEmp.probation.startDate);
+                    const pct = Math.min(100, Math.max(0, Math.round((elapsed / total) * 100)));
+                    const daysLeft = Math.max(0, Math.ceil((new Date(selectedEmp.probation.endDate) - Date.now()) / 86400000));
+                    return (
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-[10px] text-app-text-muted">
+                          <span>{pct}% elapsed</span>
+                          <span>{daysLeft} day{daysLeft !== 1 ? 's' : ''} remaining</span>
+                        </div>
+                        <div className="h-1.5 rounded-full bg-app-border overflow-hidden">
+                          <div className={`h-full rounded-full transition-all ${pct > 80 ? 'bg-rose-500' : pct > 50 ? 'bg-orange-500' : 'bg-blue-500'}`} style={{ width: `${pct}%` }} />
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Extension note if applicable */}
+                  {selectedEmp.probation.extensionNote && (
+                    <p className="text-[11px] text-app-text-muted italic">Extension reason: {selectedEmp.probation.extensionNote}</p>
+                  )}
+
+                  {/* Action Buttons */}
+                  {showProbationPanel && ['Probation', 'Extended'].includes(selectedEmp.probation.status) && (
+                    <div className="space-y-3 pt-2 border-t border-app-border">
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => { setProbationAction('confirm'); }}
+                          className={`flex-1 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${probationAction === 'confirm' ? 'bg-emerald-600 text-white border-emerald-600' : 'border-emerald-500/25 text-emerald-400 hover:bg-emerald-600 hover:text-white'}`}
+                        >
+                          <UserCheck size={13} className="inline mr-1" /> Confirm
+                        </button>
+                        <button
+                          onClick={() => { setProbationAction(probationAction === 'extend' ? '' : 'extend'); }}
+                          className={`flex-1 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${probationAction === 'extend' ? 'bg-orange-600 text-white border-orange-600' : 'border-orange-500/25 text-orange-400 hover:bg-orange-600 hover:text-white'}`}
+                        >
+                          <Clock size={13} className="inline mr-1" /> Extend
+                        </button>
+                        <button
+                          onClick={() => { setProbationAction('terminate'); }}
+                          className={`flex-1 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${probationAction === 'terminate' ? 'bg-rose-600 text-white border-rose-600' : 'border-rose-500/25 text-rose-400 hover:bg-rose-600 hover:text-white'}`}
+                        >
+                          <UserX size={13} className="inline mr-1" /> Terminate
+                        </button>
+                      </div>
+
+                      {/* Extend form */}
+                      {probationAction === 'extend' && (
+                        <div className="space-y-2 bg-app-bg/60 p-3 rounded-lg border border-orange-500/20">
+                          <div className="flex gap-2">
+                            <input
+                              type="number"
+                              min={1}
+                              placeholder="Extra days"
+                              value={probationExtendDays}
+                              onChange={e => setProbationExtendDays(e.target.value)}
+                              className="w-28 text-xs rounded-lg border border-app-border bg-form-input-bg px-2 py-1.5 text-app-text focus:outline-none"
+                            />
+                            <input
+                              type="text"
+                              placeholder="Reason for extension *"
+                              value={probationExtendNote}
+                              onChange={e => setProbationExtendNote(e.target.value)}
+                              className="flex-1 text-xs rounded-lg border border-app-border bg-form-input-bg px-2 py-1.5 text-app-text focus:outline-none"
+                            />
+                          </div>
+                          <button
+                            onClick={() => handleProbationAction('extend')}
+                            disabled={isProbationSubmitting}
+                            className="w-full py-1.5 rounded-lg bg-orange-600 text-white text-xs font-semibold hover:bg-orange-700 transition-all cursor-pointer disabled:opacity-50"
+                          >
+                            {isProbationSubmitting ? 'Saving...' : 'Save Extension'}
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Confirm / Terminate immediate action */}
+                      {(probationAction === 'confirm' || probationAction === 'terminate') && (
+                        <button
+                          onClick={() => handleProbationAction(probationAction)}
+                          disabled={isProbationSubmitting}
+                          className={`w-full py-1.5 rounded-lg text-white text-xs font-semibold transition-all cursor-pointer disabled:opacity-50 ${probationAction === 'confirm' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700'}`}
+                        >
+                          {isProbationSubmitting ? 'Processing...' : probationAction === 'confirm' ? '✅ Confirm as Permanent Employee' : '🚫 Terminate Employment'}
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Update Leave Balance */}
               <div className="space-y-3">
                 <h3 className="text-sm font-bold text-app-text-muted flex items-center gap-1.5">Update Leave Balances</h3>
@@ -1071,6 +1282,55 @@ const EmployeeManager = () => {
                       />
                     </Field>
                   </div>
+                </div>
+
+                {/* ── Probation Period ───────────────────────────────────────────── */}
+                <div className="rounded-xl border border-blue-500/15 bg-blue-500/[0.04] p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-blue-400 text-xs font-semibold">
+                      <Clock size={13} /> Probation Period
+                    </div>
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <span className="text-xs text-app-text-muted">Applicable?</span>
+                      <div
+                        onClick={() => setForm(f => ({ ...f, probationApplicable: !f.probationApplicable }))}
+                        className={`w-10 h-5 rounded-full transition-colors cursor-pointer flex items-center px-0.5 ${form.probationApplicable ? 'bg-blue-500' : 'bg-app-border'}`}
+                      >
+                        <div className={`w-4 h-4 rounded-full bg-white shadow transition-transform ${form.probationApplicable ? 'translate-x-5' : 'translate-x-0'}`} />
+                      </div>
+                    </label>
+                  </div>
+                  {form.probationApplicable && (
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-xs font-medium text-app-text-muted mb-2">Duration (Days)</label>
+                        <div className="flex gap-2 flex-wrap">
+                          {[30, 60, 90, 180].map(d => (
+                            <button
+                              key={d}
+                              type="button"
+                              onClick={() => setForm(f => ({ ...f, probationDays: d }))}
+                              className={`px-3 py-1 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${form.probationDays === d ? 'bg-blue-500 text-white border-blue-500' : 'border-app-border text-app-text-muted hover:border-blue-400 hover:text-blue-400'}`}
+                            >
+                              {d}d
+                            </button>
+                          ))}
+                          <input
+                            type="number"
+                            min={1}
+                            max={365}
+                            value={form.probationDays}
+                            onChange={e => setForm(f => ({ ...f, probationDays: Number(e.target.value) }))}
+                            className="w-20 text-xs rounded-lg border border-app-border bg-form-input-bg px-2 py-1 text-app-text focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            placeholder="Custom"
+                          />
+                        </div>
+                      </div>
+                      <p className="text-[11px] text-app-text-muted flex items-center gap-1">
+                        <Info size={11} /> Probation ends <strong>{form.joinDate ? new Date(new Date(form.joinDate).getTime() + (form.probationDays || 90) * 24 * 60 * 60 * 1000).toLocaleDateString('en-IN') : 'after joining'}</strong>. EL will auto-accrue monthly.
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 {/* Error Summary */}

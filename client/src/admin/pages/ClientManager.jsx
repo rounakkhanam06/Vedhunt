@@ -22,6 +22,7 @@ export default function ClientManager() {
   const [showModal, setShowModal] = useState(false);
   const [selectedClient, setSelectedClient] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
+  const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
   const [previewClient, setPreviewClient] = useState(null);
 
@@ -59,7 +60,7 @@ export default function ClientManager() {
     };
   }, [showModal, previewClient]);
 
-  const openCreate = () => { setSelectedClient(null); setForm(EMPTY_FORM); setShowModal(true); };
+  const openCreate = () => { setSelectedClient(null); setForm(EMPTY_FORM); setErrors({}); setShowModal(true); };
 
   const openEdit = (client) => {
     setSelectedClient(client);
@@ -72,6 +73,7 @@ export default function ClientManager() {
       notes: client.notes || '',
       leadRef: client.leadRef?._id || client.leadRef || '',
     });
+    setErrors({});
     setShowModal(true);
   };
   // Client 360: the list row doesn't carry the linked lead's pre-sale
@@ -90,21 +92,27 @@ export default function ClientManager() {
     e.preventDefault();
     
     // Frontend Validation
+    const newErrors = {};
     if (form.businessName.length < 2 || form.businessName.length > 100) {
-      return toast.error('Business name must be between 2 and 100 characters');
+      newErrors.businessName = 'Business name must be between 2 and 100 characters';
     }
     if (form.contactName.length < 2 || form.contactName.length > 50) {
-      return toast.error('Contact name must be between 2 and 50 characters');
-    }
-    if (!/^[A-Za-z\s]+$/.test(form.contactName)) {
-      return toast.error('Contact name cannot contain numbers or special characters');
+      newErrors.contactName = 'Contact name must be between 2 and 50 characters';
+    } else if (!/^[A-Za-z\s]+$/.test(form.contactName)) {
+      newErrors.contactName = 'Contact name cannot contain numbers or special characters';
     }
     if (form.phone && !/^\+?[1-9]\d{9,14}$/.test(form.phone)) {
-      return toast.error('Please enter a valid phone number (10-15 digits)');
+      newErrors.phone = 'Please enter a valid phone number (10-15 digits)';
     }
     if (!/^\S+@\S+\.\S+$/.test(form.email)) {
-      return toast.error('Please enter a valid email address');
+      newErrors.email = 'Please enter a valid email address';
     }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return toast.error('Please fix the errors in the form');
+    }
+    setErrors({});
 
     setSaving(true);
     try {
@@ -147,6 +155,7 @@ export default function ClientManager() {
       if (val.length > 15) val = val.substring(0, 15);
     }
     setForm((p) => ({ ...p, [k]: val }));
+    if (errors[k]) setErrors((p) => ({ ...p, [k]: null }));
   };
 
   return (
@@ -292,7 +301,7 @@ export default function ClientManager() {
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
+            <form onSubmit={handleSubmit} noValidate className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {[
                   { k: 'businessName', label: 'Business Name *', type: 'text', icon: Building },
@@ -303,15 +312,16 @@ export default function ClientManager() {
                   <div key={k}>
                     <label className="block text-on-surface-variant text-xs font-medium mb-1.5">{label}</label>
                     <div className="relative">
-                      <Icon size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant" />
+                      <Icon size={14} className={`absolute left-3 top-1/2 -translate-y-1/2 ${errors[k] ? 'text-red-500' : 'text-on-surface-variant'}`} />
                       <input
                         type={type}
                         value={form[k]}
                         onChange={f(k)}
                         required={['businessName', 'contactName', 'email'].includes(k)}
-                        className="w-full pl-9 pr-4 py-2.5 bg-admin-bg border border-outline-variant rounded-xl text-on-surface text-sm focus:outline-none focus:border-secondary transition-colors"
+                        className={`w-full pl-9 pr-4 py-2.5 bg-admin-bg border ${errors[k] ? 'border-red-500/50 focus:border-red-500' : 'border-outline-variant focus:border-secondary'} rounded-xl text-on-surface text-sm focus:outline-none transition-colors`}
                       />
                     </div>
+                    {errors[k] && <p className="text-red-500 text-[10px] mt-1">{errors[k]}</p>}
                   </div>
                 ))}
               </div>
