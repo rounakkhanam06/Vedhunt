@@ -52,10 +52,14 @@ export default function EmployeeLeadWorkspace() {
   const [callOutcomeDraft, setCallOutcomeDraft] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [docType, setDocType] = useState('Attachment');
-  // Quick-action targets: "Follow-up"/"Update Stage" scroll to (and focus)
-  // these existing controls further down the page. Mirrors admin/pages/LeadWorkspace.jsx.
-  const followUpInputRef = useRef(null);
+  // "Update Stage" scrolls to (and focuses) the status select further down.
+  // "Follow-up" opens its own inline date picker instead — the call-outcome
+  // follow-up input only renders once a qualifying outcome is picked, so
+  // scrolling to it did nothing on a fresh lead. Mirrors components/LeadCard.jsx.
   const statusSelectRef = useRef(null);
+  const [followUpOpen, setFollowUpOpen] = useState(false);
+  const [followUpDraft, setFollowUpDraft] = useState('');
+  const [savingFollowUp, setSavingFollowUp] = useState(false);
   const scrollToRef = (ref) => {
     ref.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     ref.current?.focus();
@@ -134,6 +138,31 @@ export default function EmployeeLeadWorkspace() {
     setLead(res.data.lead);
     setDraft(buildDraft(res.data.lead));
     return res.data;
+  };
+
+  // datetime-local wants local wall-clock time, not toISOString()'s UTC.
+  const toLocalInputValue = (date) => {
+    const d = new Date(date);
+    return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+  };
+
+  const toggleFollowUp = () => {
+    if (!followUpOpen) setFollowUpDraft(lead.nextFollowUpDate ? toLocalInputValue(lead.nextFollowUpDate) : '');
+    setFollowUpOpen((open) => !open);
+  };
+
+  const handleSaveFollowUp = async () => {
+    if (!followUpDraft) return;
+    try {
+      setSavingFollowUp(true);
+      await handleFieldsChange({ nextFollowUpDate: new Date(followUpDraft).toISOString() });
+      toast.success('Follow-up scheduled', { duration: 1200, position: 'bottom-right' });
+      setFollowUpOpen(false);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to schedule follow-up');
+    } finally {
+      setSavingFollowUp(false);
+    }
   };
 
   const getCallOutcomeValue = (field) => {
@@ -315,13 +344,37 @@ export default function EmployeeLeadWorkspace() {
           >
             <Mail size={14} className="shrink-0" /> <span className="truncate">Email</span>
           </a>
-          <button onClick={() => scrollToRef(followUpInputRef)} className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg border border-app-border text-app-text font-bold text-xs sm:text-sm hover:border-primary hover:text-primary transition-colors min-w-0">
+          <button onClick={toggleFollowUp} className={`flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg border font-bold text-xs sm:text-sm hover:border-primary hover:text-primary transition-colors min-w-0 ${followUpOpen ? 'border-primary text-primary' : 'border-app-border text-app-text'}`}>
             <CalendarClock size={14} className="shrink-0" /> <span className="truncate">Follow-up</span>
           </button>
           <button onClick={() => scrollToRef(statusSelectRef)} className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg border border-app-border text-app-text font-bold text-xs sm:text-sm hover:border-primary hover:text-primary transition-colors min-w-0">
             <ListChecks size={14} className="shrink-0" /> <span className="truncate">Update Stage</span>
           </button>
         </div>
+
+        {followUpOpen && (
+          <div className="mt-3 flex flex-wrap items-center gap-2 bg-form-input-bg p-3 rounded-lg">
+            <span className="text-xs font-semibold text-app-text-muted">
+              {lead.nextFollowUpDate
+                ? `Next follow-up: ${new Date(lead.nextFollowUpDate).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}`
+                : 'Schedule next follow-up'}
+            </span>
+            <input
+              type="datetime-local"
+              value={followUpDraft}
+              onChange={(e) => setFollowUpDraft(e.target.value)}
+              className="bg-app-card border border-app-border rounded-lg px-3 py-1.5 text-sm text-app-text focus:outline-none focus:border-primary/50"
+              style={{ colorScheme: 'dark' }}
+            />
+            <button
+              disabled={savingFollowUp || !followUpDraft}
+              onClick={handleSaveFollowUp}
+              className="px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-bold disabled:opacity-50"
+            >
+              {savingFollowUp ? 'Saving...' : 'Save'}
+            </button>
+          </div>
+        )}
 
         {lead.message && (
           <div className="mt-4">
@@ -478,7 +531,6 @@ export default function EmployeeLeadWorkspace() {
                 Next Follow-Up Date &amp; Time <span className="text-primary">*required</span>
               </label>
               <input
-                ref={followUpInputRef}
                 type="datetime-local"
                 value={getCallOutcomeValue('nextFollowUpDate') ? new Date(getCallOutcomeValue('nextFollowUpDate')).toISOString().slice(0, 16) : ''}
                 onChange={(e) => updateCallOutcomeField('nextFollowUpDate', e.target.value ? new Date(e.target.value).toISOString() : '')}
@@ -674,7 +726,7 @@ export default function EmployeeLeadWorkspace() {
         </button>
       </div>
 
-      <FollowUpTasksPanel leadId={lead._id} />
+      <FollowUpTasksPanel key={lead.nextFollowUpDate || 'none'} leadId={lead._id} />
 
       {/* Qualification — service-aware discovery data, doesn't gate any
           stage transition; saved together with Stage & Deal Details via the

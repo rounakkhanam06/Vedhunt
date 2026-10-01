@@ -4,7 +4,7 @@ const multer = require('multer');
 const {
   createLead, getLeads, getLeadById, updateLead, deleteLead,
   assignLead, bulkAssignLeads, getAssignmentHistory, getAllAssignmentLogs, lockLead, unlockLead,
-  uploadLeadDocument, deleteLeadDocument, importLeads,
+  uploadLeadDocument, deleteLeadDocument, importLeads, getImportStatus,
   getLeadTasks, createLeadTask, completeLeadTask
 } = require('../controllers/leadController');
 const authMiddleware = require('../middleware/authMiddleware');
@@ -32,6 +32,7 @@ router.post('/', createLead);
 
 // Admin routes
 router.get('/', authMiddleware, requirePermission('leads.view'), getLeads);
+router.get('/import/:jobId', authMiddleware, requirePermission('*'), getImportStatus);
 router.get('/assignments/all', authMiddleware, requirePermission('*'), getAllAssignmentLogs);
 router.get('/:id', authMiddleware, requirePermission('leads.view'), getLeadById);
 router.get('/:id/assignment-history', authMiddleware, requirePermission('leads.view'), getAssignmentHistory);

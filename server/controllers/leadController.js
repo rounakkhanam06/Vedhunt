@@ -12,7 +12,8 @@ const { findLeadRaw } = require('../utils/leadLookup');
 const { LEAD_UPDATE_FIELDS, TERMINAL_STATUSES } = require('../utils/leadStateMachine');
 const { applyLeadUpdate } = require('../services/leadLifecycle');
 const { addLeadDocument, removeLeadDocument } = require('../services/leadDocuments');
-const { importLeadsFromFile } = require('../services/leadImport');
+const { prepareImport } = require('../services/leadImport');
+const { startImportJob, getImportJob } = require('../services/importJobs');
 const { listTasks, createParallelTask, completeTask } = require('../services/followUpTasks');
 const { derivePriority } = require('../utils/serviceQualification');
 const { getLeadScoringSettings, computeLeadScore } = require('../services/leadScoring');
@@ -624,7 +625,9 @@ exports.updateLead = async (req, res, next) => {
   }
 };
 
-// @desc    Bulk-import leads from an uploaded Excel (.xlsx) or CSV file
+// @desc    Bulk-import leads from an uploaded Excel (.xlsx) or CSV file.
+//          Validates the file, then runs the import as a background job and
+//          returns its id — poll GET /api/leads/import/:jobId for progress.
 // @route   POST /api/leads/import
 // @access  Private (Super Admin)
 exports.importLeads = async (req, res, next) => {
@@ -633,8 +636,9 @@ exports.importLeads = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'No file uploaded' });
     }
 
-    const summary = await importLeadsFromFile(req.file.buffer, req.file.originalname, { id: req.user?._id });
-    res.status(200).json({ success: true, data: summary });
+    const prepared = await prepareImport(req.file.buffer, req.file.originalname);
+    const jobId = startImportJob(prepared, req.file.originalname, { id: req.user?._id });
+    res.status(202).json({ success: true, data: { jobId, rowCount: prepared.rowCount } });
   } catch (error) {
     if (error.status) {
       return res.status(error.status).json({ success: false, message: error.message });
@@ -642,6 +646,26 @@ exports.importLeads = async (req, res, next) => {
     logger.error('Error importing leads:', error);
     next(error);
   }
+};
+
+// @desc    Progress/result of a lead import job started by POST /api/leads/import
+// @route   GET /api/leads/import/:jobId
+// @access  Private (Super Admin)
+exports.getImportStatus = async (req, res) => {
+  const job = getImportJob(req.params.jobId);
+  if (!job || job.ownerId !== String(req.user?._id || '')) {
+    return res.status(404).json({ success: false, message: 'Import job not found' });
+  }
+  res.status(200).json({
+    success: true,
+    data: {
+      status: job.status,
+      processed: job.processed,
+      rowCount: job.rowCount,
+      summary: job.summary,
+      error: job.error
+    }
+  });
 };
 
 // @desc    Attach a document (proposal, quotation, scope, other) to a lead

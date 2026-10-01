@@ -143,23 +143,21 @@ async function updateExistingLeadFromSheet(lead, rowData, fileName) {
 }
 
 /**
- * @param {Buffer} buffer        the uploaded file's raw content
- * @param {string} originalName  original filename (drives .xlsx vs .csv parsing)
- * @param {object} actor         { id } — used for assignment audit trail
+ * Parses the upload and checks its headers — fast, so it runs inside the
+ * request and a bad file is rejected immediately. Returns the worksheet and
+ * column map for runImport, plus a row count for progress reporting.
  */
-async function importLeadsFromFile(buffer, originalName, actor) {
+async function prepareImport(buffer, originalName) {
   if (!/\.(xlsx|csv)$/i.test(originalName || '')) {
     throw Object.assign(new Error('Only .xlsx or .csv files are supported.'), { status: 400 });
   }
 
   const worksheet = await loadWorksheet(buffer, originalName);
   if (!worksheet || worksheet.rowCount < 2) {
-    return { totalRows: 0, imported: 0, updated: 0, invalid: [] };
+    return { worksheet: null, fieldMap: null, rowCount: 0 };
   }
 
-  const headerRow = worksheet.getRow(1);
-  const fieldMap = mapHeaders(headerRow);
-
+  const fieldMap = mapHeaders(worksheet.getRow(1));
   if (!fieldMap.fullName || !fieldMap.phone) {
     throw Object.assign(
       new Error('The file must have a name column and a phone column (e.g. "Full Name", "Phone").'),
@@ -167,13 +165,32 @@ async function importLeadsFromFile(buffer, originalName, actor) {
     );
   }
 
+  return { worksheet, fieldMap, rowCount: worksheet.rowCount - 1 };
+}
+
+/**
+ * Processes every data row. Each new lead costs a dozen-plus sequential DB
+ * round trips (dedup, leadId counter, insert, auto-assign, notification,
+ * push), so a few hundred rows takes minutes — far past a reverse proxy's
+ * timeout. That's why this runs as a background job (see services/importJobs.js)
+ * and reports through onProgress rather than inside the HTTP request.
+ *
+ * @param {object}   prepared     result of prepareImport
+ * @param {string}   originalName original filename (used in audit notes)
+ * @param {object}   actor        { id } — used for the log line
+ * @param {Function} onProgress   called with the running summary after each row
+ */
+async function runImport({ worksheet, fieldMap }, originalName, actor, onProgress = () => {}) {
   let totalRows = 0;
   let imported = 0;
   let updated  = 0;
   const invalid = [];
 
+  if (!worksheet) return { totalRows, imported, updated, invalid };
+
   for (let rowNumber = 2; rowNumber <= worksheet.rowCount; rowNumber++) {
     const row = worksheet.getRow(rowNumber);
+    onProgress({ processed: rowNumber - 1, totalRows, imported, updated, invalid });
     if (row.cellCount === 0) continue;
 
     const fullName = cellText(row, fieldMap.fullName);
@@ -263,4 +280,4 @@ async function importLeadsFromFile(buffer, originalName, actor) {
   return { totalRows, imported, updated, invalid };
 }
 
-module.exports = { importLeadsFromFile };
+module.exports = { prepareImport, runImport };

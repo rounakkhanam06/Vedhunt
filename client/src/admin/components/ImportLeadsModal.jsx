@@ -10,22 +10,44 @@ import api from '../../services/api';
  * (server/services/leadImport.js). Supports upsert: rows matching an existing
  * lead (by phone or email) update the existing record instead of being skipped.
  */
+const POLL_INTERVAL_MS = 1500;
+
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 export default function ImportLeadsModal({ onClose, onImported }) {
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState(null); // { processed, rowCount }
   const [summary, setSummary] = useState(null);
+
+  // The server validates the file, then imports in the background and hands
+  // back a jobId — a large sheet takes minutes, longer than the gateway lets
+  // a single request stay open (that used to fail with a 504).
+  const pollJob = async (jobId) => {
+    for (;;) {
+      await wait(POLL_INTERVAL_MS);
+      const res = await api.get(`/leads/import/${jobId}`);
+      const job = res.data.data;
+      setProgress({ processed: job.processed, rowCount: job.rowCount });
+      if (job.status === 'completed') return job.summary;
+      if (job.status === 'failed') throw new Error(job.error || 'Import failed');
+    }
+  };
 
   const handleUpload = async () => {
     if (!file) return;
     try {
       setUploading(true);
+      setProgress(null);
       const formData = new FormData();
       formData.append('file', file);
       const res = await api.post('/leads/import', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       if (res.data.success) {
-        const s = res.data.data;
+        const { jobId, rowCount } = res.data.data;
+        setProgress({ processed: 0, rowCount });
+        const s = await pollJob(jobId);
         setSummary(s);
         const totalChanged = (s.imported || 0) + (s.updated || 0);
         if (totalChanged > 0) {
@@ -39,9 +61,10 @@ export default function ImportLeadsModal({ onClose, onImported }) {
         }
       }
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to import leads');
+      toast.error(err.response?.data?.message || err.message || 'Failed to import leads');
     } finally {
       setUploading(false);
+      setProgress(null);
     }
   };
 
@@ -70,6 +93,21 @@ export default function ImportLeadsModal({ onClose, onImported }) {
             onChange={(e) => { setFile(e.target.files?.[0] || null); setSummary(null); }}
             className="w-full text-sm text-app-text file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-primary file:text-black file:font-semibold file:cursor-pointer bg-app-bg border border-app-border rounded-lg p-1.5"
           />
+
+          {uploading && progress && (
+            <div className="space-y-1.5">
+              <div className="flex justify-between text-xs text-app-text-muted">
+                <span>Importing… keep this window open</span>
+                <span>{progress.processed} / {progress.rowCount} rows</span>
+              </div>
+              <div className="h-2 bg-app-bg border border-app-border rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-primary transition-all"
+                  style={{ width: `${progress.rowCount ? Math.round((progress.processed / progress.rowCount) * 100) : 0}%` }}
+                />
+              </div>
+            </div>
+          )}
 
           {summary && (
             <div className="bg-app-bg border border-app-border rounded-lg p-3 space-y-2 text-sm">
@@ -107,7 +145,7 @@ export default function ImportLeadsModal({ onClose, onImported }) {
             className="flex items-center gap-2 px-6 py-2 text-sm font-bold text-black bg-primary hover:bg-primary/90 rounded-lg transition-colors shadow-lg shadow-primary/20 disabled:opacity-50"
           >
             <Upload size={16} />
-            {uploading ? 'Uploading...' : 'Upload & Import'}
+            {uploading ? (progress ? 'Importing...' : 'Uploading...') : 'Upload & Import'}
           </button>
         </div>
       </motion.div>
