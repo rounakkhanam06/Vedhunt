@@ -12,7 +12,7 @@ const { findLeadRaw } = require('../utils/leadLookup');
 const { LEAD_UPDATE_FIELDS, TERMINAL_STATUSES } = require('../utils/leadStateMachine');
 const { applyLeadUpdate } = require('../services/leadLifecycle');
 const { addLeadDocument, removeLeadDocument } = require('../services/leadDocuments');
-const { prepareImport } = require('../services/leadImport');
+const { prepareImport, previewImport } = require('../services/leadImport');
 const { startImportJob, getImportJob } = require('../services/importJobs');
 const { listTasks, createParallelTask, completeTask } = require('../services/followUpTasks');
 const { derivePriority } = require('../utils/serviceQualification');
@@ -625,9 +625,32 @@ exports.updateLead = async (req, res, next) => {
   }
 };
 
-// @desc    Bulk-import leads from an uploaded Excel (.xlsx) or CSV file.
-//          Validates the file, then runs the import as a background job and
-//          returns its id — poll GET /api/leads/import/:jobId for progress.
+// @desc    Dry run of a lead import: what every row would create/update/skip
+//          and why. Read-only — nothing is written until POST /api/leads/import.
+// @route   POST /api/leads/import/preview
+// @access  Private (Super Admin)
+exports.previewImportLeads = async (req, res, next) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'No file uploaded' });
+    }
+
+    const prepared = await prepareImport(req.file.buffer, req.file.originalname);
+    const preview = await previewImport(prepared);
+    res.status(200).json({ success: true, data: preview });
+  } catch (error) {
+    if (error.status) {
+      return res.status(error.status).json({ success: false, message: error.message });
+    }
+    logger.error('Error previewing lead import:', error);
+    next(error);
+  }
+};
+
+// @desc    Confirmed bulk import of an Excel (.xlsx) or CSV file (the same file
+//          the admin previewed). Re-validates every row against the current DB,
+//          then runs as a background job and returns its id — poll
+//          GET /api/leads/import/:jobId for progress.
 // @route   POST /api/leads/import
 // @access  Private (Super Admin)
 exports.importLeads = async (req, res, next) => {

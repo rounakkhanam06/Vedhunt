@@ -387,10 +387,7 @@ export default function LeadsManager({ stageGroup }) {
       {showImportModal && (
         <ImportLeadsModal
           onClose={() => setShowImportModal(false)}
-          onImported={() => {
-            setShowImportModal(false);
-            fetchLeads();
-          }}
+          onImported={fetchLeads}
         />
       )}
 

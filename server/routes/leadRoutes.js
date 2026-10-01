@@ -4,7 +4,7 @@ const multer = require('multer');
 const {
   createLead, getLeads, getLeadById, updateLead, deleteLead,
   assignLead, bulkAssignLeads, getAssignmentHistory, getAllAssignmentLogs, lockLead, unlockLead,
-  uploadLeadDocument, deleteLeadDocument, importLeads, getImportStatus,
+  uploadLeadDocument, deleteLeadDocument, importLeads, previewImportLeads, getImportStatus,
   getLeadTasks, createLeadTask, completeLeadTask
 } = require('../controllers/leadController');
 const authMiddleware = require('../middleware/authMiddleware');
@@ -41,6 +41,7 @@ router.post('/:id/assign', authMiddleware, requirePermission('leads.assign'), as
 router.post('/:id/lock', authMiddleware, requirePermission('leads.view'), lockLead);
 router.post('/:id/unlock', authMiddleware, requirePermission('leads.view'), unlockLead);
 router.put('/:id', authMiddleware, requirePermission('leads.view'), updateLead);
+router.post('/import/preview', authMiddleware, requirePermission('*'), uploadLeadFile.single('file'), previewImportLeads);
 router.post('/import', authMiddleware, requirePermission('*'), uploadLeadFile.single('file'), importLeads);
 router.post('/:id/documents', authMiddleware, requirePermission('leads.view'), uploadLeadDocumentMiddleware.single('file'), uploadLeadDocument);
 router.delete('/:id/documents/:docId', authMiddleware, requirePermission('leads.view'), deleteLeadDocument);

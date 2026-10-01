@@ -60,8 +60,7 @@ const WON_REQUIRES_PRIOR_STATUS = ['Qualified', 'Proposal Sent', 'Negotiation'];
 
 // current status -> allowed next statuses. Hold is reachable from, and
 // returns to, any active (non-terminal) status; terminal statuses are
-// dead ends (reopening a closed lead is a deliberate reassignment, not an
-// in-place edit, and isn't supported by this update path).
+// dead ends for everyone except a Super Admin (see REOPEN_STATUSES).
 const ALLOWED_TRANSITIONS = {
   New: ['New', 'Contacted', 'Hold', 'Lost', 'Dropped'],
   Contacted: ['Contacted', 'Qualified', 'Hold', 'Lost', 'Dropped'],
@@ -73,6 +72,13 @@ const ALLOWED_TRANSITIONS = {
   Lost: ['Lost'],
   Dropped: ['Dropped']
 };
+
+// Where a Super Admin may reopen a closed (Won/Lost/Dropped) lead to — an
+// authorized correction. Back into the active pipeline only: not New (that
+// would drop it into Raw Leads as if never worked) and not straight to
+// another closed status (reopen first, then close it properly, so the new
+// outcome's mandatory data is validated). Stage data rules still apply.
+const REOPEN_STATUSES = ['Contacted', 'Qualified', 'Proposal Sent', 'Negotiation', 'Hold'];
 
 // Fields a lead update may touch, across both portals. The admin controller
 // additionally allows a handful of core-identity fields for Super Admins only
@@ -88,12 +94,48 @@ const LEAD_UPDATE_FIELDS = [
   'businessName', 'website', 'servicesRequired', 'businessType', 'projectBudget', 'monthlyMarketingBudget'
 ];
 
+// Lead fields typed Date on the model. Updates are written through the raw
+// driver, which skips Mongoose casting — without normalizeDateFields these
+// were stored as ISO strings, and Mongo's $lte/$gte never match a string
+// against a Date, so services/followUpEngine.js silently skipped them.
+const LEAD_DATE_FIELDS = [
+  'nextFollowUpDate', 'proposalSentDate', 'expectedCloseDate', 'holdUntil',
+  'callDate', 'callStartTime', 'callEndTime'
+];
+
+/**
+ * Casts LEAD_DATE_FIELDS in `updates` to Date in place ('' / null → null).
+ * @returns {string|null} an error message for an unparseable date, or null
+ */
+function normalizeDateFields(updates) {
+  for (const field of LEAD_DATE_FIELDS) {
+    if (!(field in updates)) continue;
+    const value = updates[field];
+    if (value === '' || value == null) {
+      updates[field] = null;
+      continue;
+    }
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return `Invalid date for ${field}.`;
+    updates[field] = date;
+  }
+  return null;
+}
+
+/** True when two date-ish values (Date, ISO string, or empty) are the same instant. */
+function isSameInstant(a, b) {
+  if (!a || !b) return !a && !b;
+  return new Date(a).getTime() === new Date(b).getTime();
+}
+
 /**
  * @param {object} existingLead current lead document (plain object)
  * @param {object} updates      proposed field changes, already filtered to allowed fields
+ * @param {object} [options]
+ * @param {boolean} [options.isSuperAdmin] allows reopening a closed lead (REOPEN_STATUSES)
  * @returns {string|null} an error message, or null if the update is valid
  */
-function validateLeadTransition(existingLead, updates) {
+function validateLeadTransition(existingLead, updates, { isSuperAdmin = false } = {}) {
   if ('interestLevel' in updates && updates.interestLevel && !INTEREST_LEVELS.includes(updates.interestLevel)) {
     return `Invalid interest level: ${updates.interestLevel}`;
   }
@@ -118,7 +160,17 @@ function validateLeadTransition(existingLead, updates) {
 
   // ── Stage sequencing ──────────────────────────────────────────────────
   if ('status' in updates && updates.status !== existingLead.status) {
-    const allowedNext = ALLOWED_TRANSITIONS[existingLead.status] || [];
+    if (TERMINAL_STATUSES.includes(existingLead.status)) {
+      if (!isSuperAdmin) {
+        return `Cannot change the status of a ${existingLead.status} lead. Only a Super Admin can reopen it.`;
+      }
+      if (!REOPEN_STATUSES.includes(updates.status)) {
+        return `A ${existingLead.status} lead can only be reopened to ${REOPEN_STATUSES.join(', ')}.`;
+      }
+    }
+    const allowedNext = TERMINAL_STATUSES.includes(existingLead.status)
+      ? REOPEN_STATUSES
+      : ALLOWED_TRANSITIONS[existingLead.status] || [];
     if (!allowedNext.includes(updates.status)) {
       return `Cannot move a lead from "${existingLead.status}" directly to "${updates.status}". Leads must progress through each stage in order.`;
     }
@@ -223,7 +275,7 @@ function validateLeadTransition(existingLead, updates) {
   // time one is being set.
   const reschedulingFollowUp =
     'nextFollowUpDate' in updates && updates.nextFollowUpDate && existingLead.nextFollowUpDate &&
-    String(updates.nextFollowUpDate) !== String(existingLead.nextFollowUpDate);
+    !isSameInstant(updates.nextFollowUpDate, existingLead.nextFollowUpDate);
   if (reschedulingFollowUp) {
     const loggedTouch = ('connected' in updates && updates.connected) || ('status' in updates && updates.status !== existingLead.status);
     if (!loggedTouch) {
@@ -245,6 +297,10 @@ module.exports = {
   TERMINAL_STATUSES,
   WON_REQUIRES_PRIOR_STATUS,
   ALLOWED_TRANSITIONS,
+  REOPEN_STATUSES,
   LEAD_UPDATE_FIELDS,
+  LEAD_DATE_FIELDS,
+  normalizeDateFields,
+  isSameInstant,
   validateLeadTransition
 };

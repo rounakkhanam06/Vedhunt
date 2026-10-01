@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { validateLeadTransition, TERMINAL_STATUSES } = require('../utils/leadStateMachine');
+const { validateLeadTransition, normalizeDateFields, isSameInstant, TERMINAL_STATUSES } = require('../utils/leadStateMachine');
 const { findLeadRaw } = require('../utils/leadLookup');
 const { convertWonLeadToClient } = require('./clientProvisioning');
 const FollowUpTask = require('../models/FollowUpTask');
@@ -41,7 +41,12 @@ async function applyLeadUpdate(leadId, updates, actor, extraFilter = {}) {
     }
   }
 
-  const error = validateLeadTransition(existingLead, updates);
+  const dateError = normalizeDateFields(updates);
+  if (dateError) {
+    return { ok: false, status: 400, message: dateError };
+  }
+
+  const error = validateLeadTransition(existingLead, updates, { isSuperAdmin: !!actor.isSuperAdmin });
   if (error) {
     return { ok: false, status: 400, message: error };
   }
@@ -54,6 +59,20 @@ async function applyLeadUpdate(leadId, updates, actor, extraFilter = {}) {
     if (updates.status === 'Won') note = `Closed with value ₹${updates.dealCloseValue ?? existingLead.dealCloseValue ?? 0}`;
     else if (updates.status === 'Lost' || updates.status === 'Dropped') note = `Reason: ${updates.notConvertedReason || existingLead.notConvertedReason || ''}`;
     else if (updates.status === 'Hold') note = `Reason: ${updates.holdReason || ''}`;
+
+    // Super Admin reopening a closed lead (validated in leadStateMachine.js).
+    // The old outcome's close date/reason no longer describe the lead —
+    // they're kept in this history note instead. A Won lead's Client
+    // account is left as-is; re-winning reuses it (convertWonLeadToClient
+    // looks it up by leadRef).
+    if (TERMINAL_STATUSES.includes(existingLead.status) && !TERMINAL_STATUSES.includes(updates.status)) {
+      const was = existingLead.status === 'Won'
+        ? `Won, ₹${existingLead.dealCloseValue ?? 0}`
+        : `${existingLead.status}, reason: ${existingLead.notConvertedReason || '—'}`;
+      note = [`Reopened by Super Admin (was ${was})`, note].filter(Boolean).join(' · ');
+      updates.closedDate = null;
+      if (existingLead.status !== 'Won') updates.notConvertedReason = '';
+    }
     pipelineEntries.push({ status: updates.status, date: now, updatedBy: actor.id, note });
 
     if (updates.status === 'Won' || updates.status === 'Lost' || updates.status === 'Dropped') {
@@ -77,7 +96,7 @@ async function applyLeadUpdate(leadId, updates, actor, extraFilter = {}) {
   const reschedulingFollowUp =
     'nextFollowUpDate' in updates &&
     updates.nextFollowUpDate &&
-    String(updates.nextFollowUpDate) !== String(existingLead.nextFollowUpDate || '');
+    !isSameInstant(updates.nextFollowUpDate, existingLead.nextFollowUpDate);
   if (reschedulingFollowUp && existingLead.nextFollowUpDate) {
     pipelineEntries.push({
       status: 'Follow-up rescheduled',
@@ -137,9 +156,14 @@ async function applyLeadUpdate(leadId, updates, actor, extraFilter = {}) {
     if (!existingLead.firstCallAt) updates.firstCallAt = now;
   }
 
+  // The call-outcome widgets resend the current nextFollowUpDate on every
+  // save — only a real change should restart reminders or rotate the task.
+  const followUpChanged =
+    'nextFollowUpDate' in updates && !isSameInstant(updates.nextFollowUpDate, existingLead.nextFollowUpDate);
+
   // Rescheduling (or clearing, on a real outcome) the follow-up restarts the
   // reminder/escalation cycle — see services/followUpEngine.js.
-  if ('nextFollowUpDate' in updates) {
+  if (followUpChanged) {
     updates.followUpReminderSentAt = null;
     updates.followUpDueNotifiedAt = null;
     updates.followUpOverdueBDNotifiedAt = null;
@@ -207,7 +231,7 @@ async function applyLeadUpdate(leadId, updates, actor, extraFilter = {}) {
   // every reschedule/clear/first-time-set gets a durable Task row (see
   // models/FollowUpTask.js) without changing the existing call-outcome-driven
   // UI/validation at all. Never blocks or fails the lead update itself.
-  if ('nextFollowUpDate' in updates) {
+  if (followUpChanged) {
     try {
       const result_ = updates.remark
         || (updates.connected === 'No' ? updates.notConnectedReason

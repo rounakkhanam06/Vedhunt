@@ -35,15 +35,18 @@ function startImportJob(prepared, originalName, actor) {
     status: 'running',
     rowCount: prepared.rowCount,
     processed: 0,
-    summary: { totalRows: 0, imported: 0, updated: 0, invalid: [] },
+    summary: { totalRows: 0, imported: 0, updated: 0, unchanged: 0, invalid: [] },
     error: null,
     finishedAt: null
   };
   jobs.set(id, job);
 
-  runImport(prepared, originalName, actor, ({ processed, totalRows, imported, updated, invalid }) => {
+  // rowCount starts as the sheet's row count, then narrows to the rows that
+  // actually need writing once runImport has rebuilt the plan.
+  runImport(prepared, originalName, actor, ({ processed, rowCount, summary }) => {
     job.processed = processed;
-    job.summary = { totalRows, imported, updated, invalid };
+    job.rowCount = rowCount;
+    job.summary = summary;
   })
     .then((summary) => {
       job.summary = summary;
