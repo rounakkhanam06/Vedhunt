@@ -46,6 +46,24 @@ const FILTERS = [
   { id: 'warnings', label: 'Warnings', match: (r) => r.warnings.length > 0 }
 ];
 
+// A client deployed ahead of the backend gets old-shaped (or HTML) responses
+// back — fail with a clear message instead of crashing the page on render.
+const OUTDATED_SERVER_MESSAGE = 'Unexpected response from the server — make sure the backend has been redeployed/restarted with the latest import update.';
+
+const normalizeRow = (r) => ({
+  ...r,
+  changes: Array.isArray(r?.changes) ? r.changes : [],
+  errors: Array.isArray(r?.errors) ? r.errors : [],
+  warnings: Array.isArray(r?.warnings) ? r.warnings : []
+});
+
+const normalizeResult = (s) => ({
+  imported: s?.imported || 0,
+  updated: s?.updated || 0,
+  unchanged: s?.unchanged || 0,
+  invalid: Array.isArray(s?.invalid) ? s.invalid : []
+});
+
 const truncate = (value, max = 40) => {
   const text = String(value ?? '');
   return text.length > max ? `${text.slice(0, max)}…` : text;
@@ -118,11 +136,13 @@ export default function ImportLeadsModal({ onClose, onImported }) {
       const res = await api.post('/leads/import/preview', uploadForm(), {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
-      setPreview(res.data.data);
-      setFilter(res.data.data.summary.criticalStatusChanges > 0 ? 'status' : 'all');
+      const data = res.data?.data;
+      if (!data?.summary || !Array.isArray(data.rows)) throw new Error(OUTDATED_SERVER_MESSAGE);
+      setPreview({ summary: data.summary, rows: data.rows.map(normalizeRow) });
+      setFilter(data.summary.criticalStatusChanges > 0 ? 'status' : 'all');
       setStep('preview');
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to read the file');
+      toast.error(err.response?.data?.message || err.message || 'Failed to read the file');
     } finally {
       setLoadingPreview(false);
     }
@@ -132,9 +152,10 @@ export default function ImportLeadsModal({ onClose, onImported }) {
     for (;;) {
       await wait(POLL_INTERVAL_MS);
       const res = await api.get(`/leads/import/${jobId}`);
-      const job = res.data.data;
+      const job = res.data?.data;
+      if (!job?.status) throw new Error(OUTDATED_SERVER_MESSAGE);
       setProgress({ processed: job.processed, rowCount: job.rowCount });
-      if (job.status === 'completed') return job.summary;
+      if (job.status === 'completed') return normalizeResult(job.summary);
       if (job.status === 'failed') throw new Error(job.error || 'Import failed');
     }
   };
@@ -148,7 +169,9 @@ export default function ImportLeadsModal({ onClose, onImported }) {
       const res = await api.post('/leads/import', uploadForm(), {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
-      const s = await pollJob(res.data.data.jobId);
+      const jobId = res.data?.data?.jobId;
+      if (!jobId) throw new Error(OUTDATED_SERVER_MESSAGE);
+      const s = await pollJob(jobId);
       setResult(s);
       setStep('done');
       const parts = [];
