@@ -16,6 +16,18 @@ const InvoiceModal = ({ invoiceId, onClose }) => {
   const [paymentHistory, setPaymentHistory] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [showFullScreenQr, setShowFullScreenQr] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+
+  const handleDownloadPdf = async () => {
+    setDownloading(true);
+    try {
+      await clientService.downloadInvoicePdf(invoiceId, data?.data?.invoiceId);
+    } catch (err) {
+      toast.error('Could not download the invoice PDF. Please try again.');
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   const fetchInvoice = async () => {
     setLoading(true);
@@ -93,12 +105,28 @@ const InvoiceModal = ({ invoiceId, onClose }) => {
               <p className="text-[#9CA3AF] text-xs mt-0.5">{data.data.invoiceId}</p>
             )}
           </div>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-lg bg-bg-surface/60 text-[#9CA3AF] hover:text-white hover:bg-bg-surface transition-all cursor-pointer"
-          >
-            <X size={16} />
-          </button>
+          <div className="flex items-center gap-2">
+            {data?.data && (
+              <button
+                onClick={handleDownloadPdf}
+                disabled={downloading}
+                title="Download invoice PDF"
+                className="flex items-center gap-1.5 h-8 px-3 rounded-lg bg-primary/10 border border-primary/20 text-primary text-xs font-medium hover:bg-primary/20 disabled:opacity-60 disabled:cursor-wait transition-all cursor-pointer"
+              >
+                {downloading
+                  ? <span className="w-3.5 h-3.5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                  : <FileText size={14} />}
+                <span>PDF</span>
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              aria-label="Close"
+              className="w-8 h-8 flex items-center justify-center rounded-lg bg-bg-surface/60 text-[#9CA3AF] hover:text-white hover:bg-bg-surface transition-all cursor-pointer"
+            >
+              <X size={16} />
+            </button>
+          </div>
         </div>
 
         <div className="p-6 space-y-5 overflow-y-auto custom-scrollbar flex-1">

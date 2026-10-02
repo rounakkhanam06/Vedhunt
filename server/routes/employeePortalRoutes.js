@@ -17,6 +17,7 @@ const employeeAuthMiddleware = require('../middleware/employeeAuthMiddleware');
 const requirePermission = require('../middleware/requirePermission');
 const { encrypt, decrypt } = require('../utils/encryption');
 const logger = require('../utils/logger');
+const { notifyTicketReply, notifyTicketStatus } = require('../services/clientNotify');
 
 const router = express.Router();
 
@@ -441,8 +442,10 @@ router.put('/ess/tickets/:id/status', async (req, res) => {
     const ticket = await SupportTicket.findOne({ _id: req.params.id, assignedTo: req.user._id });
     if (!ticket) return res.status(404).json({ success: false, message: 'Ticket not found or not assigned to you' });
     
+    const statusChanged = ticket.status !== status;
     ticket.status = status;
     await ticket.save();
+    if (statusChanged) await notifyTicketStatus(ticket);
     
     res.json({ success: true, message: 'Status updated successfully', ticket });
   } catch (error) {
@@ -470,6 +473,7 @@ router.post('/ess/tickets/:id/messages', async (req, res) => {
     });
     
     await ticket.save();
+    await notifyTicketReply(ticket, senderName, text);
     res.json({ success: true, message: 'Message sent', ticket });
   } catch (error) {
     logger.error('Error adding ticket message:', error);

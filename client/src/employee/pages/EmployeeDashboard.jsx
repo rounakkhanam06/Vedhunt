@@ -8,6 +8,7 @@ import employeeAvatar from '../../assets/033a13e9af4efbb035a04c3777c4934d-remove
 
 import RealTimeTimer from '../components/RealTimeTimer';
 import LeadCard from '../components/LeadCard';
+import { attachmentName } from '../../utils/attachments';
 
 const StarRating = ({ value }) => (
   <div className="flex gap-0.5">
@@ -787,6 +788,16 @@ const EmployeeDashboard = () => {
                     </div>
                     
                     <p className="text-sm text-app-text bg-form-input-bg p-4 rounded-lg whitespace-pre-wrap">{ticket.description}</p>
+                    {ticket.attachments?.length > 0 && (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {ticket.attachments.map((url) => (
+                          <a key={url} href={url} target="_blank" rel="noopener noreferrer"
+                            className="max-w-[240px] truncate px-2.5 py-1.5 rounded-lg bg-form-input-bg border border-app-border text-xs text-primary hover:underline">
+                            📎 {attachmentName(url)}
+                          </a>
+                        ))}
+                      </div>
+                    )}
                     
                     {isExpanded && (
                       <div className="mt-4 pt-4 border-t border-app-border space-y-4">

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import api from '../../services/api';
+import { attachmentName } from '../../utils/attachments';
 import { settingsService } from '../../services/settingsService';
 import toast from 'react-hot-toast';
 import {
@@ -411,6 +412,20 @@ export default function SupportDeskManager() {
                   <textarea required value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} rows={4}
                     className="w-full px-3 py-2 bg-admin-bg border border-outline-variant rounded-xl text-on-surface text-sm focus:outline-none focus:border-secondary resize-none" />
                 </div>
+
+                {editTarget?.attachments?.length > 0 && (
+                  <div className="md:col-span-2">
+                    <label className="block text-on-surface-variant text-xs font-medium mb-1.5">Client Attachments ({editTarget.attachments.length})</label>
+                    <div className="flex flex-wrap gap-2">
+                      {editTarget.attachments.map((url) => (
+                        <a key={url} href={url} target="_blank" rel="noopener noreferrer"
+                          className="max-w-[240px] truncate px-2.5 py-1.5 rounded-lg bg-admin-bg border border-outline-variant text-xs text-secondary hover:underline">
+                          📎 {attachmentName(url)}
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 
                 <div>
                   <label className="block text-on-surface-variant text-xs font-medium mb-1.5">Priority Level</label>

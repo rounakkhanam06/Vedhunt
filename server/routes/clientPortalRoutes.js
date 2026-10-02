@@ -6,8 +6,11 @@ const Project = require('../models/Project');
 const Retainer = require('../models/Retainer');
 const SupportTicket = require('../models/SupportTicket');
 const Settings = require('../models/Settings');
+const ClientNotification = require('../models/ClientNotification');
 const logger = require('../utils/logger');
-const { getAgreement, acceptAgreement } = require('../controllers/agreementController');
+const { getClientAgreement, acceptAgreement } = require('../controllers/agreementController');
+const { buildInvoicePdfBuffer, loadInvoiceContext } = require('../services/invoicePdf');
+const { uploadTicketAttachment, deleteFromCloudinary } = require('../utils/cloudinary');
 
 const router = express.Router();
 
@@ -15,6 +18,8 @@ const router = express.Router();
 router.use(clientAuthMiddleware);
 
 // ─── Utility ─────────────────────────────────────────────────────────────────
+const DEFAULT_SUPPORT_CATEGORIES = ['Bug Report', 'Feature Request', 'General Inquiry', 'Urgent Fix'];
+
 const parsePagination = (query) => {
   const page = Math.max(1, parseInt(query.page) || 1);
   const limit = Math.min(50, Math.max(1, parseInt(query.limit) || 20));
@@ -47,14 +52,21 @@ const paginatedResponse = (res, { data, total, page, limit }) => {
 router.get('/invoices', async (req, res) => {
   try {
     const { page, limit, skip } = parsePagination(req.query);
-    const filter = { client_ref: req.client._id };
+    const now = new Date();
+    const base = { client_ref: req.client._id };
+    // Overdue is mostly derived (stored as 'Unpaid' with a past dueDate), so
+    // filter and count on the derived status — matching what the table shows.
+    const statusQuery = {
+      Paid: { paymentStatus: 'Paid' },
+      Unpaid: { paymentStatus: 'Unpaid', $or: [{ dueDate: null }, { dueDate: { $gte: now } }] },
+      Overdue: { $or: [{ paymentStatus: 'Overdue' }, { paymentStatus: 'Unpaid', dueDate: { $lt: now } }] },
+    };
 
-    // Optional status filter
-    if (req.query.status && ['Paid', 'Unpaid', 'Overdue'].includes(req.query.status)) {
-      filter.paymentStatus = req.query.status;
-    }
+    const filter = statusQuery[req.query.status]
+      ? { ...base, ...statusQuery[req.query.status] }
+      : base;
 
-    const [invoices, total] = await Promise.all([
+    const [invoices, total, allCount, paidCount, unpaidCount, overdueCount] = await Promise.all([
       Invoice.find(filter)
         .select('-notes') // strip internal notes
         .sort({ createdAt: -1 })
@@ -62,10 +74,13 @@ router.get('/invoices', async (req, res) => {
         .limit(limit)
         .lean(),
       Invoice.countDocuments(filter),
+      Invoice.countDocuments(base),
+      Invoice.countDocuments({ ...base, ...statusQuery.Paid }),
+      Invoice.countDocuments({ ...base, ...statusQuery.Unpaid }),
+      Invoice.countDocuments({ ...base, ...statusQuery.Overdue }),
     ]);
 
     // Compute overdue status in-memory (model post-hook doesn't fire on lean)
-    const now = new Date();
     const data = invoices.map((inv) => ({
       ...inv,
       paymentStatus:
@@ -74,7 +89,13 @@ router.get('/invoices', async (req, res) => {
           : inv.paymentStatus,
     }));
 
-    paginatedResponse(res, { data, total, page, limit });
+    res.json({
+      success: true,
+      data,
+      pagination: { total, page, limit, totalPages: Math.ceil(total / limit) },
+      // Across ALL of the client's invoices, independent of filter/page
+      summary: { total: allCount, Paid: paidCount, Unpaid: unpaidCount, Overdue: overdueCount },
+    });
   } catch (error) {
     logger.error('Client get invoices error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
@@ -128,6 +149,40 @@ router.get('/invoices/:id', async (req, res) => {
   } catch (error) {
     logger.error('Client get invoice detail error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+/**
+ * @route  GET /api/client/invoices/:id/pdf
+ * @desc   Download the invoice as a PDF (only the client's own invoices)
+ * @access Client Private
+ */
+router.get('/invoices/:id/pdf', async (req, res) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ success: false, message: 'Invalid invoice ID' });
+    }
+
+    const invoice = await Invoice.findOne({ _id: req.params.id, client_ref: req.client._id }).lean();
+    if (!invoice) {
+      return res.status(404).json({ success: false, message: 'Invoice not found' });
+    }
+    if (invoice.paymentStatus === 'Unpaid' && invoice.dueDate && invoice.dueDate < new Date()) {
+      invoice.paymentStatus = 'Overdue';
+    }
+
+    const pdf = await buildInvoicePdfBuffer(invoice, req.client, await loadInvoiceContext());
+    const filename = `Invoice-${(invoice.invoiceId || invoice._id).toString().replace(/[^\w-]/g, '_')}.pdf`;
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="${filename}"`,
+      'Content-Length': pdf.length,
+      'Cache-Control': 'private, no-store',
+    });
+    res.send(pdf);
+  } catch (error) {
+    logger.error('Client invoice PDF error:', error);
+    res.status(500).json({ success: false, message: 'Could not generate the invoice PDF' });
   }
 });
 
@@ -306,6 +361,17 @@ router.post('/tickets', async (req, res) => {
       });
     }
 
+    // Accept the categories the admin configured in the Support Desk (plus the
+    // built-in defaults, so a ticket form opened before a change still works)
+    const categoryDoc = await Settings.findOne({ key: 'support_categories' }).lean();
+    const allowedCategories = new Set([
+      ...DEFAULT_SUPPORT_CATEGORIES,
+      ...(Array.isArray(categoryDoc?.value) ? categoryDoc.value : []),
+    ]);
+    if (!allowedCategories.has(category)) {
+      return res.status(400).json({ success: false, message: 'Please choose a valid category' });
+    }
+
     const ticket = await SupportTicket.create({
       client_ref: req.client._id,
       subject,
@@ -400,11 +466,169 @@ router.post('/tickets/:id/messages', async (req, res) => {
   }
 });
 
+const MAX_TICKET_ATTACHMENTS = 10;
+
+// Loads the client's own ticket onto req.ticket (before any file is uploaded)
+const loadOwnTicket = async (req, res, next) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ success: false, message: 'Invalid ticket ID' });
+    }
+    req.ticket = await SupportTicket.findOne({ _id: req.params.id, client_ref: req.client._id });
+    if (!req.ticket) return res.status(404).json({ success: false, message: 'Ticket not found' });
+    next();
+  } catch (error) {
+    logger.error('Client load ticket error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+/**
+ * @route  POST /api/client/tickets/:id/attachments
+ * @desc   Attach up to 3 files (PDF/JPG/PNG/WEBP, 5MB each) — max 10 per ticket
+ * @access Client Private
+ */
+router.post('/tickets/:id/attachments', loadOwnTicket, (req, res, next) => {
+  if (req.ticket.status === 'Closed') {
+    return res.status(400).json({ success: false, message: 'This ticket is closed. Reopen it to add files.' });
+  }
+  if ((req.ticket.attachments || []).length >= MAX_TICKET_ATTACHMENTS) {
+    return res.status(400).json({ success: false, message: `A ticket can have at most ${MAX_TICKET_ATTACHMENTS} attachments.` });
+  }
+  uploadTicketAttachment.array('files', 3)(req, res, (err) => {
+    if (!err) return next();
+    const message = err.code === 'LIMIT_FILE_SIZE'
+      ? 'Each file must be 5MB or smaller.'
+      : ['LIMIT_FILE_COUNT', 'LIMIT_UNEXPECTED_FILE'].includes(err.code)
+        ? 'You can upload up to 3 files at a time.'
+        : err.message || 'Upload failed';
+    return res.status(400).json({ success: false, message });
+  });
+}, async (req, res) => {
+  const files = req.files || [];
+  try {
+    if (!files.length) {
+      return res.status(400).json({ success: false, message: 'Please choose at least one file.' });
+    }
+    const existing = req.ticket.attachments || [];
+    if (existing.length + files.length > MAX_TICKET_ATTACHMENTS) {
+      await Promise.all(files.map((f) => deleteFromCloudinary(f.filename, !f.mimetype.startsWith('image/')).catch(() => {})));
+      return res.status(400).json({
+        success: false,
+        message: `A ticket can have at most ${MAX_TICKET_ATTACHMENTS} attachments (${MAX_TICKET_ATTACHMENTS - existing.length} more allowed).`,
+      });
+    }
+
+    req.ticket.attachments = [...existing, ...files.map((f) => f.path)];
+    await req.ticket.save();
+    res.json({ success: true, message: `${files.length} file${files.length > 1 ? 's' : ''} attached`, attachments: req.ticket.attachments });
+  } catch (error) {
+    logger.error('Client ticket attachment error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+/**
+ * @route  PUT /api/client/tickets/:id/status
+ * @desc   Client closes their ticket, or reopens a Resolved/Closed one
+ *         (optional `message` is added to the conversation)
+ * @access Client Private
+ */
+router.put('/tickets/:id/status', loadOwnTicket, async (req, res) => {
+  try {
+    const { status } = req.body;
+    const message = typeof req.body.message === 'string' ? req.body.message.trim() : '';
+    const ticket = req.ticket;
+
+    if (status === 'Closed') {
+      if (ticket.status === 'Closed') {
+        return res.status(400).json({ success: false, message: 'Ticket is already closed.' });
+      }
+      ticket.status = 'Closed';
+    } else if (status === 'Open') {
+      if (!['Resolved', 'Closed'].includes(ticket.status)) {
+        return res.status(400).json({ success: false, message: 'Only resolved or closed tickets can be reopened.' });
+      }
+      ticket.status = 'Open';
+      ticket.resolvedAt = undefined;
+      ticket.closedAt = undefined;
+    } else {
+      return res.status(400).json({ success: false, message: 'Status must be "Closed" or "Open".' });
+    }
+
+    if (message) {
+      ticket.messages.push({
+        senderModel: 'Client',
+        senderId: req.client._id,
+        senderName: req.client.contactName || 'Client',
+        text: message,
+      });
+    }
+    await ticket.save();
+
+    const fresh = await SupportTicket.findById(ticket._id).populate('assignedTo', 'firstName lastName');
+    res.json({
+      success: true,
+      message: status === 'Closed' ? 'Ticket closed' : 'Ticket reopened',
+      data: fresh.toObject({ virtuals: true }),
+    });
+  } catch (error) {
+    logger.error('Client ticket status error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
 // ══════════════════════════════════════════════════════════════════════════════
 // AGREEMENT
 // ══════════════════════════════════════════════════════════════════════════════
 
-router.get('/agreement', getAgreement);
+router.get('/agreement', getClientAgreement);
 router.post('/accept-agreement', acceptAgreement);
+
+// ══════════════════════════════════════════════════════════════════════════════
+// NOTIFICATIONS (bell) — created by services/clientNotify.js
+// ══════════════════════════════════════════════════════════════════════════════
+
+router.get('/notifications', async (req, res) => {
+  try {
+    const filter = { client: req.client._id };
+    const [notifications, unreadCount] = await Promise.all([
+      ClientNotification.find(filter).sort({ createdAt: -1 }).limit(30).lean(),
+      ClientNotification.countDocuments({ ...filter, read: false }),
+    ]);
+    res.json({ success: true, notifications, unreadCount });
+  } catch (error) {
+    logger.error('Client get notifications error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+router.put('/notifications/read-all', async (req, res) => {
+  try {
+    await ClientNotification.updateMany({ client: req.client._id, read: false }, { read: true });
+    res.json({ success: true });
+  } catch (error) {
+    logger.error('Client mark-all notifications error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+router.put('/notifications/:id/read', async (req, res) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ success: false, message: 'Invalid notification ID' });
+    }
+    const notification = await ClientNotification.findOneAndUpdate(
+      { _id: req.params.id, client: req.client._id },
+      { read: true },
+      { new: true }
+    );
+    if (!notification) return res.status(404).json({ success: false, message: 'Notification not found' });
+    res.json({ success: true, notification });
+  } catch (error) {
+    logger.error('Client mark notification error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
 
 module.exports = router;

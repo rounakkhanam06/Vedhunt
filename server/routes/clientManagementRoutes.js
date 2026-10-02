@@ -11,6 +11,10 @@ const AssignmentLog = require('../models/AssignmentLog');
 const logger = require('../utils/logger');
 const { updateAgreement, getAgreement } = require('../controllers/agreementController');
 const { provisionClientAccount } = require('../services/clientProvisioning');
+const { agreementDetailsChanged, nextAgreementVersion } = require('../services/agreementVersioning');
+const {
+  notifyInvoiceCreated, notifyAgreementUpdated, notifyTicketReply, notifyTicketStatus,
+} = require('../services/clientNotify');
 
 const router = express.Router();
 
@@ -266,13 +270,21 @@ router.put('/clients/:id', async (req, res) => {
       client.temporaryPasswordText = newPassword;
       client.isTemporaryPassword = true;
     }
+    let agreementResignRequired = false;
     if (agreementDetails) {
+      const before = client.toObject().agreementDetails;
       client.agreementDetails = { ...client.agreementDetails, ...agreementDetails };
+      // New/changed terms → the client must review and sign the agreement again
+      if (agreementDetailsChanged(before, client.toObject().agreementDetails)) {
+        client.agreementVersion = nextAgreementVersion(client);
+        agreementResignRequired = true;
+      }
     }
 
     await client.save();
+    if (agreementResignRequired) await notifyAgreementUpdated(client._id);
 
-    res.json({ success: true, message: 'Client updated successfully' });
+    res.json({ success: true, message: 'Client updated successfully', agreementResignRequired });
   } catch (error) {
     logger.error('Admin update client error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
@@ -359,6 +371,7 @@ router.post('/invoices', async (req, res) => {
       totalAmount,
       notes,
     });
+    await notifyInvoiceCreated(invoice);
 
     res.status(201).json({ success: true, message: 'Invoice created', data: { invoiceId: invoice.invoiceId, _id: invoice._id } });
   } catch (error) {
@@ -632,8 +645,14 @@ router.put('/tickets/:id', async (req, res) => {
     if (resolution !== undefined) update.resolution = resolution;
     if (assignedTo !== undefined) update.assignedTo = assignedTo || null;
 
-    const ticket = await SupportTicket.findByIdAndUpdate(req.params.id, update, { new: true, runValidators: true });
+    // load + save (not findByIdAndUpdate) so the model's pre-save hook stamps
+    // resolvedAt / closedAt when the status changes
+    const ticket = await SupportTicket.findById(req.params.id);
     if (!ticket) return res.status(404).json({ success: false, message: 'Ticket not found' });
+    const previousStatus = ticket.status;
+    ticket.set(update);
+    await ticket.save();
+    if (status && previousStatus !== ticket.status) await notifyTicketStatus(ticket);
     res.json({ success: true, message: 'Ticket updated', data: ticket.toObject({ virtuals: true }) });
   } catch (error) {
     logger.error('Admin update ticket error:', error);
@@ -684,6 +703,7 @@ router.post('/tickets/:id/messages', async (req, res) => {
     });
     
     await ticket.save();
+    await notifyTicketReply(ticket, senderName, text);
     res.json({ success: true, message: 'Message sent', data: ticket.toObject({ virtuals: true }) });
   } catch (error) {
     logger.error('Admin add ticket message error:', error);

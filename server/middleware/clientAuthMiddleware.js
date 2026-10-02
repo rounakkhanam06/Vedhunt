@@ -45,6 +45,13 @@ const clientAuthMiddleware = async (req, res, next) => {
         .json({ success: false, message: 'Client account not found' });
     }
 
+    // Token issued before the last password change/reset → revoked
+    if ((decoded.tv || 0) !== (req.client.tokenVersion || 0)) {
+      return res
+        .status(401)
+        .json({ success: false, message: 'Session expired, please login again' });
+    }
+
     if (!req.client.isActive) {
       return res
         .status(401)

@@ -4,6 +4,12 @@ import { Edit3, CheckCircle, Clock, Save, X, Eye } from 'lucide-react';
 import api from '../../services/api';
 import AgreementTemplate from '../../client/components/AgreementTemplate';
 
+// Signed AND up to date — an admin edit after signing bumps agreementVersion
+// and the client has to accept again (server/services/agreementVersioning.js).
+const hasAcceptedCurrent = (client) =>
+  (client.acceptedAgreementVersion || 0) > 0 &&
+  (client.acceptedAgreementVersion || 0) >= (client.agreementVersion || 0);
+
 export default function ManageAgreement() {
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -63,8 +69,12 @@ export default function ManageAgreement() {
           exclusions: editData.exclusions.split('\n').filter(p => p.trim()),
         }
       };
-      await api.put(`/admin/clients/${selectedClient._id}`, payload);
-      toast.success('Agreement details updated successfully');
+      const { data } = await api.put(`/admin/clients/${selectedClient._id}`, payload);
+      toast.success(
+        data?.agreementResignRequired
+          ? 'Agreement details updated. The client will be asked to review and accept the agreement.'
+          : 'Agreement details updated successfully'
+      );
       fetchClients();
       setSelectedClient(null);
     } catch (error) {
@@ -90,7 +100,11 @@ export default function ManageAgreement() {
           </button>
         </div>
         <div className="bg-surface-container rounded-xl p-6 border border-outline-variant overflow-y-auto max-h-[80vh]">
-          <AgreementTemplate client={selectedClient} />
+          <AgreementTemplate
+            client={hasAcceptedCurrent(selectedClient)
+              ? selectedClient
+              : { ...selectedClient, acceptedAgreementVersion: 0, agreementAcceptedAt: null }}
+          />
         </div>
       </div>
     );
@@ -252,9 +266,13 @@ export default function ManageAgreement() {
                       <td className="py-4 px-6 text-on-surface font-medium">{client.businessName}</td>
                       <td className="py-4 px-6 text-on-surface-variant">{client.email}</td>
                       <td className="py-4 px-6">
-                        {client.acceptedAgreementVersion ? (
+                        {hasAcceptedCurrent(client) ? (
                           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-500/10 text-green-500">
                             <CheckCircle size={14} /> Accepted
+                          </span>
+                        ) : client.acceptedAgreementVersion ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-yellow-500/10 text-yellow-500">
+                            <Clock size={14} /> Re-acceptance Pending
                           </span>
                         ) : hasDetails ? (
                           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-yellow-500/10 text-yellow-500">

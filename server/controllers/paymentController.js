@@ -1,6 +1,7 @@
 const PaymentProof = require('../models/PaymentProof');
 const Invoice = require('../models/Invoice');
 const Client = require('../models/Client');
+const { notifyPaymentApproved, notifyPaymentRejected } = require('../services/clientNotify');
 
 /**
  * @desc    Submit a new payment proof
@@ -136,8 +137,7 @@ exports.approvePayment = async (req, res) => {
     }
 
     await invoice.save();
-
-    // Optionally send email to client that payment is approved
+    await notifyPaymentApproved(payment, invoice);
 
     res.json({ success: true, message: 'Payment approved successfully', data: payment });
   } catch (error) {
@@ -171,8 +171,7 @@ exports.rejectPayment = async (req, res) => {
     payment.verifiedBy = req.user._id;
     payment.verifiedAt = Date.now();
     await payment.save();
-
-    // Optionally send email to client
+    await notifyPaymentRejected(payment, await Invoice.findById(payment.invoice_ref).select('invoiceId').lean());
 
     res.json({ success: true, message: 'Payment rejected', data: payment });
   } catch (error) {

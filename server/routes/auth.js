@@ -405,4 +405,42 @@ router.put('/password', authMiddleware, async (req, res) => {
   }
 });
 
+// @route   POST /api/auth/reset-temp-password
+// @desc    Replace a temporary password on first login (no current password needed)
+// @access  Private — only while the account is still on a temporary password
+router.post('/reset-temp-password', authMiddleware, async (req, res) => {
+  try {
+    const { newPassword } = req.body;
+    if (!newPassword || newPassword.length < 6) {
+      return res.status(400).json({ success: false, message: 'Password must be at least 6 characters long.' });
+    }
+
+    const admin = await Admin.findById(req.user._id);
+    if (!admin) {
+      return res.status(404).json({ success: false, message: 'User not found.' });
+    }
+
+    // Skipping the current-password check is only safe for a temp password —
+    // otherwise a hijacked session could silently take over the account.
+    if (!admin.isTemporaryPassword) {
+      return res.status(400).json({ success: false, message: 'No temporary password to reset. Use Change Password instead.' });
+    }
+
+    admin.password = newPassword;
+    admin.isTemporaryPassword = false;
+    await admin.save();
+
+    // Keep the Employee vault in sync, same as PUT /password
+    await Employee.findOneAndUpdate(
+      { adminId: req.user._id },
+      { tempPassword: newPassword }
+    );
+
+    res.json({ success: true, message: 'Password reset successfully.' });
+  } catch (error) {
+    logger.error('Error resetting admin temp password:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
 module.exports = router;

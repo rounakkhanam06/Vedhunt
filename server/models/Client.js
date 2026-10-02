@@ -51,6 +51,12 @@ const clientSchema = new mongoose.Schema(
       type: String,
       select: false,
     },
+    // Embedded in client JWTs as `tv`; incremented on password change/reset
+    // to revoke all previously issued tokens (see clientAuthMiddleware).
+    tokenVersion: {
+      type: Number,
+      default: 0,
+    },
     // Internal admin notes — NEVER exposed to client via API
     notes: {
       type: String,
@@ -88,6 +94,22 @@ const clientSchema = new mongoose.Schema(
     },
     agreementAcceptedAt: {
       type: Date,
+    },
+    // Bumped each time an admin changes agreementDetails, so the client is
+    // asked to sign again (see services/agreementVersioning.js).
+    agreementVersion: {
+      type: Number,
+      default: 0,
+    },
+    // Exactly what the client signed — the common template is rendered from
+    // these details in the Agreement tab, even if the admin edits them later.
+    signedAgreement: {
+      version: { type: Number },
+      acceptedAt: { type: Date },
+      businessName: { type: String },
+      contactName: { type: String },
+      phone: { type: String },
+      details: { type: mongoose.Schema.Types.Mixed },
     },
     agreementDetails: {
       domain: { type: String, default: '' },

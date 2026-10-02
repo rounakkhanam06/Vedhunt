@@ -186,6 +186,12 @@ const withPermission = (Component, requiredPermission) => (
   </ProtectedRoute>
 );
 
+const withPermissionKeyedById = (Component, requiredPermission) => (
+  <ProtectedRoute requiredPermission={requiredPermission}>
+    {withSuspenseKeyedById(Component)}
+  </ProtectedRoute>
+);
+
 // Admin routes follow the same light/dark theme toggle as the rest of the app
 // (see AdminLayout's header button) instead of being locked to dark mode.
 const AdminRoot = () => <Outlet />;
@@ -406,75 +412,75 @@ export const router = createBrowserRouter([
           },
           {
             path: 'pricing',
-            element: withSuspense(PricingManager)
+            element: withPermission(PricingManager, 'pricing.manage')
           },
           {
             path: 'home-pricing',
-            element: withSuspense(HomePricingManager)
+            element: withPermission(HomePricingManager, 'pricing.manage')
           },
           {
             path: 'presence',
-            element: withSuspense(PresenceManager)
+            element: withPermission(PresenceManager, 'cms.manage')
           },
           {
             path: 'about',
-            element: withSuspense(AboutManager)
+            element: withPermission(AboutManager, 'cms.manage')
           },
           {
             path: 'blogs',
-            element: withSuspense(BlogManager)
+            element: withPermission(BlogManager, 'cms.manage')
           },
           {
             path: 'blogs/create',
-            element: withSuspense(CreateEditBlog)
+            element: withPermission(CreateEditBlog, 'cms.manage')
           },
           {
             path: 'blogs/edit/:slug',
-            element: withSuspense(CreateEditBlog)
+            element: withPermission(CreateEditBlog, 'cms.manage')
           },
           {
             path: 'jobs',
-            element: withSuspense(JobManager)
+            element: withPermission(JobManager, 'careers.manage')
           },
           {
             path: 'career-hero',
-            element: withSuspense(CareerHeroManager)
+            element: withPermission(CareerHeroManager, 'careers.manage')
           },
           {
             path: 'life-at-vedhunt',
-            element: withSuspense(LifeAtVedhuntManager)
+            element: withPermission(LifeAtVedhuntManager, 'careers.manage')
           },
           {
             path: 'applications',
-            element: withSuspense(ApplicationManager)
+            element: withPermission(ApplicationManager, 'careers.manage')
           },
           {
             path: 'faq',
-            element: withSuspense(FAQManager)
+            element: withPermission(FAQManager, 'cms.manage')
           },
           {
             path: 'faq-inquiries',
-            element: withSuspense(ContactInquiries)
+            element: withPermission(ContactInquiries, 'cms.manage')
           },
           {
             path: 'privacy-policy',
-            element: withSuspense(PrivacyPolicyManager)
+            element: withPermission(PrivacyPolicyManager, 'legal.manage')
           },
           {
             path: 'terms-and-conditions',
-            element: withSuspense(TermsConditionsManager)
+            element: withPermission(TermsConditionsManager, 'legal.manage')
           },
           {
             path: 'cookie-policy',
-            element: withSuspense(CookiePolicyManager)
+            element: withPermission(CookiePolicyManager, 'legal.manage')
           },
           {
             path: 'data-processing-agreement',
-            element: withSuspense(DPAManager)
+            element: withPermission(DPAManager, 'legal.manage')
           },
           {
             path: 'refund-policy',
-            element: withSuspense(RefundPolicyManager)
+            element: withPermission(RefundPolicyManager, 'legal.manage')
           },
           {
             path: 'service-agreement',
@@ -506,15 +512,15 @@ export const router = createBrowserRouter([
           },
           {
             path: 'leads',
-            element: withSuspense(RawLeadsManager)
+            element: withPermission(RawLeadsManager, 'leads.view')
           },
           {
             path: 'leads/working',
-            element: withSuspense(WorkingLeadsManager)
+            element: withPermission(WorkingLeadsManager, 'leads.view')
           },
           {
             path: 'leads/unassigned',
-            element: withSuspense(UnassignedLeadsManager)
+            element: withPermission(UnassignedLeadsManager, 'leads.view')
           },
           {
             path: 'leads/all',
@@ -522,7 +528,7 @@ export const router = createBrowserRouter([
           },
           {
             path: 'leads/:id',
-            element: withSuspenseKeyedById(LeadWorkspace)
+            element: withPermissionKeyedById(LeadWorkspace, 'leads.view')
           },
           {
             path: 'audit/activity',
@@ -546,11 +552,11 @@ export const router = createBrowserRouter([
           },
           {
             path: 'facebook-integration',
-            element: withSuspense(FacebookIntegrationManager)
+            element: withPermission(FacebookIntegrationManager, 'settings.manage')
           },
           {
             path: 'subscribers',
-            element: withSuspense(SubscriberManager)
+            element: withPermission(SubscriberManager, 'leads.view')
           },
           {
             path: '',

@@ -8,19 +8,26 @@ const ProjectsTab = () => {
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState(null);
+  const [error, setError] = useState(false);
 
-  useEffect(() => {
+  const load = (autoExpand = false) => {
     setLoading(true);
+    setError(false);
     clientService
       .getProjects({ limit: 50 })
       .then((res) => {
         setProjects(res.data || []);
-        // Auto-expand first active project
-        const first = (res.data || []).find((p) => p.status === 'Active');
-        if (first) setExpandedId(first._id);
+        if (autoExpand) {
+          // Auto-expand first active project
+          const first = (res.data || []).find((p) => p.status === 'Active');
+          if (first) setExpandedId(first._id);
+        }
       })
+      .catch(() => setError(true))
       .finally(() => setLoading(false));
-  }, []);
+  };
+
+  useEffect(() => { load(true); }, []);
 
   const toggleExpand = (id) => setExpandedId(expandedId === id ? null : id);
 
@@ -32,10 +39,7 @@ const ProjectsTab = () => {
           <p className="text-[#D1D5DB] text-sm mt-1">Monitor your project milestones and progress</p>
         </div>
         <button
-          onClick={() => {
-            setLoading(true);
-            clientService.getProjects({ limit: 50 }).then((r) => setProjects(r.data || [])).finally(() => setLoading(false));
-          }}
+          onClick={() => load()}
           className="flex items-center gap-2 px-3 py-2 rounded-lg bg-bg-surface/50 border border-border-default text-[#D1D5DB] hover:text-white text-sm transition-all cursor-pointer"
         >
           <RefreshCw size={14} /> Refresh
@@ -45,6 +49,12 @@ const ProjectsTab = () => {
       {loading ? (
         <div className="flex items-center justify-center h-48">
           <div className="w-8 h-8 border-2 border-primary/30 border-t-[#FF5A1F] rounded-full animate-spin" />
+        </div>
+      ) : error ? (
+        <div className="flex flex-col items-center justify-center h-48 gap-3">
+          <Rocket size={40} className="text-[#2B2A2A]" />
+          <p className="text-[#9CA3AF] text-sm">Could not load your projects.</p>
+          <button onClick={() => load()} className="text-primary text-sm hover:underline cursor-pointer">Try again</button>
         </div>
       ) : projects.length === 0 ? (
         <div className="flex flex-col items-center justify-center h-48 gap-3">

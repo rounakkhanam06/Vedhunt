@@ -118,4 +118,34 @@ const uploadLeadDocument = multer({
   },
 });
 
-module.exports = { cloudinary, upload, uploadResume, uploadLeadDocument, uploadBuffer, deleteFromCloudinary };
+// Support ticket attachments from the Client Portal (screenshots / PDFs).
+// Images stay browser-viewable; PDFs go up as raw resources like resumes.
+const ticketAttachmentStorage = new CloudinaryStorage({
+  cloudinary,
+  params: async (_req, file) => ({
+    folder: 'vedhunt-ticket-attachments',
+    resource_type: file.mimetype.startsWith('image/') ? 'image' : 'raw',
+  }),
+});
+
+const TICKET_ATTACHMENT_TYPES = {
+  'application/pdf': ['.pdf'],
+  'image/jpeg': ['.jpg', '.jpeg'],
+  'image/png': ['.png'],
+  'image/webp': ['.webp'],
+};
+
+const uploadTicketAttachment = multer({
+  storage: ticketAttachmentStorage,
+  limits: { fileSize: 5 * 1024 * 1024, files: 3 }, // 5MB each, 3 per request
+  fileFilter: (_req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    if ((TICKET_ATTACHMENT_TYPES[file.mimetype] || []).includes(ext)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only PDF, JPG, PNG and WEBP files are allowed'), false);
+    }
+  },
+});
+
+module.exports = { cloudinary, upload, uploadResume, uploadLeadDocument, uploadTicketAttachment, uploadBuffer, deleteFromCloudinary };

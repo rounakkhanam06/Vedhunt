@@ -11,19 +11,21 @@ const { sendEmail } = require('../utils/sendEmail');
 const router = express.Router();
 
 // ─── Token generators (using CLIENT-specific secret) ─────────────────────────
-const generateClientAccessToken = (id) => {
+// `tv` = the client's tokenVersion; bumping it (password change/reset) makes
+// every token issued before unusable. Tokens without `tv` count as version 0.
+const generateClientAccessToken = (id, tv = 0) => {
   const secret = process.env.JWT_CLIENT_SECRET || process.env.JWT_SECRET;
-  return jwt.sign({ id }, secret, {
+  return jwt.sign({ id, tv }, secret, {
     expiresIn: process.env.JWT_CLIENT_EXPIRES_IN || '15m',
   });
 };
 
-const generateClientRefreshToken = (id) => {
+const generateClientRefreshToken = (id, tv = 0) => {
   const secret =
     process.env.JWT_CLIENT_REFRESH_SECRET ||
     process.env.JWT_CLIENT_SECRET ||
     process.env.JWT_SECRET;
-  return jwt.sign({ id }, secret, { expiresIn: '7d' });
+  return jwt.sign({ id, tv }, secret, { expiresIn: '7d' });
 };
 
 // ─── Cookie helpers ───────────────────────────────────────────────────────────
@@ -82,8 +84,8 @@ router.post('/login', ...loginMiddleware, async (req, res) => {
       });
     }
 
-    const accessToken = generateClientAccessToken(client._id);
-    const refreshToken = generateClientRefreshToken(client._id);
+    const accessToken = generateClientAccessToken(client._id, client.tokenVersion || 0);
+    const refreshToken = generateClientRefreshToken(client._id, client.tokenVersion || 0);
 
     // Hash and store refresh token
     const salt = await bcrypt.genSalt(10);
@@ -145,13 +147,14 @@ router.post('/refresh', async (req, res) => {
     }
 
     const isMatch = await bcrypt.compare(refreshToken, client.refreshToken);
-    if (!isMatch) {
+    // Issued before the last password change → revoked
+    if (!isMatch || (decoded.tv || 0) !== (client.tokenVersion || 0)) {
       return res
         .status(401)
         .json({ success: false, message: 'Invalid refresh token' });
     }
 
-    const accessToken = generateClientAccessToken(client._id);
+    const accessToken = generateClientAccessToken(client._id, client.tokenVersion || 0);
     res.cookie('clientToken', accessToken, cookieOptions(15 * 60 * 1000));
 
     res.json({ success: true, token: accessToken });
@@ -167,6 +170,93 @@ router.post('/refresh', async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 router.get('/me', clientAuthMiddleware, (req, res) => {
   res.json({ success: true, client: safeClientProfile(req.client) });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// @route  PUT /api/client/auth/profile
+// @desc   Client updates their own contact details. Business name and email
+//         (the login) stay admin-managed — they appear on invoices/agreement.
+// @access Private
+// ─────────────────────────────────────────────────────────────────────────────
+router.put('/profile', clientAuthMiddleware, async (req, res) => {
+  try {
+    const contactName = typeof req.body.contactName === 'string' ? req.body.contactName.trim() : undefined;
+    const phone = typeof req.body.phone === 'string' ? req.body.phone.replace(/[\s-]/g, '') : undefined;
+
+    if (contactName !== undefined && (contactName.length < 2 || contactName.length > 50 || !/^[A-Za-z\s]+$/.test(contactName))) {
+      return res.status(400).json({ success: false, message: 'Contact name must be 2–50 letters (no numbers or special characters).' });
+    }
+    if (phone !== undefined && phone !== '' && !/^\+?[1-9]\d{9,14}$/.test(phone)) {
+      return res.status(400).json({ success: false, message: 'Please enter a valid phone number (10-15 digits).' });
+    }
+
+    const client = await Client.findById(req.client._id);
+    if (!client) {
+      return res.status(404).json({ success: false, message: 'Client not found' });
+    }
+
+    if (contactName !== undefined) client.contactName = contactName;
+    if (phone !== undefined) client.phone = phone || undefined;
+    await client.save();
+
+    res.json({ success: true, message: 'Profile updated successfully', client: safeClientProfile(client) });
+  } catch (error) {
+    logger.error('Client update profile error:', error);
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({ success: false, message: Object.values(error.errors)[0]?.message || error.message });
+    }
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// @route  PUT /api/client/auth/password
+// @desc   Change password (requires the current one). Bumps tokenVersion, so
+//         sessions on other devices are signed out immediately.
+// @access Private
+// ─────────────────────────────────────────────────────────────────────────────
+router.put('/password', clientAuthMiddleware, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ success: false, message: 'Current password and new password are required.' });
+    }
+    if (newPassword.length < 6) {
+      return res.status(400).json({ success: false, message: 'New password must be at least 6 characters long.' });
+    }
+
+    const client = await Client.findById(req.client._id).select('+password');
+    if (!client) {
+      return res.status(404).json({ success: false, message: 'Client not found' });
+    }
+    if (!(await client.matchPassword(currentPassword))) {
+      return res.status(400).json({ success: false, message: 'Current password is incorrect.' });
+    }
+    if (await client.matchPassword(newPassword)) {
+      return res.status(400).json({ success: false, message: 'New password must be different from the current one.' });
+    }
+
+    // New token version: every other device's tokens stop working at once;
+    // this device continues with the fresh tokens issued below.
+    client.tokenVersion = (client.tokenVersion || 0) + 1;
+    const accessToken = generateClientAccessToken(client._id, client.tokenVersion);
+    const refreshToken = generateClientRefreshToken(client._id, client.tokenVersion);
+
+    client.password = newPassword;
+    client.isTemporaryPassword = false;
+    client.temporaryPasswordText = undefined; // admin vault must not keep a stale/known password
+    client.refreshToken = await bcrypt.hash(refreshToken, await bcrypt.genSalt(10));
+    await client.save();
+
+    res.cookie('clientToken', accessToken, cookieOptions(15 * 60 * 1000));
+    res.cookie('clientRefreshToken', refreshToken, cookieOptions(7 * 24 * 60 * 60 * 1000));
+
+    logger.info(`Client changed password: ${client.email}`);
+    res.json({ success: true, message: 'Password changed successfully.', token: accessToken });
+  } catch (error) {
+    logger.error('Client change password error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -267,6 +357,7 @@ router.put('/reset-password/:resettoken', async (req, res) => {
     client.temporaryPasswordText = undefined;
     client.resetPasswordToken = undefined;
     client.resetPasswordExpire = undefined;
+    client.tokenVersion = (client.tokenVersion || 0) + 1; // sign out every existing session
     await client.save();
 
     res.json({ success: true, message: 'Password reset successfully' });

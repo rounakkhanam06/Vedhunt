@@ -1044,3 +1044,6 @@ exports.updateSupportCategories = async (req, res) => {
     res.status(500).json({ message: 'Server error while updating support categories' });
   }
 };
+
+// Reused as the company letterhead fallback (services/invoicePdf.js)
+exports.DEFAULT_CONTACT_INFO = DEFAULT_CONTACT_INFO;

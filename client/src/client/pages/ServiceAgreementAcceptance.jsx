@@ -1,15 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import clientApi from '../../services/clientApi';
 import { toast } from 'react-hot-toast';
 import { FileText, CheckCircle2 } from 'lucide-react';
 import { useClientStore } from '../../store/useClientStore';
 import AgreementTemplate from '../components/AgreementTemplate';
-import DOMPurify from 'dompurify'; // Assuming DOMPurify is used, if not available, we render normally but it's safe since it's from admin.
 
 const ServiceAgreementAcceptance = ({ agreement, onAccept }) => {
   const [accepted, setAccepted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const { client, checkAuth } = useClientStore();
+  const { checkAuth } = useClientStore();
+
+  // Common template + this client's current details, shown unsigned (a
+  // re-sign must not display the previous "Digitally Accepted" stamp).
+  const draftClient = {
+    ...agreement.client,
+    acceptedAgreementVersion: 0,
+    agreementAcceptedAt: null,
+  };
 
   const handleAccept = async () => {
     if (!accepted) return;
@@ -20,7 +27,15 @@ const ServiceAgreementAcceptance = ({ agreement, onAccept }) => {
       await checkAuth(); // refresh client data
       if (onAccept) onAccept();
     } catch (error) {
-      toast.error('Failed to accept agreement');
+      if (error.response?.status === 409) {
+        // Details changed while the client was reading — show the latest
+        toast.error(error.response.data?.message || 'The agreement was updated. Please review it again.');
+        setAccepted(false);
+        setSubmitting(false);
+        if (onAccept) onAccept();
+        return;
+      }
+      toast.error(error.response?.data?.message || 'Failed to accept agreement');
       setSubmitting(false);
     }
   };
@@ -34,13 +49,17 @@ const ServiceAgreementAcceptance = ({ agreement, onAccept }) => {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-white">Service Agreement</h1>
-            <p className="text-[#9CA3AF] text-sm mt-1">Please review and accept the service agreement to continue.</p>
+            <p className="text-[#9CA3AF] text-sm mt-1">
+              {(agreement.client?.acceptedAgreementVersion || 0) > 0
+                ? 'Your service agreement has been updated. Please review and accept it to continue.'
+                : 'Please review and accept the service agreement to continue.'}
+            </p>
           </div>
         </div>
 
         <div className="p-0 overflow-y-auto flex-1 bg-[#1A1F2B]">
           <div className="bg-white max-w-4xl mx-auto shadow-sm">
-            <AgreementTemplate client={client} />
+            <AgreementTemplate client={draftClient} />
           </div>
         </div>
 
@@ -52,9 +71,9 @@ const ServiceAgreementAcceptance = ({ agreement, onAccept }) => {
             `}>
               {accepted && <CheckCircle2 size={16} />}
             </div>
-            <input 
-              type="checkbox" 
-              className="hidden" 
+            <input
+              type="checkbox"
+              className="hidden"
               checked={accepted}
               onChange={(e) => setAccepted(e.target.checked)}
             />

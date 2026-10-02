@@ -7,6 +7,7 @@ const ProjectsTab   = lazy(() => import('../tabs/ProjectsTab'));
 const RetainersTab  = lazy(() => import('../tabs/RetainersTab'));
 const SupportTab    = lazy(() => import('../tabs/SupportTab'));
 const AgreementTab  = lazy(() => import('../tabs/AgreementTab'));
+const AccountTab    = lazy(() => import('../tabs/AccountTab'));
 
 const TAB_COMPONENTS = {
   billing:   BillingTab,
@@ -14,6 +15,7 @@ const TAB_COMPONENTS = {
   retainers: RetainersTab,
   support:   SupportTab,
   agreement: AgreementTab,
+  account:   AccountTab,
 };
 
 const TabLoader = () => (

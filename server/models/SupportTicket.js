@@ -31,9 +31,13 @@ const supportTicketSchema = new mongoose.Schema(
       required: [true, 'Description is required'],
       trim: true,
     },
+    // Admin-configurable (Settings key 'support_categories', managed in the
+    // Support Desk) — validated against that list in the client route, so no
+    // fixed enum here.
     category: {
       type: String,
-      enum: ['Bug Report', 'Feature Request', 'General Inquiry', 'Urgent Fix'],
+      trim: true,
+      maxlength: [100, 'Category cannot exceed 100 characters'],
       required: [true, 'Category is required'],
     },
     priority: {

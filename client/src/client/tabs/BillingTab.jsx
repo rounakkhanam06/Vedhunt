@@ -13,6 +13,7 @@ const BillingTab = () => {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('');
   const [selectedInvoiceId, setSelectedInvoiceId] = useState(null);
+  const [summary, setSummary] = useState(null);
 
   const fetch = useCallback(async (page = 1) => {
     setLoading(true);
@@ -22,6 +23,7 @@ const BillingTab = () => {
       const res = await clientService.getInvoices(params);
       setInvoices(res.data || []);
       setPagination(res.pagination || {});
+      setSummary(res.summary || null);
     } catch (_) {
       // Toast handled by interceptor
     } finally {
@@ -33,11 +35,14 @@ const BillingTab = () => {
 
   const handlePageChange = (p) => fetch(p);
 
+  // Server-side counts across all invoices; the page-based fallback only
+  // applies if an older API without `summary` is answering.
+  const countOnPage = (status) => invoices.filter(i => i.paymentStatus === status).length;
   const summaryStats = [
-    { label: 'Total', count: pagination.total, color: 'text-white' },
-    { label: 'Paid', count: invoices.filter(i => i.paymentStatus === 'Paid').length, color: 'text-[#22C55E]' },
-    { label: 'Unpaid', count: invoices.filter(i => i.paymentStatus === 'Unpaid').length, color: 'text-[#F59E0B]' },
-    { label: 'Overdue', count: invoices.filter(i => i.paymentStatus === 'Overdue').length, color: 'text-[#EF4444]' },
+    { label: 'Total', count: summary?.total ?? pagination.total, color: 'text-white' },
+    { label: 'Paid', count: summary?.Paid ?? countOnPage('Paid'), color: 'text-[#22C55E]' },
+    { label: 'Unpaid', count: summary?.Unpaid ?? countOnPage('Unpaid'), color: 'text-[#F59E0B]' },
+    { label: 'Overdue', count: summary?.Overdue ?? countOnPage('Overdue'), color: 'text-[#EF4444]' },
   ];
 
   return (

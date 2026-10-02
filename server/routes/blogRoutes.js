@@ -1,8 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const blogController = require('../controllers/blogController');
-// Assuming there might be an auth middleware in the project for admin routes. 
-// For now, I will map the routes. If auth is needed, the user can plug it into these routes later.
+const protect = require('../middleware/authMiddleware');
+const authorize = require('../middleware/requirePermission');
+
+// Same permission the admin sidebar uses to show the Blogs page
+const adminOnly = [protect, authorize('cms.manage')];
 
 // --- Public Routes ---
 router.get('/', blogController.getBlogs);
@@ -10,12 +13,11 @@ router.get('/hero', blogController.getBlogHeroSettings);
 router.get('/:slug', blogController.getBlogBySlug);
 
 // --- Admin Routes ---
-// Ideally, these would be protected by an auth middleware (e.g., router.post('/', requireAuth, blogController.createBlog))
-router.get('/admin/all', blogController.getAdminBlogs);
-router.get('/admin/slug/:slug', blogController.getAdminBlogBySlug);
-router.post('/', blogController.createBlog);
-router.put('/:slug', blogController.updateBlog);
-router.delete('/:slug', blogController.deleteBlog);
-router.put('/admin/hero', blogController.updateBlogHeroSettings);
+router.get('/admin/all', ...adminOnly, blogController.getAdminBlogs);
+router.get('/admin/slug/:slug', ...adminOnly, blogController.getAdminBlogBySlug);
+router.post('/', ...adminOnly, blogController.createBlog);
+router.put('/:slug', ...adminOnly, blogController.updateBlog);
+router.delete('/:slug', ...adminOnly, blogController.deleteBlog);
+router.put('/admin/hero', ...adminOnly, blogController.updateBlogHeroSettings);
 
 module.exports = router;
