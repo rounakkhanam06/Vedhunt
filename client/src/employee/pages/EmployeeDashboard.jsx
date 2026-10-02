@@ -3,7 +3,8 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import employeeApi from '../../services/employeeApi';
 import toast from 'react-hot-toast';
 import { useEmployeeStore } from '../../store/useEmployeeStore';
-import { Clock, ShieldAlert, Trophy, Star, Target, AlertTriangle, TrendingUp, ChevronDown, ChevronUp, UserPlus, PhoneCall, CalendarClock, AlertCircle, Flame, FileText, Handshake } from 'lucide-react';
+import { Clock, ShieldAlert, Trophy, Star, Target, AlertTriangle, TrendingUp, ChevronDown, ChevronUp, UserPlus, PhoneCall, CalendarClock, AlertCircle, Flame, FileText, Handshake, ShieldCheck, ChevronRight } from 'lucide-react';
+import LegalDocumentModal from '../../components/legal/LegalDocumentModal';
 import employeeAvatar from '../../assets/033a13e9af4efbb035a04c3777c4934d-removebg-preview.png';
 
 import RealTimeTimer from '../components/RealTimeTimer';
@@ -62,6 +63,7 @@ const EmployeeDashboard = () => {
   const canViewLeads = authEmployee?.permissions?.includes('*') || authEmployee?.permissions?.includes('leads.view');
 
   const [employee, setEmployee] = useState(null);
+  const [legalDoc, setLegalDoc] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
   // Advanced Timesheet State
@@ -1141,8 +1143,31 @@ const EmployeeDashboard = () => {
                 </button>
               </form>
             </div>
+
+            {/* Legal — readable any time */}
+            <div className="lg:col-span-3 bg-app-card p-6 rounded-xl border border-app-border">
+              <h3 className="text-sm font-bold mb-1">Legal</h3>
+              <p className="text-xs text-app-text-muted mb-4">The terms and privacy policy that apply to your use of the Employee Portal.</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {[
+                  { doc: 'employee-terms', label: 'Terms & Conditions', icon: FileText },
+                  { doc: 'employee-privacy', label: 'Privacy Policy', icon: ShieldCheck },
+                ].map(({ doc, label, icon: Icon }) => (
+                  <button
+                    key={doc}
+                    type="button"
+                    onClick={() => setLegalDoc(doc)}
+                    className="flex items-center justify-between gap-3 px-4 py-3 rounded-lg bg-form-input-bg border border-app-border text-left hover:border-primary/40 transition-all cursor-pointer"
+                  >
+                    <span className="flex items-center gap-2.5 text-sm text-app-text"><Icon size={16} className="text-primary" /> {label}</span>
+                    <ChevronRight size={16} className="text-app-text-muted" />
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         )}
+        {legalDoc && <LegalDocumentModal doc={legalDoc} onClose={() => setLegalDoc(null)} />}
 
         {/* ATTENDANCE & LEAVE PANEL */}
         {activeTab === 'attendance' && (

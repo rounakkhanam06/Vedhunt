@@ -58,6 +58,7 @@ const FAQManager = lazy(() => import('../admin/pages/FAQManager'));
 const ContactInquiries = lazy(() => import('../admin/pages/ContactInquiries'));
 const PrivacyPolicyManager = lazy(() => import('../admin/pages/PrivacyPolicyManager'));
 const TermsConditionsManager = lazy(() => import('../admin/pages/TermsConditionsManager'));
+const PortalLegalManager = lazy(() => import('../admin/pages/PortalLegalManager'));
 const CookiePolicyManager = lazy(() => import('../admin/pages/CookiePolicyManager'));
 const DPAManager = lazy(() => import('../admin/pages/DPAManager'));
 const RefundPolicyManager = lazy(() => import('../admin/pages/RefundPolicyManager'));
@@ -479,12 +480,16 @@ export const router = createBrowserRouter([
             element: withPermission(DPAManager, 'legal.manage')
           },
           {
+            path: 'portal-legal/:doc',
+            element: withPermission(PortalLegalManager, 'legal.manage')
+          },
+          {
             path: 'refund-policy',
             element: withPermission(RefundPolicyManager, 'legal.manage')
           },
           {
             path: 'service-agreement',
-            element: withPermission(ServiceAgreementManager, 'team.manage')
+            element: withPermission(ServiceAgreementManager, 'cms.manage')
           },
           {
             path: 'clients',

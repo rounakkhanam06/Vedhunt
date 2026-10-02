@@ -50,11 +50,25 @@ async function provisionClientAccount({ businessName, contactName, email, phone,
  * whenever a lead's status transitions into Won. Idempotent: safe to call
  * again if a Won lead is re-saved (e.g. deal value corrected).
  */
+async function noteArchivedClient(lead, client, actorAdminId) {
+  await Lead.updateOne(
+    { _id: lead._id },
+    { $push: { pipelineHistory: { status: 'Client link skipped', date: new Date(), updatedBy: actorAdminId, note: `Client account ${client.clientId} is deleted (archived). Restore it from Client Accounts to give this customer portal access again.` } } }
+  );
+}
+
 async function convertWonLeadToClient(lead, actorAdminId) {
   const existingByLead = await Client.findOne({ leadRef: lead._id }).lean();
-  if (existingByLead) return existingByLead;
+  if (existingByLead) {
+    if (existingByLead.deletedAt) await noteArchivedClient(lead, existingByLead, actorAdminId);
+    return existingByLead;
+  }
 
   const existingByEmail = await Client.findOne({ email: String(lead.email || '').toLowerCase().trim() }).lean();
+  if (existingByEmail?.deletedAt) {
+    await noteArchivedClient(lead, existingByEmail, actorAdminId);
+    return existingByEmail;
+  }
   if (existingByEmail) {
     logger.info(`Won lead ${lead._id} matches existing client ${existingByEmail._id} by email — not creating a duplicate account.`);
     await Lead.updateOne(
