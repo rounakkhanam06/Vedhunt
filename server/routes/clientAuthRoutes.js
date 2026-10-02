@@ -77,10 +77,16 @@ router.post('/login', ...loginMiddleware, async (req, res) => {
         .json({ success: false, message: 'Invalid email or password' });
     }
 
+    if (client.deletedAt) {
+      return res.status(401).json({
+        success: false,
+        message: 'This account has been closed. Please contact Vedhunt if you think this is a mistake.',
+      });
+    }
     if (!client.isActive) {
       return res.status(401).json({
         success: false,
-        message: 'Your account is inactive. Please contact support.',
+        message: 'Your account has been suspended. Please contact Vedhunt support.',
       });
     }
 
@@ -289,7 +295,8 @@ router.post('/forgot-password', async (req, res) => {
       email: (req.body.email || '').toLowerCase().trim(),
     }).select('+resetPasswordToken +resetPasswordExpire');
 
-    if (!client) {
+    // Suspended/closed accounts get the same generic answer and no email
+    if (!client || !client.isActive || client.deletedAt) {
       // Security: don't reveal whether email exists
       return res.json({
         success: true,

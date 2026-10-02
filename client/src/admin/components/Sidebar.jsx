@@ -88,6 +88,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
       requiredPermission: 'cms.manage',
       subItems: [
         { name: 'Client Accounts', path: '/admin/clients' },
+        { name: 'Client Service Agreement', path: '/admin/service-agreement' },
         { name: 'Invoice Manager', path: '/admin/invoices' },
         { name: 'Project Tracker', path: '/admin/projects' },
         { name: 'Retainers', path: '/admin/retainers' },
@@ -141,6 +142,8 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
         { name: 'Cookie Policy', path: '/admin/cookie-policy' },
         { name: 'Data Processing Agreement', path: '/admin/data-processing-agreement' },
         { name: 'Refund & Billing Policy', path: '/admin/refund-policy' },
+        { name: 'Client Portal Terms & Privacy', path: '/admin/portal-legal/client-terms' },
+        { name: 'Employee Portal Terms & Privacy', path: '/admin/portal-legal/employee-terms' },
       ]
     },
     {
@@ -179,7 +182,6 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
         { name: 'Performance Cycles', path: '/admin/performance-cycles' },
         { name: 'KPI Goal Assigner', path: '/admin/performance-goals' },
         { name: 'Company Performance Matrix', path: '/admin/performance-matrix' },
-        { name: 'Client Service Agreement', path: '/admin/service-agreement' },
       ]
     },
     { name: 'Team Management', path: '/admin/team', icon: ShieldCheck, requiredPermission: 'team.manage' },

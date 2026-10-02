@@ -45,20 +45,22 @@ const clientAuthMiddleware = async (req, res, next) => {
         .json({ success: false, message: 'Client account not found' });
     }
 
-    // Token issued before the last password change/reset → revoked
-    if ((decoded.tv || 0) !== (req.client.tokenVersion || 0)) {
-      return res
-        .status(401)
-        .json({ success: false, message: 'Session expired, please login again' });
-    }
-
-    if (!req.client.isActive) {
+    if (!req.client.isActive || req.client.deletedAt) {
       return res
         .status(401)
         .json({
           success: false,
-          message: 'Your account has been deactivated. Please contact support.',
+          message: req.client.deletedAt
+            ? 'This account has been closed.'
+            : 'Your account has been suspended. Please contact Vedhunt support.',
         });
+    }
+
+    // Token issued before the last password change/reset/suspension → revoked
+    if ((decoded.tv || 0) !== (req.client.tokenVersion || 0)) {
+      return res
+        .status(401)
+        .json({ success: false, message: 'Session expired, please login again' });
     }
 
     next();

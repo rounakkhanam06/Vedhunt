@@ -47,6 +47,17 @@ const clientSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    // Suspension (reversible): isActive=false + who/when/why. Internal only —
+    // never returned by the client-facing APIs.
+    suspendedAt: { type: Date },
+    suspendedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin' },
+    suspensionReason: { type: String, trim: true, maxlength: 500 },
+    // Archive ("delete"): login blocked and hidden from admin lists, but every
+    // invoice/project/ticket is kept. Super Admin can restore it, or delete it
+    // permanently once nothing is linked to it.
+    deletedAt: { type: Date, index: true },
+    deletedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin' },
+    deletionReason: { type: String, trim: true, maxlength: 500 },
     refreshToken: {
       type: String,
       select: false,

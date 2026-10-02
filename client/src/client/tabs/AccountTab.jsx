@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
-import { User, Lock, Eye, EyeOff, Save } from 'lucide-react';
+import { User, Lock, Eye, EyeOff, Save, FileText, ShieldCheck, ChevronRight } from 'lucide-react';
+import LegalDocumentModal from '../../components/legal/LegalDocumentModal';
 import clientService from '../../services/clientService';
 import { useClientStore } from '../../store/useClientStore';
 
@@ -19,6 +20,7 @@ const AccountTab = () => {
   const [pw, setPw] = useState({ current: '', next: '', confirm: '' });
   const [showPw, setShowPw] = useState(false);
   const [savingPw, setSavingPw] = useState(false);
+  const [legalDoc, setLegalDoc] = useState(null);
 
   useEffect(() => {
     setProfile({ contactName: client?.contactName || '', phone: client?.phone || '' });
@@ -167,6 +169,30 @@ const AccountTab = () => {
           </button>
         </form>
       </div>
+
+      {/* Legal — readable any time */}
+      <div className="bg-bg-card border border-border-default rounded-2xl p-6">
+        <h3 className="text-white font-semibold mb-1">Legal</h3>
+        <p className="text-[#9CA3AF] text-xs mb-4">The terms and privacy policy that apply to your use of the Client Portal.</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {[
+            { doc: 'client-terms', label: 'Terms & Conditions', icon: FileText },
+            { doc: 'client-privacy', label: 'Privacy Policy', icon: ShieldCheck },
+          ].map(({ doc, label, icon: Icon }) => (
+            <button
+              key={doc}
+              type="button"
+              onClick={() => setLegalDoc(doc)}
+              className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-bg-surface/40 border border-border-default text-left hover:border-primary/40 transition-all cursor-pointer"
+            >
+              <span className="flex items-center gap-2.5 text-sm text-white"><Icon size={16} className="text-primary" /> {label}</span>
+              <ChevronRight size={16} className="text-[#6B7280]" />
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {legalDoc && <LegalDocumentModal doc={legalDoc} onClose={() => setLegalDoc(null)} />}
     </div>
   );
 };

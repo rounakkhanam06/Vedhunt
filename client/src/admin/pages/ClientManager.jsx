@@ -2,9 +2,28 @@ import { useState, useEffect, useCallback } from 'react';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
 import {
-  Users, Plus, Search, Eye, X, Edit2, ToggleLeft, ToggleRight,
+  Users, Plus, Search, Eye, X, Edit2,
   Mail, Phone, Building, UserCheck, Link2, ChevronLeft, ChevronRight, Save,
+  Ban, RotateCcw, Trash2, AlertTriangle, ArchiveRestore,
 } from 'lucide-react';
+import { usePermissions } from '../hooks/usePermissions';
+
+const STATUS_TABS = [
+  { id: '', label: 'All' },
+  { id: 'active', label: 'Active' },
+  { id: 'suspended', label: 'Suspended' },
+  { id: 'archived', label: 'Deleted' },
+];
+
+const clientStatus = (c) => (c.deletedAt ? 'archived' : c.isActive ? 'active' : 'suspended');
+
+const STATUS_BADGE = {
+  active: { label: 'Active', cls: 'bg-green-500/10 text-green-400 border-green-500/20' },
+  suspended: { label: 'Suspended', cls: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
+  archived: { label: 'Deleted', cls: 'bg-red-500/10 text-red-400 border-red-500/20' },
+};
+
+const fmtDate = (d) => (d ? new Date(d).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '');
 
 const EMPTY_FORM = {
   businessName: '', contactName: '', email: '', phone: '',
@@ -25,6 +44,15 @@ export default function ClientManager() {
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
   const [previewClient, setPreviewClient] = useState(null);
+  const [statusFilter, setStatusFilter] = useState('');
+  // { type: 'suspend' | 'archive' | 'permanent', client }
+  const [action, setAction] = useState(null);
+  const [actionReason, setActionReason] = useState('');
+  const [confirmText, setConfirmText] = useState('');
+  const [linked, setLinked] = useState(null);
+  const [acting, setActing] = useState(false);
+  const { can } = usePermissions();
+  const isSuperAdmin = can('*');
 
   // Debounce search
   useEffect(() => {
@@ -35,19 +63,19 @@ export default function ClientManager() {
   const fetchClients = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await api.get('/admin/clients', { params: { page, limit: 15, search: dSearch } });
+      const res = await api.get('/admin/clients', { params: { page, limit: 15, search: dSearch, ...(statusFilter && { status: statusFilter }) } });
       setClients(res.data.data || []);
       setTotal(res.data.pagination?.total || 0);
       setTotalPages(res.data.pagination?.totalPages || 1);
     } catch { toast.error('Failed to load clients'); }
     finally { setLoading(false); }
-  }, [page, dSearch]);
+  }, [page, dSearch, statusFilter]);
 
   useEffect(() => { fetchClients(); }, [fetchClients]);
 
   // Lock scroll when modal or preview is open
   useEffect(() => {
-    if (showModal || previewClient) {
+    if (showModal || previewClient || action) {
       document.body.style.overflow = 'hidden';
       document.documentElement.style.overflow = 'hidden';
     } else {
@@ -58,7 +86,7 @@ export default function ClientManager() {
       document.body.style.overflow = '';
       document.documentElement.style.overflow = '';
     };
-  }, [showModal, previewClient]);
+  }, [showModal, previewClient, action]);
 
   const openCreate = () => { setSelectedClient(null); setForm(EMPTY_FORM); setErrors({}); setShowModal(true); };
 
@@ -90,7 +118,7 @@ export default function ClientManager() {
   };
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     // Frontend Validation
     const newErrors = {};
     if (form.businessName.length < 2 || form.businessName.length > 100) {
@@ -135,12 +163,47 @@ export default function ClientManager() {
     } finally { setSaving(false); }
   };
 
-  const toggleActive = async (client) => {
+  const openAction = async (type, client) => {
+    setAction({ type, client });
+    setActionReason('');
+    setConfirmText('');
+    setLinked(null);
+    if (type === 'archive' || type === 'permanent') {
+      try {
+        const res = await api.get(`/admin/clients/${client._id}/linked-records`);
+        setLinked(res.data.data);
+      } catch { setLinked({ error: true }); }
+    }
+  };
+
+  const runAction = async () => {
+    if (!action) return;
+    const { type, client } = action;
+    setActing(true);
     try {
-      await api.put(`/admin/clients/${client._id}`, { isActive: !client.isActive });
-      toast.success(`Client ${client.isActive ? 'deactivated' : 'activated'}`);
+      let res;
+      if (type === 'suspend') res = await api.post(`/admin/clients/${client._id}/suspend`, { reason: actionReason });
+      if (type === 'archive') res = await api.delete(`/admin/clients/${client._id}`, { data: { reason: actionReason } });
+      if (type === 'permanent') res = await api.delete(`/admin/clients/${client._id}/permanent`, { data: { confirm: confirmText.trim() } });
+      toast.success(res.data.message);
+      setAction(null);
+      setPreviewClient(null);
       fetchClients();
-    } catch { toast.error('Failed to update status'); }
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Action failed');
+    } finally {
+      setActing(false);
+    }
+  };
+
+  // One-click, non-destructive actions
+  const quickAction = async (path, client) => {
+    try {
+      const res = await api.post(`/admin/clients/${client._id}/${path}`);
+      toast.success(res.data.message);
+      setPreviewClient(null);
+      fetchClients();
+    } catch (err) { toast.error(err?.response?.data?.message || 'Action failed'); }
   };
 
   const f = (k) => (e) => {
@@ -191,6 +254,23 @@ export default function ClientManager() {
             className="w-full bg-admin-bg border border-outline-variant rounded-lg pl-9 pr-4 py-2.5 text-sm text-on-surface focus:outline-none focus:border-secondary transition-colors"
           />
         </div>
+        <div className="flex flex-wrap gap-2 mt-3" role="tablist" aria-label="Filter by account status">
+          {STATUS_TABS.map((t) => (
+            <button
+              key={t.id || 'all'}
+              role="tab"
+              aria-selected={statusFilter === t.id}
+              onClick={() => { setStatusFilter(t.id); setPage(1); }}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors cursor-pointer ${
+                statusFilter === t.id
+                  ? 'bg-secondary/15 text-secondary border-secondary/30'
+                  : 'bg-admin-bg text-on-surface-variant border-outline-variant hover:text-on-surface'
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Table */}
@@ -234,16 +314,12 @@ export default function ClientManager() {
                     <td className="px-4 py-3 text-on-surface-variant hidden md:table-cell">{c.email}</td>
                     <td className="px-4 py-3 text-on-surface-variant hidden lg:table-cell">{c.phone || '—'}</td>
                     <td className="px-4 py-3 text-center">
-                      <button
-                        onClick={() => toggleActive(c)}
-                        className="cursor-pointer"
-                        title={c.isActive ? 'Deactivate' : 'Activate'}
+                      <span
+                        title={c.suspensionReason || c.deletionReason || ''}
+                        className={`inline-flex items-center rounded-full text-[10px] font-bold px-2.5 py-0.5 border ${STATUS_BADGE[clientStatus(c)].cls}`}
                       >
-                        {c.isActive
-                          ? <ToggleRight size={22} className="text-green-400" />
-                          : <ToggleLeft size={22} className="text-on-surface-variant" />
-                        }
-                      </button>
+                        {STATUS_BADGE[clientStatus(c)].label}
+                      </span>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-center gap-2">
@@ -261,6 +337,36 @@ export default function ClientManager() {
                         >
                           <Edit2 size={15} />
                         </button>
+                        {clientStatus(c) === 'active' && (
+                          <button onClick={() => openAction('suspend', c)} title="Suspend account"
+                            className="p-1.5 text-amber-400 hover:bg-amber-500/10 rounded-lg transition-colors cursor-pointer">
+                            <Ban size={15} />
+                          </button>
+                        )}
+                        {clientStatus(c) === 'suspended' && (
+                          <button onClick={() => quickAction('reactivate', c)} title="Reactivate account"
+                            className="p-1.5 text-green-400 hover:bg-green-500/10 rounded-lg transition-colors cursor-pointer">
+                            <RotateCcw size={15} />
+                          </button>
+                        )}
+                        {isSuperAdmin && clientStatus(c) !== 'archived' && (
+                          <button onClick={() => openAction('archive', c)} title="Delete account"
+                            className="p-1.5 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer">
+                            <Trash2 size={15} />
+                          </button>
+                        )}
+                        {isSuperAdmin && clientStatus(c) === 'archived' && (
+                          <>
+                            <button onClick={() => quickAction('restore', c)} title="Restore account"
+                              className="p-1.5 text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors cursor-pointer">
+                              <ArchiveRestore size={15} />
+                            </button>
+                            <button onClick={() => openAction('permanent', c)} title="Delete permanently"
+                              className="p-1.5 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer">
+                              <AlertTriangle size={15} />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -397,8 +503,8 @@ export default function ClientManager() {
                   <p className="text-on-surface-variant text-xs">{previewClient.clientId}</p>
                 </div>
               </div>
-              <button 
-                onClick={() => setPreviewClient(null)} 
+              <button
+                onClick={() => setPreviewClient(null)}
                 className="p-1.5 rounded-lg hover:bg-surface-container-low text-on-surface-variant cursor-pointer transition-colors"
               >
                 <X size={18} />
@@ -423,21 +529,27 @@ export default function ClientManager() {
                 <div className="space-y-1">
                   <p className="text-on-surface-variant text-[10px] uppercase font-bold tracking-wider">Account Status</p>
                   <div className="pt-0.5">
-                    <span className={`inline-flex items-center rounded-full text-[10px] font-bold px-2.5 py-0.5 ${
-                      previewClient.isActive 
-                        ? 'bg-green-500/10 text-green-400 border border-green-500/20' 
-                        : 'bg-red-500/10 text-red-400 border border-red-500/20'
-                    }`}>
-                      {previewClient.isActive ? 'Active' : 'Inactive'}
+                    <span className={`inline-flex items-center rounded-full text-[10px] font-bold px-2.5 py-0.5 border ${STATUS_BADGE[clientStatus(previewClient)].cls}`}>
+                      {STATUS_BADGE[clientStatus(previewClient)].label}
                     </span>
+                    {clientStatus(previewClient) === 'suspended' && previewClient.suspendedAt && (
+                      <p className="text-on-surface-variant text-[11px] mt-1">
+                        Since {fmtDate(previewClient.suspendedAt)}{previewClient.suspensionReason ? ` — ${previewClient.suspensionReason}` : ''}
+                      </p>
+                    )}
+                    {clientStatus(previewClient) === 'archived' && (
+                      <p className="text-on-surface-variant text-[11px] mt-1">
+                        Deleted {fmtDate(previewClient.deletedAt)}{previewClient.deletionReason ? ` — ${previewClient.deletionReason}` : ''}
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="space-y-1">
                   <p className="text-on-surface-variant text-[10px] uppercase font-bold tracking-wider">Password / Security</p>
                   <div className="pt-0.5 flex flex-col gap-1">
                     <span className={`inline-flex self-start items-center rounded-full text-[10px] font-bold px-2.5 py-0.5 ${
-                      previewClient.isTemporaryPassword 
-                        ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' 
+                      previewClient.isTemporaryPassword
+                        ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
                         : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
                     }`}>
                       {previewClient.isTemporaryPassword ? 'Temporary Password Active' : 'Custom Password Set'}
@@ -514,11 +626,125 @@ export default function ClientManager() {
             </div>
 
             <div className="px-6 py-3.5 bg-admin-bg/40 border-t border-outline-variant flex justify-end">
-              <button 
+              <button
                 onClick={() => setPreviewClient(null)}
                 className="px-5 py-2 bg-admin-bg border border-outline-variant text-on-surface-variant hover:text-on-surface rounded-xl text-sm cursor-pointer transition-colors"
               >
                 Close Preview
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Suspend / Delete / Delete permanently dialog */}
+      {action && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div role="dialog" aria-modal="true" aria-labelledby="client-action-title" className="w-full max-w-md bg-surface border border-outline-variant rounded-2xl shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-outline-variant">
+              <h3 id="client-action-title" className="text-on-surface font-semibold text-lg">
+                {action.type === 'suspend' && 'Suspend account'}
+                {action.type === 'archive' && 'Delete account'}
+                {action.type === 'permanent' && 'Delete permanently'}
+              </h3>
+              <button onClick={() => setAction(null)} aria-label="Close" className="p-1.5 rounded-lg hover:bg-surface-container-low text-on-surface-variant cursor-pointer">
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4 text-sm">
+              <p className="text-on-surface">
+                <span className="font-semibold">{action.client.businessName}</span>{' '}
+                <span className="text-on-surface-variant font-mono text-xs">({action.client.clientId})</span>
+              </p>
+
+              {action.type === 'suspend' && (
+                <ul className="list-disc pl-5 text-on-surface-variant space-y-1 text-xs">
+                  <li>The client is signed out immediately and cannot log in.</li>
+                  <li>All invoices, projects and tickets stay as they are.</li>
+                  <li>They will not receive portal notifications while suspended.</li>
+                  <li>You can reactivate the account at any time.</li>
+                </ul>
+              )}
+
+              {action.type === 'archive' && (
+                <>
+                  <ul className="list-disc pl-5 text-on-surface-variant space-y-1 text-xs">
+                    <li>The client is signed out and can no longer log in.</li>
+                    <li>The account is hidden from client lists and pickers.</li>
+                    <li>Invoices, payments, projects and tickets are <strong>kept</strong> for your records.</li>
+                    <li>A Super Admin can restore it from the <em>Deleted</em> tab.</li>
+                  </ul>
+                  {linked && !linked.error && (
+                    <p className="text-on-surface-variant text-xs">
+                      Linked records: {linked.invoices} invoices · {linked.payments} payments · {linked.projects} projects · {linked.retainers} retainers · {linked.tickets} tickets
+                    </p>
+                  )}
+                </>
+              )}
+
+              {(action.type === 'suspend' || action.type === 'archive') && (
+                <div>
+                  <label htmlFor="client-action-reason" className="block text-on-surface-variant text-xs font-medium mb-1.5">Reason (internal, not shown to the client)</label>
+                  <textarea
+                    id="client-action-reason"
+                    rows={3}
+                    maxLength={500}
+                    value={actionReason}
+                    onChange={(e) => setActionReason(e.target.value)}
+                    placeholder={action.type === 'suspend' ? 'e.g. Payment overdue by 60 days' : 'e.g. Contract ended'}
+                    className="w-full px-3 py-2 bg-admin-bg border border-outline-variant rounded-xl text-on-surface text-sm focus:outline-none focus:border-secondary resize-none"
+                  />
+                </div>
+              )}
+
+              {action.type === 'permanent' && (
+                !linked ? (
+                  <div className="flex justify-center py-4"><div className="w-6 h-6 border-2 border-secondary/30 border-t-secondary rounded-full animate-spin" /></div>
+                ) : linked.error ? (
+                  <p className="text-red-400 text-xs">Could not check linked records. Please try again.</p>
+                ) : linked.total > 0 ? (
+                  <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-300 space-y-1">
+                    <p className="font-semibold">This client cannot be permanently deleted.</p>
+                    <p>It has {linked.invoices} invoices, {linked.payments} payments, {linked.projects} projects, {linked.retainers} retainers and {linked.tickets} tickets. These records must be kept, so the account stays deleted (archived).</p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-300">
+                      This removes the account forever. It cannot be undone.
+                    </div>
+                    <div>
+                      <label htmlFor="client-action-confirm" className="block text-on-surface-variant text-xs font-medium mb-1.5">
+                        Type <span className="font-mono text-on-surface">{action.client.clientId}</span> to confirm
+                      </label>
+                      <input
+                        id="client-action-confirm"
+                        value={confirmText}
+                        onChange={(e) => setConfirmText(e.target.value)}
+                        autoComplete="off"
+                        className="w-full px-3 py-2 bg-admin-bg border border-outline-variant rounded-xl text-on-surface text-sm font-mono focus:outline-none focus:border-red-500"
+                      />
+                    </div>
+                  </>
+                )
+              )}
+            </div>
+
+            <div className="px-6 py-3.5 bg-admin-bg/40 border-t border-outline-variant flex justify-end gap-2">
+              <button onClick={() => setAction(null)} className="px-4 py-2 bg-admin-bg border border-outline-variant text-on-surface-variant hover:text-on-surface rounded-xl text-sm cursor-pointer">
+                Cancel
+              </button>
+              <button
+                onClick={runAction}
+                disabled={
+                  acting ||
+                  (action.type === 'permanent' && (!linked || linked.error || linked.total > 0 || confirmText.trim() !== action.client.clientId))
+                }
+                className={`px-4 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer ${
+                  action.type === 'suspend' ? 'bg-amber-600 hover:bg-amber-700' : 'bg-red-600 hover:bg-red-700'
+                }`}
+              >
+                {acting ? 'Working…' : action.type === 'suspend' ? 'Suspend account' : action.type === 'archive' ? 'Delete account' : 'Delete permanently'}
               </button>
             </div>
           </div>

@@ -4,6 +4,7 @@ import { useClientStore } from '../../store/useClientStore';
 import { Eye, EyeOff, Lock, Mail, AlertCircle, ArrowRight } from 'lucide-react';
 import toast from 'react-hot-toast';
 import logo from '../../assets/DarkthemeLogo.png';
+import LegalConsentCheckbox from '../../components/legal/LegalConsentCheckbox';
 
 const ClientLogin = () => {
   const [form, setForm] = useState({ email: '', password: '' });
@@ -14,10 +15,22 @@ const ClientLogin = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const from = location.state?.from?.pathname || '/client/dashboard';
+  // Terms/Privacy consent — required to sign in, remembered on this device
+  const [agreed, setAgreed] = useState(() => {
+    try { return localStorage.getItem('vh_legal_consent_client') === '1'; } catch { return false; }
+  });
+  const handleAgree = (value) => {
+    setAgreed(value);
+    try { value ? localStorage.setItem('vh_legal_consent_client', '1') : localStorage.removeItem('vh_legal_consent_client'); } catch { /* storage unavailable */ }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    if (!agreed) {
+      setError('Please agree to the Terms & Conditions and Privacy Policy to continue.');
+      return;
+    }
     setLoading(true);
     try {
       const data = await login(form.email, form.password);
@@ -127,6 +140,14 @@ const ClientLogin = () => {
                   </button>
                 </div>
               </div>
+
+              <LegalConsentCheckbox
+                audience="client"
+                checked={agreed}
+                onChange={handleAgree}
+                className="mt-5"
+                labelClassName="text-[#D1D5DB]"
+              />
 
               {/* Submit Button */}
               <button

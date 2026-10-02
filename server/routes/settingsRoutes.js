@@ -3,6 +3,8 @@ const router = express.Router();
 const settingsController = require('../controllers/settingsController');
 const authMiddleware = require('../middleware/authMiddleware');
 const roleMiddleware = require('../middleware/roleMiddleware');
+const requirePermission = require('../middleware/requirePermission');
+const portalLegalController = require('../controllers/portalLegalController');
 
 // Public route to get contact info
 router.get('/settings/contact', settingsController.getContactInfo);
@@ -145,6 +147,17 @@ router.put(
   authMiddleware,
   roleMiddleware('SUPER_ADMIN', 'EDITOR'),
   settingsController.updateSupportCategories
+);
+
+// Client Portal / Employee Portal Terms & Privacy (separate from the website's)
+// :doc = client-terms | client-privacy | employee-terms | employee-privacy
+// Public read: the login pages link to these before anyone is signed in.
+router.get('/settings/portal-legal/:doc', portalLegalController.getPortalLegal);
+router.put(
+  '/admin/settings/portal-legal/:doc',
+  authMiddleware,
+  requirePermission('legal.manage'),
+  portalLegalController.updatePortalLegal
 );
 
 module.exports = router;

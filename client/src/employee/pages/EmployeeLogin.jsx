@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useEmployeeStore } from '../../store/useEmployeeStore';
 import { Lock, Mail, Eye, EyeOff } from 'lucide-react';
 import logo from '../../assets/DarkthemeLogo.png';
+import LegalConsentCheckbox from '../../components/legal/LegalConsentCheckbox';
 
 const EmployeeLogin = () => {
   const [email, setEmail] = useState('');
@@ -16,6 +17,14 @@ const EmployeeLogin = () => {
   const location = useLocation();
 
   const from = location.state?.from?.pathname || '/employee/dashboard';
+  // Terms/Privacy consent — required to sign in, remembered on this device
+  const [agreed, setAgreed] = useState(() => {
+    try { return localStorage.getItem('vh_legal_consent_employee') === '1'; } catch { return false; }
+  });
+  const handleAgree = (value) => {
+    setAgreed(value);
+    try { value ? localStorage.setItem('vh_legal_consent_employee', '1') : localStorage.removeItem('vh_legal_consent_employee'); } catch { /* storage unavailable */ }
+  };
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -31,6 +40,10 @@ const EmployeeLogin = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    if (!agreed) {
+      setError('Please agree to the Terms & Conditions and Privacy Policy to continue.');
+      return;
+    }
     setIsLoading(true);
 
     try {
@@ -103,6 +116,13 @@ const EmployeeLogin = () => {
               </button>
             </div>
           </div>
+
+          <LegalConsentCheckbox
+            audience="employee"
+            checked={agreed}
+            onChange={handleAgree}
+            labelClassName="text-app-text-muted"
+          />
 
           <div>
             <button

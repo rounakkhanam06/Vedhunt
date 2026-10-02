@@ -12,6 +12,10 @@ const logger = require('../utils/logger');
 const { updateAgreement, getAgreement } = require('../controllers/agreementController');
 const { provisionClientAccount } = require('../services/clientProvisioning');
 const { agreementDetailsChanged, nextAgreementVersion } = require('../services/agreementVersioning');
+const requirePermission = require('../middleware/requirePermission');
+const AuditLog = require('../models/AuditLog');
+const PaymentProof = require('../models/PaymentProof');
+const ClientNotification = require('../models/ClientNotification');
 const {
   notifyInvoiceCreated, notifyAgreementUpdated, notifyTicketReply, notifyTicketStatus,
 } = require('../services/clientNotify');
@@ -92,6 +96,15 @@ router.get('/clients', async (req, res) => {
     if (req.query.isActive !== undefined) {
       filter.isActive = req.query.isActive === 'true';
     }
+    // Archived ("deleted") clients are hidden everywhere unless asked for —
+    // this also keeps them out of the invoice/project/ticket client pickers.
+    const STATUS_FILTERS = {
+      active: { isActive: true, deletedAt: null },
+      suspended: { isActive: false, deletedAt: null },
+      archived: { deletedAt: { $ne: null } },
+      all: {},
+    };
+    Object.assign(filter, STATUS_FILTERS[req.query.status] || { deletedAt: null });
 
     const [clients, total] = await Promise.all([
       Client.find(filter)
@@ -259,12 +272,19 @@ router.put('/clients/:id', async (req, res) => {
       return res.status(404).json({ success: false, message: 'Client not found' });
     }
 
+    if (isActive !== undefined && client.deletedAt) {
+      return res.status(400).json({ success: false, message: 'This account is archived. Restore it before changing its status.' });
+    }
+
     if (businessName !== undefined) client.businessName = businessName;
     if (contactName !== undefined) client.contactName = contactName;
     if (email !== undefined) client.email = email.toLowerCase().trim();
     if (phone !== undefined) client.phone = phone;
     if (notes !== undefined) client.notes = notes;
-    if (isActive !== undefined) client.isActive = isActive;
+    if (isActive !== undefined && Boolean(isActive) !== client.isActive) {
+      applySuspension(client, !isActive, req.user._id);
+      await auditClient(req, isActive ? 'CLIENT_REACTIVATE' : 'CLIENT_SUSPEND', client);
+    }
     if (newPassword) {
       client.password = newPassword;
       client.temporaryPasswordText = newPassword;
@@ -291,19 +311,215 @@ router.put('/clients/:id', async (req, res) => {
   }
 });
 
-/**
- * @route  DELETE /api/admin/clients/:id
- * @desc   Soft-delete (deactivate) a client
- */
-router.delete('/clients/:id', async (req, res) => {
+// ─── Account status: suspend / reactivate / archive / restore / delete ───────
+
+const cleanReason = (r) => (typeof r === 'string' ? r.trim().slice(0, 500) : '');
+
+// Suspended = isActive false. Bumping tokenVersion signs the client out of
+// every device at once (clientAuthMiddleware), and keeps old sessions dead
+// after a later reactivation.
+function applySuspension(client, suspend, adminId, reason = '') {
+  if (suspend) {
+    client.isActive = false;
+    client.suspendedAt = new Date();
+    client.suspendedBy = adminId;
+    client.suspensionReason = reason || undefined;
+    client.tokenVersion = (client.tokenVersion || 0) + 1;
+  } else {
+    client.isActive = true;
+    client.suspendedAt = undefined;
+    client.suspendedBy = undefined;
+    client.suspensionReason = undefined;
+  }
+}
+
+const auditSnapshot = (c) => ({
+  clientId: c.clientId, businessName: c.businessName, email: c.email, isActive: c.isActive,
+  suspendedAt: c.suspendedAt, suspensionReason: c.suspensionReason,
+  deletedAt: c.deletedAt, deletionReason: c.deletionReason,
+});
+
+async function auditClient(req, action, client, before) {
   try {
-    if (!isValidId(req.params.id)) {
-      return res.status(400).json({ success: false, message: 'Invalid client ID' });
-    }
-    await Client.findByIdAndUpdate(req.params.id, { isActive: false });
-    res.json({ success: true, message: 'Client deactivated' });
+    await AuditLog.create({
+      adminId: req.user._id,
+      action,
+      resource: 'Client',
+      beforeSnapshot: before,
+      afterSnapshot: auditSnapshot(client),
+      ipAddress: req.ip,
+    });
+  } catch (err) {
+    logger.error(`Audit log failed (${action}):`, err.message);
+  }
+}
+
+async function linkedRecordCounts(clientId) {
+  const [invoices, payments, projects, retainers, tickets] = await Promise.all([
+    Invoice.countDocuments({ client_ref: clientId }),
+    PaymentProof.countDocuments({ client_ref: clientId }),
+    Project.countDocuments({ client_ref: clientId }),
+    Retainer.countDocuments({ client_ref: clientId }),
+    SupportTicket.countDocuments({ client_ref: clientId }),
+  ]);
+  return { invoices, payments, projects, retainers, tickets, total: invoices + payments + projects + retainers + tickets };
+}
+
+const loadClient = async (req, res) => {
+  if (!isValidId(req.params.id)) {
+    res.status(400).json({ success: false, message: 'Invalid client ID' });
+    return null;
+  }
+  const client = await Client.findById(req.params.id);
+  if (!client) res.status(404).json({ success: false, message: 'Client not found' });
+  return client;
+};
+
+/**
+ * @route  POST /api/admin/clients/:id/suspend   { reason? }
+ * @desc   Block portal access (signs the client out everywhere). Reversible.
+ */
+router.post('/clients/:id/suspend', requirePermission('cms.manage'), async (req, res) => {
+  try {
+    const client = await loadClient(req, res);
+    if (!client) return;
+    if (client.deletedAt) return res.status(400).json({ success: false, message: 'This account is archived.' });
+    if (!client.isActive) return res.status(400).json({ success: false, message: 'This account is already suspended.' });
+
+    const before = auditSnapshot(client);
+    applySuspension(client, true, req.user._id, cleanReason(req.body.reason));
+    await client.save();
+    await auditClient(req, 'CLIENT_SUSPEND', client, before);
+    res.json({ success: true, message: `${client.businessName} has been suspended` });
   } catch (error) {
-    logger.error('Admin delete client error:', error);
+    logger.error('Admin suspend client error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+/**
+ * @route  POST /api/admin/clients/:id/reactivate
+ */
+router.post('/clients/:id/reactivate', requirePermission('cms.manage'), async (req, res) => {
+  try {
+    const client = await loadClient(req, res);
+    if (!client) return;
+    if (client.deletedAt) return res.status(400).json({ success: false, message: 'This account is archived. Restore it first.' });
+    if (client.isActive) return res.status(400).json({ success: false, message: 'This account is already active.' });
+
+    const before = auditSnapshot(client);
+    applySuspension(client, false, req.user._id);
+    await client.save();
+    await auditClient(req, 'CLIENT_REACTIVATE', client, before);
+    res.json({ success: true, message: `${client.businessName} has been reactivated` });
+  } catch (error) {
+    logger.error('Admin reactivate client error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+/**
+ * @route  GET /api/admin/clients/:id/linked-records
+ * @desc   What is attached to this client (decides if permanent delete is allowed)
+ */
+router.get('/clients/:id/linked-records', requirePermission('*'), async (req, res) => {
+  try {
+    const client = await loadClient(req, res);
+    if (!client) return;
+    res.json({ success: true, data: await linkedRecordCounts(client._id) });
+  } catch (error) {
+    logger.error('Admin client linked-records error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+/**
+ * @route  DELETE /api/admin/clients/:id   { reason? }
+ * @desc   Archive ("delete") the account — Super Admin only. Login blocked,
+ *         hidden from lists, all invoices/projects/tickets kept. Restorable.
+ */
+router.delete('/clients/:id', requirePermission('*'), async (req, res) => {
+  try {
+    const client = await loadClient(req, res);
+    if (!client) return;
+    if (client.deletedAt) return res.status(400).json({ success: false, message: 'This account is already archived.' });
+
+    const before = auditSnapshot(client);
+    client.deletedAt = new Date();
+    client.deletedBy = req.user._id;
+    client.deletionReason = cleanReason(req.body?.reason) || undefined;
+    client.isActive = false;
+    client.tokenVersion = (client.tokenVersion || 0) + 1; // signed out everywhere
+    client.refreshToken = undefined;
+    await client.save();
+    await auditClient(req, 'CLIENT_ARCHIVE', client, before);
+    res.json({ success: true, message: `${client.businessName} has been deleted (archived). Their records are kept and the account can be restored.` });
+  } catch (error) {
+    logger.error('Admin archive client error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+/**
+ * @route  POST /api/admin/clients/:id/restore
+ * @desc   Bring an archived account back — it returns SUSPENDED, so portal
+ *         access is only given back by an explicit Reactivate.
+ */
+router.post('/clients/:id/restore', requirePermission('*'), async (req, res) => {
+  try {
+    const client = await loadClient(req, res);
+    if (!client) return;
+    if (!client.deletedAt) return res.status(400).json({ success: false, message: 'This account is not archived.' });
+
+    const before = auditSnapshot(client);
+    client.deletedAt = undefined;
+    client.deletedBy = undefined;
+    client.deletionReason = undefined;
+    client.isActive = false;
+    client.suspendedAt = new Date();
+    client.suspendedBy = req.user._id;
+    client.suspensionReason = 'Restored from archive';
+    await client.save();
+    await auditClient(req, 'CLIENT_RESTORE', client, before);
+    res.json({ success: true, message: `${client.businessName} has been restored as Suspended. Reactivate it to give portal access.` });
+  } catch (error) {
+    logger.error('Admin restore client error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+/**
+ * @route  DELETE /api/admin/clients/:id/permanent   { confirm: <clientId> }
+ * @desc   Irreversible. Only for an ARCHIVED client with no invoices,
+ *         payments, projects, retainers or tickets (financial records must
+ *         never be orphaned or lost).
+ */
+router.delete('/clients/:id/permanent', requirePermission('*'), async (req, res) => {
+  try {
+    const client = await loadClient(req, res);
+    if (!client) return;
+    if (!client.deletedAt) {
+      return res.status(400).json({ success: false, message: 'Delete (archive) the account first.' });
+    }
+    if (!req.body?.confirm || req.body.confirm !== client.clientId) {
+      return res.status(400).json({ success: false, message: `Type the Client ID (${client.clientId}) to confirm.` });
+    }
+    const linked = await linkedRecordCounts(client._id);
+    if (linked.total > 0) {
+      return res.status(409).json({
+        success: false,
+        message: 'This client has invoices, payments, projects, retainers or tickets, so it can only stay archived.',
+        data: linked,
+      });
+    }
+
+    const before = auditSnapshot(client);
+    await ClientNotification.deleteMany({ client: client._id });
+    await Client.deleteOne({ _id: client._id });
+    await auditClient(req, 'CLIENT_DELETE_PERMANENT', { ...before, deletedAt: new Date() }, before);
+    res.json({ success: true, message: `${before.businessName} was permanently deleted` });
+  } catch (error) {
+    logger.error('Admin permanent delete client error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
