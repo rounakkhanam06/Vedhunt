@@ -81,6 +81,7 @@ const RoleManager = lazy(() => import('../admin/pages/RoleManager'));
 const TempPasswordReset = lazy(() => import('../admin/pages/TempPasswordReset'));
 const EmployeeManager = lazy(() => import('../admin/pages/EmployeeManager'));
 const LeaveRequestsManager = lazy(() => import('../admin/pages/LeaveRequestsManager'));
+const BankChangeRequestsManager = lazy(() => import('../admin/pages/BankChangeRequestsManager'));
 const AdminTasks = lazy(() => import('../admin/pages/AdminTasks'));
 const ESSDashboard = lazy(() => import('../admin/pages/ESSDashboard'));
 const ManagerDashboard = lazy(() => import('../admin/pages/ManagerDashboard'));
@@ -101,6 +102,8 @@ const EmployeePrivateRoute = lazy(() => import('../employee/EmployeePrivateRoute
 const EmployeeLayout = lazy(() => import('../employee/EmployeeLayout'));
 const EmployeeLogin = lazy(() => import('../employee/pages/EmployeeLogin'));
 const EmployeePasswordReset = lazy(() => import('../employee/pages/EmployeePasswordReset'));
+const EmployeeForgotPassword = lazy(() => import('../employee/pages/EmployeeForgotPassword'));
+const EmployeeResetPasswordLink = lazy(() => import('../employee/pages/EmployeeResetPasswordLink'));
 const EmployeeDashboard = lazy(() => import('../employee/pages/EmployeeDashboard'));
 const EmployeeLeadWorkspace = lazy(() => import('../employee/pages/LeadWorkspace'));
 
@@ -372,6 +375,10 @@ export const router = createBrowserRouter([
             element: withPermission(LeaveRequestsManager, 'team.manage')
           },
           {
+            path: 'bank-change-requests',
+            element: withPermission(BankChangeRequestsManager, 'team.manage')
+          },
+          {
             path: 'attendance-roster',
             element: withPermission(AttendanceManager, 'team.manage')
           },
@@ -588,6 +595,14 @@ export const router = createBrowserRouter([
       {
         path: 'reset-temp-password',
         element: withSuspense(EmployeePasswordReset)
+      },
+      {
+        path: 'forgot-password',
+        element: withSuspense(EmployeeForgotPassword)
+      },
+      {
+        path: 'reset-password/:token',
+        element: withSuspense(EmployeeResetPasswordLink)
       },
       {
         path: '',

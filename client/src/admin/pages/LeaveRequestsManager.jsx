@@ -105,6 +105,7 @@ const LeaveRequestsManager = ({ embedded = false }) => {
                     <span className={`px-2 py-0.5 rounded text-xs font-bold ${
                       req.status === 'Approved' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' :
                       req.status === 'Rejected' ? 'bg-rose-500/10 text-rose-500 border border-rose-500/20' :
+                      req.status === 'Cancelled' ? 'bg-gray-500/10 text-gray-400 border border-gray-500/20' :
                       'bg-orange-500/10 text-orange-500 border border-orange-500/20'
                     }`}>
                       {req.status}

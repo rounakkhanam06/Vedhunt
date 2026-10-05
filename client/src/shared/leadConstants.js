@@ -39,5 +39,7 @@ export const LOST_DROPPED_REASONS = [
 export const FOLLOWUP_TRIGGER_INTEREST_LEVELS = ['Hot Lead', 'Warm', 'Interested'];
 export const FOLLOWUP_TRIGGER_STATUSES = ['Proposal Sent', 'Negotiation'];
 export const TERMINAL_STATUSES = ['Won', 'Lost', 'Dropped'];
+// Statuses with no live follow-up — mirrors server/services/followUpEngine.js NON_ACTIVE_STATUSES
+export const NON_ACTIVE_FOLLOWUP_STATUSES = [...TERMINAL_STATUSES, 'Hold'];
 
 export const PAYMENT_STATUS_OPTIONS = ['Not Applicable', 'Pending', 'Partially Paid', 'Paid'];

@@ -1,15 +1,17 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import employeeApi from '../../services/employeeApi';
 import toast from 'react-hot-toast';
 import { useEmployeeStore } from '../../store/useEmployeeStore';
 import { Clock, ShieldAlert, Trophy, Star, Target, AlertTriangle, TrendingUp, ChevronDown, ChevronUp, UserPlus, PhoneCall, CalendarClock, AlertCircle, Flame, FileText, Handshake, ShieldCheck, ChevronRight } from 'lucide-react';
 import LegalDocumentModal from '../../components/legal/LegalDocumentModal';
+import ChangePasswordCard from '../components/ChangePasswordCard';
 import employeeAvatar from '../../assets/033a13e9af4efbb035a04c3777c4934d-removebg-preview.png';
 
 import RealTimeTimer from '../components/RealTimeTimer';
 import LeadCard from '../components/LeadCard';
 import { attachmentName } from '../../utils/attachments';
+import { NON_ACTIVE_FOLLOWUP_STATUSES } from '../../shared/leadConstants';
 
 const StarRating = ({ value }) => (
   <div className="flex gap-0.5">
@@ -31,6 +33,13 @@ function followUpBucket(dateString) {
   if (due < todayStart) return 'overdue';
   if (due <= todayEnd) return 'today';
   return 'upcoming';
+}
+
+// A closed or on-hold lead keeps its last nextFollowUpDate, but has no live
+// follow-up (the server's reminder engine skips it too) — never count it.
+function leadFollowUpBucket(lead) {
+  if (NON_ACTIVE_FOLLOWUP_STATUSES.includes(lead.status)) return null;
+  return followUpBucket(lead.nextFollowUpDate);
 }
 
 // A raw/New lead is "Call Pending" once it's sat assigned-but-uncalled past
@@ -80,6 +89,10 @@ const EmployeeDashboard = () => {
   const [leaveRequests, setLeaveRequests] = useState([]);
   const [leaveBalances, setLeaveBalances] = useState({ CL: 0, SL: 0, PL: 0 });
   const [leavesUsed, setLeavesUsed] = useState({ CL: 0, SL: 0, PL: 0 });
+  const [leavesPending, setLeavesPending] = useState({});
+  const [cancellingLeaveId, setCancellingLeaveId] = useState(null);
+  // Days the employee can still apply for = allowance − used − held by pending requests
+  const availableLeave = (type) => Math.max(0, (leaveBalances[type] || 0) - (leavesUsed[type] || 0) - (leavesPending[type] || 0));
   const [tickets, setTickets] = useState([]);
   const [isTicketsLoading, setIsTicketsLoading] = useState(false);
   const [expandedTicketId, setExpandedTicketId] = useState(null);
@@ -123,6 +136,7 @@ const EmployeeDashboard = () => {
   const [accountNumber, setAccountNumber] = useState('');
   const [ifscCode, setIfscCode] = useState('');
   const [bankErrors, setBankErrors] = useState({});
+  const [bankSubmitting, setBankSubmitting] = useState(false);
 
   // Performance State
   const [activeCycle, setActiveCycle] = useState(null);
@@ -143,8 +157,10 @@ const EmployeeDashboard = () => {
         { value: 'SL', label: 'Sick Leave (SL)' },
         { value: 'PL', label: 'Paid Leave (PL)' }
       ];
+  // Full-page spinner only for the very first load; tab switches refresh quietly
+  const profileLoadedRef = useRef(false);
   const fetchProfile = async () => {
-    setIsLoading(true);
+    if (!profileLoadedRef.current) setIsLoading(true);
     try {
       const res = await employeeApi.get('/employee-portal/ess/profile');
       if (res.data.success) {
@@ -152,8 +168,9 @@ const EmployeeDashboard = () => {
         const bank = res.data.employee.bankDetails || {};
         setBankName(bank.bankName || '');
         setAccountName(bank.accountName || '');
-        setAccountNumber(bank.accountNumber || '');
+        setAccountNumber('');
         setIfscCode(bank.ifscCode || '');
+        profileLoadedRef.current = true;
       }
     } catch {
       toast.error('Failed to load employee self-service data.');
@@ -194,6 +211,7 @@ const EmployeeDashboard = () => {
         setLeaveRequests(res.data.leaveRequests);
         setLeaveBalances(res.data.leaveBalances || { CL: 0, SL: 0, PL: 0 });
         setLeavesUsed(res.data.leavesUsed || { CL: 0, SL: 0, PL: 0 });
+        setLeavesPending(res.data.leavesPending || {});
         setLeaveBalancePeriod(res.data.leaveBalancePeriod || 'Year');
       }
     } catch (error) {
@@ -296,7 +314,7 @@ const EmployeeDashboard = () => {
     if (!newMessage.trim()) return;
     try {
       setUpdatingTicketId(ticketId);
-      const res = await employeeApi.post(`/employee-portal/ess/tickets/${ticketId}/messages`, { text: newMessage });
+      const res = await employeeApi.post(`/employee-portal/ess/tickets/${ticketId}/messages`, { text: newMessage.trim() });
       if (res.data.success) {
         toast.success(res.data.message);
         setNewMessage('');
@@ -394,8 +412,8 @@ const EmployeeDashboard = () => {
     if (!nameRegex.test(accountName)) errors.accountName = 'Must contain only letters and spaces.';
     if (!nameRegex.test(bankName)) errors.bankName = 'Must contain only letters and spaces.';
     
-    const numberRegex = /^\d+$/;
-    if (!numberRegex.test(accountNumber)) errors.accountNumber = 'Must contain only numbers.';
+    const numberRegex = /^\d{9,18}$/;
+    if (!numberRegex.test(accountNumber.replace(/\s+/g, ''))) errors.accountNumber = 'Account number must be 9–18 digits.';
     
     const ifscRegex = /^[A-Z]{4}0[A-Z0-9]{6}$/;
     if (!ifscRegex.test(ifscCode)) errors.ifscCode = 'Invalid IFSC Code format. Expected e.g. HDFC0000123';
@@ -405,16 +423,31 @@ const EmployeeDashboard = () => {
       return;
     }
 
+    setBankSubmitting(true);
     try {
       const res = await employeeApi.put('/employee-portal/ess/profile', {
-        bankDetails: { bankName, accountName, accountNumber, ifscCode }
+        bankDetails: { bankName, accountName, accountNumber: accountNumber.replace(/\s+/g, ''), ifscCode }
       });
       if (res.data.success) {
-        toast.success('Bank details updated successfully!');
+        toast.success(res.data.message || 'Bank change submitted for HR approval.');
         fetchProfile();
       }
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to update bank details.');
+      toast.error(err.response?.data?.message || 'Failed to submit bank change.');
+    } finally {
+      setBankSubmitting(false);
+    }
+  };
+
+  const handleCancelBankChange = async () => {
+    const pending = employee?.pendingBankChange;
+    if (!pending || !window.confirm('Cancel your pending bank change request?')) return;
+    try {
+      const res = await employeeApi.put(`/employee-portal/ess/bank-change-requests/${pending._id}/cancel`);
+      toast.success(res.data.message || 'Request cancelled.');
+      fetchProfile();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Could not cancel the request.');
     }
   };
 
@@ -424,12 +457,63 @@ const EmployeeDashboard = () => {
       if (res.data.success) {
         toast.success(res.data.message);
         fetchProfile();
+        if (res.data.timerStopped) fetchStatsAndLogs(); // clock-out stopped a running timer
       }
     } catch (error) {
       toast.error(error.response?.data?.message || 'Attendance request failed.');
     }
   };
 
+
+  const [updatingTaskId, setUpdatingTaskId] = useState(null);
+  const handleTaskStatus = async (task, status) => {
+    if (status === 'Completed' && !window.confirm(`Mark "${task.title}" as completed?`)) return;
+    setUpdatingTaskId(task._id);
+    try {
+      const res = await employeeApi.put(`/employee-portal/ess/tasks/${task._id}/status`, { status });
+      toast.success(res.data.message);
+      fetchProfile();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Could not update the task.');
+    } finally {
+      setUpdatingTaskId(null);
+    }
+  };
+
+  // Always works — the server builds the PDF if the stored copy is missing
+  const [downloadingSlipId, setDownloadingSlipId] = useState(null);
+  const handleDownloadPayslip = async (slip) => {
+    setDownloadingSlipId(slip._id);
+    try {
+      const { data } = await employeeApi.get(`/employee-portal/ess/payslips/${slip._id}/pdf`, { responseType: 'blob' });
+      const url = URL.createObjectURL(new Blob([data], { type: 'application/pdf' }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Payslip-${slip.year}-${String(slip.month).padStart(2, '0')}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch {
+      toast.error('Could not download the payslip. Please try again.');
+    } finally {
+      setDownloadingSlipId(null);
+    }
+  };
+
+  const handleCancelLeave = async (req) => {
+    if (!window.confirm(`Cancel your ${req.leaveType} request for ${new Date(req.startDate).toLocaleDateString()} – ${new Date(req.endDate).toLocaleDateString()}?`)) return;
+    setCancellingLeaveId(req._id);
+    try {
+      const res = await employeeApi.put(`/employee-portal/ess/leave-requests/${req._id}/cancel`);
+      toast.success(res.data.message || 'Leave request cancelled.');
+      fetchLeaveRequests();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Could not cancel the request.');
+    } finally {
+      setCancellingLeaveId(null);
+    }
+  };
 
   const handleRequestLeave = async (e) => {
     e.preventDefault();
@@ -561,14 +645,14 @@ const EmployeeDashboard = () => {
                       {
                         key: 'followups-today',
                         label: 'Follow-ups Today',
-                        count: leads.filter((l) => followUpBucket(l.nextFollowUpDate) === 'today').length,
+                        count: leads.filter((l) => leadFollowUpBucket(l) === 'today').length,
                         icon: CalendarClock,
                         onClick: () => navigate('/employee/dashboard?tab=followups&bucket=Today')
                       },
                       {
                         key: 'followups-overdue',
                         label: 'Overdue Follow-ups',
-                        count: leads.filter((l) => followUpBucket(l.nextFollowUpDate) === 'overdue').length,
+                        count: leads.filter((l) => leadFollowUpBucket(l) === 'overdue').length,
                         icon: AlertCircle,
                         tone: 'danger',
                         onClick: () => navigate('/employee/dashboard?tab=followups&bucket=Overdue')
@@ -700,7 +784,7 @@ const EmployeeDashboard = () => {
                 <div className="text-xs text-left bg-white/[0.02] p-3 rounded-lg border border-app-border space-y-2 text-app-text">
                   <div className="flex justify-between"><span>Joining Date:</span><span>{new Date(employee.joinDate).toLocaleDateString()}</span></div>
                   <div className="flex justify-between"><span>Department/Role:</span><span>{employee.roleDept}</span></div>
-                  <div className="flex justify-between"><span>Employment Status:</span><span>Active</span></div>
+                  <div className="flex justify-between"><span>Employment Status:</span><span>{onProbation ? 'On Probation' : (employee.employmentStatus || 'Permanent')}</span></div>
                 </div>
               </div>
             </div>
@@ -748,7 +832,7 @@ const EmployeeDashboard = () => {
                   const isExpanded = expandedTicketId === ticket._id;
                   return (
                   <div key={ticket._id} className="bg-app-card border border-app-border rounded-xl p-6 hover:border-primary/20 transition-all overflow-hidden">
-                    <div className="flex flex-wrap justify-between items-start gap-4 mb-4 cursor-pointer" onClick={() => setExpandedTicketId(isExpanded ? null : ticket._id)}>
+                    <div className="flex flex-wrap justify-between items-start gap-4 mb-4 cursor-pointer" onClick={() => { setExpandedTicketId(isExpanded ? null : ticket._id); setNewMessage(''); }}>
                       <div>
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-xs font-mono text-primary">#{ticket.ticketId}</span>
@@ -803,7 +887,57 @@ const EmployeeDashboard = () => {
                     
                     {isExpanded && (
                       <div className="mt-4 pt-4 border-t border-app-border space-y-4">
-                        {/* Status updates only, messages removed per user request */}
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-app-text-muted">Conversation</h4>
+                        {(ticket.messages || []).length === 0 ? (
+                          <p className="text-xs text-app-text-muted">No messages yet. Reply below to update the client.</p>
+                        ) : (
+                          <div className="space-y-2.5">
+                            {[...ticket.messages]
+                              .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
+                              .map((msg, idx) => {
+                                const fromClient = msg.senderModel === 'Client';
+                                const mine = !fromClient && String(msg.senderId) === String(authEmployee?._id);
+                                return (
+                                  <div key={msg._id || idx} className={`flex ${fromClient ? 'justify-start' : 'justify-end'}`}>
+                                    <div className={`max-w-[85%] rounded-xl px-3.5 py-2.5 border ${fromClient ? 'bg-form-input-bg border-app-border' : 'bg-primary/10 border-primary/20'}`}>
+                                      <p className={`text-[11px] font-semibold mb-0.5 ${fromClient ? 'text-app-text' : 'text-primary'}`}>
+                                        {fromClient ? `${msg.senderName || 'Client'} (Client)` : mine ? 'You' : `${msg.senderName || 'Vedhunt'} (${msg.senderModel === 'Admin' ? 'Admin' : 'Team'})`}
+                                        {msg.createdAt && (
+                                          <span className="text-app-text-muted font-normal ml-2">
+                                            {new Date(msg.createdAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                                          </span>
+                                        )}
+                                      </p>
+                                      <p className="text-sm text-app-text whitespace-pre-wrap break-words">{msg.text}</p>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                          </div>
+                        )}
+
+                        {ticket.status === 'Closed' ? (
+                          <p className="text-xs text-app-text-muted">This ticket is closed. Change its status to reopen it before replying.</p>
+                        ) : (
+                          <form onSubmit={(e) => handleSendTicketMessage(e, ticket._id)} className="flex gap-2 items-end">
+                            <textarea
+                              rows={2}
+                              maxLength={5000}
+                              value={newMessage}
+                              onChange={(e) => setNewMessage(e.target.value)}
+                              placeholder="Reply to the client…"
+                              aria-label={`Reply to ticket ${ticket.ticketId}`}
+                              className="flex-1 bg-form-input-bg border border-app-border rounded-lg px-3 py-2 text-sm text-app-text focus:outline-none focus:border-primary/50 resize-none"
+                            />
+                            <button
+                              type="submit"
+                              disabled={updatingTicketId === ticket._id || !newMessage.trim()}
+                              className="px-4 py-2 rounded-lg bg-primary text-white text-sm font-bold hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                            >
+                              {updatingTicketId === ticket._id ? 'Sending…' : 'Send'}
+                            </button>
+                          </form>
+                        )}
                       </div>
                     )}
                     
@@ -928,10 +1062,10 @@ const EmployeeDashboard = () => {
                 <>
                   {(() => {
                     const overdueLeads = workingLeads
-                      .filter((l) => followUpBucket(l.nextFollowUpDate) === 'overdue')
+                      .filter((l) => leadFollowUpBucket(l) === 'overdue')
                       .sort((a, b) => new Date(a.nextFollowUpDate) - new Date(b.nextFollowUpDate));
                     const todayLeads = workingLeads
-                      .filter((l) => followUpBucket(l.nextFollowUpDate) === 'today')
+                      .filter((l) => leadFollowUpBucket(l) === 'today')
                       .sort((a, b) => new Date(a.nextFollowUpDate) - new Date(b.nextFollowUpDate));
 
                     if (overdueLeads.length === 0 && todayLeads.length === 0) return null;
@@ -1015,10 +1149,10 @@ const EmployeeDashboard = () => {
                 <div className="w-8 h-8 rounded-full border-2 border-primary/20 border-t-orange-500 animate-spin" />
               </div>
             ) : (() => {
-              const withFollowUp = leads.filter((l) => followUpBucket(l.nextFollowUpDate) !== null);
+              const withFollowUp = leads.filter((l) => leadFollowUpBucket(l) !== null);
               const filtered = followUpBucketFilter === 'All'
                 ? withFollowUp
-                : withFollowUp.filter((l) => followUpBucket(l.nextFollowUpDate) === followUpBucketFilter.toLowerCase());
+                : withFollowUp.filter((l) => leadFollowUpBucket(l) === followUpBucketFilter.toLowerCase());
               const sorted = [...filtered].sort((a, b) => new Date(a.nextFollowUpDate) - new Date(b.nextFollowUpDate));
 
               if (sorted.length === 0) {
@@ -1073,8 +1207,33 @@ const EmployeeDashboard = () => {
 
             {/* Bank details update */}
             <div className="bg-app-card p-6 rounded-xl border border-app-border space-y-4">
-              <h2 className="text-xl font-bold">Bank Details Setup</h2>
+              <h2 className="text-xl font-bold">Bank Details</h2>
+
+              {/* On file */}
+              <div className="text-xs bg-form-input-bg border border-app-border rounded-lg p-3 space-y-1.5">
+                <p className="font-bold uppercase tracking-wider text-app-text-muted mb-1">Salary account on file</p>
+                {employee.bankDetails?.accountNumber ? (
+                  <>
+                    <div className="flex justify-between gap-2"><span className="text-app-text-muted">Holder</span><span>{employee.bankDetails.accountName}</span></div>
+                    <div className="flex justify-between gap-2"><span className="text-app-text-muted">Bank</span><span>{employee.bankDetails.bankName}</span></div>
+                    <div className="flex justify-between gap-2"><span className="text-app-text-muted">Account</span><span className="font-mono">{employee.bankDetails.accountNumber}</span></div>
+                    <div className="flex justify-between gap-2"><span className="text-app-text-muted">IFSC</span><span className="font-mono">{employee.bankDetails.ifscCode}</span></div>
+                  </>
+                ) : <p className="text-app-text-muted">No bank account added yet.</p>}
+              </div>
+
+              {employee.pendingBankChange ? (
+                <div className="text-xs rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 space-y-2">
+                  <p className="font-bold text-amber-500">Change waiting for HR approval</p>
+                  <p className="text-app-text">
+                    {employee.pendingBankChange.requested.bankName} · <span className="font-mono">{employee.pendingBankChange.requested.accountNumber}</span> · {employee.pendingBankChange.requested.ifscCode}
+                  </p>
+                  <p className="text-app-text-muted">Requested {new Date(employee.pendingBankChange.createdAt).toLocaleDateString()}. Salary keeps going to the account on file until it is approved.</p>
+                  <button type="button" onClick={handleCancelBankChange} className="text-rose-400 font-semibold hover:underline cursor-pointer">Cancel request</button>
+                </div>
+              ) : (
               <form onSubmit={handleUpdateBank} className="space-y-4">
+                <p className="text-xs text-app-text-muted">Changes to your salary account need HR approval before they apply.</p>
                 <div>
                   <label className="block text-xs text-app-text-muted mb-1">Account Holder Name</label>
                   <input
@@ -1111,7 +1270,9 @@ const EmployeeDashboard = () => {
                     type="text"
                     required
                     className={`w-full text-sm rounded-lg border ${bankErrors.accountNumber ? 'border-rose-500' : 'border-app-border'} bg-form-input-bg px-4 py-2 text-app-text`}
-                    placeholder="5010029384729"
+                    placeholder={employee.bankDetails?.accountNumber ? 'Enter the new account number' : '5010029384729'}
+                    inputMode="numeric"
+                    autoComplete="off"
                     value={accountNumber}
                     onChange={(e) => {
                       setAccountNumber(e.target.value);
@@ -1137,12 +1298,16 @@ const EmployeeDashboard = () => {
                 </div>
                 <button
                   type="submit"
-                  className="w-full py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-xs font-bold transition-all cursor-pointer"
+                  disabled={bankSubmitting}
+                  className="w-full py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-xs font-bold transition-all cursor-pointer disabled:opacity-50"
                 >
-                  Save Bank Details
+                  {bankSubmitting ? 'Submitting…' : 'Submit for HR Approval'}
                 </button>
               </form>
+              )}
             </div>
+
+            <ChangePasswordCard />
 
             {/* Legal — readable any time */}
             <div className="lg:col-span-3 bg-app-card p-6 rounded-xl border border-app-border">
@@ -1178,7 +1343,7 @@ const EmployeeDashboard = () => {
                 <div className="bg-app-card p-4 rounded-xl border border-blue-500/20 flex flex-col justify-between items-center text-center">
                   <div className="text-blue-400 text-xs font-bold uppercase">Emergency Leave (EL)</div>
                   <div className="text-2xl font-black text-blue-500 font-mono mt-2">
-                    {(leaveBalances.EL || 0) - (leavesUsed.EL || 0)} <span className="text-sm text-blue-400/60 font-normal">/ {leaveBalances.EL || 0}</span>
+                    {availableLeave('EL')} <span className="text-sm text-blue-400/60 font-normal">/ {leaveBalances.EL || 0}</span>
                   </div>
                 </div>
               ) : (
@@ -1186,26 +1351,29 @@ const EmployeeDashboard = () => {
                   <div className="bg-app-card p-4 rounded-xl border border-app-border flex flex-col justify-between items-center text-center">
                     <div className="text-app-text-muted text-xs font-bold uppercase">Casual Leave (CL)</div>
                     <div className="text-2xl font-black text-primary font-mono mt-2">
-                      {(leaveBalances.CL || 0) - (leavesUsed.CL || 0)} <span className="text-sm text-app-text-muted font-normal">/ {leaveBalances.CL || 0}</span>
+                      {availableLeave('CL')} <span className="text-sm text-app-text-muted font-normal">/ {leaveBalances.CL || 0}</span>
                     </div>
                   </div>
                   <div className="bg-app-card p-4 rounded-xl border border-app-border flex flex-col justify-between items-center text-center">
                     <div className="text-app-text-muted text-xs font-bold uppercase">Sick Leave (SL)</div>
                     <div className="text-2xl font-black text-primary font-mono mt-2">
-                      {(leaveBalances.SL || 0) - (leavesUsed.SL || 0)} <span className="text-sm text-app-text-muted font-normal">/ {leaveBalances.SL || 0}</span>
+                      {availableLeave('SL')} <span className="text-sm text-app-text-muted font-normal">/ {leaveBalances.SL || 0}</span>
                     </div>
                   </div>
                   <div className="bg-app-card p-4 rounded-xl border border-app-border flex flex-col justify-between items-center text-center">
                     <div className="text-app-text-muted text-xs font-bold uppercase">Paid Leave (PL)</div>
                     <div className="text-2xl font-black text-primary font-mono mt-2">
-                      {(leaveBalances.PL || 0) - (leavesUsed.PL || 0)} <span className="text-sm text-app-text-muted font-normal">/ {leaveBalances.PL || 0}</span>
+                      {availableLeave('PL')} <span className="text-sm text-app-text-muted font-normal">/ {leaveBalances.PL || 0}</span>
                     </div>
                   </div>
                 </>
               )}
               <div className="bg-app-card p-4 rounded-xl border border-app-border flex items-center justify-center">
                 <button
-                  onClick={() => setShowLeaveModal(true)}
+                  onClick={() => {
+                    if (!availableLeaveTypes.some((lt) => lt.value === leaveType)) setLeaveType(availableLeaveTypes[0].value);
+                    setShowLeaveModal(true);
+                  }}
                   className="w-full py-3 bg-primary hover:bg-primary-hover text-white rounded-lg text-sm font-bold transition-all cursor-pointer shadow-lg"
                 >
                   Request Leave
@@ -1241,10 +1409,21 @@ const EmployeeDashboard = () => {
                           <span className={`px-2 py-0.5 rounded text-xs font-bold ${
                             req.status === 'Approved' ? 'bg-emerald-500/10 text-emerald-400' :
                             req.status === 'Rejected' ? 'bg-rose-500/10 text-rose-400' :
+                            req.status === 'Cancelled' ? 'bg-gray-500/10 text-app-text-muted' :
                             'bg-primary/10 text-primary'
                           }`}>
                             {req.status}
                           </span>
+                          {req.status === 'Pending' && (
+                            <button
+                              type="button"
+                              onClick={() => handleCancelLeave(req)}
+                              disabled={cancellingLeaveId === req._id}
+                              className="ml-2 text-xs font-semibold text-rose-400 hover:underline disabled:opacity-50 cursor-pointer"
+                            >
+                              {cancellingLeaveId === req._id ? 'Cancelling…' : 'Cancel'}
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -1274,7 +1453,7 @@ const EmployeeDashboard = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5 text-sm">
-                    {employee.attendance?.map((log, idx) => (
+                    {[...(employee.attendance || [])].sort((a, b) => new Date(b.date) - new Date(a.date)).map((log, idx) => (
                       <tr key={idx} className="hover:bg-white/[0.01]">
                         <td className="py-3 px-4">{new Date(log.date).toLocaleDateString()}</td>
                         <td className="py-3 px-4 font-mono text-app-text">
@@ -1285,12 +1464,20 @@ const EmployeeDashboard = () => {
                             </span>
                           )}
                         </td>
-                        <td className="py-3 px-4 font-mono text-app-text">{log.clockOut || '--'}</td>
+                        <td className="py-3 px-4 font-mono text-app-text">
+                          {log.clockOut || '--'}
+                          {log.missedClockOut && !log.clockOut && (
+                            <span className="ml-2 text-[10px] bg-amber-500/10 text-amber-500 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider border border-amber-500/20" title="You clocked in but never clocked out — contact HR to correct it">
+                              Clock-out missing
+                            </span>
+                          )}
+                        </td>
                         <td className="py-3 px-4 text-right">
                           <span className={`px-2 py-0.5 rounded text-xs ${
                             log.status === 'Present' ? 'bg-emerald-500/10 text-emerald-400' :
                             log.status === 'Leave' ? 'bg-blue-500/10 text-blue-400' :
                             log.status === 'Weekend' ? 'bg-purple-500/10 text-purple-400' :
+                            log.status === 'Holiday' ? 'bg-teal-500/10 text-teal-400' :
                             'bg-rose-500/10 text-rose-400'
                           }`}>
                             {log.status}
@@ -1319,7 +1506,7 @@ const EmployeeDashboard = () => {
                   {onProbation && (
                     <div className="px-5 pt-4 flex items-start gap-2 text-xs text-blue-400 bg-blue-500/5 border-b border-blue-500/15 pb-3">
                       <Clock size={13} className="flex-shrink-0 mt-0.5" />
-                      <span>You are on probation — only <strong>Emergency Leave (EL)</strong> is available. Remaining: <strong>{leaveBalances.EL}</strong></span>
+                      <span>You are on probation — only <strong>Emergency Leave (EL)</strong> is available. Remaining: <strong>{availableLeave('EL')}</strong></span>
                     </div>
                   )}
                   <form onSubmit={handleRequestLeave} className="p-5 space-y-4">
@@ -1334,6 +1521,10 @@ const EmployeeDashboard = () => {
                           <option key={lt.value} value={lt.value}>{lt.label}</option>
                         ))}
                       </select>
+                      <p className={`text-xs mt-1 ${availableLeave(leaveType) === 0 ? 'text-rose-400' : 'text-app-text-muted'}`}>
+                        Available: <strong>{availableLeave(leaveType)}</strong> day{availableLeave(leaveType) === 1 ? '' : 's'}
+                        {leavesPending[leaveType] ? ` (${leavesPending[leaveType]} pending approval)` : ''} · Sundays and holidays are not counted
+                      </p>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
@@ -1395,14 +1586,36 @@ const EmployeeDashboard = () => {
                   <div>
                     <h3 className="font-bold text-app-text text-base">{task.title}</h3>
                     <p className="text-sm text-app-text-muted mt-1">{task.description}</p>
-                    <div className="text-xs text-primary font-mono mt-1">Deadline: {new Date(task.dueDate).toLocaleDateString()}</div>
+                    <div className="text-xs text-primary font-mono mt-1">
+                      {task.dueDate ? `Deadline: ${new Date(task.dueDate).toLocaleDateString()}` : 'No deadline'}
+                      {task.status !== 'Completed' && task.dueDate && new Date(task.dueDate) < new Date(new Date().toDateString()) && (
+                        <span className="ml-2 text-rose-400 font-sans font-semibold">· Overdue</span>
+                      )}
+                      {task.status === 'Completed' && task.completedAt && (
+                        <span className="ml-2 text-app-text-muted font-sans">· Completed {new Date(task.completedAt).toLocaleDateString()}</span>
+                      )}
+                    </div>
                   </div>
-                  <div>
+                  <div className="flex items-center gap-2 shrink-0">
                     <span className={`px-3 py-1 rounded text-xs uppercase font-bold tracking-wider ${
-                      task.status === 'Completed' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-primary/10 text-primary'
+                      task.status === 'Completed' ? 'bg-emerald-500/10 text-emerald-400' :
+                      task.status === 'In Progress' ? 'bg-amber-500/10 text-amber-400' :
+                      'bg-primary/10 text-primary'
                     }`}>
                       {task.status}
                     </span>
+                    {task.status === 'Pending' && (
+                      <button type="button" disabled={updatingTaskId === task._id} onClick={() => handleTaskStatus(task, 'In Progress')}
+                        className="px-3 py-1 rounded-lg border border-app-border text-xs font-semibold text-app-text hover:border-primary/40 disabled:opacity-50 cursor-pointer">
+                        Start
+                      </button>
+                    )}
+                    {task.status !== 'Completed' && (
+                      <button type="button" disabled={updatingTaskId === task._id} onClick={() => handleTaskStatus(task, 'Completed')}
+                        className="px-3 py-1 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 disabled:opacity-50 cursor-pointer">
+                        Mark complete
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
@@ -1619,11 +1832,14 @@ const EmployeeDashboard = () => {
                               </span>
                             </td>
                             <td className="py-3 px-4 text-right whitespace-nowrap">
-                              {slip.pdfUrl && (
-                                <a href={slip.pdfUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline text-xs font-semibold mr-3">
-                                  Download
-                                </a>
-                              )}
+                              <button
+                                type="button"
+                                onClick={() => handleDownloadPayslip(slip)}
+                                disabled={downloadingSlipId === slip._id}
+                                className="text-primary hover:underline text-xs font-semibold mr-3 disabled:opacity-50 cursor-pointer"
+                              >
+                                {downloadingSlipId === slip._id ? 'Preparing…' : 'Download'}
+                              </button>
                               <button
                                 onClick={() => setExpandedPayslipId(isExpanded ? null : slip._id)}
                                 className="text-app-text-muted hover:text-app-text cursor-pointer"

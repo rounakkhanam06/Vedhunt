@@ -177,6 +177,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
         { name: 'Employees List', path: '/admin/employees' },
         { name: 'Payroll', path: '/admin/payroll', requiredPermission: 'payroll.manage' },
         { name: 'Attendance Roster', path: '/admin/attendance-roster' },
+        { name: 'Bank Change Requests', path: '/admin/bank-change-requests' },
         { name: 'Organization Tasks', path: '/admin/tasks' },
         { name: 'Productivity Reports', path: '/admin/manager-dashboard' },
         { name: 'Performance Cycles', path: '/admin/performance-cycles' },

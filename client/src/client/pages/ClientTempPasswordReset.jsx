@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import clientService from '../../services/clientService';
+import { useClientStore } from '../../store/useClientStore';
 import { Lock, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import logo from '../../assets/DarkthemeLogo.png';
@@ -26,6 +27,8 @@ const ClientTempPasswordReset = () => {
     setLoading(true);
     try {
       await clientService.resetTempPassword(form.password);
+      // Clear the flag locally too, or the portal guard sends us straight back here
+      useClientStore.getState().updateClient({ isTemporaryPassword: false });
       toast.success('Password updated successfully!');
       navigate('/client/dashboard', { replace: true });
     } catch (err) {

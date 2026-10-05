@@ -1,6 +1,9 @@
 const jwt = require('jsonwebtoken');
 const logger = require('../utils/logger');
 const Admin = require('../models/Admin');
+const { mustResetPassword, PASSWORD_RESET_REQUIRED } = require('../utils/tempPasswordGate');
+
+const TEMP_PASSWORD_ALLOWED = ['/api/auth/me', '/api/auth/reset-temp-password', '/api/auth/logout'];
 
 const authMiddleware = async (req, res, next) => {
   try {
@@ -34,6 +37,10 @@ const authMiddleware = async (req, res, next) => {
       });
     }
     req.user.permissions = Array.from(permissionsSet);
+
+    if (mustResetPassword(req, req.user.isTemporaryPassword, TEMP_PASSWORD_ALLOWED)) {
+      return res.status(403).json(PASSWORD_RESET_REQUIRED);
+    }
 
     next();
   } catch (error) {

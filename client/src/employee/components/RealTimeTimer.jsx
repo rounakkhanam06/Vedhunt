@@ -80,7 +80,7 @@ const RealTimeTimer = ({ activeTimer, tasks = [], onTimerStart, onTimerStop }) =
         markTaskCompleted
       });
       if (res.data.success) {
-        toast.success('Work logged successfully');
+        toast.success(res.data.message || 'Work logged successfully');
         setIsStopModalOpen(false);
         setRemarks('');
         if (onTimerStop) onTimerStop();

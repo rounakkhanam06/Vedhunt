@@ -102,6 +102,7 @@ router.post('/login', ...loginMiddleware, async (req, res) => {
           email: admin.email,
           roles: admin.roles,
           permissions,
+          isTemporaryPassword: Boolean(admin.isTemporaryPassword),
         },
       });
     } else {
@@ -168,6 +169,7 @@ router.get('/me', authMiddleware, async (req, res) => {
       email: req.user.email,
       roles: req.user.roles,
       permissions: req.user.permissions,
+      isTemporaryPassword: Boolean(req.user.isTemporaryPassword),
     },
   });
 });

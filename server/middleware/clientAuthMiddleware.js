@@ -1,4 +1,7 @@
 const jwt = require('jsonwebtoken');
+const { mustResetPassword, PASSWORD_RESET_REQUIRED } = require('../utils/tempPasswordGate');
+
+const TEMP_PASSWORD_ALLOWED = ['/api/client/auth/me', '/api/client/auth/reset-temp-password', '/api/client/auth/logout'];
 const logger = require('../utils/logger');
 const Client = require('../models/Client');
 
@@ -61,6 +64,10 @@ const clientAuthMiddleware = async (req, res, next) => {
       return res
         .status(401)
         .json({ success: false, message: 'Session expired, please login again' });
+    }
+
+    if (mustResetPassword(req, req.client.isTemporaryPassword, TEMP_PASSWORD_ALLOWED)) {
+      return res.status(403).json(PASSWORD_RESET_REQUIRED);
     }
 
     next();

@@ -4,6 +4,11 @@ const Employee = require('../models/Employee');
 const WorkLog = require('../models/WorkLog');
 const Admin = require('../models/Admin');
 const LeaveRequest = require('../models/LeaveRequest');
+const { countChargeableDays, availableDays } = require('../services/leavePolicy');
+const { notifyStaff } = require('../services/staffNotify');
+const BankChangeRequest = require('../models/BankChangeRequest');
+const AuditLog = require('../models/AuditLog');
+const bank = require('../services/bankDetails');
 const Role = require('../models/Role');
 const Settings = require('../models/Settings');
 const Holiday = require('../models/Holiday');
@@ -51,6 +56,7 @@ router.get('/', requirePermission('team.manage'), async (req, res) => {
       const obj = emp.toObject();
       obj.panNumber = decrypt(obj.panNumber);
       obj.aadhaarNumber = decrypt(obj.aadhaarNumber);
+      if (obj.bankDetails) obj.bankDetails = bank.decrypted(obj.bankDetails);
       return obj;
     });
     res.json({ success: true, employees: decryptedEmployees });
@@ -391,6 +397,7 @@ router.put('/:id/probation', requirePermission('team.manage'), async (req, res) 
     const decrypted = updated.toObject();
     decrypted.panNumber = require('../utils/encryption').decrypt(decrypted.panNumber);
     decrypted.aadhaarNumber = require('../utils/encryption').decrypt(decrypted.aadhaarNumber);
+    if (decrypted.bankDetails) decrypted.bankDetails = bank.decrypted(decrypted.bankDetails);
 
     res.json({ success: true, message: `Employee probation ${action}ed successfully.`, employee: decrypted });
   } catch (error) {
@@ -538,6 +545,7 @@ router.put('/:id', requirePermission('team.manage'), async (req, res) => {
     const decrypted = updatedEmployee.toObject();
     decrypted.panNumber = decrypt(decrypted.panNumber);
     decrypted.aadhaarNumber = decrypt(decrypted.aadhaarNumber);
+    if (decrypted.bankDetails) decrypted.bankDetails = bank.decrypted(decrypted.bankDetails);
 
     res.json({ success: true, employee: decrypted });
   } catch (error) {
@@ -573,6 +581,99 @@ router.delete('/:id', requirePermission('team.manage'), async (req, res) => {
 });
 
 // Get all leave requests (Admin/HR only)
+// ==========================================
+// BANK CHANGE REQUESTS (HR approval)
+// ==========================================
+
+const bankRequestForHR = (r) => ({
+  _id: r._id,
+  status: r.status,
+  employee: r.employee ? {
+    _id: r.employee._id,
+    employeeId: r.employee.employeeId,
+    name: `${r.employee.firstName || ''} ${r.employee.lastName || ''}`.trim(),
+    email: r.employee.email,
+  } : null,
+  previous: bank.decrypted(r.previous),
+  requested: bank.decrypted(r.requested),
+  reviewedBy: r.reviewedBy ? `${r.reviewedBy.firstName || ''} ${r.reviewedBy.lastName || ''}`.trim() : null,
+  reviewedAt: r.reviewedAt || null,
+  reviewComment: r.reviewComment || '',
+  createdAt: r.createdAt,
+});
+
+router.get('/admin/bank-change-requests', requirePermission('team.manage'), async (req, res) => {
+  try {
+    const filter = {};
+    if (['Pending', 'Approved', 'Rejected', 'Cancelled'].includes(req.query.status)) filter.status = req.query.status;
+    const requests = await BankChangeRequest.find(filter)
+      .populate('employee', 'employeeId firstName lastName email')
+      .populate('reviewedBy', 'firstName lastName')
+      .sort({ createdAt: -1 })
+      .limit(200)
+      .lean();
+    res.json({ success: true, requests: requests.map(bankRequestForHR) });
+  } catch (error) {
+    logger.error('Error listing bank change requests:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+router.put('/admin/bank-change-requests/:id/status', requirePermission('team.manage'), async (req, res) => {
+  try {
+    const { status } = req.body;
+    const comment = typeof req.body.comment === 'string' ? req.body.comment.trim().slice(0, 500) : '';
+    if (!['Approved', 'Rejected'].includes(status)) return res.status(400).json({ success: false, message: 'Invalid status' });
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid request ID' });
+    if (status === 'Rejected' && !comment) return res.status(400).json({ success: false, message: 'Please give a reason for rejecting.' });
+
+    const request = await BankChangeRequest.findById(req.params.id);
+    if (!request) return res.status(404).json({ success: false, message: 'Request not found' });
+    if (request.status !== 'Pending') return res.status(400).json({ success: false, message: `This request is already ${request.status.toLowerCase()}.` });
+
+    const employee = await Employee.findById(request.employee);
+    if (!employee) return res.status(404).json({ success: false, message: 'Employee not found' });
+
+    const before = bank.masked(employee.bankDetails || {});
+    if (status === 'Approved') {
+      employee.bankDetails = bank.forStorage(bank.decrypted(request.requested)); // account number encrypted at rest
+      employee.markModified('bankDetails');
+      await employee.save();
+    }
+
+    request.status = status;
+    request.reviewedBy = req.user._id;
+    request.reviewedAt = new Date();
+    request.reviewComment = comment || undefined;
+    await request.save();
+
+    await AuditLog.create({
+      adminId: req.user._id,
+      action: status === 'Approved' ? 'BANK_CHANGE_APPROVED' : 'BANK_CHANGE_REJECTED',
+      resource: 'Employee',
+      beforeSnapshot: { employeeId: employee.employeeId, bank: before },
+      afterSnapshot: { employeeId: employee.employeeId, requestId: request._id, bank: bank.masked(status === 'Approved' ? employee.bankDetails : request.requested), comment },
+      ipAddress: req.ip,
+    }).catch((e) => logger.error('Audit log failed (bank change review):', e.message));
+
+    if (employee.adminId) {
+      await notifyStaff(employee.adminId, {
+        type: 'bank_change_decision',
+        title: `Bank change ${status.toLowerCase()}`,
+        message: status === 'Approved'
+          ? `Your salary will be paid to the account ending ${bank.decryptAccount(request.requested.accountNumber).slice(-4)}.`
+          : `HR note: ${comment}`,
+        link: '/employee/dashboard?tab=profile',
+      });
+    }
+
+    res.json({ success: true, message: `Bank change ${status.toLowerCase()}.` });
+  } catch (error) {
+    logger.error('Error reviewing bank change request:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
 router.get('/admin/leave-requests', requirePermission('team.manage'), async (req, res) => {
   try {
     const leaveRequests = await LeaveRequest.find({})
@@ -602,6 +703,20 @@ router.put('/admin/leave-requests/:id/status', requirePermission('team.manage'),
     // Only allow updating pending requests to avoid double-processing
     if (leaveRequest.status !== 'Pending') {
       return res.status(400).json({ success: false, message: 'Only pending requests can be approved or rejected.' });
+    }
+
+    const requester = await Employee.findById(leaveRequest.employeeId).select('adminId leaveBalances leavesUsed firstName');
+    // The balance may have changed since the request was made (allowance edited, another leave approved)
+    if (status === 'Approved' && requester) {
+      const days = await countChargeableDays(leaveRequest.startDate, leaveRequest.endDate);
+      const balance = await availableDays(requester, leaveRequest.leaveType || 'PL', { excludeRequestId: leaveRequest._id });
+      if (days > balance.available) {
+        return res.status(400).json({
+          success: false,
+          code: 'INSUFFICIENT_LEAVE_BALANCE',
+          message: `Cannot approve: needs ${days} day${days > 1 ? 's' : ''} of ${leaveRequest.leaveType}, but only ${balance.available} ${balance.available === 1 ? 'is' : 'are'} available.`,
+        });
+      }
     }
 
     leaveRequest.status = status;
@@ -653,6 +768,17 @@ router.put('/admin/leave-requests/:id/status', requirePermission('team.manage'),
         }
         await employee.save();
       }
+    }
+
+    if (requester?.adminId) {
+      const range = [leaveRequest.startDate, leaveRequest.endDate]
+        .map((d) => new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })).join(' – ');
+      await notifyStaff(requester.adminId, {
+        type: 'leave_decision',
+        title: `Leave ${status.toLowerCase()}: ${leaveRequest.leaveType} ${range}`,
+        message: adminComment ? `HR note: ${String(adminComment).slice(0, 200)}` : `Your leave request was ${status.toLowerCase()}.`,
+        link: '/employee/dashboard?tab=attendance',
+      });
     }
 
     res.json({ success: true, message: `Leave request ${status.toLowerCase()} successfully`, leaveRequest });

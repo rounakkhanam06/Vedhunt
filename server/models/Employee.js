@@ -2,10 +2,13 @@ const mongoose = require('mongoose');
 
 const attendanceSchema = new mongoose.Schema({
   date: { type: Date, required: true },
-  status: { type: String, enum: ['Present', 'Absent', 'Leave', 'Weekend'], default: 'Present' },
+  // 'Holiday' is written by leave approval for holidays inside a leave range
+  status: { type: String, enum: ['Present', 'Absent', 'Leave', 'Weekend', 'Holiday'], default: 'Present' },
   clockIn: { type: String },
   clockOut: { type: String },
-  lateByMins: { type: Number, default: 0 }
+  lateByMins: { type: Number, default: 0 },
+  // Clocked in but never clocked out that day — flagged for HR to correct
+  missedClockOut: { type: Boolean, default: false }
 });
 
 const taskSchema = new mongoose.Schema({

@@ -1,4 +1,5 @@
 const cron = require('node-cron');
+const { flagMissedClockOuts } = require('./attendanceGuards');
 const Employee = require('../models/Employee');
 const WorkLog = require('../models/WorkLog');
 const logger = require('../utils/logger');
@@ -82,6 +83,15 @@ const startCronJobs = () => {
       logger.info('Checked for missing timesheets.');
     } catch (error) {
       logger.error('Error in Missing Timesheet cron:', error);
+    }
+  });
+
+  // 2b. Flag clock-ins with no clock-out and close forgotten timers (11:55 PM)
+  cron.schedule('55 23 * * *', async () => {
+    try {
+      await flagMissedClockOuts();
+    } catch (error) {
+      logger.error('Error in missed clock-out cron:', error);
     }
   });
 

@@ -11,6 +11,7 @@ const logger = require('../utils/logger');
 const { getClientAgreement, acceptAgreement } = require('../controllers/agreementController');
 const { buildInvoicePdfBuffer, loadInvoiceContext } = require('../services/invoicePdf');
 const { uploadTicketAttachment, deleteFromCloudinary } = require('../utils/cloudinary');
+const { notifyTicketStaff } = require('../services/staffNotify');
 
 const router = express.Router();
 
@@ -459,6 +460,11 @@ router.post('/tickets/:id/messages', async (req, res) => {
     });
 
     await ticket.save();
+    await notifyTicketStaff(ticket, {
+      type: 'ticket_client_reply',
+      title: `Client replied on ${ticket.ticketId}`,
+      message: `${req.client.businessName || req.client.contactName || 'Client'}: ${String(text).slice(0, 140)}`,
+    });
     res.json({ success: true, message: 'Message sent', data: ticket.toObject({ virtuals: true }) });
   } catch (error) {
     logger.error('Client add ticket message error:', error);
@@ -565,6 +571,11 @@ router.put('/tickets/:id/status', loadOwnTicket, async (req, res) => {
       });
     }
     await ticket.save();
+    await notifyTicketStaff(ticket, {
+      type: status === 'Closed' ? 'ticket_client_closed' : 'ticket_client_reopened',
+      title: `${ticket.ticketId} ${status === 'Closed' ? 'closed' : 'reopened'} by the client`,
+      message: message ? String(message).slice(0, 140) : `${req.client.businessName || 'The client'} ${status === 'Closed' ? 'closed' : 'reopened'} "${String(ticket.subject).slice(0, 80)}"`,
+    });
 
     const fresh = await SupportTicket.findById(ticket._id).populate('assignedTo', 'firstName lastName');
     res.json({

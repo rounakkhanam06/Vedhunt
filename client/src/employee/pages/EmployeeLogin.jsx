@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useEmployeeStore } from '../../store/useEmployeeStore';
 import { Lock, Mail, Eye, EyeOff } from 'lucide-react';
 import logo from '../../assets/DarkthemeLogo.png';
@@ -115,6 +115,10 @@ const EmployeeLogin = () => {
                 {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
               </button>
             </div>
+          </div>
+
+          <div className="flex justify-end -mt-3">
+            <Link to="/employee/forgot-password" className="text-sm text-primary hover:underline">Forgot password?</Link>
           </div>
 
           <LegalConsentCheckbox

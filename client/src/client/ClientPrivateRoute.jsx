@@ -10,7 +10,7 @@ import { useEffect } from 'react';
  * - Redirects to /client/login (not /admin/login)
  */
 const ClientPrivateRoute = () => {
-  const { isAuthenticated, isInitializing, checkAuth } = useClientStore();
+  const { isAuthenticated, isInitializing, checkAuth, client } = useClientStore();
   const location = useLocation();
 
   useEffect(() => {
@@ -30,11 +30,10 @@ const ClientPrivateRoute = () => {
     );
   }
 
-  return isAuthenticated ? (
-    <Outlet />
-  ) : (
-    <Navigate to="/client/login" state={{ from: location }} replace />
-  );
+  if (!isAuthenticated) return <Navigate to="/client/login" state={{ from: location }} replace />;
+  // Still on a temporary password → must set a real one first (the API refuses everything else too)
+  if (client?.isTemporaryPassword) return <Navigate to="/client/reset-temp-password" replace />;
+  return <Outlet />;
 };
 
 export default ClientPrivateRoute;

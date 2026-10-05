@@ -13,6 +13,7 @@ const { updateAgreement, getAgreement } = require('../controllers/agreementContr
 const { provisionClientAccount } = require('../services/clientProvisioning');
 const { agreementDetailsChanged, nextAgreementVersion } = require('../services/agreementVersioning');
 const requirePermission = require('../middleware/requirePermission');
+const { notifyTicketAssigned } = require('../services/staffNotify');
 const AuditLog = require('../models/AuditLog');
 const PaymentProof = require('../models/PaymentProof');
 const ClientNotification = require('../models/ClientNotification');
@@ -859,16 +860,25 @@ router.put('/tickets/:id', async (req, res) => {
     if (status) update.status = status;
     if (priority) update.priority = priority;
     if (resolution !== undefined) update.resolution = resolution;
-    if (assignedTo !== undefined) update.assignedTo = assignedTo || null;
+    if (assignedTo !== undefined) {
+      if (assignedTo && !isValidId(assignedTo)) return res.status(400).json({ success: false, message: 'Invalid assignee' });
+      update.assignedTo = assignedTo || null;
+    }
 
     // load + save (not findByIdAndUpdate) so the model's pre-save hook stamps
     // resolvedAt / closedAt when the status changes
     const ticket = await SupportTicket.findById(req.params.id);
     if (!ticket) return res.status(404).json({ success: false, message: 'Ticket not found' });
     const previousStatus = ticket.status;
+    const previousAssignee = ticket.assignedTo ? String(ticket.assignedTo) : null;
     ticket.set(update);
     await ticket.save();
     if (status && previousStatus !== ticket.status) await notifyTicketStatus(ticket);
+    // Tell the new assignee (not when an admin assigns the ticket to themselves)
+    const newAssignee = ticket.assignedTo ? String(ticket.assignedTo) : null;
+    if (newAssignee && newAssignee !== previousAssignee && newAssignee !== String(req.user._id)) {
+      await notifyTicketAssigned(ticket, newAssignee);
+    }
     res.json({ success: true, message: 'Ticket updated', data: ticket.toObject({ virtuals: true }) });
   } catch (error) {
     logger.error('Admin update ticket error:', error);
@@ -882,6 +892,9 @@ router.post('/tickets', async (req, res) => {
     if (!client_ref || !subject || !description || !category) {
       return res.status(400).json({ success: false, message: 'Missing required fields' });
     }
+    if (!isValidId(client_ref) || (assignedTo && !isValidId(assignedTo))) {
+      return res.status(400).json({ success: false, message: 'Invalid client or assignee' });
+    }
     const ticket = new SupportTicket({
       client_ref,
       subject,
@@ -893,6 +906,7 @@ router.post('/tickets', async (req, res) => {
       assignedTo: assignedTo || req.user._id,
     });
     await ticket.save();
+    if (String(ticket.assignedTo) !== String(req.user._id)) await notifyTicketAssigned(ticket, ticket.assignedTo);
     res.status(201).json({ success: true, message: 'Ticket created', data: ticket.toObject({ virtuals: true }) });
   } catch (error) {
     logger.error('Admin create ticket error:', error);

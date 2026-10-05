@@ -1,5 +1,12 @@
 const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '.env') });
+
+// Business timezone for every server-side "today" / clock time — attendance,
+// late marks, payroll and the cron schedules (e.g. 11:30 PM attendance close,
+// 8 PM EOD escalation) are all written for Indian time. Without this a UTC
+// host flips "today" at 5:30 AM IST and computes late marks in UTC.
+// Must run before anything creates a Date.
+process.env.TZ = process.env.APP_TIMEZONE || 'Asia/Kolkata';
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');

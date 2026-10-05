@@ -18,6 +18,25 @@ const requirePermission = require('../middleware/requirePermission');
 const { encrypt, decrypt } = require('../utils/encryption');
 const logger = require('../utils/logger');
 const { notifyTicketReply, notifyTicketStatus } = require('../services/clientNotify');
+const { countChargeableDays, availableDays, findOverlap, startOfDay } = require('../services/leavePolicy');
+const { notifyPermissionHolders, notifyStaff } = require('../services/staffNotify');
+const BankChangeRequest = require('../models/BankChangeRequest');
+const AuditLog = require('../models/AuditLog');
+const bank = require('../services/bankDetails');
+const { closeActiveTimer } = require('../services/workTimer');
+
+const bankRequestView = (r) => ({
+  _id: r._id,
+  status: r.status,
+  requested: bank.masked(r.requested),
+  previous: bank.masked(r.previous),
+  reviewComment: r.reviewComment || '',
+  reviewedAt: r.reviewedAt || null,
+  createdAt: r.createdAt,
+});
+
+const LEAVE_LABEL = { CL: 'Casual Leave', SL: 'Sick Leave', PL: 'Paid Leave', EL: 'Emergency Leave' };
+const fmtDay = (d) => new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 
 const router = express.Router();
 
@@ -37,6 +56,10 @@ router.get('/ess/profile', async (req, res) => {
     const decrypted = employee.toObject();
     decrypted.panNumber = decrypt(decrypted.panNumber);
     decrypted.aadhaarNumber = decrypt(decrypted.aadhaarNumber);
+    decrypted.bankDetails = bank.masked(decrypted.bankDetails);
+
+    const pending = await BankChangeRequest.findOne({ employee: employee._id, status: 'Pending' }).sort({ createdAt: -1 }).lean();
+    decrypted.pendingBankChange = pending ? bankRequestView(pending) : null;
 
     res.json({ success: true, employee: decrypted });
   } catch (error) {
@@ -54,29 +77,89 @@ router.put('/ess/profile', async (req, res) => {
       return res.status(404).json({ success: false, message: 'Employee details not found' });
     }
 
-    if (bankDetails) {
-      const { bankName, accountName, accountNumber, ifscCode } = bankDetails;
-      const nameRegex = /^[a-zA-Z\s]+$/;
-      const numberRegex = /^\d+$/;
-      const ifscRegex = /^[A-Z]{4}0[A-Z0-9]{6}$/;
-
-      if (accountName && !nameRegex.test(accountName)) return res.status(400).json({ success: false, message: 'Account Holder Name must contain only letters and spaces.' });
-      if (bankName && !nameRegex.test(bankName)) return res.status(400).json({ success: false, message: 'Bank Name must contain only letters and spaces.' });
-      if (accountNumber && !numberRegex.test(accountNumber)) return res.status(400).json({ success: false, message: 'Account Number must contain only numbers.' });
-      if (ifscCode && !ifscRegex.test(ifscCode)) return res.status(400).json({ success: false, message: 'Invalid IFSC Code format.' });
-
-      employee.bankDetails = {
-        accountName: accountName || employee.bankDetails.accountName,
-        accountNumber: accountNumber || employee.bankDetails.accountNumber,
-        bankName: bankName || employee.bankDetails.bankName,
-        ifscCode: ifscCode || employee.bankDetails.ifscCode
-      };
+    if (!bankDetails) {
+      return res.status(400).json({ success: false, message: 'Nothing to update.' });
     }
 
-    await employee.save();
-    res.json({ success: true, employee });
+    // Salary account changes never apply directly — they go to HR for approval
+    const { details, error } = bank.validateBankDetails(bankDetails);
+    if (error) return res.status(400).json({ success: false, message: error });
+
+    if (bank.sameDetails(details, employee.bankDetails)) {
+      return res.status(400).json({ success: false, message: 'These are already your bank details on file.' });
+    }
+    const existing = await BankChangeRequest.findOne({ employee: employee._id, status: 'Pending' });
+    if (existing) {
+      return res.status(400).json({ success: false, message: 'You already have a bank change waiting for HR approval. Cancel it first to submit a different one.' });
+    }
+
+    const request = await BankChangeRequest.create({
+      employee: employee._id,
+      requestedBy: req.user._id,
+      previous: bank.forStorage(employee.bankDetails || {}),
+      requested: bank.forStorage(details),
+    });
+
+    await AuditLog.create({
+      adminId: req.user._id,
+      action: 'BANK_CHANGE_REQUESTED',
+      resource: 'Employee',
+      beforeSnapshot: { employeeId: employee.employeeId, bank: bank.masked(employee.bankDetails || {}) },
+      afterSnapshot: { requestId: request._id, bank: bank.masked(details) },
+      ipAddress: req.ip,
+    }).catch((e) => logger.error('Audit log failed (BANK_CHANGE_REQUESTED):', e.message));
+
+    await notifyPermissionHolders('team.manage', {
+      type: 'bank_change_request',
+      title: `Bank change request from ${employee.firstName} ${employee.lastName}`,
+      message: `${details.bankName} · account ending ${details.accountNumber.slice(-4)} — needs HR approval`,
+      link: '/admin/bank-change-requests',
+    }, { exclude: [req.user._id] });
+
+    res.status(202).json({
+      success: true,
+      pendingApproval: true,
+      message: 'Bank change submitted. It will apply once HR approves it.',
+      request: bankRequestView(request.toObject()),
+    });
   } catch (error) {
     logger.error('Error updating bank profile:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// My bank change requests (masked)
+router.get('/ess/bank-change-requests', async (req, res) => {
+  try {
+    const employee = await Employee.findOne({ adminId: req.user._id }).select('_id');
+    if (!employee) return res.status(404).json({ success: false, message: 'Employee details not found' });
+    const requests = await BankChangeRequest.find({ employee: employee._id }).sort({ createdAt: -1 }).limit(20).lean();
+    res.json({ success: true, requests: requests.map(bankRequestView) });
+  } catch (error) {
+    logger.error('Error listing bank change requests:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+router.put('/ess/bank-change-requests/:id/cancel', async (req, res) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid request ID' });
+    const employee = await Employee.findOne({ adminId: req.user._id }).select('_id employeeId');
+    if (!employee) return res.status(404).json({ success: false, message: 'Employee details not found' });
+    const request = await BankChangeRequest.findOne({ _id: req.params.id, employee: employee._id });
+    if (!request) return res.status(404).json({ success: false, message: 'Request not found' });
+    if (request.status !== 'Pending') return res.status(400).json({ success: false, message: `This request is already ${request.status.toLowerCase()}.` });
+
+    request.status = 'Cancelled';
+    request.cancelledAt = new Date();
+    await request.save();
+    await AuditLog.create({
+      adminId: req.user._id, action: 'BANK_CHANGE_CANCELLED', resource: 'Employee',
+      afterSnapshot: { employeeId: employee.employeeId, requestId: request._id }, ipAddress: req.ip,
+    }).catch(() => {});
+    res.json({ success: true, message: 'Bank change request cancelled.' });
+  } catch (error) {
+    logger.error('Error cancelling bank change request:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
@@ -95,7 +178,18 @@ router.post('/ess/attendance/clock', async (req, res) => {
     const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
     if (!todayLog) {
-      // Clock In
+      // Clock In — any earlier day left without a clock-out gets flagged for HR
+      const openDays = employee.attendance.filter((a) => a.clockIn && !a.clockOut && !a.missedClockOut && new Date(a.date).toDateString() !== todayStr);
+      openDays.forEach((a) => { a.missedClockOut = true; });
+      if (openDays.length) {
+        await notifyPermissionHolders('team.manage', {
+          type: 'attendance_missed_clockout',
+          title: `${employee.firstName} ${employee.lastName} missed a clock-out`,
+          message: `No clock-out on ${openDays.map((a) => fmtDay(a.date)).join(', ')} — attendance needs correcting.`,
+          link: '/admin/attendance-roster',
+        });
+      }
+
       let lateByMins = 0;
       try {
         const settings = await Settings.findOne({ key: 'office_timings' });
@@ -127,10 +221,21 @@ router.post('/ess/attendance/clock', async (req, res) => {
       await employee.save();
       return res.json({ success: true, action: 'clockIn', time: timeStr, lateByMins, message: 'Successfully clocked in!' });
     } else if (!todayLog.clockOut) {
-      // Clock Out
+      // Clock Out — a still-running work timer is stopped and logged first
+      let timerStopped = false;
+      if (employee.activeTimer && employee.activeTimer.startTime) {
+        await closeActiveTimer(employee, { remarks: 'Stopped automatically at clock-out.' });
+        timerStopped = true;
+      }
       todayLog.clockOut = timeStr;
       await employee.save();
-      return res.json({ success: true, action: 'clockOut', time: timeStr, message: 'Successfully clocked out!' });
+      return res.json({
+        success: true,
+        action: 'clockOut',
+        time: timeStr,
+        timerStopped,
+        message: timerStopped ? 'Clocked out. Your running timer was stopped and logged.' : 'Successfully clocked out!',
+      });
     } else {
       return res.status(400).json({ success: false, message: 'Already clocked in and out for today.' });
     }
@@ -154,6 +259,14 @@ router.post('/ess/timer/start', async (req, res) => {
     // Check if there is an active timer
     if (employee.activeTimer && employee.activeTimer.startTime) {
       return res.status(400).json({ success: false, message: 'You already have an active timer. Please stop it first.' });
+    }
+    const today = new Date().toDateString();
+    const todayAttendance = employee.attendance.find((a) => new Date(a.date).toDateString() === today);
+    if (!todayAttendance || !todayAttendance.clockIn) {
+      return res.status(400).json({ success: false, message: 'Please clock in before starting the work timer.' });
+    }
+    if (todayAttendance.clockOut) {
+      return res.status(400).json({ success: false, message: "You've already clocked out for today." });
     }
 
     employee.activeTimer = {
@@ -184,47 +297,72 @@ router.post('/ess/timer/stop', async (req, res) => {
       return res.status(400).json({ success: false, message: 'No active timer found.' });
     }
 
-    const startTime = employee.activeTimer.startTime;
-    const endTime = new Date();
-    const durationMinutes = Math.floor((endTime - startTime) / (1000 * 60)); // Total minutes
-
-    const workLog = new WorkLog({
-      employeeId: employee._id,
-      date: new Date(),
-      startTime,
-      endTime,
-      duration: durationMinutes,
-      project: employee.activeTimer.project,
-      task: employee.activeTimer.task,
-      activityType: employee.activeTimer.activityType,
-      isProductive: isProductive || false,
-      isBillable: isBillable || false,
-      remarks,
-      meetingWith,
-      clientName,
-      teamMemberName
-    });
-
-    await workLog.save();
-
-    // Mark assigned task as completed if requested
+    // Mark assigned task as completed if requested (read before the timer is cleared)
     if (markTaskCompleted && employee.activeTimer.activityType === 'Vedhunt Task') {
       const taskIndex = employee.tasks.findIndex(t => t.title === employee.activeTimer.task && t.status !== 'Completed');
       if (taskIndex !== -1) {
         employee.tasks[taskIndex].status = 'Completed';
+        employee.tasks[taskIndex].completedAt = new Date();
       }
     }
 
-    // Clear active timer
-    employee.activeTimer = { project: null, task: null, activityType: null, startTime: null };
-    employee.markModified('activeTimer');
+    const { workLog, capped } = await closeActiveTimer(employee, { remarks, isProductive, isBillable, meetingWith, clientName, teamMemberName });
     // Ensure missing required fields are populated for legacy data
     if (!employee.phone) employee.phone = '0000000000';
     await employee.save();
 
-    res.json({ success: true, message: 'Work logged successfully!', workLog });
+    res.json({
+      success: true,
+      message: capped ? 'Work logged. The timer had been left running, so the session was capped.' : 'Work logged successfully!',
+      workLog,
+      capped,
+    });
   } catch (error) {
     logger.error('Error stopping timer:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// Update one of my own tasks: Pending → In Progress → Completed
+const TASK_FLOW = { Pending: ['In Progress', 'Completed'], 'In Progress': ['Completed'], Completed: [] };
+router.put('/ess/tasks/:taskId/status', async (req, res) => {
+  try {
+    const { status } = req.body;
+    if (!['In Progress', 'Completed'].includes(status)) {
+      return res.status(400).json({ success: false, message: 'Status must be "In Progress" or "Completed".' });
+    }
+    if (!mongoose.Types.ObjectId.isValid(req.params.taskId)) return res.status(400).json({ success: false, message: 'Invalid task ID' });
+
+    const employee = await Employee.findOne({ adminId: req.user._id });
+    if (!employee) return res.status(404).json({ success: false, message: 'Employee not found' });
+    const task = employee.tasks.id(req.params.taskId);
+    if (!task) return res.status(404).json({ success: false, message: 'Task not found' });
+
+    const current = task.status || 'Pending';
+    if (!(TASK_FLOW[current] || []).includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: current === 'Completed' ? 'This task is already completed. Ask your manager to reopen it.' : `Cannot move a task from ${current} to ${status}.`,
+      });
+    }
+
+    task.status = status;
+    if (status === 'Completed') task.completedAt = new Date();
+    if (!employee.phone) employee.phone = '0000000000'; // legacy records missing a required field
+    await employee.save();
+
+    if (status === 'Completed' && task.assignedBy && String(task.assignedBy) !== String(req.user._id)) {
+      await notifyStaff(task.assignedBy, {
+        type: 'task_completed',
+        title: `Task completed by ${employee.firstName} ${employee.lastName}`,
+        message: String(task.title).slice(0, 140),
+        link: '/admin/tasks',
+      });
+    }
+
+    res.json({ success: true, message: status === 'Completed' ? 'Task marked as completed.' : 'Task started.', task });
+  } catch (error) {
+    logger.error('Error updating task status:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
@@ -337,16 +475,31 @@ router.get('/ess/dashboard-stats', async (req, res) => {
 // Create Leave Request
 router.post('/ess/leave-requests', async (req, res) => {
   try {
-    const { leaveType, startDate, endDate, reason } = req.body;
-    
+    const { leaveType, startDate, endDate } = req.body;
+    const reason = typeof req.body.reason === 'string' ? req.body.reason.trim() : '';
+
     if (!leaveType || !startDate || !endDate || !reason) {
       return res.status(400).json({ success: false, message: 'Please provide leave type, start date, end date, and reason.' });
     }
+    if (!LEAVE_LABEL[leaveType]) {
+      return res.status(400).json({ success: false, message: 'Invalid leave type.' });
+    }
+    if (reason.length > 500) {
+      return res.status(400).json({ success: false, message: 'Reason is too long (max 500 characters).' });
+    }
 
-    const start = new Date(startDate);
-    const end = new Date(endDate);
+    const start = startOfDay(startDate);
+    const end = startOfDay(endDate);
     if (isNaN(start.getTime()) || isNaN(end.getTime()) || start > end) {
       return res.status(400).json({ success: false, message: 'Invalid date range provided.' });
+    }
+    // Backdated up to 30 days (e.g. sick leave after the fact), at most a year ahead
+    const today = startOfDay(new Date());
+    if (start < new Date(today.getTime() - 30 * 86400000)) {
+      return res.status(400).json({ success: false, message: 'Leave cannot start more than 30 days in the past.' });
+    }
+    if (end > new Date(today.getTime() + 365 * 86400000)) {
+      return res.status(400).json({ success: false, message: 'Leave cannot be requested more than a year ahead.' });
     }
 
     const employee = await Employee.findOne({ adminId: req.user._id });
@@ -372,6 +525,30 @@ router.post('/ess/leave-requests', async (req, res) => {
     }
     // \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
+    const days = await countChargeableDays(start, end);
+    if (days === 0) {
+      return res.status(400).json({ success: false, message: 'The selected dates are all Sundays or holidays — no leave is needed.' });
+    }
+
+    const overlap = await findOverlap(employee._id, start, end);
+    if (overlap) {
+      return res.status(400).json({
+        success: false,
+        message: `You already have a ${overlap.status.toLowerCase()} leave request for ${fmtDay(overlap.startDate)} – ${fmtDay(overlap.endDate)} that overlaps these dates.`,
+      });
+    }
+
+    // Never more than the available balance (pending requests count against it)
+    const balance = await availableDays(employee, leaveType);
+    if (days > balance.available) {
+      return res.status(400).json({
+        success: false,
+        code: 'INSUFFICIENT_LEAVE_BALANCE',
+        message: `Not enough ${LEAVE_LABEL[leaveType]} balance: this request needs ${days} day${days > 1 ? 's' : ''}, you have ${balance.available} available${balance.pendingDays ? ` (${balance.pendingDays} already pending)` : ''}.`,
+        balance: { ...balance, requested: days },
+      });
+    }
+
     const leaveRequest = await LeaveRequest.create({
       employeeId: employee._id,
       leaveType,
@@ -380,9 +557,40 @@ router.post('/ess/leave-requests', async (req, res) => {
       reason
     });
 
-    res.status(201).json({ success: true, message: 'Leave request submitted successfully.', leaveRequest });
+    await notifyPermissionHolders('team.manage', {
+      type: 'leave_request',
+      title: `Leave request from ${employee.firstName} ${employee.lastName}`,
+      message: `${LEAVE_LABEL[leaveType]} · ${days} day${days > 1 ? 's' : ''} · ${fmtDay(start)} – ${fmtDay(end)}`,
+      link: '/admin/leave-requests',
+    }, { exclude: [req.user._id] });
+
+    res.status(201).json({ success: true, message: 'Leave request submitted successfully.', leaveRequest, days });
   } catch (error) {
     logger.error('Error creating leave request:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// Cancel one of my own PENDING leave requests
+router.put('/ess/leave-requests/:id/cancel', async (req, res) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ success: false, message: 'Invalid leave request ID' });
+    }
+    const employee = await Employee.findOne({ adminId: req.user._id }).select('_id firstName lastName');
+    if (!employee) return res.status(404).json({ success: false, message: 'Employee not found' });
+
+    const leaveRequest = await LeaveRequest.findOne({ _id: req.params.id, employeeId: employee._id });
+    if (!leaveRequest) return res.status(404).json({ success: false, message: 'Leave request not found' });
+    if (leaveRequest.status !== 'Pending') {
+      return res.status(400).json({ success: false, message: `Only pending requests can be cancelled (this one is ${leaveRequest.status.toLowerCase()}).` });
+    }
+
+    leaveRequest.status = 'Cancelled';
+    await leaveRequest.save();
+    res.json({ success: true, message: 'Leave request cancelled.', leaveRequest });
+  } catch (error) {
+    logger.error('Error cancelling leave request:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
@@ -399,11 +607,17 @@ router.get('/ess/leave-requests', async (req, res) => {
     const settings = await Settings.findOne({ key: 'attendance_rules' });
     const leaveBalancePeriod = settings?.value?.leaveBalancePeriod || 'Year';
 
+    const leavesPending = {};
+    for (const type of Object.keys(LEAVE_LABEL)) {
+      leavesPending[type] = (await availableDays(employee, type)).pendingDays;
+    }
+
     res.json({
       success: true,
       leaveRequests: requests,
       leaveBalances: employee.leaveBalances,
       leavesUsed: employee.leavesUsed,
+      leavesPending,
       leaveBalancePeriod
     });
   } catch (error) {
@@ -457,12 +671,15 @@ router.put('/ess/tickets/:id/status', async (req, res) => {
 // Add message to ticket (employee)
 router.post('/ess/tickets/:id/messages', async (req, res) => {
   try {
-    const { text } = req.body;
+    const text = typeof req.body.text === 'string' ? req.body.text.trim() : '';
     if (!text) return res.status(400).json({ success: false, message: 'Message text is required' });
-    
+    if (text.length > 5000) return res.status(400).json({ success: false, message: 'Message is too long (max 5000 characters).' });
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid ticket ID' });
+
     const ticket = await SupportTicket.findOne({ _id: req.params.id, assignedTo: req.user._id });
     if (!ticket) return res.status(404).json({ success: false, message: 'Ticket not found or not assigned to you' });
-    
+    if (ticket.status === 'Closed') return res.status(400).json({ success: false, message: 'This ticket is closed. Reopen it before replying.' });
+
     const senderName = req.user.firstName ? `${req.user.firstName} ${req.user.lastName || ''}`.trim() : 'Employee';
     
     ticket.messages.push({
@@ -633,6 +850,32 @@ router.get('/ess/payslips/:id', async (req, res) => {
   } catch (error) {
     logger.error('Error fetching employee payslip:', error);
     res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// Download one of my payslips as PDF — generated on the fly, so it works even
+// when the stored copy (pdfUrl) is missing because the upload failed.
+router.get('/ess/payslips/:id/pdf', async (req, res) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid payslip ID' });
+    const employee = await Employee.findOne({ adminId: req.user._id }).select('_id');
+    if (!employee) return res.status(404).json({ success: false, message: 'Employee not found' });
+    const payslip = await Payslip.findOne({ _id: req.params.id, employeeId: employee._id }).lean();
+    if (!payslip) return res.status(404).json({ success: false, message: 'Payslip not found' });
+
+    const { buildPayslipPdfBuffer } = require('../services/payslipGenerator');
+    const pdf = await buildPayslipPdfBuffer(payslip);
+    const name = `Payslip-${payslip.year}-${String(payslip.month).padStart(2, '0')}.pdf`;
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="${name}"`,
+      'Content-Length': pdf.length,
+      'Cache-Control': 'private, no-store',
+    });
+    res.send(pdf);
+  } catch (error) {
+    logger.error('Error generating payslip PDF:', error);
+    res.status(500).json({ success: false, message: 'Could not generate the payslip PDF' });
   }
 });
 
