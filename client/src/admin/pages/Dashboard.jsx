@@ -135,7 +135,7 @@ const Dashboard = () => {
               </div>
               <div className="text-3xl font-bold mb-1 text-[#22C55E]">{fmt(financialData.overview.totalRevenue)}</div>
               <div className="flex items-center gap-1 text-[10px] font-medium text-[#9CA3AF]">
-                From {financialData.overview.totalInvoices} invoices
+                From {financialData.overview.totalInvoices} invoice{financialData.overview.totalInvoices === 1 ? '' : 's'}
               </div>
             </Link>
 
@@ -155,7 +155,7 @@ const Dashboard = () => {
                 <span className="text-sm font-medium text-on-primary-container">Active Projects</span>
                 <Briefcase className="w-5 h-5 text-primary group-hover:scale-110 transition-transform" />
               </div>
-              <div className="text-3xl font-bold mb-1 text-white">{financialData.overview.totalProjects}</div>
+              <div className="text-3xl font-bold mb-1 text-white">{financialData.overview.activeProjects ?? financialData.overview.totalProjects}</div>
               <div className="flex items-center gap-1 text-[10px] font-medium text-[#9CA3AF]">
                 Across all clients
               </div>

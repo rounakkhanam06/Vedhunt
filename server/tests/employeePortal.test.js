@@ -151,3 +151,14 @@ describe('project delivery KPIs', () => {
     assert.equal(kpi.escalationResolution, 24);
   });
 });
+
+describe('financial overview', () => {
+  const { invoiceMoney } = require('../controllers/analyticsController');
+  test('an invoice marked Paid counts in full even without paidAmount', () => {
+    assert.deepEqual(invoiceMoney({ totalAmount: 10500, paymentStatus: 'Paid' }), { earned: 10500, pending: 0 });
+  });
+  test('unpaid and part-paid invoices split into earned and pending', () => {
+    assert.deepEqual(invoiceMoney({ totalAmount: 66000, paymentStatus: 'Unpaid' }), { earned: 0, pending: 66000 });
+    assert.deepEqual(invoiceMoney({ totalAmount: 66000, paidAmount: 20000, paymentStatus: 'Overdue' }), { earned: 20000, pending: 46000 });
+  });
+});

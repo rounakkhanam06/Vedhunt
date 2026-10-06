@@ -612,6 +612,24 @@ router.put('/invoices/:id', async (req, res) => {
     const update = { ...req.body };
     delete update._id; delete update.invoiceId; delete update.client_ref;
 
+    // Keep the amounts consistent with the status chosen in the dropdown:
+    // marking Paid records the full amount as received (and when), and moving
+    // a fully-paid invoice back to Unpaid clears that auto-filled payment.
+    if (update.paymentStatus) {
+      const current = await Invoice.findById(req.params.id, { totalAmount: 1, paidAmount: 1, paidOn: 1 }).lean();
+      if (current) {
+        const total = Number(update.totalAmount ?? current.totalAmount) || 0;
+        const paid = Number(update.paidAmount ?? current.paidAmount) || 0;
+        if (update.paymentStatus === 'Paid') {
+          if (paid < total) update.paidAmount = total;
+          if (!update.paidOn && !current.paidOn) update.paidOn = new Date();
+        } else if (paid >= total && total > 0) {
+          update.paidAmount = 0;
+          update.paidOn = null;
+        }
+      }
+    }
+
     const invoice = await Invoice.findByIdAndUpdate(req.params.id, update, { new: true, runValidators: true });
     if (!invoice) return res.status(404).json({ success: false, message: 'Invoice not found' });
     res.json({ success: true, message: 'Invoice updated', data: invoice });
