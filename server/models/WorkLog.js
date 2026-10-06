@@ -30,22 +30,18 @@ const workLogSchema = new mongoose.Schema(
       type: String,
       required: true
     },
+    // Free text from the Admin-defined activity master (Settings
+    // 'activity_master', see services/activityMaster.js) — no schema enum,
+    // so admins can add activity types without a code change.
     activityType: {
       type: String,
-      enum: [
-        'Client Work',
-        'Client Meeting',
-        'Internal Meeting',
-        'Vedhunt Task',
-        'Training',
-        'Research',
-        'Testing',
-        'Documentation',
-        'Bug Fixing',
-        'Development',
-        'Other'
-      ],
-      required: true
+      required: true,
+      trim: true
+    },
+    // The assigned Employee.tasks entry this time was logged against —
+    // drives a task's actual effort.
+    taskId: {
+      type: mongoose.Schema.Types.ObjectId
     },
     isProductive: {
       type: Boolean,
@@ -67,6 +63,15 @@ const workLogSchema = new mongoose.Schema(
     },
     remarks: {
       type: String
+    },
+    // Written or changed by an approved CorrectionRequest (never silently)
+    corrected: {
+      type: Boolean,
+      default: false
+    },
+    correctionRef: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'CorrectionRequest'
     }
   },
   { timestamps: true }
@@ -74,6 +79,9 @@ const workLogSchema = new mongoose.Schema(
 
 // Indexes for fast querying by employee and date range
 workLogSchema.index({ employeeId: 1, date: -1 });
+// Overlap checks and task effort roll-ups
+workLogSchema.index({ employeeId: 1, startTime: 1 });
+workLogSchema.index({ employeeId: 1, taskId: 1 });
 
 const WorkLog = mongoose.model('WorkLog', workLogSchema);
 

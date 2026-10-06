@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
-import { Calendar, UserCheck, UserX, Clock, AlertTriangle, AlertCircle, FileText, List } from 'lucide-react';
+import { Calendar, UserCheck, UserX, Clock, AlertTriangle, AlertCircle, FileText, List, Settings2 } from 'lucide-react';
 import LeaveRequestsManager from './LeaveRequestsManager';
+import ActivityMasterSettings from '../components/ActivityMasterSettings';
+import { formatDuration } from '../../utils/formatDuration';
 
 export default function AttendanceManager() {
   const [activeTab, setActiveTab] = useState('roster');
@@ -91,6 +93,9 @@ export default function AttendanceManager() {
         </button>
         <button className={tabClasses('leave')} onClick={() => setActiveTab('leave')}>
           <List size={18} className="shrink-0" /> <span className="whitespace-nowrap">Leave Requests</span>
+        </button>
+        <button className={tabClasses('timesheet')} onClick={() => setActiveTab('timesheet')}>
+          <Settings2 size={18} className="shrink-0" /> <span className="whitespace-nowrap">Timesheet Settings</span>
         </button>
       </div>
 
@@ -197,7 +202,10 @@ export default function AttendanceManager() {
                         <div className="font-bold text-app-text whitespace-nowrap">{r.name}</div>
                         <div className="text-xs text-app-text-muted">{r.email}</div>
                       </td>
-                      <td className="px-6 py-4">{getStatusBadge(r.status)}</td>
+                      <td className="px-6 py-4">
+                        {getStatusBadge(r.status)}
+                        {r.lateByMins > 0 && <div className="text-[11px] text-yellow-500 mt-1">by {formatDuration(r.lateByMins)}</div>}
+                      </td>
                       <td className="px-6 py-4 font-mono whitespace-nowrap">{r.checkInTime || '-'}</td>
                       <td className="px-6 py-4 font-mono whitespace-nowrap">
                         {r.checkOutTime || (!r.checkInTime ? '-' : <span className="text-yellow-500 text-xs">Missing</span>)}
@@ -219,6 +227,8 @@ export default function AttendanceManager() {
           <LeaveRequestsManager embedded={true} />
         </div>
       )}
+
+      {activeTab === 'timesheet' && <ActivityMasterSettings />}
 
     </div>
   );

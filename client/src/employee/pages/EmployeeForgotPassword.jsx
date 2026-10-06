@@ -27,9 +27,9 @@ const EmployeeForgotPassword = () => {
     <div className="flex min-h-screen items-center justify-center bg-app-bg px-4 py-12">
       <div className="w-full max-w-md space-y-6 rounded-xl bg-app-card p-8 shadow-2xl border border-app-border">
         <div className="text-center">
-          <div className="w-14 h-14 rounded-full bg-primary/10 text-primary flex items-center justify-center mx-auto mb-4"><Mail size={26} /></div>
-          <h2 className="text-2xl font-extrabold text-app-text">Forgot password?</h2>
-          <p className="mt-2 text-sm text-app-text-muted">Enter your work email and we&apos;ll send you a reset link.</p>
+          <div className="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center mx-auto mb-3"><Mail size={22} /></div>
+          <h2 className="text-xl sm:text-2xl font-semibold tracking-tight text-app-text">Forgot password?</h2>
+          <p className="mt-1.5 text-xs sm:text-sm text-app-text-muted">Enter your work email and we&apos;ll send you a reset link.</p>
         </div>
 
         {sent ? (

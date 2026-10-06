@@ -13,7 +13,7 @@ const logger = require('../utils/logger');
 const router = express.Router();
 router.use(authMiddleware);
 
-const { METRIC_TYPES, ROLE_PRESETS } = require('../models/KPITarget');
+const { METRIC_TYPES, ROLE_PRESETS, METRIC_DEFS } = require('../models/KPITarget');
 const { getBand } = require('../models/PerformanceReview');
 
 // ─── Helper: Recompute finalScore + band + rank for a cycle ────────────────
@@ -121,7 +121,7 @@ router.put('/cycles/:id', requirePermission('team.manage'), async (req, res) => 
 
 // GET /api/performance/presets — return role presets + metric types
 router.get('/presets', requirePermission('team.manage'), (req, res) => {
-  res.json({ success: true, presets: ROLE_PRESETS, metricTypes: METRIC_TYPES });
+  res.json({ success: true, presets: ROLE_PRESETS, metricTypes: METRIC_TYPES, metricDefs: METRIC_DEFS });
 });
 
 // ════════════════════════════════════════════════════════════════
@@ -233,10 +233,17 @@ router.put('/targets/:id/manual-actual', requirePermission('team.manage'), async
       return res.status(400).json({ success: false, message: 'actualValue is required.' });
     }
 
+    const value = Number(actualValue);
+    if (!Number.isFinite(value) || value < 0) {
+      return res.status(400).json({ success: false, message: 'actualValue must be a number of 0 or more.' });
+    }
     const target = await KPITarget.findById(req.params.id);
     if (!target) return res.status(404).json({ success: false, message: 'KPI target not found.' });
+    if (METRIC_DEFS[target.metricType]?.auto) {
+      return res.status(400).json({ success: false, message: `${target.metricType} is synced automatically — use "Sync actuals" instead.` });
+    }
 
-    target.actualValue = Number(actualValue);
+    target.actualValue = value;
     target.autoFilled = false;
     target.lastSyncedAt = new Date();
     await target.save(); // pre-save hook computes achievementPct + weightedScore
@@ -491,7 +498,7 @@ router.get('/scorecard/me/:cycleId', async (req, res) => {
       .populate('managerReview.reviewedBy', 'firstName lastName');
     const cycle  = await PerformanceCycle.findById(req.params.cycleId);
 
-    res.json({ success: true, targets, review, cycle });
+    res.json({ success: true, targets, review, cycle, metricDefs: METRIC_DEFS });
   } catch (err) {
     logger.error('Error fetching scorecard:', err);
     res.status(500).json({ success: false, message: 'Server error' });

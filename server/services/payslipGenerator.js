@@ -1,4 +1,3 @@
-const PDFDocument = require('pdfkit');
 const Payslip = require('../models/Payslip');
 const PayrollRun = require('../models/PayrollRun');
 const Employee = require('../models/Employee');
@@ -6,108 +5,16 @@ const { uploadBuffer } = require('../utils/cloudinary');
 const { sendEmail } = require('../utils/sendEmail');
 const logger = require('../utils/logger');
 const { recomputeTotals } = require('./payrollEngine');
+const { buildPayslipPdfBuffer } = require('./payslipPdf');
+const { inr } = require('./pdfBranding');
 
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
-const EARNING_LABELS = {
-  basic: 'Basic', hra: 'HRA', specialAllowance: 'Special Allowance', conveyance: 'Conveyance',
-  medicalAllowance: 'Medical Allowance', otherAllowances: 'Other Allowances',
-  bonus: 'Bonus', incentive: 'Incentive', reimbursement: 'Reimbursement', arrears: 'Arrears'
-};
-const DEDUCTION_LABELS = {
-  lopDeduction: 'Loss of Pay', pf: 'Provident Fund (PF)', professionalTax: 'Professional Tax',
-  tds: 'TDS', otherDeductions: 'Other Deductions'
-};
-
-const inr = (n) => `Rs. ${Math.round(n || 0).toLocaleString('en-IN')}`;
-
-function buildPayslipPdfBuffer(payslip) {
-  return new Promise((resolve, reject) => {
-    const doc = new PDFDocument({ margin: 50, size: 'A4' });
-    const chunks = [];
-    doc.on('data', (c) => chunks.push(c));
-    doc.on('end', () => resolve(Buffer.concat(chunks)));
-    doc.on('error', reject);
-
-    doc.fontSize(18).font('Helvetica-Bold').text('Vedhunt', { align: 'left' });
-    doc.fontSize(11).font('Helvetica').fillColor('#555').text('Payslip', { align: 'left' });
-    doc.moveDown(0.3);
-    doc.fontSize(13).fillColor('#000').font('Helvetica-Bold')
-      .text(`${MONTH_NAMES[payslip.month - 1]} ${payslip.year}`);
-    doc.moveDown(1);
-
-    doc.fontSize(10).font('Helvetica');
-    const info = [
-      ['Employee Name', payslip.employeeSnapshot.name],
-      ['Employee ID', payslip.employeeSnapshot.employeeId],
-      ['Department / Designation', payslip.employeeSnapshot.department || '-'],
-      ['Date of Joining', payslip.employeeSnapshot.joinDate ? new Date(payslip.employeeSnapshot.joinDate).toLocaleDateString('en-IN') : '-']
-    ];
-    info.forEach(([label, value]) => {
-      doc.font('Helvetica-Bold').text(`${label}: `, { continued: true }).font('Helvetica').text(String(value));
-    });
-    doc.moveDown(0.5);
-
-    const att = payslip.attendanceSummary || {};
-    doc.font('Helvetica-Bold').text('Attendance: ', { continued: true }).font('Helvetica')
-      .text(`${att.totalDaysInMonth || 0} days in month | ${att.presentDays || 0} present | ${att.paidLeaveDays || 0} paid leave | ${att.lopDays || 0} LOP`);
-    doc.moveDown(1);
-
-    // Earnings / Deductions two-column table
-    const colWidth = 245;
-    const leftX = doc.x;
-    const rightX = leftX + colWidth + 20;
-    let y = doc.y;
-
-    doc.font('Helvetica-Bold').fontSize(11);
-    doc.text('Earnings', leftX, y);
-    doc.text('Deductions', rightX, y);
-    y += 18;
-    doc.moveTo(leftX, y).lineTo(leftX + colWidth, y).strokeColor('#ddd').stroke();
-    doc.moveTo(rightX, y).lineTo(rightX + colWidth, y).stroke();
-    y += 8;
-
-    doc.font('Helvetica').fontSize(10);
-    const earningRows = Object.entries(EARNING_LABELS)
-      .filter(([key]) => payslip.earnings[key])
-      .map(([key, label]) => [label, inr(payslip.earnings[key])]);
-    const deductionRows = Object.entries(DEDUCTION_LABELS)
-      .filter(([key]) => payslip.deductions[key])
-      .map(([key, label]) => [label, inr(payslip.deductions[key])]);
-
-    const rowCount = Math.max(earningRows.length, deductionRows.length, 1);
-    for (let i = 0; i < rowCount; i++) {
-      const rowY = y + i * 18;
-      if (earningRows[i]) {
-        doc.text(earningRows[i][0], leftX, rowY, { width: colWidth - 70, continued: false });
-        doc.text(earningRows[i][1], leftX + colWidth - 70, rowY, { width: 70, align: 'right' });
-      }
-      if (deductionRows[i]) {
-        doc.text(deductionRows[i][0], rightX, rowY, { width: colWidth - 70, continued: false });
-        doc.text(deductionRows[i][1], rightX + colWidth - 70, rowY, { width: 70, align: 'right' });
-      }
-    }
-
-    y += rowCount * 18 + 10;
-    doc.moveTo(leftX, y).lineTo(leftX + colWidth, y).stroke();
-    doc.moveTo(rightX, y).lineTo(rightX + colWidth, y).stroke();
-    y += 6;
-    doc.font('Helvetica-Bold');
-    doc.text('Gross Earnings', leftX, y, { width: colWidth - 70 });
-    doc.text(inr(payslip.grossEarnings), leftX + colWidth - 70, y, { width: 70, align: 'right' });
-    doc.text('Total Deductions', rightX, y, { width: colWidth - 70 });
-    doc.text(inr(payslip.totalDeductions), rightX + colWidth - 70, y, { width: 70, align: 'right' });
-
-    y += 40;
-    doc.rect(leftX, y, rightX + colWidth - leftX, 34).fillAndStroke('#FFF2EB', '#FF6B35');
-    doc.fillColor('#111').fontSize(13).text('Net Pay', leftX + 15, y + 10, { continued: true })
-      .text(`   ${inr(payslip.netPay)}`, { align: 'left' });
-
-    doc.fontSize(8).fillColor('#888').font('Helvetica')
-      .text('This is a system-generated payslip.', leftX, y + 60);
-
-    doc.end();
-  });
+/** Payment state as employees see it — Paid > Sent > Processed. */
+function payslipPaymentStatus(payslip) {
+  if (payslip.paidAt) return 'Paid';
+  if (payslip.emailStatus === 'Sent') return 'Sent';
+  return 'Processed';
 }
 
 /**
@@ -224,4 +131,4 @@ async function resendPayslip(payslipId) {
   return payslip;
 }
 
-module.exports = { buildPayslipPdfBuffer, finalizeAndSendPayslip, resendPayslip };
+module.exports = { buildPayslipPdfBuffer, payslipPaymentStatus, finalizeAndSendPayslip, resendPayslip };

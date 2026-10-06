@@ -1,16 +1,12 @@
 import { useState } from 'react';
-import { Phone, Mail, MessageCircle, Eye, CalendarClock, StickyNote, Flame, TrendingUp, FileText, MoreHorizontal } from 'lucide-react';
+import { Phone, Mail, Eye, CalendarClock, StickyNote, Flame, TrendingUp, FileText, MoreHorizontal } from 'lucide-react';
 import toast from 'react-hot-toast';
-import employeeApi from '../../services/employeeApi';
 import NoCopyText from './NoCopyText';
-import { INTEREST_LEVELS } from '../../shared/leadConstants';
-
-/** WhatsApp deep link — Indian 10-digit numbers get the country code prefixed. */
-function toWhatsAppHref(phone) {
-  const digits = String(phone || '').replace(/\D/g, '');
-  if (!digits) return null;
-  return `https://wa.me/${digits.length === 10 ? `91${digits}` : digits}`;
-}
+import WhatsAppAction from './WhatsAppAction';
+import FollowUpForm from './FollowUpForm';
+import { essPut, apiError } from '../lib/ess';
+import { fmtDateTime, timeAgo } from '../lib/datetime';
+import { INTEREST_LEVELS, NON_ACTIVE_FOLLOWUP_STATUSES } from '../../shared/leadConstants';
 
 const STATUS_BADGE_CLASSES = {
   Won: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
@@ -30,52 +26,54 @@ const QuickActionButton = ({ icon: Icon, label, onClick, active }) => (
   </button>
 );
 
+const InfoCell = ({ label, children, tone }) => (
+  <div className="min-w-0">
+    <div className="text-[10px] uppercase tracking-wider font-bold text-app-text-muted">{label}</div>
+    <div className={`text-xs font-semibold truncate mt-0.5 ${tone || 'text-app-text'}`}>{children}</div>
+  </div>
+);
+
 /**
- * A single lead card for the mobile-first Raw/Working Leads and Follow-ups
- * lists. Quick actions that only ever touch one un-gated field (follow-up
- * date, remark, interest level) save inline, one tap, no navigation. Actions
- * that need server/utils/leadStateMachine.js's full validated form (Stage,
- * Proposal) route to the Lead Workspace page instead of risking a confusing
- * inline validation error on a compact card.
+ * A single lead card for the Raw/Working Leads and Follow-ups lists. Shows the
+ * working context (stage, interest, last activity, next action) at a glance.
+ * Quick actions that touch one un-gated field (note, interest) save inline;
+ * follow-ups go through FollowUpForm (outcome + next action); stage and
+ * proposal work open the Lead Workspace.
  */
 export default function LeadCard({ lead, onUpdated, navigate }) {
   const [openPanel, setOpenPanel] = useState(null); // 'followup' | 'note' | 'interest' | null
-  const [followUpDraft, setFollowUpDraft] = useState('');
   const [noteDraft, setNoteDraft] = useState(lead.remark || '');
   const [saving, setSaving] = useState(false);
 
   const togglePanel = (panel) => {
-    if (openPanel === panel) {
-      setOpenPanel(null);
-      return;
-    }
-    if (panel === 'followup') setFollowUpDraft(lead.nextFollowUpDate ? new Date(lead.nextFollowUpDate).toISOString().slice(0, 16) : '');
-    if (panel === 'note') setNoteDraft(lead.remark || '');
-    setOpenPanel(panel);
+    if (panel === 'note' && openPanel !== 'note') setNoteDraft(lead.remark || '');
+    setOpenPanel(openPanel === panel ? null : panel);
   };
 
   const save = async (fields) => {
     try {
       setSaving(true);
-      const res = await employeeApi.put(`/employee-portal/ess/leads/${lead._id}`, fields);
-      if (res.data.success) {
-        toast.success('Saved', { duration: 1000, position: 'bottom-right' });
-        onUpdated?.(res.data.lead);
-        setOpenPanel(null);
-      }
+      const res = await essPut(`/leads/${lead._id}`, fields);
+      toast.success('Saved', { duration: 1000, position: 'bottom-right' });
+      onUpdated?.(res.lead);
+      setOpenPanel(null);
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to save');
+      toast.error(apiError(err, 'Failed to save'));
     } finally {
       setSaving(false);
     }
   };
 
+  const active = !NON_ACTIVE_FOLLOWUP_STATUSES.includes(lead.status);
+  const overdue = active && lead.nextFollowUpDate && new Date(lead.nextFollowUpDate) < new Date();
+  const workspace = (suffix = '') => navigate(`/employee/leads/${lead._id}${suffix}`);
+
   return (
-    <div id={`lead-card-${lead._id}`} className="bg-app-card border border-app-border rounded-xl p-6 hover:border-primary/20 transition-all scroll-mt-4">
+    <div id={`lead-card-${lead._id}`} className="bg-app-card border border-app-border rounded-xl p-5 sm:p-6 hover:border-primary/20 transition-all scroll-mt-4">
       <div className="flex flex-wrap justify-between items-start gap-4">
-        <div>
+        <div className="min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs font-mono text-primary">{lead.leadId}</span>
+            <span className="text-xs font-mono text-primary" title="Vedhunt Lead ID">{lead.leadId}</span>
             <NoCopyText className="text-app-text font-bold">{lead.fullName}</NoCopyText>
             <span className={`px-2.5 py-1 text-[10px] uppercase font-bold tracking-wider rounded border ${
               STATUS_BADGE_CLASSES[lead.status] || 'bg-amber-500/10 text-amber-400 border-amber-500/20'
@@ -90,10 +88,11 @@ export default function LeadCard({ lead, onUpdated, navigate }) {
           </div>
           <p className="text-xs text-app-text-muted mt-1">
             {lead.service} · {lead.platform}
+            {lead.fbLeadId && <span className="font-mono"> · Meta Lead ID: {lead.fbLeadId}</span>}
           </p>
         </div>
         <button
-          onClick={() => navigate(`/employee/leads/${lead._id}`)}
+          onClick={() => workspace()}
           className="flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 text-primary hover:bg-primary/20 rounded-lg text-xs font-bold transition-colors shrink-0"
         >
           <Eye size={14} /> View
@@ -109,46 +108,39 @@ export default function LeadCard({ lead, onUpdated, navigate }) {
         </NoCopyText>
       </div>
 
-      {lead.nextFollowUpDate && (
-        <p className="text-xs text-app-text-muted mt-3">
-          Next follow-up: {new Date(lead.nextFollowUpDate).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
-        </p>
-      )}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
+        <InfoCell label="Stage">{lead.status}</InfoCell>
+        <InfoCell label="Interest">{lead.interestLevel || '—'}</InfoCell>
+        <InfoCell label="Last activity">
+          {lead.lastActivity ? `${lead.lastActivity.status} · ${timeAgo(lead.lastActivity.date)}` : `Assigned · ${timeAgo(lead.assignedAt || lead.createdAt)}`}
+        </InfoCell>
+        <InfoCell label="Next action" tone={!lead.nextFollowUpDate && active ? 'text-amber-500' : overdue ? 'text-red-400' : undefined}>
+          {lead.nextFollowUpDate && active
+            ? `${lead.nextActionType || 'Follow-up'} · ${fmtDateTime(lead.nextFollowUpDate)}${overdue ? ' (overdue)' : ''}`
+            : active ? 'None scheduled' : '—'}
+        </InfoCell>
+      </div>
 
       {/* Quick actions */}
       <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-app-border">
         <a href={`tel:${lead.phone}`} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold bg-primary text-white">
           <Phone size={13} /> Call
         </a>
-        {toWhatsAppHref(lead.phone) && (
-          <a href={toWhatsAppHref(lead.phone)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20">
-            <MessageCircle size={13} /> WhatsApp
-          </a>
-        )}
-        <QuickActionButton icon={CalendarClock} label="Follow-up" active={openPanel === 'followup'} onClick={() => togglePanel('followup')} />
+        <WhatsAppAction
+          lead={lead}
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 cursor-pointer"
+        />
+        {active && <QuickActionButton icon={CalendarClock} label={lead.nextFollowUpDate ? 'Complete follow-up' : 'Follow-up'} active={openPanel === 'followup'} onClick={() => togglePanel('followup')} />}
         <QuickActionButton icon={StickyNote} label="Note" active={openPanel === 'note'} onClick={() => togglePanel('note')} />
         <QuickActionButton icon={Flame} label="Interest" active={openPanel === 'interest'} onClick={() => togglePanel('interest')} />
-        <QuickActionButton icon={TrendingUp} label="Stage" onClick={() => navigate(`/employee/leads/${lead._id}`)} />
-        <QuickActionButton icon={FileText} label="Proposal" onClick={() => navigate(`/employee/leads/${lead._id}`)} />
-        <QuickActionButton icon={MoreHorizontal} label="More" onClick={() => navigate(`/employee/leads/${lead._id}`)} />
+        <QuickActionButton icon={TrendingUp} label="Stage" onClick={() => workspace()} />
+        <QuickActionButton icon={FileText} label="Proposal" onClick={() => workspace('?proposal=1')} />
+        <QuickActionButton icon={MoreHorizontal} label="More" onClick={() => workspace()} />
       </div>
 
       {openPanel === 'followup' && (
-        <div className="mt-3 flex flex-wrap items-center gap-2 bg-form-input-bg p-3 rounded-lg">
-          <input
-            type="datetime-local"
-            value={followUpDraft}
-            onChange={(e) => setFollowUpDraft(e.target.value)}
-            className="bg-app-card border border-app-border rounded-lg px-3 py-1.5 text-sm text-app-text focus:outline-none focus:border-primary/50"
-            style={{ colorScheme: 'dark' }}
-          />
-          <button
-            disabled={saving || !followUpDraft}
-            onClick={() => save({ nextFollowUpDate: new Date(followUpDraft).toISOString() })}
-            className="px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-bold disabled:opacity-50"
-          >
-            Save
-          </button>
+        <div className="mt-3">
+          <FollowUpForm lead={lead} onSaved={(updated) => { onUpdated?.(updated); setOpenPanel(null); }} onCancel={() => setOpenPanel(null)} />
         </div>
       )}
 

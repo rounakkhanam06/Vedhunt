@@ -30,10 +30,10 @@ const ForgotPassword = () => {
       <div className="w-full max-w-md space-y-8 rounded-xl bg-white p-8 shadow-lg border border-gray-200">
         <div className="flex flex-col items-center">
           <img src={lightLogo} alt="Vedhunt Logo" className="h-16 w-auto mb-4" />
-          <h2 className="text-center text-3xl font-extrabold tracking-tight text-gray-900">
+          <h2 className="text-center text-xl sm:text-2xl font-semibold tracking-tight text-gray-900">
             Forgot Password
           </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
+          <p className="mt-1.5 text-center text-xs sm:text-sm text-gray-600">
             Enter your email to receive a password reset link
           </p>
         </div>

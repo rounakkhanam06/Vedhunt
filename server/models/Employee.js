@@ -8,14 +8,40 @@ const attendanceSchema = new mongoose.Schema({
   clockOut: { type: String },
   lateByMins: { type: Number, default: 0 },
   // Clocked in but never clocked out that day — flagged for HR to correct
-  missedClockOut: { type: Boolean, default: false }
+  missedClockOut: { type: Boolean, default: false },
+  // Set when an approved CorrectionRequest wrote/overwrote this day. The
+  // original values stay on that request (CorrectionRequest.original).
+  regularized: { type: Boolean, default: false },
+  regularizationRef: { type: mongoose.Schema.Types.ObjectId, ref: 'CorrectionRequest' }
 });
+
+const TASK_STATUSES = ['Pending', 'In Progress', 'Blocked', 'Completed', 'Cancelled'];
+const TASK_PRIORITIES = ['Low', 'Normal', 'High', 'Urgent'];
+
+const taskEntrySchema = new mongoose.Schema({
+  text: { type: String, required: true, trim: true },
+  by: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin' },
+  byName: { type: String, trim: true },
+  at: { type: Date, default: Date.now }
+}, { _id: true });
 
 const taskSchema = new mongoose.Schema({
   title: { type: String, required: true },
   description: { type: String },
-  status: { type: String, enum: ['Pending', 'In Progress', 'Completed'], default: 'Pending' },
+  // 'Pending' is shown as "Not Started" in the portals.
+  status: { type: String, enum: TASK_STATUSES, default: 'Pending' },
   dueDate: { type: Date },
+  startDate: { type: Date },
+  priority: { type: String, enum: TASK_PRIORITIES, default: 'Normal' },
+  project: { type: String, trim: true },
+  client: { type: String, trim: true },
+  estimatedHours: { type: Number, min: 0 },
+  acceptanceCriteria: { type: String, trim: true },
+  // Why the task is blocked (or late) — required to move it to Blocked.
+  blockerReason: { type: String, trim: true },
+  comments: [taskEntrySchema],
+  // Append-only status/activity trail; `text` is the human-readable event.
+  history: [taskEntrySchema],
   // Who assigned it — for the Organization Tasks log, distinct from the
   // employee it's assigned to.
   assignedBy: {
@@ -173,8 +199,28 @@ const employeeSchema = new mongoose.Schema(
     activeTimer: {
       project: { type: String },
       task: { type: String },
+      // The assigned task this session is for, when picked from My Tasks
+      taskId: { type: mongoose.Schema.Types.ObjectId },
       startTime: { type: Date },
-      activityType: { type: String }
+      activityType: { type: String },
+      // Paused: the running segment was logged and startTime cleared; the
+      // project/task/activity stay so Resume starts a fresh segment.
+      pausedAt: { type: Date }
+    },
+    // ── Corporate profile (all optional; maintained by HR) ──────────────────
+    designation: { type: String, trim: true },
+    department: { type: String, trim: true },
+    subDepartment: { type: String, trim: true },
+    pfNumber: { type: String, trim: true }, // shown on the payslip
+    reportingManager: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee' },
+    workLocation: { type: String, trim: true },
+    dateOfBirth: { type: Date },
+    profilePhoto: { type: String, trim: true },
+    skills: [{ type: String, trim: true }],
+    responsibilities: { type: String, trim: true },
+    preferences: {
+      // How the WhatsApp action opens a chat — 'ask' shows the chooser
+      whatsappApp: { type: String, enum: ['ask', 'web', 'desktop', 'business'], default: 'ask' }
     },
     alerts: [{
       type: { type: String, enum: ['Productivity', 'Inactivity', 'MissingTimesheet', 'LongTimer', 'Other'] },
@@ -189,3 +235,5 @@ const employeeSchema = new mongoose.Schema(
 const Employee = mongoose.model('Employee', employeeSchema);
 
 module.exports = Employee;
+module.exports.TASK_STATUSES = TASK_STATUSES;
+module.exports.TASK_PRIORITIES = TASK_PRIORITIES;

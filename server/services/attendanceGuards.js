@@ -2,7 +2,7 @@
 // clocked out is flagged (missedClockOut) so HR can correct the day, and a
 // still-running work timer is closed instead of counting all night.
 const Employee = require('../models/Employee');
-const { closeActiveTimer } = require('./workTimer');
+const { closeActiveTimer, hasTimer } = require('./workTimer');
 const { notifyStaff, notifyPermissionHolders } = require('./staffNotify');
 const logger = require('../utils/logger');
 
@@ -16,7 +16,7 @@ async function flagMissedClockOuts(now = new Date()) {
     const log = emp.attendance.find((a) => new Date(a.date).toDateString() === today);
     if (!log || !log.clockIn || log.clockOut || log.missedClockOut) continue;
     log.missedClockOut = true;
-    if (emp.activeTimer && emp.activeTimer.startTime) {
+    if (hasTimer(emp.activeTimer)) {
       await closeActiveTimer(emp, { remarks: 'Stopped automatically — no clock-out today.' }, now);
     }
     if (!emp.phone) emp.phone = '0000000000'; // legacy records missing a required field

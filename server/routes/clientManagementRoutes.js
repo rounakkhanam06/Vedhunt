@@ -6,6 +6,9 @@ const authMiddleware = require('../middleware/authMiddleware');
 const Client = require('../models/Client');
 const Invoice = require('../models/Invoice');
 const Project = require('../models/Project');
+const Employee = require('../models/Employee');
+const delivery = require('../services/projectDelivery');
+const { sendResult } = require('../utils/apiResponse');
 const Retainer = require('../models/Retainer');
 const SupportTicket = require('../models/SupportTicket');
 const AssignmentLog = require('../models/AssignmentLog');
@@ -635,7 +638,17 @@ router.delete('/invoices/:id', async (req, res) => {
 // PROJECTS
 // ══════════════════════════════════════════════════════════════════════════════
 
-router.get('/projects', async (req, res) => {
+// Same permission the Admin panel's Projects page requires.
+const canManageProjects = requirePermission('cms.manage');
+const PEOPLE = 'firstName lastName designation roleDept';
+
+// Employees for the Project Manager / team pickers
+router.get('/projects-staff', canManageProjects, async (req, res) => {
+  const staff = await Employee.find({}, PEOPLE + ' employeeId').sort({ firstName: 1 }).lean();
+  res.json({ success: true, data: staff });
+});
+
+router.get('/projects', canManageProjects, async (req, res) => {
   try {
     const { page, limit, skip } = parsePagination(req.query);
     const filter = {};
@@ -644,7 +657,10 @@ router.get('/projects', async (req, res) => {
 
     const [projects, total] = await Promise.all([
       Project.find(filter)
+        .select('+escalations')
         .populate('client_ref', 'businessName contactName clientId')
+        .populate('projectManager', PEOPLE)
+        .populate('teamMembers', PEOPLE)
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
@@ -659,11 +675,14 @@ router.get('/projects', async (req, res) => {
   }
 });
 
-router.get('/projects/:id', async (req, res) => {
+router.get('/projects/:id', canManageProjects, async (req, res) => {
   try {
     if (!isValidId(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid project ID' });
     const project = await Project.findById(req.params.id)
-      .populate('client_ref', 'businessName contactName email clientId');
+      .select('+escalations')
+      .populate('client_ref', 'businessName contactName email clientId')
+      .populate('projectManager', PEOPLE)
+      .populate('teamMembers', PEOPLE);
     if (!project) return res.status(404).json({ success: false, message: 'Project not found' });
     res.json({ success: true, data: project });
   } catch (error) {
@@ -672,13 +691,16 @@ router.get('/projects/:id', async (req, res) => {
   }
 });
 
-router.post('/projects', async (req, res) => {
+router.post('/projects', canManageProjects, async (req, res) => {
   try {
     const { client_ref, projectName, internalNotes, startDate, expectedEndDate, status, milestones } = req.body;
     if (!client_ref || !projectName) {
       return res.status(400).json({ success: false, message: 'client_ref and projectName are required' });
     }
-    const project = await Project.create({ client_ref, projectName, internalNotes, startDate, expectedEndDate, status, milestones });
+    const { value: assignment, error } = await delivery.cleanAssignment(req.body);
+    if (error) return res.status(400).json({ success: false, message: error });
+    const project = await Project.create({ client_ref, projectName, internalNotes, startDate, expectedEndDate, status, milestones, ...assignment });
+    await delivery.notifyNewAssignees(project);
     res.status(201).json({ success: true, message: 'Project created', data: { projectId: project.projectId, _id: project._id } });
   } catch (error) {
     logger.error('Admin create project error:', error);
@@ -687,26 +709,32 @@ router.post('/projects', async (req, res) => {
   }
 });
 
-router.put('/projects/:id', async (req, res) => {
+router.put('/projects/:id', canManageProjects, async (req, res) => {
   try {
     if (!isValidId(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid project ID' });
     const update = { ...req.body };
-    delete update._id; delete update.projectId; delete update.client_ref;
+    // Identity, the escalation log and completion stamps are never set directly.
+    ['_id', 'projectId', 'client_ref', 'escalations', 'completedAt', 'projectManager', 'teamMembers'].forEach((k) => delete update[k]);
+    const { value: assignment, error } = await delivery.cleanAssignment(req.body);
+    if (error) return res.status(400).json({ success: false, message: error });
 
     const project = await Project.findById(req.params.id);
     if (!project) return res.status(404).json({ success: false, message: 'Project not found' });
+    const before = { projectManager: project.projectManager, teamMembers: [...(project.teamMembers || [])] };
 
-    Object.assign(project, update);
+    Object.assign(project, update, assignment);
     await project.save();
+    await delivery.notifyNewAssignees(project, before);
 
     res.json({ success: true, message: 'Project updated', data: project });
   } catch (error) {
     logger.error('Admin update project error:', error);
+    if (error.name === 'ValidationError') return res.status(400).json({ success: false, message: error.message });
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
 
-router.delete('/projects/:id', async (req, res) => {
+router.delete('/projects/:id', canManageProjects, async (req, res) => {
   try {
     if (!isValidId(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid project ID' });
     await Project.findByIdAndDelete(req.params.id);
@@ -715,6 +743,21 @@ router.delete('/projects/:id', async (req, res) => {
     logger.error('Admin delete project error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
+});
+
+// Escalations — logged/resolved by admin here, or by the PM in the Employee Portal
+router.post('/projects/:id/escalations', canManageProjects, async (req, res) => {
+  if (!isValidId(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid project ID' });
+  const project = await Project.findById(req.params.id).select('+escalations');
+  if (!project) return res.status(404).json({ success: false, message: 'Project not found' });
+  sendResult(res, await delivery.addEscalation(project, req.user, req.body), 201);
+});
+
+router.put('/projects/:id/escalations/:escalationId/resolve', canManageProjects, async (req, res) => {
+  if (!isValidId(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid project ID' });
+  const project = await Project.findById(req.params.id).select('+escalations');
+  if (!project) return res.status(404).json({ success: false, message: 'Project not found' });
+  sendResult(res, await delivery.resolveEscalation(project, req.user, req.params.escalationId, req.body.resolution));
 });
 
 // ══════════════════════════════════════════════════════════════════════════════

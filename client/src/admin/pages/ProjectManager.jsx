@@ -3,12 +3,14 @@ import api from '../../services/api';
 import toast from 'react-hot-toast';
 import {
   FolderOpen, Plus, Search, X, Save,
-  ChevronLeft, ChevronRight, Trash2, Edit2, Filter, LayoutList, Target
+  ChevronLeft, ChevronRight, Trash2, Edit2, Filter, LayoutList, Target, Users, AlertTriangle
 } from 'lucide-react';
+import EscalationLog from '../../components/projects/EscalationLog';
 
 const emptyForm = () => ({
   client_ref: '', projectName: '', startDate: '', expectedEndDate: '',
   internalNotes: '', status: 'Active',
+  projectManager: '', teamMembers: [],
   milestones: [{ title: '', internalDescription: '', status: 'Pending', targetDate: '', order: 1 }]
 });
 
@@ -30,11 +32,21 @@ export default function ProjectManager() {
   const [editTarget, setEditTarget] = useState(null);
   const [form, setForm] = useState(emptyForm());
   const [saving, setSaving] = useState(false);
+  const [staff, setStaff] = useState([]); // employees for the PM / team pickers
+  const [escalations, setEscalations] = useState([]); // of the project being edited
 
   useEffect(() => {
     api.get('/admin/clients', { params: { limit: 200 } })
       .then(r => setClients(r.data.data || []));
+    api.get('/admin/projects-staff').then(r => setStaff(r.data.data || [])).catch(() => {});
   }, []);
+
+  const staffName = (e) => (e ? `${e.firstName} ${e.lastName}` : '');
+  const refreshEscalations = async (id) => {
+    const r = await api.get(`/admin/projects/${id}`);
+    setEscalations(r.data.data?.escalations || []);
+    fetchProjects();
+  };
 
   const fetchProjects = useCallback(async () => {
     setLoading(true);
@@ -73,12 +85,15 @@ export default function ProjectManager() {
       expectedEndDate: prj.expectedEndDate?.split('T')[0] || '',
       internalNotes: prj.internalNotes || '',
       status: prj.status || 'Active',
+      projectManager: prj.projectManager?._id || '',
+      teamMembers: (prj.teamMembers || []).map(m => m._id),
       milestones: prj.milestones?.length ? prj.milestones.map(m => ({
         ...m,
         targetDate: m.targetDate?.split('T')[0] || '',
         completedOn: m.completedOn?.split('T')[0] || ''
       })) : []
     });
+    setEscalations(prj.escalations || []);
     setShowModal(true);
   };
 
@@ -182,6 +197,7 @@ export default function ProjectManager() {
                   <th className="px-4 py-3 text-left">Project ID</th>
                   <th className="px-4 py-3 text-left">Name</th>
                   <th className="px-4 py-3 text-left">Client</th>
+                  <th className="px-4 py-3 text-left">Team</th>
                   <th className="px-4 py-3 text-left hidden md:table-cell">Timeline</th>
                   <th className="px-4 py-3 text-center">Progress</th>
                   <th className="px-4 py-3 text-center">Status</th>
@@ -198,6 +214,13 @@ export default function ProjectManager() {
                     <td className="px-4 py-3">
                       <p className="text-on-surface text-xs">{prj.client_ref?.contactName || '—'}</p>
                       <p className="text-on-surface-variant text-[10px]">{prj.client_ref?.businessName} • {prj.client_ref?.clientId}</p>
+                    </td>
+                    <td className="px-4 py-3 text-xs">
+                      <p className="text-on-surface">{prj.projectManager ? `PM: ${staffName(prj.projectManager)}` : <span className="text-amber-400">No PM</span>}</p>
+                      <p className="text-on-surface-variant text-[10px]">{(prj.teamMembers || []).length} member{(prj.teamMembers || []).length === 1 ? '' : 's'}</p>
+                      {(prj.escalations || []).some(e => e.status === 'Open') && (
+                        <p className="text-red-400 text-[10px] flex items-center gap-1"><AlertTriangle size={10} />{prj.escalations.filter(e => e.status === 'Open').length} open escalation(s)</p>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-on-surface-variant text-xs hidden md:table-cell">
                       {prj.startDate && new Date(prj.startDate).toLocaleDateString('en-IN')} <br />
@@ -302,6 +325,48 @@ export default function ProjectManager() {
                   {['Active', 'On Hold', 'Completed', 'Cancelled'].map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
+
+              {/* Delivery team — drives My Projects and the delivery KPIs */}
+              <div className="space-y-3">
+                <h4 className="text-on-surface font-semibold flex items-center gap-2"><Users size={16} className="text-secondary" /> Delivery Team</h4>
+                <div>
+                  <label className="block text-on-surface-variant text-xs font-medium mb-1.5">Project Manager</label>
+                  <select value={form.projectManager} onChange={e => setForm(p => ({ ...p, projectManager: e.target.value, teamMembers: p.teamMembers.filter(id => id !== e.target.value) }))}
+                    className="w-full max-w-md px-3 py-2 bg-admin-bg border border-outline-variant rounded-xl text-on-surface text-sm focus:outline-none focus:border-secondary">
+                    <option value="">— Not assigned —</option>
+                    {staff.map(e => <option key={e._id} value={e._id}>{staffName(e)}{e.designation || e.roleDept ? ` — ${e.designation || e.roleDept}` : ''}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-on-surface-variant text-xs font-medium mb-1.5">Team Members ({form.teamMembers.length})</label>
+                  <div className="max-h-40 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 gap-1.5 p-3 bg-admin-bg border border-outline-variant rounded-xl">
+                    {staff.filter(e => e._id !== form.projectManager).map(e => {
+                      const checked = form.teamMembers.includes(e._id);
+                      return (
+                        <label key={e._id} className="flex items-center gap-2 text-xs text-on-surface cursor-pointer">
+                          <input type="checkbox" checked={checked}
+                            onChange={() => setForm(p => ({ ...p, teamMembers: checked ? p.teamMembers.filter(id => id !== e._id) : [...p.teamMembers, e._id] }))} />
+                          {staffName(e)} <span className="text-on-surface-variant">{e.designation || e.roleDept}</span>
+                        </label>
+                      );
+                    })}
+                    {staff.length === 0 && <p className="text-xs text-on-surface-variant">No employees found.</p>}
+                  </div>
+                </div>
+              </div>
+
+              {editTarget && (
+                <div className="space-y-3">
+                  <h4 className="text-on-surface font-semibold flex items-center gap-2"><AlertTriangle size={16} className="text-secondary" /> Escalations (internal)</h4>
+                  <EscalationLog
+                    escalations={escalations}
+                    canRaise
+                    canResolve
+                    onRaise={(body) => api.post(`/admin/projects/${editTarget._id}/escalations`, body).then(() => refreshEscalations(editTarget._id))}
+                    onResolve={(id, resolution) => api.put(`/admin/projects/${editTarget._id}/escalations/${id}/resolve`, { resolution }).then(() => refreshEscalations(editTarget._id))}
+                  />
+                </div>
+              )}
 
               <hr className="border-outline-variant" />
 

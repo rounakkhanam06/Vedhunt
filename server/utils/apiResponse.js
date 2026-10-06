@@ -32,8 +32,20 @@ class ErrorResponse extends ApiResponse {
   }
 }
 
+/**
+ * Sends a service result shaped { ok, status, message, ...data } (the
+ * convention of services/leadLifecycle.js, workTimer.js, corrections.js...)
+ * as { success, message?, ...data }.
+ */
+function sendResult(res, result, successStatus = 200) {
+  const { ok, status, message, ...data } = result;
+  if (!ok) return res.status(status).json({ success: false, message });
+  return res.status(successStatus).json({ success: true, ...(message ? { message } : {}), ...data });
+}
+
 module.exports = {
   SuccessResponse,
   PaginatedResponse,
-  ErrorResponse
+  ErrorResponse,
+  sendResult
 };

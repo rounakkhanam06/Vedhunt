@@ -23,6 +23,8 @@ const followUpTaskSchema = new mongoose.Schema(
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin', required: true },
     dueDate: { type: Date, required: true },
     note: { type: String, trim: true },
+    // Call / WhatsApp / Meeting / Proposal ... (utils/leadStateMachine.js NEXT_ACTION_TYPES)
+    actionType: { type: String, trim: true },
     type: { type: String, enum: ['Primary', 'Parallel'], default: 'Primary' },
     status: { type: String, enum: ['Pending', 'Completed', 'Rescheduled', 'Cancelled'], default: 'Pending', index: true },
     result: { type: String, trim: true },

@@ -52,10 +52,10 @@ function validateField(name, value) {
 }
 
 // ─── Field Component ─────────────────────────────────────────────────────────
-const Field = ({ label, hint, error, touched, children }) => (
+const Field = ({ label, hint, error, touched, children, optional }) => (
   <div>
     <label className="block text-xs font-medium text-app-text-muted mb-1">
-      {label} <span className="text-orange-500">*</span>
+      {label} {!optional && <span className="text-orange-500">*</span>}
     </label>
     {children}
     {touched && error ? (
@@ -73,6 +73,8 @@ const Field = ({ label, hint, error, touched, children }) => (
 );
 
 // ─── Main Component ───────────────────────────────────────────────────────────
+const profileInput = 'w-full text-sm rounded-lg border border-app-border bg-form-input-bg p-2.5 text-app-text focus:outline-none focus:ring-1 focus:ring-orange-500';
+
 const EmployeeManager = () => {
   const [employees, setEmployees] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -251,6 +253,15 @@ const EmployeeManager = () => {
       salaryCTC: selectedEmp.salaryCTC || '',
       panNumber: selectedEmp.panNumber || '',
       aadhaarNumber: selectedEmp.aadhaarNumber || '',
+      designation: selectedEmp.designation || '',
+      department: selectedEmp.department || '',
+      subDepartment: selectedEmp.subDepartment || '',
+      pfNumber: selectedEmp.pfNumber || '',
+      workLocation: selectedEmp.workLocation || '',
+      reportingManager: selectedEmp.reportingManager?._id || selectedEmp.reportingManager || '',
+      dateOfBirth: selectedEmp.dateOfBirth ? selectedEmp.dateOfBirth.substring(0, 10) : '',
+      skills: (selectedEmp.skills || []).join(', '),
+      responsibilities: selectedEmp.responsibilities || '',
     });
     setEditErrors({});
     setEditTouched({});
@@ -1490,6 +1501,45 @@ const EmployeeManager = () => {
                       onChange={handleEditChange}
                       onBlur={handleEditBlur}
                     />
+                  </Field>
+                </div>
+
+                {/* Corporate profile (optional, shown in the employee's My Profile) */}
+                <div className="rounded-xl border border-app-border p-4 space-y-3">
+                  <div className="text-xs font-semibold text-app-text-muted uppercase tracking-wider">Corporate Profile</div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <Field optional label="Designation">
+                      <input name="designation" type="text" placeholder="e.g. Senior BDE" className={profileInput} value={editForm.designation} onChange={handleEditChange} />
+                    </Field>
+                    <Field optional label="Department">
+                      <input name="department" type="text" placeholder="e.g. Sales" className={profileInput} value={editForm.department} onChange={handleEditChange} />
+                    </Field>
+                    <Field optional label="Sub Department">
+                      <input name="subDepartment" type="text" className={profileInput} value={editForm.subDepartment} onChange={handleEditChange} />
+                    </Field>
+                    <Field optional label="PF Number" hint="Printed on the payslip">
+                      <input name="pfNumber" type="text" className={profileInput} value={editForm.pfNumber} onChange={handleEditChange} />
+                    </Field>
+                    <Field optional label="Work Location">
+                      <input name="workLocation" type="text" placeholder="e.g. Pune Office" className={profileInput} value={editForm.workLocation} onChange={handleEditChange} />
+                    </Field>
+                    <Field optional label="Reporting Manager">
+                      <select name="reportingManager" className={profileInput} value={editForm.reportingManager} onChange={handleEditChange}>
+                        <option value="">— None —</option>
+                        {employees.filter((e) => e._id !== selectedEmp?._id).map((e) => (
+                          <option key={e._id} value={e._id}>{e.firstName} {e.lastName} — {e.roleDept}</option>
+                        ))}
+                      </select>
+                    </Field>
+                    <Field optional label="Date of Birth">
+                      <input name="dateOfBirth" type="date" className={profileInput} value={editForm.dateOfBirth} onChange={handleEditChange} />
+                    </Field>
+                    <Field optional label="Skills / Certifications" hint="Comma-separated">
+                      <input name="skills" type="text" className={profileInput} value={editForm.skills} onChange={handleEditChange} />
+                    </Field>
+                  </div>
+                  <Field optional label="Primary Responsibilities">
+                    <textarea name="responsibilities" rows={2} className={`${profileInput} resize-none`} value={editForm.responsibilities} onChange={handleEditChange} />
                   </Field>
                 </div>
 

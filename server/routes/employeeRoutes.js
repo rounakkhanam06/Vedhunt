@@ -1,10 +1,12 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const Employee = require('../models/Employee');
+const { TASK_STATUSES } = Employee;
+const { reviewLeaveRequest } = require('../services/leaveReview');
+const { sendResult } = require('../utils/apiResponse');
 const WorkLog = require('../models/WorkLog');
 const Admin = require('../models/Admin');
 const LeaveRequest = require('../models/LeaveRequest');
-const { countChargeableDays, availableDays } = require('../services/leavePolicy');
 const { notifyStaff } = require('../services/staffNotify');
 const BankChangeRequest = require('../models/BankChangeRequest');
 const AuditLog = require('../models/AuditLog');
@@ -25,6 +27,33 @@ const router = express.Router();
 
 // All HRMS / Employee routes require authentication
 router.use(authMiddleware);
+
+/**
+ * Optional corporate-profile fields (designation, reporting manager...) from
+ * a create/update body — only keys actually sent are returned, so an update
+ * never blanks a field it didn't mention.
+ */
+function pickProfileFields(body = {}) {
+  const out = {};
+  for (const key of ['designation', 'department', 'subDepartment', 'pfNumber', 'workLocation', 'responsibilities']) {
+    if (body[key] !== undefined) out[key] = String(body[key] || '').trim().slice(0, key === 'responsibilities' ? 2000 : 120);
+  }
+  if (body.reportingManager !== undefined) {
+    out.reportingManager = mongoose.Types.ObjectId.isValid(body.reportingManager) ? body.reportingManager : null;
+  }
+  if (body.dateOfBirth !== undefined) {
+    const dob = body.dateOfBirth ? new Date(body.dateOfBirth) : null;
+    out.dateOfBirth = dob && !Number.isNaN(dob.getTime()) ? dob : null;
+  }
+  if (body.skills !== undefined) {
+    const list = Array.isArray(body.skills) ? body.skills : String(body.skills || '').split(',');
+    out.skills = list.map((x) => String(x).trim().slice(0, 60)).filter(Boolean).slice(0, 30);
+  }
+  return out;
+}
+
+const NEW_TASK_FIELDS = ['title', 'description', 'dueDate', 'startDate', 'priority', 'project', 'client', 'estimatedHours', 'acceptanceCriteria'];
+const adminName = (user) => `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Admin';
 
 // ==========================================
 // ADMIN HRMS ROUTES
@@ -233,6 +262,7 @@ router.post('/', requirePermission('team.manage'), async (req, res) => {
         panNumber: encrypt(panUpper),
         aadhaarNumber: encrypt(aadhaarClean),
         bankDetails: { accountName: '', accountNumber: '', bankName: '', ifscCode: '' },
+        ...pickProfileFields(req.body),
         attendance: [], tasks: [], timesheet: [], payslips: [], performance: [],
         // ── Probation ─────────────────────────────────────────────────────────
         employmentStatus: (probationInput?.isApplicable) ? 'Probation' : 'Permanent',
@@ -493,14 +523,23 @@ router.put('/:id', requirePermission('team.manage'), async (req, res) => {
     if (panNumber) employee.panNumber = encrypt(panNumber.toUpperCase());
     if (aadhaarNumber) employee.aadhaarNumber = encrypt(aadhaarNumber.replace(/\s+/g, ''));
     if (leaveBalances) employee.leaveBalances = leaveBalances;
+    employee.set(pickProfileFields(req.body));
 
+    const historyEntry = (text) => ({ text, by: req.user._id, byName: adminName(req.user), at: new Date() });
     if (newTask) {
-      employee.tasks.push({ ...newTask, assignedBy: req.user._id });
+      const task = Object.fromEntries(NEW_TASK_FIELDS.filter((k) => newTask[k] !== undefined && newTask[k] !== '').map((k) => [k, newTask[k]]));
+      employee.tasks.push({ ...task, status: 'Pending', assignedBy: req.user._id, history: [historyEntry(`Assigned by ${adminName(req.user)}`)] });
     }
     if (taskStatusUpdate) {
       const task = employee.tasks.id(taskStatusUpdate.taskId);
       if (!task) {
         return res.status(404).json({ success: false, message: 'Task not found' });
+      }
+      if (!TASK_STATUSES.includes(taskStatusUpdate.status)) {
+        return res.status(400).json({ success: false, message: 'Invalid task status.' });
+      }
+      if (task.status !== taskStatusUpdate.status) {
+        task.history.push(historyEntry(`${task.status} → ${taskStatusUpdate.status} (by manager)`));
       }
       task.status = taskStatusUpdate.status;
       task.completedAt = taskStatusUpdate.status === 'Completed' ? new Date() : undefined;
@@ -688,104 +727,8 @@ router.get('/admin/leave-requests', requirePermission('team.manage'), async (req
 
 // Update leave request status (Admin/HR only)
 router.put('/admin/leave-requests/:id/status', requirePermission('team.manage'), async (req, res) => {
-  try {
-    const { status, adminComment } = req.body;
-    
-    if (!['Approved', 'Rejected'].includes(status)) {
-      return res.status(400).json({ success: false, message: 'Invalid status' });
-    }
-
-    const leaveRequest = await LeaveRequest.findById(req.params.id);
-    if (!leaveRequest) {
-      return res.status(404).json({ success: false, message: 'Leave request not found' });
-    }
-
-    // Only allow updating pending requests to avoid double-processing
-    if (leaveRequest.status !== 'Pending') {
-      return res.status(400).json({ success: false, message: 'Only pending requests can be approved or rejected.' });
-    }
-
-    const requester = await Employee.findById(leaveRequest.employeeId).select('adminId leaveBalances leavesUsed firstName');
-    // The balance may have changed since the request was made (allowance edited, another leave approved)
-    if (status === 'Approved' && requester) {
-      const days = await countChargeableDays(leaveRequest.startDate, leaveRequest.endDate);
-      const balance = await availableDays(requester, leaveRequest.leaveType || 'PL', { excludeRequestId: leaveRequest._id });
-      if (days > balance.available) {
-        return res.status(400).json({
-          success: false,
-          code: 'INSUFFICIENT_LEAVE_BALANCE',
-          message: `Cannot approve: needs ${days} day${days > 1 ? 's' : ''} of ${leaveRequest.leaveType}, but only ${balance.available} ${balance.available === 1 ? 'is' : 'are'} available.`,
-        });
-      }
-    }
-
-    leaveRequest.status = status;
-    if (adminComment) leaveRequest.adminComment = adminComment;
-    await leaveRequest.save();
-
-    if (status === 'Approved') {
-      const employee = await Employee.findById(leaveRequest.employeeId);
-      if (employee) {
-        const start = new Date(leaveRequest.startDate);
-        const end = new Date(leaveRequest.endDate);
-        start.setHours(0,0,0,0);
-        end.setHours(0,0,0,0);
-        
-        const holidays = await Holiday.find({ date: { $gte: start, $lte: end } });
-        const holidayDates = holidays.map(h => new Date(h.date).toDateString());
-        
-        let currentDate = new Date(start);
-        
-        while (currentDate <= end) {
-          const dayOfWeek = currentDate.getDay(); // 0 is Sunday, 6 is Saturday
-          const isWeekend = (dayOfWeek === 0); // User requested Sunday as weekend
-          const isHoliday = holidayDates.includes(currentDate.toDateString());
-          
-          let attendanceStatus = 'Leave';
-          if (isWeekend) attendanceStatus = 'Weekend';
-          else if (isHoliday) attendanceStatus = 'Holiday';
-          
-          const existingLogIndex = employee.attendance.findIndex(
-            a => new Date(a.date).toDateString() === currentDate.toDateString()
-          );
-
-          if (existingLogIndex >= 0) {
-            employee.attendance[existingLogIndex].status = attendanceStatus;
-          } else {
-            employee.attendance.push({
-              date: new Date(currentDate),
-              status: attendanceStatus
-            });
-          }
-
-          if (!isWeekend && !isHoliday) {
-            const lType = leaveRequest.leaveType || 'PL';
-            if (!employee.leavesUsed) employee.leavesUsed = { CL: 0, SL: 0, PL: 0 };
-            employee.leavesUsed[lType] = (employee.leavesUsed[lType] || 0) + 1;
-          }
-
-          currentDate.setDate(currentDate.getDate() + 1);
-        }
-        await employee.save();
-      }
-    }
-
-    if (requester?.adminId) {
-      const range = [leaveRequest.startDate, leaveRequest.endDate]
-        .map((d) => new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })).join(' – ');
-      await notifyStaff(requester.adminId, {
-        type: 'leave_decision',
-        title: `Leave ${status.toLowerCase()}: ${leaveRequest.leaveType} ${range}`,
-        message: adminComment ? `HR note: ${String(adminComment).slice(0, 200)}` : `Your leave request was ${status.toLowerCase()}.`,
-        link: '/employee/dashboard?tab=attendance',
-      });
-    }
-
-    res.json({ success: true, message: `Leave request ${status.toLowerCase()} successfully`, leaveRequest });
-  } catch (error) {
-    logger.error('Error updating leave request status:', error);
-    res.status(500).json({ success: false, message: 'Server error' });
-  }
+  const { status, adminComment } = req.body;
+  sendResult(res, await reviewLeaveRequest(req.params.id, status, adminComment, { reviewerLabel: 'HR', reviewerId: req.user._id }));
 });
 
 

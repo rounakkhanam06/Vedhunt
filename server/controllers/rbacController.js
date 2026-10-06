@@ -1,6 +1,11 @@
 const Role = require('../models/Role');
 const AuditLog = require('../models/AuditLog');
 const logger = require('../utils/logger');
+const { SEGMENTS, PORTAL_MODULES, PORTAL_MODULE_KEYS } = require('../utils/employeeSegments');
+
+// Unknown keys are dropped; an empty list means "use the portal defaults".
+const cleanPortalModules = (value) =>
+  (Array.isArray(value) ? [...new Set(value.filter((k) => PORTAL_MODULE_KEYS.includes(k)))] : undefined);
 
 // Available permissions in the system
 const PERMISSIONS = [
@@ -22,7 +27,7 @@ const PERMISSIONS = [
 ];
 
 exports.getPermissions = (req, res) => {
-  res.json({ success: true, permissions: PERMISSIONS });
+  res.json({ success: true, permissions: PERMISSIONS, segments: SEGMENTS, portalModules: PORTAL_MODULES });
 };
 
 exports.getRoles = async (req, res) => {
@@ -70,7 +75,9 @@ exports.createRole = async (req, res) => {
       label: req.body.label || name,
       description,
       permissions: finalPermissions,
-      isEmployeeRole
+      isEmployeeRole,
+      segment: SEGMENTS.includes(req.body.segment) ? req.body.segment : undefined,
+      portalModules: cleanPortalModules(req.body.portalModules),
     });
 
     await AuditLog.create({
@@ -119,6 +126,12 @@ exports.updateRole = async (req, res) => {
     role.label = label !== undefined ? label : role.label;
     if (isEmployeeRole !== undefined) {
       role.isEmployeeRole = Boolean(isEmployeeRole);
+    }
+    if (req.body.segment !== undefined) {
+      role.segment = SEGMENTS.includes(req.body.segment) ? req.body.segment : undefined;
+    }
+    if (req.body.portalModules !== undefined) {
+      role.portalModules = cleanPortalModules(req.body.portalModules);
     }
     // Same wildcard guard as createRole — never let a '*' role be pickable
     // from the Employee Manager.

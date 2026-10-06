@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { SEGMENTS, PORTAL_MODULE_KEYS } = require('../utils/employeeSegments');
 
 const roleSchema = new mongoose.Schema(
   {
@@ -39,6 +40,17 @@ const roleSchema = new mongoose.Schema(
     isEmployeeRole: {
       type: Boolean,
       default: false,
+    },
+    // Department/segment for employee roles — drives which workflows and
+    // KPIs the Employee Portal shows (see utils/employeeSegments.js).
+    segment: {
+      type: String,
+      enum: SEGMENTS,
+    },
+    // Employee Portal modules this role sees; empty = the portal's defaults.
+    portalModules: {
+      type: [{ type: String, enum: PORTAL_MODULE_KEYS }],
+      default: undefined,
     },
   },
   { timestamps: true }

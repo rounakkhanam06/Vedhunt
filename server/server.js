@@ -55,6 +55,7 @@ const subscribeRoutes = require('./routes/subscribeRoutes');
 const employeeRoutes = require('./routes/employeeRoutes');
 const employeeAuthRoutes = require('./routes/employeeAuthRoutes');
 const employeePortalRoutes = require('./routes/employeePortalRoutes');
+const correctionAdminRoutes = require('./routes/correctionAdminRoutes');
 const performanceRoutes = require('./routes/performanceRoutes');
 const payrollRoutes = require('./routes/payrollRoutes');
 const analyticsRoutes = require('./routes/analyticsRoutes');
@@ -178,6 +179,7 @@ app.use('/api/client', clientPortalRoutes); // all protected by clientAuthMiddle
 // Employee Portal — completely isolated auth + data routes
 app.use('/api/employee/auth', employeeAuthRoutes);
 app.use('/api/employee-portal', employeePortalRoutes); // all protected by employeeAuthMiddleware internally
+app.use('/api/corrections', correctionAdminRoutes); // attendance/timesheet correction approvals (admin)
 
 // Admin management of client portal data (clients, invoices, projects, retainers, tickets)
 app.use('/api/admin', clientManagementRoutes);

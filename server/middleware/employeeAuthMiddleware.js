@@ -3,6 +3,7 @@ const logger = require('../utils/logger');
 const Admin = require('../models/Admin');
 const Role = require('../models/Role');
 const { mustResetPassword, PASSWORD_RESET_REQUIRED } = require('../utils/tempPasswordGate');
+const { resolveSegment, resolvePortalModules } = require('../utils/employeeSegments');
 
 const TEMP_PASSWORD_ALLOWED = ['/api/employee/auth/me', '/api/employee/auth/reset-temp-password', '/api/employee/auth/logout'];
 
@@ -36,6 +37,8 @@ const employeeAuthMiddleware = async (req, res, next) => {
       });
     }
     req.user.permissions = Array.from(permissionsSet);
+    req.user.segment = resolveSegment(req.user.roles);
+    req.user.portalModules = resolvePortalModules(req.user.roles);
 
     if (mustResetPassword(req, req.user.isTemporaryPassword, TEMP_PASSWORD_ALLOWED)) {
       return res.status(403).json(PASSWORD_RESET_REQUIRED);

@@ -248,6 +248,7 @@ async function applyLeadUpdate(leadId, updates, actor, extraFilter = {}) {
           createdBy: actor.id,
           dueDate: updates.nextFollowUpDate,
           note: updates.remark || '',
+          actionType: updatedLead?.nextActionType || '',
           type: 'Primary',
           status: 'Pending'
         });
@@ -255,6 +256,12 @@ async function applyLeadUpdate(leadId, updates, actor, extraFilter = {}) {
     } catch (err) {
       logger.error(`Primary FollowUpTask sync failed for lead ${existingLead._id}:`, err);
     }
+  } else if ('nextActionType' in updates && updates.nextActionType !== existingLead.nextActionType) {
+    // Same date, different kind of action — keep the open Primary task in step.
+    await FollowUpTask.updateMany(
+      { lead: existingLead._id, type: 'Primary', status: 'Pending' },
+      { $set: { actionType: updates.nextActionType || '' } }
+    ).catch((err) => logger.error(`Primary FollowUpTask action sync failed for lead ${existingLead._id}:`, err));
   }
 
   if (updates.status === 'Won' && existingLead.status !== 'Won') {
@@ -270,4 +277,62 @@ async function applyLeadUpdate(leadId, updates, actor, extraFilter = {}) {
   return { ok: true, lead: updatedLead };
 }
 
-module.exports = { applyLeadUpdate, TERMINAL_STATUSES };
+// Outcomes after which a lead needs a stage decision (Lost/Dropped), not another follow-up.
+const NO_NEXT_ACTION_INTEREST_LEVELS = ['Not Interested', 'Wrong / Junk Lead'];
+
+/**
+ * Completing a scheduled follow-up: an outcome (reached or not, plus interest
+ * level / reason) and a result note are always required, and if the lead
+ * stays active the next action (type + date) must be scheduled in the same
+ * step — so a follow-up can never just vanish. Runs through applyLeadUpdate,
+ * which closes the Primary FollowUpTask with the result and opens the next.
+ */
+async function completeFollowUp(leadId, input, actor, extraFilter = {}) {
+  const result = String(input.result || '').trim();
+  if (!result) return { ok: false, status: 400, message: 'Describe the outcome of this follow-up.' };
+  if (!['Yes', 'No'].includes(input.connected)) {
+    return { ok: false, status: 400, message: 'Select whether you reached the lead.' };
+  }
+  const lead = await findLeadRaw(leadId, extraFilter);
+  if (!lead) return { ok: false, status: 404, message: 'Lead not found' };
+
+  const closingOutcome = input.connected === 'Yes' && NO_NEXT_ACTION_INTEREST_LEVELS.includes(input.interestLevel);
+  const staysActive = ![...TERMINAL_STATUSES, 'Hold'].includes(lead.status) && !closingOutcome;
+  if (staysActive && (!input.nextFollowUpDate || !input.nextActionType)) {
+    return { ok: false, status: 400, message: 'This lead is still active — choose the next action and its date.' };
+  }
+
+  const updates = {
+    connected: input.connected,
+    remark: result.slice(0, 1000),
+    nextFollowUpDate: input.nextFollowUpDate || null,
+    nextActionType: input.nextFollowUpDate ? (input.nextActionType || '') : '',
+    ...(input.connected === 'Yes' ? { interestLevel: input.interestLevel } : { notConnectedReason: input.notConnectedReason }),
+  };
+  return applyLeadUpdate(leadId, updates, actor, extraFilter);
+}
+
+/**
+ * Appends an activity event (WhatsApp initiated, proposal generated/shared...)
+ * to a lead's timeline without touching its stage — so it deliberately skips
+ * the state machine. `set` may carry plain data fields only (never status or
+ * follow-up fields, which must go through applyLeadUpdate).
+ *
+ * @returns the updated lead, or null when no lead matched (incl. extraFilter)
+ */
+async function appendLeadActivity(leadId, { status, note = '', actorId }, extraFilter = {}, set = {}) {
+  const existingLead = await findLeadRaw(leadId, extraFilter);
+  if (!existingLead) return null;
+  const now = new Date();
+  const result = await mongoose.connection.db.collection('leads').findOneAndUpdate(
+    { _id: existingLead._id },
+    {
+      $set: { ...set, updatedAt: now },
+      $push: { pipelineHistory: { status, date: now, updatedBy: actorId, note } }
+    },
+    { returnDocument: 'after' }
+  );
+  return result?.value || result;
+}
+
+module.exports = { applyLeadUpdate, completeFollowUp, appendLeadActivity, TERMINAL_STATUSES };

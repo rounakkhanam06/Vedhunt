@@ -50,11 +50,11 @@ const Login = () => {
     <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-12 sm:px-6 lg:px-8">
       <div className="w-full max-w-md space-y-8 rounded-xl bg-white p-8 shadow-lg border border-gray-200">
         <div className="flex flex-col items-center">
-          <img src={lightLogo} alt="Vedhunt Logo" className="h-28 w-auto mb-6 object-contain" />
-          <h2 className="text-center text-3xl font-extrabold tracking-tight text-gray-900">
+          <img src={lightLogo} alt="Vedhunt Logo" className="h-24 w-auto mb-5 object-contain" />
+          <h2 className="text-center text-xl sm:text-2xl font-semibold tracking-tight text-gray-900">
             Vedhunt Admin
           </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
+          <p className="mt-1.5 text-center text-xs sm:text-sm text-gray-600">
             Sign in to access the admin dashboard
           </p>
         </div>

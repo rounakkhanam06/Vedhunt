@@ -888,6 +888,12 @@ export default function LeadWorkspace() {
                 <span className="text-sm text-app-text-muted">Source platform</span>
                 <span className="text-sm font-medium text-app-text">{lead.platform || 'Website'}</span>
               </div>
+              {lead.fbLeadId && (
+                <div className="flex items-center justify-between py-2.5 gap-3">
+                  <span className="text-sm text-app-text-muted">Meta Lead ID</span>
+                  <span className="text-sm font-mono font-medium text-app-text truncate">{lead.fbLeadId}</span>
+                </div>
+              )}
               {lead.city && (
                 <div className="flex items-center justify-between py-2.5">
                   <span className="text-sm text-app-text-muted">City</span>

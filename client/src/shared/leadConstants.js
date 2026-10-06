@@ -43,3 +43,6 @@ export const TERMINAL_STATUSES = ['Won', 'Lost', 'Dropped'];
 export const NON_ACTIVE_FOLLOWUP_STATUSES = [...TERMINAL_STATUSES, 'Hold'];
 
 export const PAYMENT_STATUS_OPTIONS = ['Not Applicable', 'Pending', 'Partially Paid', 'Paid'];
+
+// What a scheduled follow-up is — mirrors NEXT_ACTION_TYPES in server/utils/leadStateMachine.js
+export const NEXT_ACTION_TYPES = ['Call', 'WhatsApp', 'Email', 'Meeting', 'Proposal', 'Payment Follow-up', 'Other'];

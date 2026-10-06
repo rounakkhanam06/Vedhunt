@@ -3,12 +3,14 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const Admin = require('../models/Admin');
 const Employee = require('../models/Employee');
+const Project = require('../models/Project');
 const AuditLog = require('../models/AuditLog');
 const employeeAuthMiddleware = require('../middleware/employeeAuthMiddleware');
 const { authLimiter } = require('../middleware/rateLimiter');
 const logger = require('../utils/logger');
 const crypto = require('crypto');
 const { sendEmail } = require('../utils/sendEmail');
+const { resolveSegment, resolvePortalModules } = require('../utils/employeeSegments');
 
 const router = express.Router();
 
@@ -174,7 +176,10 @@ router.post('/login', ...loginMiddleware, async (req, res) => {
           email: admin.email,
           employeeId: admin.employeeId,
           isTemporaryPassword: Boolean(admin.isTemporaryPassword),
-          permissions: Array.from(permissionsSet)
+          permissions: Array.from(permissionsSet),
+          segment: resolveSegment(admin.roles),
+          portalModules: resolvePortalModules(admin.roles),
+          ...(await portalFlags(admin._id))
         }
       });
     } else {
@@ -186,7 +191,20 @@ router.post('/login', ...loginMiddleware, async (req, res) => {
   }
 });
 
+// Which optional portal tabs apply: Team Approvals (is someone's reporting
+// manager) and My Projects (is a PM or team member on any project).
+async function portalFlags(adminId) {
+  const me = await Employee.findOne({ adminId }, { _id: 1 }).lean();
+  if (!me) return { hasTeam: false, hasProjects: false };
+  const [team, projects] = await Promise.all([
+    Employee.exists({ reportingManager: me._id }),
+    Project.exists({ $or: [{ projectManager: me._id }, { teamMembers: me._id }] }),
+  ]);
+  return { hasTeam: Boolean(team), hasProjects: Boolean(projects) };
+}
+
 router.get('/me', employeeAuthMiddleware, async (req, res) => {
+  const flags = await portalFlags(req.user._id);
   res.json({
     success: true,
     employee: {
@@ -196,7 +214,10 @@ router.get('/me', employeeAuthMiddleware, async (req, res) => {
       email: req.user.email,
       employeeId: req.user.employeeId,
       isTemporaryPassword: req.user.isTemporaryPassword,
-      permissions: req.user.permissions
+      permissions: req.user.permissions,
+      segment: req.user.segment,
+      portalModules: req.user.portalModules,
+      ...flags
     }
   });
 });
@@ -255,10 +276,7 @@ router.post('/reset-temp-password', employeeAuthMiddleware, async (req, res) => 
     admin.isTemporaryPassword = false;
     await admin.save();
 
-    await Employee.findOneAndUpdate(
-      { adminId: req.user._id },
-      { tempPassword: newPassword }
-    );
+    await clearPasswordVault(admin._id);
 
     res.json({ success: true, message: 'Password reset successfully' });
   } catch (error) {

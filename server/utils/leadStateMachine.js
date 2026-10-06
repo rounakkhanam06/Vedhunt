@@ -26,6 +26,9 @@ const INTEREST_LEVELS = ['Hot Lead', 'Warm', 'Cold', 'Interested', 'Not Interest
 
 const PAYMENT_STATUS_OPTIONS = ['Not Applicable', 'Pending', 'Partially Paid', 'Paid'];
 
+// What the scheduled follow-up (nextFollowUpDate) actually is.
+const NEXT_ACTION_TYPES = ['Call', 'WhatsApp', 'Email', 'Meeting', 'Proposal', 'Payment Follow-up', 'Other'];
+
 // Final-outcome reasons only — a lead only reaches this list once it's
 // actually Lost/Dropped (see the `nextStatus === 'Lost' || 'Dropped'` check
 // below, and the frontend only renders/enables this field for those two
@@ -87,7 +90,7 @@ const REOPEN_STATUSES = ['Contacted', 'Qualified', 'Proposal Sent', 'Negotiation
 const LEAD_UPDATE_FIELDS = [
   'status', 'city', 'country', 'callStartTime', 'callEndTime', 'callDuration',
   'callDate', 'connected', 'notConnectedReason', 'interestLevel',
-  'notConvertedReason', 'remark', 'nextFollowUpDate', 'leadAgeAtCall', 'touchNumber',
+  'notConvertedReason', 'remark', 'nextFollowUpDate', 'nextActionType', 'leadAgeAtCall', 'touchNumber',
   'dealValue', 'proposalValue', 'proposalSentDate', 'proposalReference', 'holdReason', 'holdUntil',
   'dealCloseValue', 'expectedCloseDate', 'paymentStatus', 'amountPaid',
   'budget', 'timeline', 'decisionMaker', 'currentVendor', 'requirementSummary',
@@ -141,6 +144,9 @@ function validateLeadTransition(existingLead, updates, { isSuperAdmin = false } 
   }
   if ('notConnectedReason' in updates && updates.notConnectedReason && !NOT_CONNECTED_REASONS.includes(updates.notConnectedReason)) {
     return `Invalid not-connected reason: ${updates.notConnectedReason}`;
+  }
+  if ('nextActionType' in updates && updates.nextActionType && !NEXT_ACTION_TYPES.includes(updates.nextActionType)) {
+    return `Invalid next action type: ${updates.nextActionType}`;
   }
 
   const nextStatus = 'status' in updates ? updates.status : existingLead.status;
@@ -291,6 +297,7 @@ module.exports = {
   INTEREST_LEVELS,
   LOST_DROPPED_REASONS,
   PAYMENT_STATUS_OPTIONS,
+  NEXT_ACTION_TYPES,
   FOLLOWUP_TRIGGER_INTEREST_LEVELS,
   FOLLOWUP_TRIGGER_STATUSES,
   FOLLOWUP_TRIGGER_NOT_CONNECTED_REASONS,

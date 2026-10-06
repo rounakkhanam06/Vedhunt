@@ -23,6 +23,8 @@ const permissionLabels = {
 const RoleManager = () => {
   const [roles, setRoles] = useState([]);
   const [availablePermissions, setAvailablePermissions] = useState([]);
+  const [segments, setSegments] = useState([]);
+  const [portalModuleOptions, setPortalModuleOptions] = useState([]);
   const [loading, setLoading] = useState(true);
   
   const [showModal, setShowModal] = useState(false);
@@ -31,7 +33,9 @@ const RoleManager = () => {
     name: '',
     description: '',
     permissions: [],
-    isEmployeeRole: false
+    isEmployeeRole: false,
+    segment: '',
+    portalModules: []
   });
   const [error, setError] = useState('');
 
@@ -48,6 +52,8 @@ const RoleManager = () => {
       }
       if (permsRes.data.success) {
         setAvailablePermissions(permsRes.data.permissions);
+        setSegments(permsRes.data.segments || []);
+        setPortalModuleOptions(permsRes.data.portalModules || []);
       }
     } catch (err) {
       console.error('Error fetching data:', err);
@@ -67,7 +73,9 @@ const RoleManager = () => {
         name: role.name,
         description: role.description || '',
         permissions: role.permissions || [],
-        isEmployeeRole: Boolean(role.isEmployeeRole)
+        isEmployeeRole: Boolean(role.isEmployeeRole),
+        segment: role.segment || '',
+        portalModules: role.portalModules || []
       });
     } else {
       setEditingRole(null);
@@ -75,7 +83,9 @@ const RoleManager = () => {
         name: '',
         description: '',
         permissions: [],
-        isEmployeeRole: false
+        isEmployeeRole: false,
+        segment: '',
+        portalModules: []
       });
     }
     setError('');
@@ -329,6 +339,51 @@ const RoleManager = () => {
                   </div>
                 </div>
               </div>
+
+              {formData.isEmployeeRole && (
+                <div>
+                  <label className={labelClasses}>Department / Segment</label>
+                  <select
+                    className={inputClasses}
+                    value={formData.segment}
+                    onChange={(e) => setFormData({ ...formData, segment: e.target.value })}
+                  >
+                    <option value="">Auto (from role name / permissions)</option>
+                    {segments.map((s) => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                  <p className="text-xs text-app-text-muted mt-1">Controls which workflows and KPIs this role sees inside the Employee Portal (e.g. BD pipeline KPIs vs delivery KPIs).</p>
+                </div>
+              )}
+
+              {formData.isEmployeeRole && (
+                <div>
+                  <label className={labelClasses}>Employee Portal modules</label>
+                  <div className="bg-app-bg border border-app-border rounded-lg p-4 space-y-3">
+                    <p className="text-xs text-app-text-muted">
+                      Tick the modules this role sees. Leave all unticked to use the defaults for its department.
+                      Dashboard and My Profile are always shown; lead modules also need the Leads permission below.
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      {portalModuleOptions.map((m) => {
+                        const checked = formData.portalModules.includes(m.key);
+                        return (
+                          <label key={m.key} className="flex items-center gap-2 text-sm text-app-text cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => setFormData((prev) => ({
+                                ...prev,
+                                portalModules: checked ? prev.portalModules.filter((k) => k !== m.key) : [...prev.portalModules, m.key],
+                              }))}
+                            />
+                            {m.label}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="pt-2">
                 <label className={labelClasses}>Leads Access</label>

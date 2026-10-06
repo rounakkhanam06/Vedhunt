@@ -33,7 +33,10 @@ const leaveRequestSchema = new mongoose.Schema(
     adminComment: {
       type: String,
       trim: true
-    }
+    },
+    // Who decided (HR or the reporting manager) and when
+    reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin' },
+    reviewedAt: { type: Date }
   },
   { timestamps: true }
 );

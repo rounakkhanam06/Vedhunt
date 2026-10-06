@@ -2,6 +2,7 @@ const Holiday = require('../models/Holiday');
 const WorkLog = require('../models/WorkLog');
 const LeaveRequest = require('../models/LeaveRequest');
 const Settings = require('../models/Settings');
+const { parseClock } = require('../utils/clockTime');
 
 /**
  * Day-by-day attendance reconciliation for one employee/month, used by the
@@ -62,6 +63,17 @@ async function computeMonthlyAttendance(employee, month, year) {
   const isOnApprovedLeave = (date) =>
     approvedLeaves.some((lr) => date >= new Date(lr.startDate).setHours(0, 0, 0, 0) && date <= new Date(lr.endDate).setHours(23, 59, 59, 999));
 
+  // Days fixed by an approved attendance regularization count from their
+  // approved clock-in/out when there are no timer logs for that day.
+  const regularizedByDate = {};
+  (employee.attendance || []).forEach((a) => {
+    if (a.regularized && a.clockIn && a.clockOut) regularizedByDate[new Date(a.date).toDateString()] = a;
+  });
+
+  const halfDayLimitMinutes = halfDayHour * 60 + halfDayMin;
+  const isHalfDay = (checkInMinutes, totalHours) =>
+    checkInMinutes > halfDayLimitMinutes || totalHours < rules.halfDayHoursThreshold;
+
   let presentDays = 0;
   let paidLeaveDays = 0;
   let lopDays = 0;
@@ -78,23 +90,26 @@ async function computeMonthlyAttendance(employee, month, year) {
       paidLeaveDays += 1;
     } else {
       const dayLogs = worklogsByDate[dateStr] || [];
-      if (dayLogs.length === 0) {
-        lopDays += 1;
-      } else {
+      const regularized = regularizedByDate[dateStr];
+      let day = null; // { checkInMinutes, totalHours }
+      if (dayLogs.length > 0) {
         let totalMins = 0;
         const checkIn = new Date(dayLogs[0].startTime);
         dayLogs.forEach((wl) => { if (wl.endTime) totalMins += wl.duration || 0; });
-        const totalHours = totalMins / 60;
+        day = { checkInMinutes: checkIn.getHours() * 60 + checkIn.getMinutes(), totalHours: totalMins / 60 };
+      } else if (regularized) {
+        const inMin = parseClock(regularized.clockIn);
+        const outMin = parseClock(regularized.clockOut);
+        if (inMin != null && outMin != null) day = { checkInMinutes: inMin, totalHours: Math.max(0, outMin - inMin) / 60 };
+      }
 
-        const halfDayLimit = new Date(cursor);
-        halfDayLimit.setHours(halfDayHour, halfDayMin, 0, 0);
-
-        if (checkIn > halfDayLimit || totalHours < rules.halfDayHoursThreshold) {
-          presentDays += 0.5;
-          lopDays += 0.5;
-        } else {
-          presentDays += 1;
-        }
+      if (!day) {
+        lopDays += 1;
+      } else if (isHalfDay(day.checkInMinutes, day.totalHours)) {
+        presentDays += 0.5;
+        lopDays += 0.5;
+      } else {
+        presentDays += 1;
       }
     }
     cursor.setDate(cursor.getDate() + 1);

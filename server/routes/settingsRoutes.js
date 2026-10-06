@@ -5,6 +5,7 @@ const authMiddleware = require('../middleware/authMiddleware');
 const roleMiddleware = require('../middleware/roleMiddleware');
 const requirePermission = require('../middleware/requirePermission');
 const portalLegalController = require('../controllers/portalLegalController');
+const activityMaster = require('../services/activityMaster');
 
 // Public route to get contact info
 router.get('/settings/contact', settingsController.getContactInfo);
@@ -159,5 +160,16 @@ router.put(
   requirePermission('legal.manage'),
   portalLegalController.updatePortalLegal
 );
+
+// Activity master for the work timer/timesheet (HR-managed)
+router.get('/admin/settings/activity-master', authMiddleware, requirePermission('team.manage'), async (req, res) => {
+  res.json({ success: true, types: await activityMaster.getActivityTypes() });
+});
+
+router.put('/admin/settings/activity-master', authMiddleware, requirePermission('team.manage'), async (req, res) => {
+  const { types, error } = await activityMaster.saveActivityTypes(req.body.types);
+  if (error) return res.status(400).json({ success: false, message: error });
+  res.json({ success: true, types });
+});
 
 module.exports = router;

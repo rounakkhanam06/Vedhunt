@@ -1,4 +1,6 @@
 const Role = require('../models/Role');
+const Settings = require('../models/Settings');
+const { DEFAULT_ROLE_SEGMENTS } = require('./employeeSegments');
 
 /**
  * The standard set of Employee-Portal-facing roles. Every one of these is
@@ -43,33 +45,59 @@ const DEFAULT_EMPLOYEE_ROLES = [
     label: 'HR',
     description: 'Human Resources.',
     permissions: ['ess.access']
+  },
+  {
+    name: 'PROJECT_MANAGER',
+    label: 'Project Manager',
+    description: 'Project Manager / Technology — projects, tasks, tickets and delivery.',
+    permissions: ['ess.access']
+  },
+  {
+    name: 'MIS_FINANCE',
+    label: 'MIS / Finance / Operations',
+    description: 'MIS, finance and operations — assigned tasks, reports and operational workflows.',
+    permissions: ['ess.access']
+  },
+  {
+    name: 'DIRECTOR',
+    label: 'Director / Management',
+    description: 'Director / management — company-level visibility as granted by permission.',
+    permissions: ['ess.access']
   }
 ];
 
-/**
- * Idempotent — get-or-create each default employee role. An existing role
- * (e.g. BDE, created earlier by seedBDTeam.js before this baseline existed)
- * keeps any custom permissions an admin has added since via Team
- * Management/RBAC — this only unions in the baseline permissions it's
- * missing, never removes one, and always (re)stamps isEmployeeRole/label so
- * a role created before those fields existed still gets picked up.
- */
+// Names of the defaults already seeded. Each default is seeded exactly once:
+// after that the role belongs to the admin (Role Manager) — edits and even
+// deletions stick across restarts instead of being "repaired" here.
+const SEEDED_KEY = 'employee_roles_seeded';
+// The original five, which the old start-up code always treated as employee roles.
+const LEGACY_EMPLOYEE_ROLES = ['EMPLOYEE', 'BDE', 'DIGITAL_MARKETING_EXECUTIVE', 'DEVELOPER', 'HR'];
+
 async function ensureDefaultEmployeeRoles() {
-  for (const def of DEFAULT_EMPLOYEE_ROLES) {
+  const record = await Settings.findOne({ key: SEEDED_KEY }).lean();
+  const seeded = new Set(record?.value || []);
+  const pending = DEFAULT_EMPLOYEE_ROLES.filter((def) => !seeded.has(def.name));
+  if (!pending.length) return;
+
+  for (const def of pending) {
     const existing = await Role.findOne({ name: def.name });
-    if (existing) {
-      const missingPerms = def.permissions.filter(p => !existing.permissions.includes(p));
-      const needsUpdate = !existing.isEmployeeRole || !existing.label || missingPerms.length > 0;
-      if (needsUpdate) {
-        existing.isEmployeeRole = true;
-        if (!existing.label) existing.label = def.label;
-        if (missingPerms.length > 0) existing.permissions = [...existing.permissions, ...missingPerms];
-        await existing.save();
-      }
-      continue;
+    if (existing && (!existing.isEmployeeRole || existing.permissions.includes('*')) && !LEGACY_EMPLOYEE_ROLES.includes(def.name)) {
+      // A same-named Admin-panel role already exists — leave it exactly as it is.
+    } else if (existing) {
+      // Created before this seeding existed — fill in only what it lacks, once.
+      let changed = false;
+      if (!existing.isEmployeeRole) { existing.isEmployeeRole = true; changed = true; }
+      if (!existing.label) { existing.label = def.label; changed = true; }
+      if (!existing.segment && DEFAULT_ROLE_SEGMENTS[def.name]) { existing.segment = DEFAULT_ROLE_SEGMENTS[def.name]; changed = true; }
+      const missingPerms = def.permissions.filter((p) => !existing.permissions.includes(p));
+      if (missingPerms.length) { existing.permissions = [...existing.permissions, ...missingPerms]; changed = true; }
+      if (changed) await existing.save();
+    } else {
+      await Role.create({ ...def, isEmployeeRole: true, segment: DEFAULT_ROLE_SEGMENTS[def.name] });
     }
-    await Role.create({ ...def, isEmployeeRole: true });
+    seeded.add(def.name);
   }
+  await Settings.findOneAndUpdate({ key: SEEDED_KEY }, { $set: { value: [...seeded] } }, { upsert: true });
 }
 
 module.exports = { ensureDefaultEmployeeRoles, DEFAULT_EMPLOYEE_ROLES };

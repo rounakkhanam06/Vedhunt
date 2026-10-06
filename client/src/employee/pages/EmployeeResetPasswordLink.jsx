@@ -35,8 +35,8 @@ const EmployeeResetPasswordLink = () => {
     <div className="flex min-h-screen items-center justify-center bg-app-bg px-4 py-12">
       <div className="w-full max-w-md space-y-6 rounded-xl bg-app-card p-8 shadow-2xl border border-app-border">
         <div className="text-center">
-          <div className="w-14 h-14 rounded-full bg-primary/10 text-primary flex items-center justify-center mx-auto mb-4"><Lock size={26} /></div>
-          <h2 className="text-2xl font-extrabold text-app-text">Set a new password</h2>
+          <div className="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center mx-auto mb-3"><Lock size={22} /></div>
+          <h2 className="text-xl sm:text-2xl font-semibold tracking-tight text-app-text">Set a new password</h2>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && <div className="rounded-md bg-red-500/10 border border-red-500/20 p-3 text-sm text-red-500">{error}</div>}

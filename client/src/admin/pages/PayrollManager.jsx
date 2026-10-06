@@ -3,7 +3,7 @@ import api from '../../services/api';
 import toast from 'react-hot-toast';
 import {
   Settings as SettingsIcon, PlayCircle, ChevronDown, ChevronUp, X, Send, PauseCircle,
-  CheckCircle2, Download, IndianRupee
+  CheckCircle2, Download, IndianRupee, Banknote
 } from 'lucide-react';
 
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -168,6 +168,22 @@ export default function PayrollManager() {
     }
   };
 
+  // Marks the salary as credited — employees then see the payslip as "Paid".
+  const handleMarkPaid = async (run) => {
+    const paymentReference = window.prompt('UTR / transaction ID of the salary transfer (employees see this on their payslip):', '');
+    if (paymentReference === null) return;
+    setBusyRunId(run._id);
+    try {
+      await api.post(`/payroll/payslips/${run.payslipId._id}/mark-paid`, { paymentReference });
+      toast.success('Marked as paid.');
+      fetchRuns();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to mark as paid.');
+    } finally {
+      setBusyRunId(null);
+    }
+  };
+
   const handleSaveSettings = async () => {
     setSavingSettings(true);
     try {
@@ -290,6 +306,12 @@ export default function PayrollManager() {
                         <td className="px-6 py-4 whitespace-nowrap font-bold text-app-text">{inr(run.netPay)}</td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`px-2.5 py-1 rounded-full text-xs font-bold border ${STATUS_CLASS[run.status]}`}>{run.status}</span>
+                          {run.payslipId?.paidAt && (
+                            <>
+                              <span className="ml-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold border bg-emerald-500/10 text-emerald-400 border-emerald-500/20">Paid</span>
+                              {run.payslipId.paymentReference && <div className="text-[10px] text-app-text-muted font-mono mt-1">UTR: {run.payslipId.paymentReference}</div>}
+                            </>
+                          )}
                         </td>
                         <td className="px-6 py-4 text-right whitespace-nowrap">
                           <div className="flex items-center justify-end gap-1.5">
@@ -315,6 +337,12 @@ export default function PayrollManager() {
                               <button disabled={isBusy} onClick={() => handleResend(run)} title="Resend payslip email"
                                 className="p-1.5 rounded-lg bg-surface-variant hover:bg-app-border text-app-text-muted hover:text-app-text transition-colors cursor-pointer disabled:opacity-50">
                                 <Send size={16} />
+                              </button>
+                            )}
+                            {run.payslipId?._id && !run.payslipId.paidAt && (
+                              <button disabled={isBusy} onClick={() => handleMarkPaid(run)} title="Mark salary as paid"
+                                className="p-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 transition-colors cursor-pointer disabled:opacity-50">
+                                <Banknote size={16} />
                               </button>
                             )}
                             {run.payslipId?.pdfUrl && (

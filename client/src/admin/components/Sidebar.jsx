@@ -1,25 +1,24 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import {
   LayoutDashboard, Users, ChevronDown, ChevronRight, Activity,
   Briefcase, FileText, Wallet, ShieldCheck, Settings, LogOut, X,
   Image as ImageIcon, Tag, UserPlus, Scale, Share2, Mail, MessageCircle,
   User, Clock, CheckSquare, FileSpreadsheet, CreditCard, Award, Building2,
-  Gauge
+  Gauge, Search
 } from 'lucide-react';
 import { useAdminStore } from '../../store/useAdminStore';
 import { usePermissions } from '../hooks/usePermissions';
-import darkLogo from '../../assets/DarkthemeLogo.png';
-import lightLogo from '../../assets/logo_Square.jpg__1_-removebg-preview.png';
+import BrandLogo from '../../components/brand/BrandLogo';
 
 const Sidebar = ({ isOpen, setIsOpen }) => {
   const { logout, admin } = useAdminStore();
   const { can } = usePermissions();
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchQuery, setSearchQuery] = useState('');
   const [openDropdowns, setOpenDropdowns] = useState({
-    leads: true,
-    clientPortal: false,
     leads: true,
     clientPortal: false,
     cms: false, pricing: false, careers: false, legal: false, servicesManagement: false, faq: false, audit: false
@@ -178,6 +177,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
         { name: 'Payroll', path: '/admin/payroll', requiredPermission: 'payroll.manage' },
         { name: 'Attendance Roster', path: '/admin/attendance-roster' },
         { name: 'Bank Change Requests', path: '/admin/bank-change-requests' },
+        { name: 'Correction Requests', path: '/admin/corrections' },
         { name: 'Organization Tasks', path: '/admin/tasks' },
         { name: 'Productivity Reports', path: '/admin/manager-dashboard' },
         { name: 'Performance Cycles', path: '/admin/performance-cycles' },
@@ -208,6 +208,48 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
       ]
     : baseNavItems;
 
+  const trimmedQuery = searchQuery.trim().toLowerCase();
+
+  const filteredNavItems = useMemo(() => {
+    return renderedNavItems.map(item => {
+      if (item.requiredPermission && !can(item.requiredPermission)) {
+        return null;
+      }
+
+      if (item.subItems) {
+        const permittedSubItems = item.subItems.filter(sub => 
+          !sub.requiredPermission || can(sub.requiredPermission)
+        );
+
+        if (permittedSubItems.length === 0) return null;
+
+        if (!trimmedQuery) {
+          return { ...item, subItems: permittedSubItems };
+        }
+
+        const parentMatches = item.name.toLowerCase().includes(trimmedQuery);
+        const matchingSubItems = permittedSubItems.filter(sub =>
+          sub.name.toLowerCase().includes(trimmedQuery)
+        );
+
+        if (parentMatches || matchingSubItems.length > 0) {
+          return {
+            ...item,
+            subItems: parentMatches ? permittedSubItems : matchingSubItems
+          };
+        }
+
+        return null;
+      }
+
+      if (!trimmedQuery || item.name.toLowerCase().includes(trimmedQuery)) {
+        return item;
+      }
+
+      return null;
+    }).filter(Boolean);
+  }, [renderedNavItems, trimmedQuery, can]);
+
   return (
     <>
       {/* Mobile overlay */}
@@ -220,74 +262,89 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
 
       {/* Sidebar */}
       <aside className={`
-        fixed inset-y-0 left-0 z-50 w-[280px] flex flex-col transition-transform duration-300 ease-in-out overflow-y-auto
-        ${isEmployeeOnly ? 'bg-[#FF8533] border-none py-6 pl-4 pr-0' : 'bg-app-card border-r border-app-border p-6'}
-        ${isOpen ? 'translate-x-0' : '-translate-x-full'}
+        fixed inset-y-0 left-0 z-50 flex flex-col transition-all duration-300 ease-in-out overflow-y-auto
+        bg-app-card border-r border-app-border
+        ${isOpen 
+          ? 'w-[280px] p-5 translate-x-0 shadow-2xl' 
+          : '-translate-x-full w-0 p-0 border-none overflow-hidden'
+        }
       `}>
-        <div className={`mb-12 flex justify-between items-start shrink-0 ${isEmployeeOnly ? 'pr-6' : 'pl-1'}`}>
-          <div className="relative flex items-start">
-            {isEmployeeOnly ? (
-              <img src={darkLogo} alt="Vedhunt Logo" className={`h-12 md:h-14 w-auto object-contain scale-[1.6] origin-left`} />
-            ) : (
-              <>
-                <img src={lightLogo} alt="Vedhunt Logo" className="h-12 md:h-14 w-auto object-contain scale-[1.6] origin-left dark:hidden" />
-                <img src={darkLogo} alt="Vedhunt Logo" className="h-12 md:h-14 w-auto object-contain scale-[1.6] origin-left hidden dark:block" />
-              </>
-            )}
-          </div>
-          <button onClick={() => setIsOpen(false)} className={`${isEmployeeOnly ? 'text-white hover:text-white/80' : 'text-app-text-muted hover:text-app-text'} lg:hidden transition-colors`} title="Close Sidebar">
-            <X size={24} />
+        <div className="flex items-center justify-between shrink-0 mb-6 px-1">
+          <BrandLogo variant="auto" className="h-6" />
+          <button onClick={() => setIsOpen(false)} className="text-app-text-muted hover:text-app-text transition-colors p-1.5 rounded-lg hover:bg-app-border/40 cursor-pointer" title="Close Sidebar">
+            <X size={18} />
           </button>
         </div>
 
-        <nav className={`flex-1 mt-4 pb-4 ${isEmployeeOnly ? 'space-y-0.5' : 'space-y-2 pr-2'}`}>
-          {renderedNavItems.map((item) => {
-            // Check permission for rendering this item
-            if (item.requiredPermission && !can(item.requiredPermission)) {
-              return null;
-            }
+        {/* Search Bar */}
+        <div className="relative mb-4 shrink-0">
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-app-text-muted pointer-events-none" />
+          <input
+            type="text"
+            placeholder="Search pages..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full bg-app-bg/60 border border-app-border rounded-xl pl-9 pr-8 py-2 text-xs text-app-text placeholder:text-app-text-muted focus:outline-none focus:border-primary/60 focus:ring-1 focus:ring-primary/40 transition-all"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-app-text-muted hover:text-app-text p-0.5 rounded transition-colors cursor-pointer"
+              title="Clear search"
+            >
+              <X size={13} />
+            </button>
+          )}
+        </div>
 
-            const Icon = item.icon;
+        <nav className={`flex-1 space-y-1 overflow-y-auto pr-1 pb-4`}>
+          {filteredNavItems.length === 0 ? (
+            <div className="text-center py-8 px-2 text-xs text-app-text-muted">
+              No pages matching &ldquo;{searchQuery}&rdquo;
+            </div>
+          ) : (
+            filteredNavItems.map((item) => {
+              const Icon = item.icon;
 
-            if (item.subItems) {
-              const isAnySubActive = item.subItems.some(sub => location.pathname === sub.path);
-              const isOpen = openDropdowns[item.dropdownKey];
+              if (item.subItems) {
+                const isAnySubActive = item.subItems.some(sub => location.pathname === sub.path);
+                const isDropdownOpen = trimmedQuery.length > 0 || openDropdowns[item.dropdownKey];
 
-              return (
-                <div key={item.name} className="space-y-1">
-                  <button
-                    onClick={() => toggleDropdown(item.dropdownKey)}
-                    className={`
-                      w-full flex items-center justify-between gap-4 px-4 py-2 rounded-lg text-sm transition-all duration-200 cursor-pointer
-                      ${isOpen
-                        ? 'text-app-text bg-app-border/30'
-                        : 'text-app-text-muted hover:text-app-text hover:bg-app-border/30'
-                      }
-                    `}
-                  >
-                    <div className="flex items-center gap-4">
-                      <Icon className="w-5 h-5 flex-shrink-0" />
-                      <span className="font-medium">{item.name}</span>
-                    </div>
-                    {isOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                  </button>
-
-                  <div className={`ml-9 overflow-hidden transition-all duration-300 ease-in-out ${isOpen ? 'max-h-96 opacity-100 mt-1' : 'max-h-0 opacity-0 mt-0'}`}>
-                    <div className="space-y-1">
-                      {item.subItems.map((subItem) => {
-                        // Sub items could also have requiredPermission if needed in future
-                        if (subItem.requiredPermission && !can(subItem.requiredPermission)) {
-                          return null;
+                return (
+                  <div key={item.name} className="space-y-1">
+                    <button
+                      onClick={() => toggleDropdown(item.dropdownKey)}
+                      className={`
+                        w-full flex items-center justify-between gap-3 px-3.5 py-2 rounded-xl text-sm transition-all duration-200 cursor-pointer
+                        ${isDropdownOpen
+                          ? 'text-app-text bg-app-border/30 font-medium'
+                          : 'text-app-text-muted hover:text-app-text hover:bg-app-border/30'
                         }
+                      `}
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <Icon className="w-5 h-5 flex-shrink-0" />
+                        <span className="truncate">{item.name}</span>
+                      </div>
+                      {isDropdownOpen ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
+                    </button>
+
+                    <div className={`ml-6 pl-2 border-l border-app-border/50 overflow-hidden transition-all duration-300 ease-in-out ${isDropdownOpen ? 'max-h-96 opacity-100 mt-1 space-y-1' : 'max-h-0 opacity-0 mt-0'}`}>
+                      {item.subItems.map((subItem) => {
                         const isSubActive = location.pathname === subItem.path;
                         return (
                           <Link
                             key={subItem.name}
                             to={subItem.path}
+                            onClick={() => {
+                              if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+                                setIsOpen(false);
+                              }
+                            }}
                             className={`
-                              block px-4 py-2 rounded-lg text-sm transition-all duration-200
+                              block px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 truncate
                               ${isSubActive
-                                ? 'bg-secondary-container/10 text-secondary font-bold shadow-[0_0_10px_rgba(255,107,0,0.15)] active:scale-[0.98]'
+                                ? 'bg-primary/10 text-primary font-semibold border border-primary/20 shadow-xs'
                                 : 'text-app-text-muted hover:text-app-text hover:bg-app-border/30'
                               }
                             `}
@@ -298,96 +355,85 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                       })}
                     </div>
                   </div>
-                </div>
-              );
-            }
+                );
+              }
 
             const isPathActive = location.pathname === item.path;
             const fullPathActive = (location.pathname + location.search) === item.path;
             const isDefaultActive = location.pathname === item.path.split('?')[0] && !location.search && item.path.includes('tab=dashboard');
             const isActive = item.path.includes('?') ? fullPathActive || isDefaultActive : isPathActive;
             
-            if (isEmployeeOnly) {
-              return (
-                <Link
-                  key={item.name}
-                  to={item.path}
-                  className={`
-                    flex items-center gap-4 py-2.5 px-4 transition-all duration-300
-                    ${isActive
-                      ? 'bg-[#0F0F12] text-[#FF8533] rounded-l-[30px] rounded-r-none relative before:content-[""] before:absolute before:right-0 before:-top-6 before:w-6 before:h-6 before:bg-transparent before:rounded-br-[30px] before:shadow-[15px_15px_0_15px_#0F0F12] after:content-[""] after:absolute after:right-0 after:-bottom-6 after:w-6 after:h-6 after:bg-transparent after:rounded-tr-[30px] after:shadow-[15px_-15px_0_15px_#0F0F12] font-bold'
-                      : 'text-white/80 hover:text-white hover:bg-white/10 rounded-l-[30px] mr-4 font-medium'
-                    }
-                  `}
-                >
-                  <Icon className="w-5 h-5 flex-shrink-0" />
-                  <span>{item.name}</span>
-                </Link>
-              );
-            }
-
             return (
               <Link
                 key={item.name}
                 to={item.path}
+                onClick={() => {
+                  if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+                    setIsOpen(false);
+                  }
+                }}
                 className={`
-                  flex items-center gap-4 px-4 py-2 rounded-lg text-sm transition-all duration-200
+                  relative group flex items-center gap-3.5 px-3.5 py-2.5 rounded-xl text-sm transition-colors duration-200
                   ${isActive
-                    ? 'bg-secondary-container/10 text-secondary font-bold shadow-[0_0_10px_rgba(255,107,0,0.15)] active:scale-[0.98]'
-                    : 'text-app-text-muted hover:text-app-text hover:bg-app-border/30'
+                    ? 'text-primary font-semibold'
+                    : 'text-app-text-muted hover:text-app-text hover:bg-app-border/30 font-medium'
                   }
                 `}
               >
-                <Icon className="w-5 h-5 flex-shrink-0" />
-                <span className="font-medium">{item.name}</span>
+                {isActive && (
+                  <motion.div
+                    layoutId="adminActiveNavPill"
+                    className="absolute inset-0 bg-primary/10 border border-primary/25 rounded-xl shadow-sm shadow-primary/5"
+                    transition={{
+                      type: "spring",
+                      stiffness: 380,
+                      damping: 32,
+                      mass: 0.8
+                    }}
+                  />
+                )}
+                <Icon className={`relative z-10 w-5 h-5 flex-shrink-0 transition-colors duration-200 ${isActive ? 'text-primary' : 'text-app-text-muted group-hover:text-app-text'}`} />
+                <span className="relative z-10 truncate">{item.name}</span>
+                {isActive && (
+                  <motion.span
+                    layoutId="adminActiveNavDot"
+                    className="relative z-10 ml-auto w-1.5 h-1.5 rounded-full bg-primary shrink-0"
+                    transition={{
+                      type: "spring",
+                      stiffness: 380,
+                      damping: 32,
+                      mass: 0.8
+                    }}
+                  />
+                )}
               </Link>
             );
-          })}
+          })
+        )}
         </nav>
 
-        {isEmployeeOnly ? (
-          <div className="mt-6 flex items-center justify-between p-4 bg-black/15 hover:bg-black/25 rounded-xl shrink-0 mt-auto cursor-pointer transition-colors mr-4">
-            <div className="flex items-center gap-3 overflow-hidden">
-              <div className="w-10 h-10 flex items-center justify-center text-white text-xl font-extrabold">
+        <div className="mt-auto pt-4 border-t border-app-border shrink-0">
+          <div className="flex items-center justify-between p-2.5 rounded-xl bg-app-bg/50 border border-app-border/60 hover:border-app-border transition-colors">
+            <div className="flex items-center gap-3 overflow-hidden pr-2">
+              <div className="w-9 h-9 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold text-sm shrink-0">
                 {admin?.email?.charAt(0).toUpperCase()}
               </div>
               <div className="overflow-hidden">
-                <p className="text-[13px] font-bold text-white truncate">{admin?.email}</p>
-                <p className="text-[10px] uppercase tracking-widest text-white/50 truncate mt-0.5">
+                <p className="text-xs font-semibold text-app-text truncate">{admin?.email}</p>
+                <p className="text-[10px] uppercase tracking-wider text-app-text-muted truncate mt-0.5">
                   {admin?.roles?.map(r => r.name).join(', ') || admin?.role || 'User'}
                 </p>
               </div>
             </div>
             <button
               onClick={() => setShowLogoutModal(true)}
-              className="text-white/80 hover:text-white transition-colors p-2"
-              title="Logout"
-            >
-              <LogOut size={20} />
-            </button>
-          </div>
-        ) : (
-          <div className="mt-6 flex items-center justify-between p-4 bg-app-border/20 hover:bg-app-border/40 rounded-xl shrink-0 mt-auto cursor-pointer transition-colors">
-            <div className="flex items-center gap-4 overflow-hidden">
-              <div className="w-10 h-10 rounded-full bg-orange-500/10 flex items-center justify-center text-orange-500 font-bold">
-                {admin?.email?.charAt(0).toUpperCase()}
-              </div>
-              <div className="overflow-hidden">
-                <p className="text-sm font-bold text-app-text truncate">{admin?.email}</p>
-                <p className="text-[10px] uppercase tracking-widest text-app-text-muted truncate">
-                  {admin?.roles?.map(r => r.name).join(', ') || admin?.role || 'User'}
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={() => setShowLogoutModal(true)}
-              className="text-app-text-muted hover:text-red-500 transition-colors p-2"
+              className="text-app-text-muted hover:text-red-500 hover:bg-red-500/10 p-2 rounded-lg transition-colors shrink-0 cursor-pointer"
               title="Logout"
             >
               <LogOut size={18} />
             </button>
           </div>
-        )}
+        </div>
       </aside>
 
       {/* Logout Confirmation Modal */}

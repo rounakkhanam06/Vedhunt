@@ -3,39 +3,6 @@ import api from '../../services/api';
 import toast from 'react-hot-toast';
 import { Target, Plus, Trash2, AlertCircle, CheckCircle, Info } from 'lucide-react';
 
-const METRIC_UNITS = {
-  Revenue:         '₹',
-  LeadCount:       'count',
-  CampaignROAS:    'x (ratio)',
-  OnTimeDelivery:  '%',
-  ProductivityPct: '%',
-  AttendancePct:   '%',
-  FollowUpQuality: 'score (0-100)',
-  BillableHours:   'hrs'
-};
-
-const METRIC_LABELS = {
-  Revenue:         'Revenue Closed (₹)',
-  LeadCount:       'Qualified Lead Count',
-  CampaignROAS:    'Campaign ROAS',
-  OnTimeDelivery:  'On-Time Delivery %',
-  ProductivityPct: 'Productivity %',
-  AttendancePct:   'Attendance %',
-  FollowUpQuality: 'Follow-up Quality Score',
-  BillableHours:   'Billable Hours'
-};
-
-const METRIC_SOURCE = {
-  Revenue:         'Auto — from CRM (deal value)',
-  LeadCount:       'Auto — from CRM (Qualified/Won leads)',
-  CampaignROAS:    'Manual — manager entry required',
-  OnTimeDelivery:  'Auto — from task completion data',
-  ProductivityPct: 'Auto — from timesheet WorkLog',
-  AttendancePct:   'Auto — from attendance log',
-  FollowUpQuality: 'Manual — manager entry required',
-  BillableHours:   'Auto — from timesheet WorkLog'
-};
-
 const emptyKPI = () => ({ metricType: 'Revenue', targetValue: '', weightage: '' });
 
 const PerformanceGoalAssigner = () => {
@@ -43,6 +10,8 @@ const PerformanceGoalAssigner = () => {
   const [employees, setEmployees] = useState([]);
   const [presets, setPresets] = useState({});
   const [metricTypes, setMetricTypes] = useState([]);
+  // Labels/units/source come from the server's KPI catalog (models/KPITarget.js)
+  const [metricDefs, setMetricDefs] = useState({});
 
   const [selectedCycle, setSelectedCycle] = useState('');
   const [selectedEmployee, setSelectedEmployee] = useState('');
@@ -67,6 +36,7 @@ const PerformanceGoalAssigner = () => {
         setEmployees(empRes.data.employees || []);
         setPresets(presetRes.data.presets || {});
         setMetricTypes(presetRes.data.metricTypes || []);
+        setMetricDefs(presetRes.data.metricDefs || {});
 
         // Auto-select active cycle
         const active = cycleRes.data.cycles?.find(c => c.status === 'Active');
@@ -155,7 +125,7 @@ const PerformanceGoalAssigner = () => {
           metricType: k.metricType,
           targetValue: Number(k.targetValue),
           weightage: Number(k.weightage),
-          unit: METRIC_UNITS[k.metricType] || ''
+          unit: metricDefs[k.metricType]?.unit || ''
         }))
       };
       const res = await api.post('/performance/targets', payload);
@@ -321,17 +291,17 @@ const PerformanceGoalAssigner = () => {
                     className="w-full text-sm rounded-lg border border-app-border bg-form-input-bg px-3 py-2 text-app-text focus:outline-none focus:ring-1 focus:ring-orange-500"
                   >
                     {metricTypes.map(m => (
-                      <option key={m} value={m}>{METRIC_LABELS[m] || m}</option>
+                      <option key={m} value={m}>{metricDefs[m]?.label || m}</option>
                     ))}
                   </select>
                   <div className="flex items-center gap-1 mt-1.5 text-[10px] text-app-text-muted">
-                    <Info size={10} /> {METRIC_SOURCE[kpi.metricType]}
+                    <Info size={10} /> {metricDefs[kpi.metricType]?.auto ? 'Auto — ' : ''}{metricDefs[kpi.metricType]?.source}{metricDefs[kpi.metricType]?.lowerIsBetter ? ' · lower is better' : ''}
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs text-app-text-muted mb-1">Target Value ({METRIC_UNITS[kpi.metricType]})</label>
+                    <label className="block text-xs text-app-text-muted mb-1">Target Value ({metricDefs[kpi.metricType]?.unit})</label>
                     <input
                       type="number"
                       min="0"

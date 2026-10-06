@@ -2,8 +2,11 @@ import { useState, useEffect, useMemo } from 'react';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
 import { Search, Filter, Calendar, CheckCircle, Clock, AlertCircle, AlertTriangle, PlayCircle, Plus, X, ChevronDown, ChevronUp, User } from 'lucide-react';
+import { TASK_STATUSES, TASK_PRIORITIES, taskStatusLabel, taskCode, TASK_PRIORITY_CLASSES } from '../../shared/taskConstants';
 
-const STATUSES = ['Pending', 'In Progress', 'Completed'];
+const EMPTY_TASK = { employeeId: '', title: '', description: '', dueDate: '', startDate: '', priority: 'Normal', project: '', client: '', estimatedHours: '', acceptanceCriteria: '' };
+const inputClass = 'w-full text-sm rounded-lg border border-app-border bg-form-input-bg px-3 py-2.5 text-app-text focus:outline-none focus:ring-1 focus:ring-primary';
+const fmtWhen = (d) => new Date(d).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
 
 export default function AdminTasks() {
   const [employees, setEmployees] = useState([]);
@@ -19,7 +22,7 @@ export default function AdminTasks() {
   // Assign Task modal
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [isAssigning, setIsAssigning] = useState(false);
-  const [assignForm, setAssignForm] = useState({ employeeId: '', title: '', description: '', dueDate: '' });
+  const [assignForm, setAssignForm] = useState(EMPTY_TASK);
 
   useEffect(() => {
     fetchData();
@@ -78,6 +81,7 @@ export default function AdminTasks() {
       case 'Completed': return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
       case 'In Progress': return 'bg-blue-500/10 text-blue-400 border-blue-500/20';
       case 'Pending': return 'bg-orange-500/10 text-orange-400 border-orange-500/20';
+      case 'Blocked': return 'bg-rose-500/10 text-rose-400 border-rose-500/20';
       default: return 'bg-surface-variant text-app-text-muted border-app-border';
     }
   };
@@ -105,7 +109,7 @@ export default function AdminTasks() {
   };
 
   const openAssignModal = () => {
-    setAssignForm({ employeeId: '', title: '', description: '', dueDate: '' });
+    setAssignForm(EMPTY_TASK);
     setShowAssignModal(true);
   };
 
@@ -122,7 +126,12 @@ export default function AdminTasks() {
           title: assignForm.title.trim(),
           description: assignForm.description.trim(),
           dueDate: assignForm.dueDate,
-          status: 'Pending'
+          startDate: assignForm.startDate || undefined,
+          priority: assignForm.priority,
+          project: assignForm.project.trim(),
+          client: assignForm.client.trim(),
+          estimatedHours: assignForm.estimatedHours ? Number(assignForm.estimatedHours) : undefined,
+          acceptanceCriteria: assignForm.acceptanceCriteria.trim(),
         }
       });
       if (res.data.success) {
@@ -188,9 +197,7 @@ export default function AdminTasks() {
           className="bg-form-input-bg border border-app-border rounded-lg px-4 py-2 text-sm text-app-text focus:outline-none focus:ring-1 focus:ring-primary"
         >
           <option value="All">All Statuses</option>
-          <option value="Pending">Pending</option>
-          <option value="In Progress">In Progress</option>
-          <option value="Completed">Completed</option>
+          {TASK_STATUSES.map((s) => <option key={s} value={s}>{taskStatusLabel(s)}</option>)}
         </select>
         <select
           value={employeeFilter}
@@ -217,7 +224,7 @@ export default function AdminTasks() {
         </div>
         <div className="bg-app-card p-4 rounded-xl border border-app-border flex items-center justify-between">
           <div>
-            <p className="text-xs font-semibold text-orange-400 uppercase tracking-wider">Pending</p>
+            <p className="text-xs font-semibold text-orange-400 uppercase tracking-wider">Not Started</p>
             <p className="text-2xl font-bold mt-1 text-orange-500">{allTasks.filter(t => t.status === 'Pending').length}</p>
           </div>
           <div className="w-10 h-10 rounded-lg bg-orange-500/10 flex items-center justify-center text-orange-400">
@@ -276,7 +283,12 @@ export default function AdminTasks() {
                     <>
                       <tr key={task._id} className="hover:bg-surface-variant transition-colors group">
                         <td className="px-6 py-4">
+                          <div className="flex items-center gap-2 flex-wrap mb-1">
+                            <span className="text-xs font-mono text-primary">{taskCode(task._id)}</span>
+                            <span className={`px-1.5 py-0.5 rounded border text-[10px] font-bold uppercase ${TASK_PRIORITY_CLASSES[task.priority || 'Normal']}`}>{task.priority || 'Normal'}</span>
+                          </div>
                           <div className="font-bold text-app-text text-base mb-1">{task.title}</div>
+                          {(task.project || task.client) && <div className="text-xs text-app-text-muted mb-1">{[task.project, task.client].filter(Boolean).join(' · ')}</div>}
                           {task.description && (
                             <div className="text-app-text-muted text-xs line-clamp-2">{task.description}</div>
                           )}
@@ -306,7 +318,7 @@ export default function AdminTasks() {
                             disabled={updatingTaskId === task._id}
                             className={`px-2.5 py-1 rounded border text-xs font-semibold focus:outline-none cursor-pointer disabled:opacity-50 ${statusSelectClass(task.status)}`}
                           >
-                            {STATUSES.map(s => <option key={s} value={s} className="bg-app-card text-app-text">{s}</option>)}
+                            {TASK_STATUSES.map(s => <option key={s} value={s} className="bg-app-card text-app-text">{taskStatusLabel(s)}</option>)}
                           </select>
                         </td>
                         <td className="px-6 py-4 text-right">
@@ -347,6 +359,32 @@ export default function AdminTasks() {
                                   </div>
                                 </div>
                               )}
+                              <div>
+                                <div className="text-app-text-muted uppercase tracking-wider font-bold mb-1">Effort</div>
+                                <div className="text-app-text font-medium">{task.estimatedHours ? `${task.estimatedHours}h estimated` : 'No estimate'}</div>
+                              </div>
+                              {task.status === 'Blocked' && task.blockerReason && (
+                                <div className="col-span-2 md:col-span-4 text-rose-400"><strong>Blocked:</strong> {task.blockerReason}</div>
+                              )}
+                              {task.acceptanceCriteria && (
+                                <div className="col-span-2 md:col-span-4">
+                                  <div className="text-app-text-muted uppercase tracking-wider font-bold mb-1">Acceptance Criteria</div>
+                                  <div className="text-app-text bg-app-card border border-app-border rounded-lg p-3 whitespace-pre-wrap">{task.acceptanceCriteria}</div>
+                                </div>
+                              )}
+                              {(task.comments?.length > 0 || task.history?.length > 0) && (
+                                <div className="col-span-2 md:col-span-4 grid md:grid-cols-2 gap-4">
+                                  <div>
+                                    <div className="text-app-text-muted uppercase tracking-wider font-bold mb-1">Comments</div>
+                                    {(task.comments || []).map((c) => <div key={c._id} className="mb-1"><span className="text-app-text">{c.text}</span> <span className="text-app-text-muted">— {c.byName}, {fmtWhen(c.at)}</span></div>)}
+                                    {!task.comments?.length && <div className="text-app-text-muted">None</div>}
+                                  </div>
+                                  <div>
+                                    <div className="text-app-text-muted uppercase tracking-wider font-bold mb-1">Activity</div>
+                                    {[...(task.history || [])].reverse().map((h) => <div key={h._id} className="mb-1"><span className="text-app-text">{h.text}</span> <span className="text-app-text-muted">— {h.byName}, {fmtWhen(h.at)}</span></div>)}
+                                  </div>
+                                </div>
+                              )}
                               {task.description && (
                                 <div className="col-span-2 md:col-span-4">
                                   <div className="text-app-text-muted uppercase tracking-wider font-bold mb-1">Full Description</div>
@@ -372,7 +410,7 @@ export default function AdminTasks() {
           className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
           onClick={(e) => { if (e.target === e.currentTarget) setShowAssignModal(false); }}
         >
-          <div className="bg-app-card border border-app-border rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+          <div className="bg-app-card border border-app-border rounded-2xl w-full max-w-lg shadow-2xl overflow-y-auto max-h-[90vh]">
             <div className="flex justify-between items-center p-5 border-b border-app-border bg-app-bg">
               <div>
                 <h2 className="text-lg font-bold text-app-text">Assign Task</h2>
@@ -417,6 +455,34 @@ export default function AdminTasks() {
                   onChange={(e) => setAssignForm(f => ({ ...f, description: e.target.value }))}
                   className="w-full text-sm rounded-lg border border-app-border bg-form-input-bg px-4 py-2.5 text-app-text placeholder-app-text-muted focus:outline-none focus:ring-1 focus:ring-primary h-20 resize-none"
                 />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-app-text-muted mb-1.5">Project</label>
+                  <input value={assignForm.project} onChange={(e) => setAssignForm(f => ({ ...f, project: e.target.value }))} className={inputClass} />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-app-text-muted mb-1.5">Client</label>
+                  <input value={assignForm.client} onChange={(e) => setAssignForm(f => ({ ...f, client: e.target.value }))} className={inputClass} />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-app-text-muted mb-1.5">Priority</label>
+                  <select value={assignForm.priority} onChange={(e) => setAssignForm(f => ({ ...f, priority: e.target.value }))} className={inputClass}>{TASK_PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}</select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-app-text-muted mb-1.5">Estimated effort (hrs)</label>
+                  <input type="number" min="0" step="0.5" value={assignForm.estimatedHours} onChange={(e) => setAssignForm(f => ({ ...f, estimatedHours: e.target.value }))} className={inputClass} />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-app-text-muted mb-1.5">Start Date</label>
+                  <input type="date" value={assignForm.startDate} onChange={(e) => setAssignForm(f => ({ ...f, startDate: e.target.value }))} className={inputClass} />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-app-text-muted mb-1.5">Acceptance Criteria</label>
+                <textarea value={assignForm.acceptanceCriteria} onChange={(e) => setAssignForm(f => ({ ...f, acceptanceCriteria: e.target.value }))} placeholder="When is this task considered done?" className={`${inputClass} h-16 resize-none`} />
               </div>
 
               <div>

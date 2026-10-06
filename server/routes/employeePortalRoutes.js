@@ -17,13 +17,31 @@ const employeeAuthMiddleware = require('../middleware/employeeAuthMiddleware');
 const requirePermission = require('../middleware/requirePermission');
 const { encrypt, decrypt } = require('../utils/encryption');
 const logger = require('../utils/logger');
+const { sendResult: respond } = require('../utils/apiResponse');
 const { notifyTicketReply, notifyTicketStatus } = require('../services/clientNotify');
 const { countChargeableDays, availableDays, findOverlap, startOfDay } = require('../services/leavePolicy');
-const { notifyPermissionHolders, notifyStaff } = require('../services/staffNotify');
+const { notifyPermissionHolders } = require('../services/staffNotify');
 const BankChangeRequest = require('../models/BankChangeRequest');
 const AuditLog = require('../models/AuditLog');
 const bank = require('../services/bankDetails');
-const { closeActiveTimer } = require('../services/workTimer');
+const Settings = require('../models/Settings');
+const workTimer = require('../services/workTimer');
+const employeeTasks = require('../services/employeeTasks');
+const { getActivityTypes } = require('../services/activityMaster');
+const { listAssignedLeads, searchLeads, todayAgenda } = require('../services/employeeLeads');
+const { completeFollowUp, appendLeadActivity } = require('../services/leadLifecycle');
+const { buildScorecard } = require('../services/employeeKpis');
+const { payslipPaymentStatus } = require('../services/payslipGenerator');
+const { formatClock, lateByMinutes, parseClock, formatDuration } = require('../utils/clockTime');
+const { upload: uploadImage } = require('../utils/cloudinary');
+const Admin = require('../models/Admin');
+const essProposalRoutes = require('./essProposalRoutes');
+const { SERVICE_MASTER } = require('../config/serviceMaster');
+const { GST_STATES } = require('../config/gstStates');
+const essCorrectionRoutes = require('./essCorrectionRoutes');
+const essTeamRoutes = require('./essTeamRoutes');
+const essProjectRoutes = require('./essProjectRoutes');
+const { notifyApprover } = require('../services/approvalRouting');
 
 const bankRequestView = (r) => ({
   _id: r._id,
@@ -42,6 +60,22 @@ const router = express.Router();
 
 router.use(employeeAuthMiddleware);
 
+// "1234567890" → "••••••7890" — the ESS never needs the full PAN/Aadhaar.
+const maskId = (value) => {
+  const v = String(value || '');
+  return v.length > 4 ? `${'•'.repeat(v.length - 4)}${v.slice(-4)}` : v;
+};
+
+// Billable services + GST states for the proposal / proforma form
+router.get('/ess/proposal-masters', requirePermission('leads.view'), (req, res) => {
+  res.json({ success: true, services: SERVICE_MASTER, states: GST_STATES });
+});
+router.use('/ess/proposals', requirePermission('leads.view'), essProposalRoutes.proposalRouter);
+router.use('/ess/leads/:leadId/proposals', requirePermission('leads.view'), essProposalRoutes.leadProposalRouter);
+router.use('/ess/corrections', essCorrectionRoutes);
+router.use('/ess/team', essTeamRoutes);
+router.use('/ess/projects', essProjectRoutes);
+
 // ==========================================
 // EMPLOYEE SELF-SERVICE (ESS) ROUTES
 // ==========================================
@@ -49,13 +83,16 @@ router.use(employeeAuthMiddleware);
 // Get logged-in employee details
 router.get('/ess/profile', async (req, res) => {
   try {
-    const employee = await Employee.findOne({ adminId: req.user._id });
+    const employee = await Employee.findOne({ adminId: req.user._id })
+      .select('-tempPassword')
+      .populate('reportingManager', 'firstName lastName designation')
+      .lean();
     if (!employee) {
       return res.status(404).json({ success: false, message: 'Employee details not found' });
     }
-    const decrypted = employee.toObject();
-    decrypted.panNumber = decrypt(decrypted.panNumber);
-    decrypted.aadhaarNumber = decrypt(decrypted.aadhaarNumber);
+    const decrypted = employee;
+    decrypted.panNumber = maskId(decrypt(decrypted.panNumber));
+    decrypted.aadhaarNumber = maskId(decrypt(decrypted.aadhaarNumber));
     decrypted.bankDetails = bank.masked(decrypted.bankDetails);
 
     const pending = await BankChangeRequest.findOne({ employee: employee._id, status: 'Pending' }).sort({ createdAt: -1 }).lean();
@@ -128,6 +165,24 @@ router.put('/ess/profile', async (req, res) => {
   }
 });
 
+// Personal preferences (currently: how the WhatsApp action opens)
+router.put('/ess/preferences', async (req, res) => {
+  const { whatsappApp } = req.body;
+  if (!['ask', 'web', 'desktop', 'business'].includes(whatsappApp)) {
+    return res.status(400).json({ success: false, message: 'Choose WhatsApp Web, Desktop, Business, or Ask every time.' });
+  }
+  const result = await Employee.updateOne({ adminId: req.user._id }, { $set: { 'preferences.whatsappApp': whatsappApp } });
+  if (!result.matchedCount) return res.status(404).json({ success: false, message: 'Employee not found' });
+  res.json({ success: true, preferences: { whatsappApp } });
+});
+
+router.put('/ess/profile/photo', uploadImage.single('photo'), async (req, res) => {
+  if (!req.file?.path) return res.status(400).json({ success: false, message: 'Please choose an image.' });
+  const result = await Employee.updateOne({ adminId: req.user._id }, { $set: { profilePhoto: req.file.path } });
+  if (!result.matchedCount) return res.status(404).json({ success: false, message: 'Employee not found' });
+  res.json({ success: true, profilePhoto: req.file.path });
+});
+
 // My bank change requests (masked)
 router.get('/ess/bank-change-requests', async (req, res) => {
   try {
@@ -175,7 +230,8 @@ router.post('/ess/attendance/clock', async (req, res) => {
     const todayStr = new Date().toDateString();
     let todayLog = employee.attendance.find(a => new Date(a.date).toDateString() === todayStr);
 
-    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const now = new Date();
+    const timeStr = formatClock(now);
 
     if (!todayLog) {
       // Clock In — any earlier day left without a clock-out gets flagged for HR
@@ -190,26 +246,9 @@ router.post('/ess/attendance/clock', async (req, res) => {
         });
       }
 
-      let lateByMins = 0;
-      try {
-        const settings = await Settings.findOne({ key: 'office_timings' });
-        if (settings && settings.value && settings.value.standardStartTime) {
-          const standardStart = settings.value.standardStartTime; // e.g., "09:00"
-          const [startHour, startMin] = standardStart.split(':').map(Number);
-          const now = new Date();
-          const currentHour = now.getHours();
-          const currentMin = now.getMinutes();
-          
-          const standardTimeInMins = (startHour * 60) + startMin;
-          const currentTimeInMins = (currentHour * 60) + currentMin;
-          
-          if (currentTimeInMins > standardTimeInMins) {
-            lateByMins = currentTimeInMins - standardTimeInMins;
-          }
-        }
-      } catch (err) {
-        logger.error('Error fetching office timings for late check:', err);
-      }
+      // Late check against office timings (this used to throw silently — Settings was never imported)
+      const officeTimings = (await Settings.findOne({ key: 'office_timings' }).lean())?.value;
+      const lateByMins = lateByMinutes(parseClock(timeStr), officeTimings?.standardStartTime);
 
       employee.attendance.push({
         date: new Date(),
@@ -218,17 +257,20 @@ router.post('/ess/attendance/clock', async (req, res) => {
         clockOut: '',
         lateByMins
       });
-      await employee.save();
-      return res.json({ success: true, action: 'clockIn', time: timeStr, lateByMins, message: 'Successfully clocked in!' });
+      await employee.save({ validateModifiedOnly: true }); // legacy records may miss unrelated required fields
+      return res.json({
+        success: true, action: 'clockIn', time: timeStr, lateByMins,
+        message: lateByMins > 0 ? `Clocked in. You are late by ${formatDuration(lateByMins)}.` : 'Successfully clocked in!',
+      });
     } else if (!todayLog.clockOut) {
-      // Clock Out — a still-running work timer is stopped and logged first
+      // Clock Out — a running (or paused) work timer is stopped and logged first
       let timerStopped = false;
-      if (employee.activeTimer && employee.activeTimer.startTime) {
-        await closeActiveTimer(employee, { remarks: 'Stopped automatically at clock-out.' });
+      if (workTimer.hasTimer(employee.activeTimer)) {
+        await workTimer.closeActiveTimer(employee, { remarks: 'Stopped automatically at clock-out.' });
         timerStopped = true;
       }
       todayLog.clockOut = timeStr;
-      await employee.save();
+      await employee.save({ validateModifiedOnly: true }); // legacy records may miss unrelated required fields
       return res.json({
         success: true,
         action: 'clockOut',
@@ -245,126 +287,57 @@ router.post('/ess/attendance/clock', async (req, res) => {
   }
 });
 
-// Real-Time Work Timer: Start Work
+// ── Work timer ─────────────────────────────────────────────────────────────
+router.get('/ess/timer', async (req, res) => respond(res, await workTimer.getTimer(req.user._id)));
+
+router.get('/ess/activity-types', async (req, res) => {
+  res.json({ success: true, types: await getActivityTypes() });
+});
+
 router.post('/ess/timer/start', async (req, res) => {
-  try {
-    const { project, task, activityType } = req.body;
-    if (!project || !task || !activityType) {
-      return res.status(400).json({ success: false, message: 'Provide project, task, and activity type to start work.' });
-    }
-
-    const employee = await Employee.findOne({ adminId: req.user._id });
-    if (!employee) return res.status(404).json({ success: false, message: 'Employee not found' });
-
-    // Check if there is an active timer
-    if (employee.activeTimer && employee.activeTimer.startTime) {
-      return res.status(400).json({ success: false, message: 'You already have an active timer. Please stop it first.' });
-    }
-    const today = new Date().toDateString();
-    const todayAttendance = employee.attendance.find((a) => new Date(a.date).toDateString() === today);
-    if (!todayAttendance || !todayAttendance.clockIn) {
-      return res.status(400).json({ success: false, message: 'Please clock in before starting the work timer.' });
-    }
-    if (todayAttendance.clockOut) {
-      return res.status(400).json({ success: false, message: "You've already clocked out for today." });
-    }
-
-    employee.activeTimer = {
-      project,
-      task,
-      activityType,
-      startTime: new Date()
-    };
-    employee.markModified('activeTimer');
-
-    await employee.save();
-    res.json({ success: true, message: 'Timer started!', activeTimer: employee.activeTimer });
-  } catch (error) {
-    logger.error('Error starting timer:', error);
-    res.status(500).json({ success: false, message: 'Server error' });
-  }
+  const result = await workTimer.startTimer(req.user._id, req.body);
+  if (result.ok) await employeeTasks.startTaskIfPending(req.user, result.activeTimer.taskId);
+  const { employeeId, ...rest } = result;
+  respond(res, { ...rest, ...(result.ok ? { message: 'Timer started.' } : {}) });
 });
 
-// Real-Time Work Timer: Stop Work
+router.post('/ess/timer/pause', async (req, res) => {
+  const result = await workTimer.pauseTimer(req.user._id);
+  respond(res, result.ok ? { ...result, message: 'Timer paused — this session was logged.' } : result);
+});
+
+router.post('/ess/timer/resume', async (req, res) => {
+  const result = await workTimer.resumeTimer(req.user._id);
+  respond(res, result.ok ? { ...result, message: 'Timer resumed.' } : result);
+});
+
 router.post('/ess/timer/stop', async (req, res) => {
-  try {
-    const { remarks, isProductive, isBillable, meetingWith, clientName, teamMemberName, markTaskCompleted } = req.body;
-    
-    const employee = await Employee.findOne({ adminId: req.user._id });
-    if (!employee) return res.status(404).json({ success: false, message: 'Employee not found' });
+  const { remarks, isProductive, isBillable, meetingWith, clientName, teamMemberName, markTaskCompleted } = req.body;
+  const result = await workTimer.stopTimer(req.user._id, { remarks, isProductive, isBillable, meetingWith, clientName, teamMemberName });
+  if (!result.ok) return respond(res, result);
 
-    if (!employee.activeTimer || !employee.activeTimer.startTime) {
-      return res.status(400).json({ success: false, message: 'No active timer found.' });
-    }
-
-    // Mark assigned task as completed if requested (read before the timer is cleared)
-    if (markTaskCompleted && employee.activeTimer.activityType === 'Vedhunt Task') {
-      const taskIndex = employee.tasks.findIndex(t => t.title === employee.activeTimer.task && t.status !== 'Completed');
-      if (taskIndex !== -1) {
-        employee.tasks[taskIndex].status = 'Completed';
-        employee.tasks[taskIndex].completedAt = new Date();
-      }
-    }
-
-    const { workLog, capped } = await closeActiveTimer(employee, { remarks, isProductive, isBillable, meetingWith, clientName, teamMemberName });
-    // Ensure missing required fields are populated for legacy data
-    if (!employee.phone) employee.phone = '0000000000';
-    await employee.save();
-
-    res.json({
-      success: true,
-      message: capped ? 'Work logged. The timer had been left running, so the session was capped.' : 'Work logged successfully!',
-      workLog,
-      capped,
-    });
-  } catch (error) {
-    logger.error('Error stopping timer:', error);
-    res.status(500).json({ success: false, message: 'Server error' });
+  let taskCompleted = false;
+  if (markTaskCompleted && result.timer.taskId) {
+    taskCompleted = (await employeeTasks.updateTaskStatus(req.user, String(result.timer.taskId), 'Completed')).ok;
   }
+  res.json({
+    success: true,
+    message: result.capped ? 'Work logged. The timer had been left running, so the session was capped.' : 'Work logged successfully!',
+    workLog: result.workLog,
+    capped: result.capped,
+    taskCompleted,
+  });
 });
 
-// Update one of my own tasks: Pending → In Progress → Completed
-const TASK_FLOW = { Pending: ['In Progress', 'Completed'], 'In Progress': ['Completed'], Completed: [] };
+// ── My Tasks ───────────────────────────────────────────────────────────────
+router.get('/ess/tasks', async (req, res) => respond(res, await employeeTasks.listTasks(req.user._id)));
+
 router.put('/ess/tasks/:taskId/status', async (req, res) => {
-  try {
-    const { status } = req.body;
-    if (!['In Progress', 'Completed'].includes(status)) {
-      return res.status(400).json({ success: false, message: 'Status must be "In Progress" or "Completed".' });
-    }
-    if (!mongoose.Types.ObjectId.isValid(req.params.taskId)) return res.status(400).json({ success: false, message: 'Invalid task ID' });
+  respond(res, await employeeTasks.updateTaskStatus(req.user, req.params.taskId, req.body.status, { reason: req.body.reason }));
+});
 
-    const employee = await Employee.findOne({ adminId: req.user._id });
-    if (!employee) return res.status(404).json({ success: false, message: 'Employee not found' });
-    const task = employee.tasks.id(req.params.taskId);
-    if (!task) return res.status(404).json({ success: false, message: 'Task not found' });
-
-    const current = task.status || 'Pending';
-    if (!(TASK_FLOW[current] || []).includes(status)) {
-      return res.status(400).json({
-        success: false,
-        message: current === 'Completed' ? 'This task is already completed. Ask your manager to reopen it.' : `Cannot move a task from ${current} to ${status}.`,
-      });
-    }
-
-    task.status = status;
-    if (status === 'Completed') task.completedAt = new Date();
-    if (!employee.phone) employee.phone = '0000000000'; // legacy records missing a required field
-    await employee.save();
-
-    if (status === 'Completed' && task.assignedBy && String(task.assignedBy) !== String(req.user._id)) {
-      await notifyStaff(task.assignedBy, {
-        type: 'task_completed',
-        title: `Task completed by ${employee.firstName} ${employee.lastName}`,
-        message: String(task.title).slice(0, 140),
-        link: '/admin/tasks',
-      });
-    }
-
-    res.json({ success: true, message: status === 'Completed' ? 'Task marked as completed.' : 'Task started.', task });
-  } catch (error) {
-    logger.error('Error updating task status:', error);
-    res.status(500).json({ success: false, message: 'Server error' });
-  }
+router.post('/ess/tasks/:taskId/comments', async (req, res) => {
+  respond(res, await employeeTasks.addTaskComment(req.user, req.params.taskId, req.body.text), 201);
 });
 
 // Fetch WorkLogs (Paginated / Timeline)
@@ -557,12 +530,12 @@ router.post('/ess/leave-requests', async (req, res) => {
       reason
     });
 
-    await notifyPermissionHolders('team.manage', {
+    // Reporting manager first, HR as fallback
+    await notifyApprover(employee, {
       type: 'leave_request',
       title: `Leave request from ${employee.firstName} ${employee.lastName}`,
       message: `${LEAVE_LABEL[leaveType]} · ${days} day${days > 1 ? 's' : ''} · ${fmtDay(start)} – ${fmtDay(end)}`,
-      link: '/admin/leave-requests',
-    }, { exclude: [req.user._id] });
+    }, '/admin/leave-requests');
 
     res.status(201).json({ success: true, message: 'Leave request submitted successfully.', leaveRequest, days });
   } catch (error) {
@@ -706,18 +679,23 @@ router.post('/ess/tickets/:id/messages', async (req, res) => {
 // /api/leads/:id/assign flow on the admin side.
 // ==========================================
 
-// Get leads assigned to this employee
+// Leads assigned to this employee — list fields only (no call logs, history
+// or raw payload), plus the latest timeline entry as "last activity".
 router.get('/ess/leads', requirePermission('leads.view'), async (req, res) => {
-  try {
-    const employee = await Employee.findOne({ adminId: req.user._id });
-    if (!employee) return res.status(404).json({ success: false, message: 'Employee not found' });
+  res.json({ success: true, leads: await listAssignedLeads(req.user._id) });
+});
 
-    const leads = await Lead.find({ assignedTo: req.user._id }).sort({ createdAt: -1 });
-    res.json({ success: true, leads });
-  } catch (error) {
-    logger.error('Error fetching employee leads:', error);
-    res.status(500).json({ success: false, message: 'Server error' });
-  }
+// Global lead search (own leads; all leads for roles with leads.viewAll —
+// someone else's lead comes back masked and read-only).
+router.get('/ess/leads/search', requirePermission('leads.view'), async (req, res) => {
+  res.json({ success: true, results: await searchLeads(req.user, req.query.q) });
+});
+
+// Today's agenda — follow-up actions and assigned tasks due today/overdue
+router.get('/ess/today', async (req, res) => {
+  const employee = await Employee.findOne({ adminId: req.user._id }, { tasks: 1 }).lean();
+  if (!employee) return res.status(404).json({ success: false, message: 'Employee not found' });
+  res.json({ success: true, ...(await todayAgenda(req.user, employee.tasks)) });
 });
 
 // Get a single lead assigned to this employee — powers the Lead Workspace
@@ -727,14 +705,47 @@ router.get('/ess/leads/:id', requirePermission('leads.view'), async (req, res) =
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
       return res.status(400).json({ success: false, message: 'Invalid lead id' });
     }
-    const lead = await Lead.findOne({ _id: req.params.id, assignedTo: req.user._id });
+    const lead = await Lead.findOne({ _id: req.params.id, assignedTo: req.user._id }).select('-rawPayload').lean();
     if (!lead) return res.status(404).json({ success: false, message: 'Lead not found' });
 
+    // Who did each timeline entry — names only, resolved in one query
+    const actorIds = [...new Set((lead.pipelineHistory || []).map((h) => h.updatedBy && String(h.updatedBy)).filter(Boolean))];
+    if (actorIds.length) {
+      const actors = await Admin.find({ _id: { $in: actorIds } }, { firstName: 1, lastName: 1 }).lean();
+      const names = new Map(actors.map((a) => [String(a._id), `${a.firstName} ${a.lastName}`.trim()]));
+      lead.pipelineHistory = lead.pipelineHistory.map((h) => ({ ...h, updatedByName: names.get(String(h.updatedBy)) || '' }));
+    }
     res.json({ success: true, lead });
   } catch (error) {
     logger.error('Error fetching employee lead:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
+});
+
+// Complete the scheduled follow-up: outcome + result, and the next action
+// when the lead stays active (see services/leadLifecycle.js completeFollowUp).
+router.post('/ess/leads/:id/follow-up/complete', requirePermission('followups.view'), async (req, res) => {
+  const { connected, interestLevel, notConnectedReason, result, nextFollowUpDate, nextActionType } = req.body;
+  const outcome = await completeFollowUp(
+    req.params.id,
+    { connected, interestLevel, notConnectedReason, result, nextFollowUpDate, nextActionType },
+    { id: req.user._id },
+    { assignedTo: req.user._id }
+  );
+  respond(res, outcome.ok ? { ok: true, lead: outcome.lead, message: 'Follow-up completed.' } : outcome);
+});
+
+// WhatsApp opens on the employee's device; this records it on the timeline.
+const WHATSAPP_APP_LABEL = { web: 'WhatsApp Web', desktop: 'WhatsApp Desktop', business: 'WhatsApp Business' };
+router.post('/ess/leads/:id/whatsapp-log', requirePermission('leads.view'), async (req, res) => {
+  const app = WHATSAPP_APP_LABEL[req.body.app] || 'WhatsApp';
+  const lead = await appendLeadActivity(req.params.id, {
+    status: 'WhatsApp initiated',
+    note: `via ${app}`,
+    actorId: req.user._id,
+  }, { assignedTo: req.user._id });
+  if (!lead) return res.status(404).json({ success: false, message: 'Lead not found' });
+  res.status(201).json({ success: true });
 });
 
 // Update a lead assigned to this employee. Goes through the shared state
@@ -831,8 +842,8 @@ router.get('/ess/payslips', async (req, res) => {
     const employee = await Employee.findOne({ adminId: req.user._id });
     if (!employee) return res.status(404).json({ success: false, message: 'Employee not found' });
 
-    const payslips = await Payslip.find({ employeeId: employee._id, status: 'Active' }).sort({ year: -1, month: -1 });
-    res.json({ success: true, payslips });
+    const payslips = await Payslip.find({ employeeId: employee._id, status: 'Active' }, { pdfUrl: 0 }).sort({ year: -1, month: -1 }).lean();
+    res.json({ success: true, payslips: payslips.map((p) => ({ ...p, paymentStatus: payslipPaymentStatus(p) })) });
   } catch (error) {
     logger.error('Error fetching employee payslips:', error);
     res.status(500).json({ success: false, message: 'Server error' });
@@ -868,7 +879,8 @@ router.get('/ess/payslips/:id/pdf', async (req, res) => {
     const name = `Payslip-${payslip.year}-${String(payslip.month).padStart(2, '0')}.pdf`;
     res.set({
       'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename="${name}"`,
+      // ?inline=1 opens the full payslip in the browser's PDF viewer ("View")
+      'Content-Disposition': `${req.query.inline === '1' ? 'inline' : 'attachment'}; filename="${name}"`,
       'Content-Length': pdf.length,
       'Cache-Control': 'private, no-store',
     });
@@ -877,6 +889,24 @@ router.get('/ess/payslips/:id/pdf', async (req, res) => {
     logger.error('Error generating payslip PDF:', error);
     res.status(500).json({ success: false, message: 'Could not generate the payslip PDF' });
   }
+});
+
+// ==========================================
+// MY PERFORMANCE — live, segment-specific KPI scorecard
+// ==========================================
+const KPI_PERIODS = {
+  month: (now) => new Date(now.getFullYear(), now.getMonth(), 1),
+  quarter: (now) => new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1),
+  year: (now) => new Date(now.getFullYear(), 0, 1),
+};
+router.get('/ess/performance/kpis', async (req, res) => {
+  const now = new Date();
+  const period = KPI_PERIODS[req.query.period] ? req.query.period : 'month';
+  const from = KPI_PERIODS[period](now);
+  const employee = await Employee.findOne({ adminId: req.user._id }, { tasks: 1 }).lean();
+  if (!employee) return res.status(404).json({ success: false, message: 'Employee not found' });
+  const scorecard = await buildScorecard({ employee, adminId: req.user._id, segment: req.user.segment, from, to: now });
+  res.json({ success: true, period, ...scorecard });
 });
 
 // ==========================================

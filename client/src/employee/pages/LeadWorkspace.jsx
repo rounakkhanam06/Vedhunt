@@ -1,27 +1,24 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import employeeApi from '../../services/employeeApi';
 import toast from 'react-hot-toast';
-import { ArrowLeft, Phone, Mail, MessageCircle, Play, Square, Clock, FileText, Upload, Trash2, PhoneCall, CalendarClock, ListChecks } from 'lucide-react';
-import { NOT_CONNECTED_REASONS, INTEREST_LEVELS, LOST_DROPPED_REASONS, FOLLOWUP_TRIGGER_INTEREST_LEVELS, PAYMENT_STATUS_OPTIONS } from '../../shared/leadConstants';
+import { ArrowLeft, Phone, Mail, Play, Square, Clock, FileText, Upload, Trash2, PhoneCall, CalendarClock, ListChecks, FileSignature } from 'lucide-react';
+import { NOT_CONNECTED_REASONS, INTEREST_LEVELS, LOST_DROPPED_REASONS, FOLLOWUP_TRIGGER_INTEREST_LEVELS, PAYMENT_STATUS_OPTIONS, NEXT_ACTION_TYPES } from '../../shared/leadConstants';
 import {
   SERVICES_REQUIRED_OPTIONS, MARKETING_TYPE_SERVICES, TIMELINE_OPTIONS, DECISION_MAKER_OPTIONS,
   PROJECT_BUDGET_OPTIONS, MONTHLY_MARKETING_BUDGET_OPTIONS, LEAD_PRIORITY_BADGE_CLASSES
 } from '../../shared/serviceQualification';
 import NoCopyText from '../components/NoCopyText';
 import FollowUpTasksPanel from '../components/FollowUpTasksPanel';
+import WhatsAppAction from '../components/WhatsAppAction';
+import FollowUpForm from '../components/FollowUpForm';
+import ProposalWorkflow from '../components/ProposalWorkflow';
+import { toDateTimeInput, fromLocalInput } from '../lib/datetime';
 
 const sectionClass = 'bg-app-card border border-app-border rounded-xl p-4 sm:p-5 w-full min-w-0 overflow-hidden';
 const sectionLabelClass = 'text-xs font-bold text-app-text-muted uppercase tracking-wider mb-3 block';
 const fieldLabelClass = 'block text-[10px] font-medium text-app-text-muted mb-1 uppercase tracking-wider';
 const selectClass = 'w-full min-w-0 max-w-full truncate bg-form-input-bg border border-app-border rounded-lg px-3 py-2 text-sm text-app-text focus:outline-none focus:border-primary/50 box-border';
-
-/** WhatsApp deep link straight to this lead's chat — Indian 10-digit numbers get the country code prefixed. */
-function toWhatsAppHref(phone) {
-  const digits = String(phone || '').replace(/\D/g, '');
-  if (!digits) return null;
-  return `https://wa.me/${digits.length === 10 ? `91${digits}` : digits}`;
-}
 
 /** Merges pipelineHistory with a synthetic "captured" event, newest first. Assignment history isn't exposed to the employee portal — ownership changes stay an admin-only, audited action. */
 function buildActivityTimeline(lead) {
@@ -32,7 +29,7 @@ function buildActivityTimeline(lead) {
     date: lead.createdAt
   }];
   (lead.pipelineHistory || []).forEach((h, idx) => {
-    events.push({ key: `pipeline-${idx}`, title: h.status, date: h.date, note: h.note });
+    events.push({ key: `pipeline-${idx}`, title: h.status, date: h.date, note: h.note, by: h.updatedByName });
   });
   return events.sort((a, b) => new Date(b.date) - new Date(a.date));
 }
@@ -40,6 +37,8 @@ function buildActivityTimeline(lead) {
 export default function EmployeeLeadWorkspace() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [proposalOpen, setProposalOpen] = useState(searchParams.get('proposal') === '1');
 
   const [lead, setLead] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -53,13 +52,12 @@ export default function EmployeeLeadWorkspace() {
   const [uploading, setUploading] = useState(false);
   const [docType, setDocType] = useState('Attachment');
   // "Update Stage" scrolls to (and focuses) the status select further down.
-  // "Follow-up" opens its own inline date picker instead — the call-outcome
-  // follow-up input only renders once a qualifying outcome is picked, so
-  // scrolling to it did nothing on a fresh lead. Mirrors components/LeadCard.jsx.
+  // "Follow-up" opens FollowUpForm inline — schedule a first action, or
+  // complete the current one with an outcome and the next action.
   const statusSelectRef = useRef(null);
   const [followUpOpen, setFollowUpOpen] = useState(false);
-  const [followUpDraft, setFollowUpDraft] = useState('');
-  const [savingFollowUp, setSavingFollowUp] = useState(false);
+  // What the follow-up picked in the Call Outcome section will be.
+  const [outcomeActionType, setOutcomeActionType] = useState('');
   const scrollToRef = (ref) => {
     ref.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     ref.current?.focus();
@@ -98,6 +96,7 @@ export default function EmployeeLeadWorkspace() {
       if (res.data?.success) {
         setLead(res.data.lead);
         setDraft(buildDraft(res.data.lead));
+        setOutcomeActionType(res.data.lead.nextActionType || 'Call');
       }
     } catch {
       toast.error('That lead could not be found');
@@ -140,29 +139,9 @@ export default function EmployeeLeadWorkspace() {
     return res.data;
   };
 
-  // datetime-local wants local wall-clock time, not toISOString()'s UTC.
-  const toLocalInputValue = (date) => {
-    const d = new Date(date);
-    return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-  };
-
-  const toggleFollowUp = () => {
-    if (!followUpOpen) setFollowUpDraft(lead.nextFollowUpDate ? toLocalInputValue(lead.nextFollowUpDate) : '');
-    setFollowUpOpen((open) => !open);
-  };
-
-  const handleSaveFollowUp = async () => {
-    if (!followUpDraft) return;
-    try {
-      setSavingFollowUp(true);
-      await handleFieldsChange({ nextFollowUpDate: new Date(followUpDraft).toISOString() });
-      toast.success('Follow-up scheduled', { duration: 1200, position: 'bottom-right' });
-      setFollowUpOpen(false);
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to schedule follow-up');
-    } finally {
-      setSavingFollowUp(false);
-    }
+  const closeProposal = () => {
+    setProposalOpen(false);
+    if (searchParams.get('proposal')) setSearchParams({}, { replace: true });
   };
 
   const getCallOutcomeValue = (field) => {
@@ -198,9 +177,10 @@ export default function EmployeeLeadWorkspace() {
       return;
     }
 
+    const followUp = merged.nextFollowUpDate ? { nextFollowUpDate: merged.nextFollowUpDate, nextActionType: outcomeActionType || 'Call' } : {};
     const fields = merged.connected === 'Yes'
-      ? { connected: 'Yes', interestLevel: merged.interestLevel, ...(merged.nextFollowUpDate ? { nextFollowUpDate: merged.nextFollowUpDate } : {}) }
-      : { connected: 'No', notConnectedReason: merged.notConnectedReason, ...(merged.nextFollowUpDate ? { nextFollowUpDate: merged.nextFollowUpDate } : {}) };
+      ? { connected: 'Yes', interestLevel: merged.interestLevel, ...followUp }
+      : { connected: 'No', notConnectedReason: merged.notConnectedReason, ...followUp };
 
     try {
       await handleFieldsChange(fields);
@@ -313,66 +293,50 @@ export default function EmployeeLeadWorkspace() {
             {lead.status}
           </span>
         </div>
-        <p className="text-xs text-app-text-muted mt-1">{lead.service} · {lead.platform}</p>
+        <p className="text-xs text-app-text-muted mt-1">
+          {lead.service} · {lead.platform}
+          {lead.fbLeadId && <span className="font-mono"> · Meta Lead ID: {lead.fbLeadId}</span>}
+        </p>
 
         {/* Quick Actions — the labels are generic ("Call"/"WhatsApp"/"Email"),
             not the raw number/address, so no copy-protection needed here;
             each still deep-links straight to this lead's number/inbox. */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 mt-4 min-w-0">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 mt-4 min-w-0">
           <a
             href={`tel:${lead.phone}`}
             className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg bg-primary text-white font-bold text-xs sm:text-sm hover:opacity-90 transition-opacity min-w-0"
           >
             <Phone size={14} className="shrink-0" /> <span className="truncate">Call</span>
           </a>
-          {toWhatsAppHref(lead.phone) ? (
-            // TODO: plain wa.me deep-link out of the CRM — swap for an
-            // in-CRM WhatsApp conversation once a WhatsApp Business API
-            // account (Meta Cloud API/Twilio/etc.) is available.
-            <a
-              href={toWhatsAppHref(lead.phone)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg border border-app-border text-app-text font-bold text-xs sm:text-sm hover:border-primary hover:text-primary transition-colors min-w-0"
-            >
-              <MessageCircle size={14} className="shrink-0" /> <span className="truncate">WhatsApp</span>
-            </a>
-          ) : <div />}
+          <WhatsAppAction
+            lead={lead}
+            onLogged={fetchLead}
+            className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg border border-app-border text-app-text font-bold text-xs sm:text-sm hover:border-primary hover:text-primary transition-colors min-w-0 cursor-pointer"
+          />
           <a
             href={`mailto:${lead.email}`}
             className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg border border-app-border text-app-text font-bold text-xs sm:text-sm hover:border-primary hover:text-primary transition-colors min-w-0"
           >
             <Mail size={14} className="shrink-0" /> <span className="truncate">Email</span>
           </a>
-          <button onClick={toggleFollowUp} className={`flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg border font-bold text-xs sm:text-sm hover:border-primary hover:text-primary transition-colors min-w-0 ${followUpOpen ? 'border-primary text-primary' : 'border-app-border text-app-text'}`}>
+          <button onClick={() => setFollowUpOpen((o) => !o)} className={`flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg border font-bold text-xs sm:text-sm hover:border-primary hover:text-primary transition-colors min-w-0 ${followUpOpen ? 'border-primary text-primary' : 'border-app-border text-app-text'}`}>
             <CalendarClock size={14} className="shrink-0" /> <span className="truncate">Follow-up</span>
           </button>
           <button onClick={() => scrollToRef(statusSelectRef)} className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg border border-app-border text-app-text font-bold text-xs sm:text-sm hover:border-primary hover:text-primary transition-colors min-w-0">
             <ListChecks size={14} className="shrink-0" /> <span className="truncate">Update Stage</span>
           </button>
+          <button onClick={() => setProposalOpen(true)} className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg border border-app-border text-app-text font-bold text-xs sm:text-sm hover:border-primary hover:text-primary transition-colors min-w-0">
+            <FileSignature size={14} className="shrink-0" /> <span className="truncate">Proposal</span>
+          </button>
         </div>
 
         {followUpOpen && (
-          <div className="mt-3 flex flex-wrap items-center gap-2 bg-form-input-bg p-3 rounded-lg">
-            <span className="text-xs font-semibold text-app-text-muted">
-              {lead.nextFollowUpDate
-                ? `Next follow-up: ${new Date(lead.nextFollowUpDate).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}`
-                : 'Schedule next follow-up'}
-            </span>
-            <input
-              type="datetime-local"
-              value={followUpDraft}
-              onChange={(e) => setFollowUpDraft(e.target.value)}
-              className="bg-app-card border border-app-border rounded-lg px-3 py-1.5 text-sm text-app-text focus:outline-none focus:border-primary/50"
-              style={{ colorScheme: 'dark' }}
+          <div className="mt-3">
+            <FollowUpForm
+              lead={lead}
+              onSaved={() => { setFollowUpOpen(false); fetchLead(); }}
+              onCancel={() => setFollowUpOpen(false)}
             />
-            <button
-              disabled={savingFollowUp || !followUpDraft}
-              onClick={handleSaveFollowUp}
-              className="px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-bold disabled:opacity-50"
-            >
-              {savingFollowUp ? 'Saving...' : 'Save'}
-            </button>
           </div>
         )}
 
@@ -398,6 +362,16 @@ export default function EmployeeLeadWorkspace() {
             <span className="text-app-text-muted">Email</span>
             <NoCopyText as="span" className="font-medium text-app-text">{lead.email}</NoCopyText>
           </div>
+          <div className="flex items-center justify-between py-2">
+            <span className="text-app-text-muted">Vedhunt Lead ID</span>
+            <span className="font-mono font-medium text-app-text">{lead.leadId}</span>
+          </div>
+          {lead.fbLeadId && (
+            <div className="flex items-center justify-between py-2 gap-3">
+              <span className="text-app-text-muted">Meta Lead ID{lead.fbFormName ? ` (${lead.fbFormName})` : ''}</span>
+              <span className="font-mono font-medium text-app-text truncate">{lead.fbLeadId}</span>
+            </div>
+          )}
           <div className="flex items-center justify-between py-2">
             <span className="text-app-text-muted">Service required</span>
             <span className="font-medium text-app-text">{lead.service}</span>
@@ -530,13 +504,17 @@ export default function EmployeeLeadWorkspace() {
               <label className={fieldLabelClass}>
                 Next Follow-Up Date &amp; Time <span className="text-primary">*required</span>
               </label>
-              <input
-                type="datetime-local"
-                value={getCallOutcomeValue('nextFollowUpDate') ? new Date(getCallOutcomeValue('nextFollowUpDate')).toISOString().slice(0, 16) : ''}
-                onChange={(e) => updateCallOutcomeField('nextFollowUpDate', e.target.value ? new Date(e.target.value).toISOString() : '')}
-                className={selectClass}
-                style={{ colorScheme: 'dark' }}
-              />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <select value={outcomeActionType} onChange={(e) => setOutcomeActionType(e.target.value)} className={selectClass} aria-label="Next action type">
+                  {NEXT_ACTION_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+                </select>
+                <input
+                  type="datetime-local"
+                  value={toDateTimeInput(getCallOutcomeValue('nextFollowUpDate'))}
+                  onChange={(e) => updateCallOutcomeField('nextFollowUpDate', fromLocalInput(e.target.value))}
+                  className={selectClass}
+                />
+              </div>
             </div>
           )}
         </div>
@@ -726,7 +704,7 @@ export default function EmployeeLeadWorkspace() {
         </button>
       </div>
 
-      <FollowUpTasksPanel key={lead.nextFollowUpDate || 'none'} leadId={lead._id} />
+      <FollowUpTasksPanel key={lead.nextFollowUpDate || 'none'} lead={lead} onLeadChanged={fetchLead} />
 
       {/* Qualification — service-aware discovery data, doesn't gate any
           stage transition; saved together with Stage & Deal Details via the
@@ -924,7 +902,7 @@ export default function EmployeeLeadWorkspace() {
       {lead.nextFollowUpDate && (
         <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 flex items-center gap-2 text-sm text-app-text">
           <Clock size={14} className="text-primary shrink-0" />
-          Next follow-up: {new Date(lead.nextFollowUpDate).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+          Next action: <strong>{lead.nextActionType || 'Follow-up'}</strong> · {new Date(lead.nextFollowUpDate).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
         </div>
       )}
 
@@ -978,6 +956,7 @@ export default function EmployeeLeadWorkspace() {
                 <p className="text-sm font-medium text-app-text">{event.title}</p>
                 <p className="text-xs text-app-text-muted mt-0.5">
                   {new Date(event.date).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                  {event.by && ` · ${event.by}`}
                 </p>
                 {event.note && (
                   <p className="text-xs text-app-text-muted mt-1 italic border-l-2 border-primary/30 pl-2 py-0.5">{event.note}</p>
@@ -1029,6 +1008,8 @@ export default function EmployeeLeadWorkspace() {
           </div>
         </div>
       )}
+
+      {proposalOpen && <ProposalWorkflow lead={lead} onClose={closeProposal} onLeadChanged={fetchLead} />}
     </div>
   );
 }

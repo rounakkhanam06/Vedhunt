@@ -22,7 +22,7 @@ const LegalConsentCheckbox = ({ audience, checked, onChange, className = '', lab
 
   return (
     <div className={className}>
-      <label className={`flex items-start gap-2.5 text-sm select-none ${labelClassName}`}>
+      <label className={`flex items-start gap-2.5 text-xs sm:text-sm select-none leading-relaxed ${labelClassName}`}>
         <input
           type="checkbox"
           checked={checked}

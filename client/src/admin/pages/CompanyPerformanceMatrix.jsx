@@ -47,6 +47,31 @@ const CompanyPerformanceMatrix = () => {
   const [filterBand, setFilterBand] = useState('All');
   const [filterDept, setFilterDept] = useState('All');
 
+  // KPI catalog from the server: labels, and which metrics an admin enters by hand
+  const [metricDefs, setMetricDefs] = useState({});
+  const [manualDrafts, setManualDrafts] = useState({}); // targetId → typed value
+  const [savingTargetId, setSavingTargetId] = useState(null);
+
+  useEffect(() => {
+    api.get('/performance/presets').then(res => setMetricDefs(res.data.metricDefs || {})).catch(() => {});
+  }, []);
+
+  const saveManualActual = async (target) => {
+    const value = manualDrafts[target._id];
+    if (value === undefined || value === '' || Number(value) < 0) { toast.error('Enter a valid value.'); return; }
+    setSavingTargetId(target._id);
+    try {
+      await api.put(`/performance/targets/${target._id}/manual-actual`, { actualValue: Number(value) });
+      toast.success('Actual saved — score recalculated.');
+      setManualDrafts((d) => { const next = { ...d }; delete next[target._id]; return next; });
+      fetchMatrix();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Could not save the actual.');
+    } finally {
+      setSavingTargetId(null);
+    }
+  };
+
   useEffect(() => {
     api.get('/performance/cycles').then(res => {
       if (res.data.success) {
@@ -355,7 +380,10 @@ const CompanyPerformanceMatrix = () => {
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                               {targets.map(t => (
                                 <div key={t._id} className="bg-app-card rounded-xl p-3 border border-app-border">
-                                  <div className="text-xs text-app-text-muted mb-1">{t.metricType}</div>
+                                  <div className="text-xs text-app-text-muted mb-1">
+                                    {metricDefs[t.metricType]?.label || t.metricType}
+                                    {metricDefs[t.metricType]?.lowerIsBetter && <span className="ml-1 text-[10px]">(lower is better)</span>}
+                                  </div>
                                   <div className="flex justify-between items-end">
                                     <div>
                                       <div className="text-xs text-app-text-muted">Target: <span className="text-app-text font-bold">{t.targetValue.toLocaleString()} {t.unit}</span></div>
@@ -374,6 +402,22 @@ const CompanyPerformanceMatrix = () => {
                                       style={{ width: `${Math.min(t.achievementPct, 100)}%` }}
                                     />
                                   </div>
+                                  {metricDefs[t.metricType] && !metricDefs[t.metricType].auto && (
+                                    <div className="mt-2 flex gap-1.5">
+                                      <input
+                                        type="number" min="0" step="any"
+                                        placeholder="Enter actual"
+                                        value={manualDrafts[t._id] ?? ''}
+                                        onChange={(e) => setManualDrafts((d) => ({ ...d, [t._id]: e.target.value }))}
+                                        className="flex-1 min-w-0 text-xs rounded-md border border-app-border bg-form-input-bg px-2 py-1 text-app-text"
+                                        aria-label={`Actual for ${t.metricType}`}
+                                      />
+                                      <button type="button" onClick={() => saveManualActual(t)} disabled={savingTargetId === t._id}
+                                        className="px-2 py-1 rounded-md bg-primary text-white text-[11px] font-bold disabled:opacity-50 cursor-pointer">
+                                        {savingTargetId === t._id ? '…' : 'Save'}
+                                      </button>
+                                    </div>
+                                  )}
                                 </div>
                               ))}
                             </div>

@@ -16,6 +16,7 @@ const {
   getPayrollSettings
 } = require('../services/payrollEngine');
 const { finalizeAndSendPayslip, resendPayslip } = require('../services/payslipGenerator');
+const { notifyStaff } = require('../services/staffNotify');
 
 const router = express.Router();
 
@@ -78,7 +79,7 @@ router.get('/runs', async (req, res) => {
 
     const runs = await PayrollRun.find(query)
       .populate('employeeId', 'firstName lastName employeeId roleDept email')
-      .populate('payslipId', 'pdfUrl emailStatus sentAt')
+      .populate('payslipId', 'pdfUrl emailStatus sentAt paidAt paymentReference')
       .sort({ createdAt: -1 });
     res.json({ success: true, runs });
   } catch (error) {
@@ -221,6 +222,36 @@ router.get('/payslips/:id', async (req, res) => {
   } catch (error) {
     res.status(500).json({ success: false, message: 'Server error' });
   }
+});
+
+// Mark a payslip's salary as credited — drives the "Paid" status employees see.
+router.post('/payslips/:id/mark-paid', async (req, res) => {
+  const paymentReference = String(req.body.paymentReference || '').trim().slice(0, 100);
+  const paidAt = req.body.paidAt ? new Date(req.body.paidAt) : new Date();
+  if (Number.isNaN(paidAt.getTime()) || paidAt > new Date()) {
+    return res.status(400).json({ success: false, message: 'Payment date must be a valid date, not in the future.' });
+  }
+  const payslip = await Payslip.findOneAndUpdate(
+    { _id: req.params.id, status: 'Active', paidAt: null },
+    { $set: { paidAt, paidBy: req.user._id, paymentReference } },
+    { returnDocument: 'after' }
+  ).populate('employeeId', 'adminId');
+  if (!payslip) return res.status(400).json({ success: false, message: 'Payslip not found or already marked paid.' });
+
+  await AuditLog.create({
+    adminId: req.user._id, action: 'PAYSLIP_MARKED_PAID', resource: 'Payslip',
+    afterSnapshot: { payslipId: payslip._id, month: payslip.month, year: payslip.year, paidAt, paymentReference },
+    ipAddress: req.ip,
+  }).catch((e) => logger.error('Audit log failed (PAYSLIP_MARKED_PAID):', e.message));
+  if (payslip.employeeId?.adminId) {
+    await notifyStaff(payslip.employeeId.adminId, {
+      type: 'payslip_paid',
+      title: 'Salary credited',
+      message: `Your salary for ${payslip.month}/${payslip.year} has been credited${paymentReference ? ` (UTR: ${paymentReference})` : ''}.`,
+      link: '/employee/dashboard?tab=payslips',
+    });
+  }
+  res.json({ success: true, payslip });
 });
 
 // ── Payroll Settings — this is where the admin-configurable generation day lives ──

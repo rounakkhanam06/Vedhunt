@@ -203,7 +203,7 @@ router.get('/projects', async (req, res) => {
 
     const [projects, total] = await Promise.all([
       Project.find(filter)
-        .select('-internalNotes -milestones.internalDescription')
+        .select('-internalNotes -milestones.internalDescription -projectManager -teamMembers')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
@@ -233,7 +233,7 @@ router.get('/projects/:id', async (req, res) => {
       _id: req.params.id,
       client_ref: req.client._id,
     })
-      .select('-internalNotes -milestones.internalDescription')
+      .select('-internalNotes -milestones.internalDescription -projectManager -teamMembers')
       .lean();
 
     if (!project) {

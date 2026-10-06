@@ -60,7 +60,12 @@ const payslipSchema = new mongoose.Schema(
     sentAt: Date,
     emailStatus: { type: String, enum: ['NotSent', 'Sent', 'Failed'], default: 'NotSent' },
 
-    pdfUrl: String
+    pdfUrl: String,
+
+    // Salary actually credited — set by HR from Payroll ("Mark paid").
+    paidAt: Date,
+    paidBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin' },
+    paymentReference: { type: String, trim: true }
   },
   { timestamps: true }
 );

@@ -82,6 +82,7 @@ const TempPasswordReset = lazy(() => import('../admin/pages/TempPasswordReset'))
 const EmployeeManager = lazy(() => import('../admin/pages/EmployeeManager'));
 const LeaveRequestsManager = lazy(() => import('../admin/pages/LeaveRequestsManager'));
 const BankChangeRequestsManager = lazy(() => import('../admin/pages/BankChangeRequestsManager'));
+const CorrectionRequestsManager = lazy(() => import('../admin/pages/CorrectionRequestsManager'));
 const AdminTasks = lazy(() => import('../admin/pages/AdminTasks'));
 const ESSDashboard = lazy(() => import('../admin/pages/ESSDashboard'));
 const ManagerDashboard = lazy(() => import('../admin/pages/ManagerDashboard'));
@@ -377,6 +378,10 @@ export const router = createBrowserRouter([
           {
             path: 'bank-change-requests',
             element: withPermission(BankChangeRequestsManager, 'team.manage')
+          },
+          {
+            path: 'corrections',
+            element: withPermission(CorrectionRequestsManager, 'team.manage')
           },
           {
             path: 'attendance-roster',
