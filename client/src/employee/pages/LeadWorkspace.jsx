@@ -65,6 +65,16 @@ function buildDraft(l) {
   };
 }
 
+/** True once a staged call outcome has everything its branch requires (see leadStateMachine.js). */
+function isOutcomeReady(o) {
+  const needsFollowUp =
+    (o.connected === 'Yes' && FOLLOWUP_TRIGGER_INTEREST_LEVELS.includes(o.interestLevel)) ||
+    (o.connected === 'No' && o.notConnectedReason === 'Asked to Call Later');
+  if (o.connected === 'Yes') return !!o.interestLevel && (!needsFollowUp || !!o.nextFollowUpDate);
+  if (o.connected === 'No') return !!o.notConnectedReason && (!needsFollowUp || !!o.nextFollowUpDate);
+  return false;
+}
+
 // Loose equality for form values — inputs hold strings, the server numbers.
 const sameValue = (a, b) => (Array.isArray(a) || Array.isArray(b)
   ? JSON.stringify(a || []) === JSON.stringify(b || [])
@@ -167,6 +177,12 @@ export default function EmployeeLeadWorkspace() {
       toast('No changes to save');
       return;
     }
+    // A stage change is judged against the logged call outcome — one picked
+    // above but still waiting on its follow-up date isn't logged yet.
+    if ('status' in changes && callOutcomeDraft?.connected && !isOutcomeReady(callOutcomeDraft)) {
+      toast.error('Finish the call outcome first — set the Next Follow-Up date & time above, then save the stage.');
+      return;
+    }
     try {
       setSaving(true);
       const res = await employeeApi.put(`/employee-portal/ess/leads/${id}`, changes);
@@ -217,16 +233,7 @@ export default function EmployeeLeadWorkspace() {
       [field]: value
     };
 
-    const needsFollowUp =
-      (merged.connected === 'Yes' && FOLLOWUP_TRIGGER_INTEREST_LEVELS.includes(merged.interestLevel)) ||
-      (merged.connected === 'No' && merged.notConnectedReason === 'Asked to Call Later');
-
-    const ready =
-      merged.connected === 'Yes' ? !!merged.interestLevel && (!needsFollowUp || !!merged.nextFollowUpDate) :
-      merged.connected === 'No' ? !!merged.notConnectedReason && (!needsFollowUp || !!merged.nextFollowUpDate) :
-      false;
-
-    if (!ready) {
+    if (!isOutcomeReady(merged)) {
       setCallOutcomeDraft(merged);
       return;
     }
@@ -485,6 +492,11 @@ export default function EmployeeLeadWorkspace() {
           machine's required combination for the chosen branch is known. */}
       <div className={sectionClass}>
         <label className={sectionLabelClass}>Call Outcome</label>
+        {callOutcomeDraft?.connected && !isOutcomeReady(callOutcomeDraft) && (
+          <p className="mb-3 text-xs font-medium text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
+            Not saved yet — finish the required fields below to save this call outcome.
+          </p>
+        )}
         <div className="space-y-4">
           <div>
             <label className={fieldLabelClass}>Connected?</label>

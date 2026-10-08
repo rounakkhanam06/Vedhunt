@@ -48,6 +48,11 @@ const STATUS_BADGE_CLASSES = {
   Hold: 'bg-slate-500/10 text-slate-400 border-slate-500/20'
 };
 
+// The dates the date-range filter can apply to (server: leadController.getLeads's dateField).
+const DATE_FIELD_LABELS = { received: 'Received', assigned: 'Assigned', lastCall: 'Last call' };
+
+const fmtShortDate = (d) => (d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' }) : '—');
+
 export default function LeadsManager({ stageGroup }) {
   const { can } = usePermissions();
   const isSuperAdmin = can('*');
@@ -80,6 +85,8 @@ export default function LeadsManager({ stageGroup }) {
   const [connectedFilter] = useState(searchParams.get('connected') || '');
   const [dateFrom, setDateFrom] = useState(searchParams.get('dateFrom') || '');
   const [dateTo, setDateTo] = useState(searchParams.get('dateTo') || '');
+  // Which date the range applies to: received (createdAt), assigned, or last call.
+  const [dateField, setDateField] = useState(searchParams.get('dateField') || 'received');
   const [leadForms, setLeadForms] = useState([]);
   const [showImportModal, setShowImportModal] = useState(false);
   const [sortBy, setSortBy] = useState(searchParams.get('sortBy') || 'createdAt');
@@ -136,6 +143,7 @@ export default function LeadsManager({ stageGroup }) {
           connected: connectedFilter || undefined,
           dateFrom: dateFrom || undefined,
           dateTo: dateTo || undefined,
+          dateField: (dateFrom || dateTo) && dateField !== 'received' ? dateField : undefined,
           search: debouncedSearchTerm,
           sortBy,
           sortOrder
@@ -152,7 +160,7 @@ export default function LeadsManager({ stageGroup }) {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, statusFilter, stageGroup, platformFilter, sourceFilter, leadTypeFilter, formFilter, assignedBdFilter, serviceFilter, priorityFilter, breachedOnly, stageFilter, connectedFilter, dateFrom, dateTo, debouncedSearchTerm, sortBy, sortOrder]);
+  }, [currentPage, statusFilter, stageGroup, platformFilter, sourceFilter, leadTypeFilter, formFilter, assignedBdFilter, serviceFilter, priorityFilter, breachedOnly, stageFilter, connectedFilter, dateFrom, dateTo, dateField, debouncedSearchTerm, sortBy, sortOrder]);
 
   useEffect(() => {
     fetchLeads();
@@ -277,6 +285,7 @@ export default function LeadsManager({ stageGroup }) {
           connected: connectedFilter || undefined,
           dateFrom: dateFrom || undefined,
           dateTo: dateTo || undefined,
+          dateField: (dateFrom || dateTo) && dateField !== 'received' ? dateField : undefined,
           search: debouncedSearchTerm,
           sortBy,
           sortOrder
@@ -317,7 +326,7 @@ export default function LeadsManager({ stageGroup }) {
     breachedOnly && 'Follow-up Breached only',
     stageFilter === 'open' && 'Open pipeline (not Won/Lost/Dropped/Hold)',
     connectedFilter && `Connected: ${connectedFilter}`,
-    (dateFrom || dateTo) && `Date: ${dateFrom || '…'} to ${dateTo || '…'}`
+    (dateFrom || dateTo) && `${DATE_FIELD_LABELS[dateField] || 'Received'}: ${dateFrom || '…'} to ${dateTo || '…'}`
   ].filter(Boolean);
 
   return (
@@ -593,6 +602,19 @@ export default function LeadsManager({ stageGroup }) {
           </button>
 
           <div className="flex items-center gap-1.5">
+            <div className="relative">
+              <select
+                value={dateField}
+                onChange={(e) => { setDateField(e.target.value); setCurrentPage(1); }}
+                className={compactSelectClass}
+                title="Which date the range filters on"
+              >
+                {Object.entries(DATE_FIELD_LABELS).map(([value, label]) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 text-app-text-muted pointer-events-none" size={14} />
+            </div>
             <input
               type="date"
               value={dateFrom}
@@ -663,6 +685,18 @@ export default function LeadsManager({ stageGroup }) {
                           <span className="text-[9px] opacity-70">{sortBy === 'createdAt' ? (sortOrder === 'asc' ? '▲' : '▼') : '↕'}</span>
                         </div>
                       </th>
+                      <th onClick={() => handleSort('assignedAt')} className="px-3 py-3 font-semibold cursor-pointer select-none hover:text-primary transition-colors">
+                        <div className="flex items-center gap-1">
+                          <span>Assigned</span>
+                          <span className="text-[9px] opacity-70">{sortBy === 'assignedAt' ? (sortOrder === 'asc' ? '▲' : '▼') : '↕'}</span>
+                        </div>
+                      </th>
+                      <th onClick={() => handleSort('lastCallAt')} className="px-3 py-3 font-semibold cursor-pointer select-none hover:text-primary transition-colors">
+                        <div className="flex items-center gap-1">
+                          <span>Last Call</span>
+                          <span className="text-[9px] opacity-70">{sortBy === 'lastCallAt' ? (sortOrder === 'asc' ? '▲' : '▼') : '↕'}</span>
+                        </div>
+                      </th>
                       <th onClick={() => handleSort('fullName')} className="px-3 py-3 font-semibold cursor-pointer select-none hover:text-primary transition-colors">
                         <div className="flex items-center gap-1">
                           <span>Lead Name</span>
@@ -714,7 +748,10 @@ export default function LeadsManager({ stageGroup }) {
                       >
                         <td className={`px-3 py-2 align-middle font-mono font-semibold text-primary sticky left-0 ${rowStripeClass} group-hover:bg-surface-variant border-r border-app-border z-10`}>
                           <div className="flex items-center gap-2">
-                            <span>{lead.leadId || '-'}</span>
+                            <span>
+                              {lead.leadId || '-'}
+                              {lead.fbLeadId && <span className="block text-[10px] font-normal text-app-text-muted" title="Meta Lead ID">{lead.fbLeadId}</span>}
+                            </span>
                             {!lead.assignedTo && lead.unassignedSlaDeadline && new Date(lead.unassignedSlaDeadline) < new Date() && (
                               <span title="SLA Breached (Unassigned)" className="text-red-500">⚠️</span>
                             )}
@@ -732,6 +769,10 @@ export default function LeadsManager({ stageGroup }) {
                             minute: '2-digit',
                             hour12: true
                           }) : '-'}
+                        </td>
+                        <td className="px-3 py-2 align-middle text-app-text-muted whitespace-nowrap">{fmtShortDate(lead.assignedAt)}</td>
+                        <td className="px-3 py-2 align-middle text-app-text-muted whitespace-nowrap">
+                          {fmtShortDate(lead.lastCallAt || lead.callLogs?.reduce((max, c) => (c.callDate && (!max || new Date(c.callDate) > new Date(max)) ? c.callDate : max), null) || lead.callDate)}
                         </td>
                         <td className="px-3 py-2 align-middle font-semibold text-app-text min-w-[150px]">
                           {isSuperAdmin ? (

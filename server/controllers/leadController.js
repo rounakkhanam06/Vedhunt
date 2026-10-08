@@ -251,15 +251,32 @@ exports.getLeads = async (req, res, next) => {
       query.status = { $nin: [...TERMINAL_STATUSES, 'Hold'] };
     }
 
-    // Date range filter (createdAt) — indexed field, cheap to filter on.
+    // Date range filter — on when the lead was received (createdAt, the
+    // default), assigned (assignedAt) or last called (lastCallAt; leads last
+    // called before that field existed match on their callLogs, or failing
+    // that the call-timer/imported callDate).
     if (req.query.dateFrom || req.query.dateTo) {
-      query.createdAt = {};
-      if (req.query.dateFrom) query.createdAt.$gte = new Date(req.query.dateFrom);
+      const range = {};
+      if (req.query.dateFrom) range.$gte = new Date(req.query.dateFrom);
       if (req.query.dateTo) {
         // Treat dateTo as inclusive of the whole day.
         const endOfDay = new Date(req.query.dateTo);
         endOfDay.setHours(23, 59, 59, 999);
-        query.createdAt.$lte = endOfDay;
+        range.$lte = endOfDay;
+      }
+      if (req.query.dateField === 'assigned') {
+        query.assignedAt = range;
+      } else if (req.query.dateField === 'lastCall') {
+        query.$and = query.$and || [];
+        query.$and.push({
+          $or: [
+            { lastCallAt: range },
+            { lastCallAt: null, callLogs: { $elemMatch: { callDate: range } } },
+            { lastCallAt: null, 'callLogs.0': { $exists: false }, callDate: range }
+          ]
+        });
+      } else {
+        query.createdAt = range;
       }
     }
 
@@ -278,11 +295,17 @@ exports.getLeads = async (req, res, next) => {
     // For optimal scalability with partial matches, we use an $or with regex.
     // Since we added an index on these fields, the regex search on anchored/indexed fields can be optimized.
     if (req.query.search) {
-      const searchRegex = new RegExp(req.query.search, 'i');
+      const term = String(req.query.search).trim();
+      const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const searchRegex = new RegExp(escaped, 'i');
       query.$or = [
         { fullName: searchRegex },
         { email: searchRegex },
-        { phone: searchRegex }
+        { phone: searchRegex },
+        { businessName: searchRegex },
+        // Vedhunt Lead ID or Meta (Facebook/Instagram) Lead ID
+        { leadId: new RegExp(`^${escaped}`, 'i') },
+        { fbLeadId: new RegExp(`^${escaped}`) }
       ];
     }
 

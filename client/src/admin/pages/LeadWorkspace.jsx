@@ -19,6 +19,24 @@ import {
 // of an instant single-field save.
 const STATUSES_REQUIRING_MODAL = ['Proposal Sent', 'Negotiation', 'Won', 'Lost', 'Dropped', 'Hold'];
 
+/** True once a staged call outcome has everything its branch requires (see leadStateMachine.js). */
+function isOutcomeReady(o) {
+  const needsFollowUp =
+    (o.connected === 'Yes' && FOLLOWUP_TRIGGER_INTEREST_LEVELS.includes(o.interestLevel)) ||
+    (o.connected === 'No' && o.notConnectedReason === 'Asked to Call Later');
+  if (o.connected === 'Yes') return !!o.interestLevel && (!needsFollowUp || !!o.nextFollowUpDate);
+  if (o.connected === 'No') return !!o.notConnectedReason && (!needsFollowUp || !!o.nextFollowUpDate);
+  return false;
+}
+
+/** The update fields for a staged call outcome. */
+function outcomeFields(o) {
+  const followUp = o.nextFollowUpDate ? { nextFollowUpDate: o.nextFollowUpDate } : {};
+  return o.connected === 'Yes'
+    ? { connected: 'Yes', interestLevel: o.interestLevel, ...followUp }
+    : { connected: 'No', notConnectedReason: o.notConnectedReason, ...followUp };
+}
+
 // firstName/lastName aren't guaranteed on every Admin account (the original
 // legacy seed account predates those fields being required) — fall back
 // gracefully instead of rendering "undefined undefined".
@@ -258,23 +276,12 @@ export default function LeadWorkspace() {
       [field]: value
     };
 
-    const needsFollowUp =
-      (merged.connected === 'Yes' && FOLLOWUP_TRIGGER_INTEREST_LEVELS.includes(merged.interestLevel)) ||
-      (merged.connected === 'No' && merged.notConnectedReason === 'Asked to Call Later');
-
-    const ready =
-      merged.connected === 'Yes' ? !!merged.interestLevel && (!needsFollowUp || !!merged.nextFollowUpDate) :
-      merged.connected === 'No' ? !!merged.notConnectedReason && (!needsFollowUp || !!merged.nextFollowUpDate) :
-      false;
-
-    if (!ready) {
+    if (!isOutcomeReady(merged)) {
       setCallOutcomeDraft(merged);
       return;
     }
 
-    const fields = merged.connected === 'Yes'
-      ? { connected: 'Yes', interestLevel: merged.interestLevel, ...(merged.nextFollowUpDate ? { nextFollowUpDate: merged.nextFollowUpDate } : {}) }
-      : { connected: 'No', notConnectedReason: merged.notConnectedReason, ...(merged.nextFollowUpDate ? { nextFollowUpDate: merged.nextFollowUpDate } : {}) };
+    const fields = outcomeFields(merged);
 
     try {
       await handleFieldsChange(fields);
@@ -284,6 +291,22 @@ export default function LeadWorkspace() {
       // error toast from handleFieldsChange already explains what's missing.
       setCallOutcomeDraft(merged);
     }
+  };
+
+  // A call outcome picked above but not saved yet (it's waiting on a
+  // follow-up date) travels with a stage change — otherwise the server
+  // judges the new stage against a lead with no connected call logged.
+  const outcomePending = Boolean(callOutcomeDraft?.connected);
+  const withPendingOutcome = (fields) => (outcomePending ? { ...outcomeFields(callOutcomeDraft), ...fields } : fields);
+
+  const handleStageChange = async (fields) => {
+    if (outcomePending && !isOutcomeReady({ ...callOutcomeDraft, ...fields })) {
+      toast.error('Set the Next Follow-up date first — the call outcome you picked is not saved until it has one.');
+      scrollToRef(followUpInputRef);
+      throw new Error('Call outcome incomplete');
+    }
+    await handleFieldsChange(withPendingOutcome(fields));
+    setCallOutcomeDraft(null);
   };
 
   const handleUploadDocument = async (e) => {
@@ -441,6 +464,15 @@ export default function LeadWorkspace() {
           {/* Call Outcome */}
           <div className={sectionClass}>
             <label className={sectionLabelClass}>Call Outcome</label>
+            {outcomePending && (
+              <button
+                type="button"
+                onClick={() => scrollToRef(followUpInputRef)}
+                className="w-full mb-3 text-left text-xs font-medium text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2 cursor-pointer"
+              >
+                Not saved yet — {isOutcomeReady(callOutcomeDraft) ? 'saving…' : 'set the Next Follow-up date below to save this call outcome.'}
+              </button>
+            )}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 min-w-0">
               <div>
                 <label className={fieldLabelClass}>Connected?</label>
@@ -513,7 +545,8 @@ export default function LeadWorkspace() {
                     if (STATUSES_REQUIRING_MODAL.includes(newStatus)) {
                       setStageModal({ lead, targetStatus: newStatus });
                     } else {
-                      handleFieldChange('status', newStatus);
+                      // Errors are already shown as a toast.
+                      handleStageChange({ status: newStatus }).catch(() => {});
                     }
                   }}
                   disabled={(!isSuperAdmin && ['Won', 'Lost', 'Dropped'].includes(lead.status)) || isLockedByOther(lead, admin?._id)}
@@ -1017,7 +1050,7 @@ export default function LeadWorkspace() {
           targetStatus={stageModal.targetStatus}
           onClose={() => setStageModal(null)}
           onSubmit={async (fields) => {
-            await handleFieldsChange(fields);
+            await handleStageChange(fields);
             setStageModal(null);
           }}
         />

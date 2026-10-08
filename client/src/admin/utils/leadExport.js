@@ -32,11 +32,19 @@ const formatDateForCsv = (dateVal) => {
   return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 };
 
+// lastCallAt is set on every logged call outcome; leads last called before it
+// existed fall back to their newest callLogs entry, then the call-timer date.
+const lastCallDate = (lead) => lead.lastCallAt
+  || (lead.callLogs || []).reduce((max, c) => (c.callDate && (!max || new Date(c.callDate) > new Date(max)) ? c.callDate : max), null)
+  || lead.callDate;
+
 const pendingAmount = (lead) => Math.max(0, (lead.dealCloseValue || 0) - (lead.amountPaid || 0));
 
 const LEAD_EXPORT_COLUMNS = [
   { header: 'Lead ID', value: (lead) => csvCell(lead.leadId) },
+  { header: 'Meta Lead ID', value: (lead) => csvCell(lead.fbLeadId) },
   { header: 'Date', value: (lead) => csvCell(formatDateForCsv(lead.createdAt)) },
+  { header: 'Assigned Date', value: (lead) => csvCell(formatDateForCsv(lead.assignedAt)) },
   { header: 'Name', value: (lead) => csvCell(lead.fullName) },
   { header: 'Phone', value: (lead) => csvPhone(lead.phone) },
   { header: 'Email', value: (lead) => csvCell(lead.email) },
@@ -57,7 +65,7 @@ const LEAD_EXPORT_COLUMNS = [
   { header: 'Connected', value: (lead) => csvCell(lead.connected) },
   { header: 'Not Connected Reason', value: (lead) => csvCell(lead.notConnectedReason) },
   { header: 'Interest Level', value: (lead) => csvCell(lead.interestLevel) },
-  { header: 'Last Call Date', value: (lead) => csvCell(formatDateForCsv(lead.callDate)) },
+  { header: 'Last Call Date', value: (lead) => csvCell(formatDateForCsv(lastCallDate(lead))) },
   { header: 'Call Duration', value: (lead) => (lead.callDuration != null ? lead.callDuration : '') },
   { header: 'Age @ Call', value: (lead) => (lead.leadAgeAtCall != null ? lead.leadAgeAtCall : '') },
   { header: 'Touch #', value: (lead) => (lead.touchNumber != null ? lead.touchNumber : '') },

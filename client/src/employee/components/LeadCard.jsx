@@ -5,7 +5,7 @@ import NoCopyText from './NoCopyText';
 import WhatsAppAction from './WhatsAppAction';
 import FollowUpForm from './FollowUpForm';
 import { essPut, apiError } from '../lib/ess';
-import { fmtDateTime, timeAgo } from '../lib/datetime';
+import { fmtDate, fmtDateTime, timeAgo } from '../lib/datetime';
 import { INTEREST_LEVELS, NON_ACTIVE_FOLLOWUP_STATUSES } from '../../shared/leadConstants';
 
 const STATUS_BADGE_CLASSES = {
@@ -180,9 +180,13 @@ export default function LeadCard({ lead, onUpdated, navigate }) {
         </div>
       )}
 
-      <div className="flex justify-between items-center text-xs text-app-text-muted mt-4 border-t border-app-border pt-4">
+      <div className="flex flex-wrap justify-between items-center gap-x-4 gap-y-1 text-xs text-app-text-muted mt-4 border-t border-app-border pt-4">
         <span>Source: <span className="text-app-text-muted font-medium">{lead.userSource || 'Direct'}</span></span>
-        <span>Created: {new Date(lead.createdAt).toLocaleDateString()}</span>
+        <span className="flex flex-wrap gap-x-3 gap-y-1">
+          <span>Received: <span className="text-app-text font-medium">{fmtDate(lead.createdAt)}</span></span>
+          <span>Assigned: <span className="text-app-text font-medium">{fmtDate(lead.assignedAt)}</span></span>
+          <span>Last call: <span className="text-app-text font-medium">{lead.lastCallAt ? fmtDateTime(lead.lastCallAt) : 'Not called yet'}</span></span>
+        </span>
       </div>
     </div>
   );

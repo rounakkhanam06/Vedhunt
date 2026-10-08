@@ -168,6 +168,7 @@ async function applyLeadUpdate(leadId, updates, actor, extraFilter = {}) {
       }]
     };
     if (!existingLead.firstCallAt) updates.firstCallAt = now;
+    updates.lastCallAt = now;
   }
 
   // The call-outcome widgets resend the current nextFollowUpDate on every

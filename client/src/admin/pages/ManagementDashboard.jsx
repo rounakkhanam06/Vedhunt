@@ -67,8 +67,8 @@ export default function ManagementDashboard() {
     try {
       const [volRes, pipeRes, bdRes, complianceRes, actionRes] = await Promise.all([
         api.get('/admin/activity/lead-volume', { params: { dateFrom, dateTo } }),
-        api.get('/admin/activity/pipeline-summary'),
-        api.get('/admin/activity/bd-accountability'),
+        api.get('/admin/activity/pipeline-summary', { params: { dateFrom, dateTo } }),
+        api.get('/admin/activity/bd-accountability', { params: { dateFrom, dateTo } }),
         api.get('/admin/activity/followup-compliance'),
         api.get('/admin/activity/action-missing', { params: { limit: 1 } })
       ]);
@@ -127,10 +127,10 @@ export default function ManagementDashboard() {
           <h1 className="text-2xl font-bold text-app-text font-heading flex items-center gap-2">
             <Gauge className="text-primary" size={24} /> Management Dashboard
           </h1>
-          <p className="text-sm text-app-text-muted mt-1">Every number below is clickable — it opens the exact leads behind it.</p>
+          <p className="text-sm text-app-text-muted mt-1">Every number below is clickable — it opens the exact leads behind it. Sections marked <span className="font-semibold">Live</span> always show the current state and ignore the period.</p>
         </div>
         <div className="flex items-center gap-1.5 bg-app-card border border-app-border rounded-lg px-3 py-2">
-          <span className="text-xs text-app-text-muted">New leads from</span>
+          <span className="text-xs text-app-text-muted">Period</span>
           <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="bg-transparent text-sm text-app-text focus:outline-none" style={{ colorScheme: 'dark' }} />
           <span className="text-xs text-app-text-muted">to</span>
           <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="bg-transparent text-sm text-app-text focus:outline-none" style={{ colorScheme: 'dark' }} />
@@ -149,7 +149,7 @@ export default function ManagementDashboard() {
           />
           <StatCard
             icon={UserX}
-            label="Unassigned Now"
+            label="Unassigned Now (live)"
             value={volume?.unassignedCount ?? 0}
             sub={volume?.unassignedSlaBreachedCount ? `${volume.unassignedSlaBreachedCount} past SLA` : undefined}
             accent="text-amber-400"
@@ -159,8 +159,9 @@ export default function ManagementDashboard() {
             icon={Wallet}
             label="Open Pipeline Value"
             value={`₹${(pipeline?.pipelineValue || 0).toLocaleString('en-IN')}`}
+            sub="Leads received in the period"
             accent="text-emerald-400"
-            onClick={() => goToLeads({ stage: 'open' })}
+            onClick={() => goToLeads({ stage: 'open', dateFrom, dateTo })}
           />
         </div>
 
@@ -232,28 +233,28 @@ export default function ManagementDashboard() {
 
       {/* Ownership & Speed */}
       <div className={sectionClass}>
-        <h2 className={sectionTitleClass}><Users size={16} /> Ownership &amp; BD Speed</h2>
+        <h2 className={sectionTitleClass}><Users size={16} /> Ownership &amp; BD Speed <span className="normal-case font-medium text-app-text-muted">· leads assigned in the period</span></h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
           <StatCard
             icon={PhoneCall}
             label="Avg. Connect Rate"
             value={`${avgConnectRate}%`}
             sub="Click to see connected leads"
-            onClick={() => goToLeads({ connected: 'Yes' })}
+            onClick={() => goToLeads({ connected: 'Yes', dateField: 'assigned', dateFrom, dateTo })}
           />
           <StatCard
             icon={Clock}
             label="Avg. Response Time"
             value={avgResponseMinutes != null ? `${avgResponseMinutes} min` : '—'}
             sub="Assignment → first call, company-wide"
-            onClick={() => goToLeads({ stage: 'open' })}
+            onClick={() => goToLeads({ stage: 'open', dateField: 'assigned', dateFrom, dateTo })}
           />
           <StatCard
             icon={AlertTriangle}
             label="Follow-up Breaches"
             value={totalBreaches}
             accent="text-red-400"
-            onClick={() => goToLeads({ followUpBreached: 'true' })}
+            onClick={() => goToLeads({ followUpBreached: 'true', dateField: 'assigned', dateFrom, dateTo })}
           />
         </div>
         <div className="overflow-x-auto">
@@ -272,7 +273,7 @@ export default function ManagementDashboard() {
               {bdAccountability.map((row) => (
                 <tr
                   key={row.bd._id}
-                  onClick={() => goToLeads({ assignedTo: row.bd._id })}
+                  onClick={() => goToLeads({ assignedTo: row.bd._id, dateField: 'assigned', dateFrom, dateTo })}
                   className="hover:bg-app-bg transition-colors cursor-pointer"
                 >
                   <td className="px-4 py-2 text-app-text font-medium">{displayName(row.bd)}</td>
@@ -286,7 +287,7 @@ export default function ManagementDashboard() {
                 </tr>
               ))}
               {bdAccountability.length === 0 && (
-                <tr><td colSpan={6} className="px-4 py-6 text-center text-app-text-muted">No assigned leads yet.</td></tr>
+                <tr><td colSpan={6} className="px-4 py-6 text-center text-app-text-muted">No leads were assigned in this period.</td></tr>
               )}
             </tbody>
           </table>
@@ -299,14 +300,14 @@ export default function ManagementDashboard() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
           <StatCard
             icon={Clock}
-            label="Overdue Follow-ups"
+            label="Overdue Follow-ups (live)"
             value={compliance?.totals?.overdue ?? 0}
             accent="text-red-400"
             onClick={() => navigate('/admin/follow-ups?bucket=Overdue')}
           />
           <StatCard
             icon={AlertTriangle}
-            label="Action Missing"
+            label="Action Missing (live)"
             value={(actionMissingCounts?.['Hot Lead'] || 0) + (actionMissingCounts?.['Proposal/Negotiation'] || 0) + (actionMissingCounts?.Other || 0)}
             sub={actionMissingCounts ? `${actionMissingCounts['Hot Lead'] || 0} Hot · ${actionMissingCounts['Proposal/Negotiation'] || 0} Proposal/Neg` : undefined}
             accent="text-amber-400"
@@ -314,13 +315,13 @@ export default function ManagementDashboard() {
           />
           <StatCard
             icon={Gauge}
-            label="On-Track Follow-up %"
+            label="On-Track Follow-up % (live)"
             value={`${compliance?.totals?.onTrackPct ?? 0}%`}
             sub="Click for the full follow-up list"
             onClick={() => navigate('/admin/follow-ups')}
           />
         </div>
-        <p className="text-xs font-bold text-app-text-muted uppercase tracking-wider mb-2">Pipeline Funnel — count per stage</p>
+        <p className="text-xs font-bold text-app-text-muted uppercase tracking-wider mb-2">Pipeline Funnel — current stage of leads received in the period</p>
         <div className="h-64">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={funnelData}>
@@ -328,7 +329,7 @@ export default function ManagementDashboard() {
               <XAxis dataKey="status" tick={{ fontSize: 10, fill: '#9CA3AF' }} interval={0} angle={-20} textAnchor="end" height={60} />
               <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#9CA3AF' }} />
               <Tooltip contentStyle={{ background: '#16161A', border: '1px solid #2D2D33', fontSize: 12 }} />
-              <Bar dataKey="count" radius={[4, 4, 0, 0]} style={{ cursor: 'pointer' }} onClick={(data) => goToLeads({ status: data.status })}>
+              <Bar dataKey="count" radius={[4, 4, 0, 0]} style={{ cursor: 'pointer' }} onClick={(data) => goToLeads({ status: data.status, dateFrom, dateTo })}>
                 {funnelData.map((entry) => (
                   <Cell key={entry.status} fill={['Won'].includes(entry.status) ? '#34d399' : ['Lost', 'Dropped'].includes(entry.status) ? '#f87171' : CHART_COLOR} />
                 ))}
@@ -340,7 +341,7 @@ export default function ManagementDashboard() {
 
       {/* Likely to Convert */}
       <div className={sectionClass}>
-        <h2 className={sectionTitleClass}><Flame size={16} /> Likely to Convert</h2>
+        <h2 className={sectionTitleClass}><Flame size={16} /> Likely to Convert <span className="normal-case font-medium text-app-text-muted">· live</span></h2>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
           {(volume?.byPriority || []).map((tier) => (
             <button
@@ -389,21 +390,21 @@ export default function ManagementDashboard() {
 
       {/* Pipeline Revenue */}
       <div className={sectionClass}>
-        <h2 className={sectionTitleClass}><Wallet size={16} /> Pipeline Revenue</h2>
+        <h2 className={sectionTitleClass}><Wallet size={16} /> Pipeline Revenue <span className="normal-case font-medium text-app-text-muted">· leads received in the period</span></h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <StatCard
             icon={Wallet}
             label="Open Pipeline Value"
             value={`₹${(pipeline?.pipelineValue || 0).toLocaleString('en-IN')}`}
             accent="text-primary"
-            onClick={() => goToLeads({ stage: 'open' })}
+            onClick={() => goToLeads({ stage: 'open', dateFrom, dateTo })}
           />
           <StatCard
             icon={TrendingUp}
             label="Won Value"
             value={`₹${(pipeline?.wonValue || 0).toLocaleString('en-IN')}`}
             accent="text-emerald-400"
-            onClick={() => goToLeads({ status: 'Won' })}
+            onClick={() => goToLeads({ status: 'Won', dateFrom, dateTo })}
           />
           <StatCard
             icon={Gauge}
@@ -411,7 +412,7 @@ export default function ManagementDashboard() {
             value={`${pipeline?.conversionRate ?? 0}%`}
             accent="text-amber-400"
             sub="Click to see the wins behind it"
-            onClick={() => goToLeads({ status: 'Won' })}
+            onClick={() => goToLeads({ status: 'Won', dateFrom, dateTo })}
           />
         </div>
       </div>

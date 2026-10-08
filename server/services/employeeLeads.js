@@ -20,7 +20,15 @@ async function listAssignedLeads(adminId) {
   return Lead.aggregate([
     { $match: { assignedTo: adminId } },
     { $sort: { createdAt: -1 } },
-    { $project: { ...listProjection, lastActivity: { $arrayElemAt: ['$pipelineHistory', -1] } } },
+    {
+      $project: {
+        ...listProjection,
+        lastActivity: { $arrayElemAt: ['$pipelineHistory', -1] },
+        // Leads last called before lastCallAt existed: their newest call log,
+        // or failing that the call-timer/imported callDate.
+        lastCallAt: { $ifNull: ['$lastCallAt', { $max: '$callLogs.callDate' }, '$callDate'] },
+      },
+    },
   ]);
 }
 

@@ -6,7 +6,7 @@ import LeadCard from '../components/LeadCard';
 import LeadSearch from '../components/LeadSearch';
 import { Spinner, EmptyCard, TabHeader } from '../components/PortalUI';
 import { useEssLeads, essKeys } from '../lib/ess';
-import { fmtDateTime } from '../lib/datetime';
+import { fmtDateTime, toDateInput } from '../lib/datetime';
 import { followUpBucket, isCallPending, needsNextAction, isPaymentPending, isWonThisMonth, mergeLead } from '../lib/leads';
 import { INTEREST_LEVELS } from '../../shared/leadConstants';
 
@@ -18,6 +18,30 @@ const VIEWS = {
   working: { title: 'Working Leads', subtitle: "Leads you've started calling or moved forward — ownership changes only happen from Admin" },
   followups: { title: 'Follow-ups', subtitle: 'Every scheduled next action on your leads, with its type and exact due time' },
 };
+
+// Which lead date the From/To range applies to, and the list orderings.
+const DATE_FIELDS = { createdAt: 'Received', assignedAt: 'Assigned', lastCallAt: 'Last call' };
+const SORTS = {
+  received: { label: 'Newest received', field: 'createdAt' },
+  assigned: { label: 'Recently assigned', field: 'assignedAt' },
+  called: { label: 'Recently called', field: 'lastCallAt' },
+};
+
+/** Lead date filtering + ordering shared by all three views — all client-side over the cached list. */
+function applyDateFilters(list, { dateField, dateFrom, dateTo, connected, sort }) {
+  const from = dateFrom ? new Date(`${dateFrom}T00:00:00`) : null;
+  const to = dateTo ? new Date(`${dateTo}T23:59:59.999`) : null;
+  const out = list.filter((l) => {
+    if (connected !== 'All' && l.connected !== connected) return false;
+    if (!from && !to) return true;
+    const value = l[dateField] ? new Date(l[dateField]) : null;
+    return value && (!from || value >= from) && (!to || value <= to);
+  });
+  if (!sort) return out;
+  const field = SORTS[sort].field;
+  // Leads without that date (e.g. never called) go last.
+  return [...out].sort((a, b) => (b[field] ? new Date(b[field]) : 0) - (a[field] ? new Date(a[field]) : 0));
+}
 
 function FilterNotice({ children, onClear }) {
   return (
@@ -60,6 +84,19 @@ export default function LeadListsTab({ view }) {
   const [statusFilter, setStatusFilter] = useState(() => searchParams.get('status') || 'All');
   const [interestFilter, setInterestFilter] = useState(() => searchParams.get('interest') || 'All');
   const [bucket, setBucket] = useState(() => searchParams.get('bucket') || 'All');
+  const [dateField, setDateField] = useState('lastCallAt');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [connected, setConnected] = useState('All');
+  // '' keeps each view's own default order (e.g. follow-ups by due time).
+  const [sort, setSort] = useState('');
+  const dateFilters = { dateField, dateFrom, dateTo, connected, sort };
+  const datesActive = Boolean(dateFrom || dateTo || connected !== 'All' || sort);
+  const setPreset = (days) => {
+    setDateFrom(toDateInput(new Date(Date.now() - days * 86400000)));
+    setDateTo(toDateInput());
+  };
+  const clearDates = () => { setDateFrom(''); setDateTo(''); setConnected('All'); setSort(''); };
 
   const updateLead = (updated) => {
     queryClient.setQueryData(essKeys.leads, (list = []) => list.map((l) => (l._id === updated._id ? mergeLead(l, updated) : l)));
@@ -78,7 +115,7 @@ export default function LeadListsTab({ view }) {
     body = <Spinner />;
   } else if (view === 'raw') {
     const urgentOnly = searchParams.get('urgent') === '1';
-    let list = leads.filter((l) => l.status === 'New');
+    let list = applyDateFilters(leads.filter((l) => l.status === 'New'), dateFilters);
     if (urgentOnly) list = list.filter(isCallPending).sort((a, b) => new Date(a.assignedAt) - new Date(b.assignedAt));
     body = (
       <>
@@ -91,7 +128,7 @@ export default function LeadListsTab({ view }) {
     const noNext = searchParams.get('noNext') === '1';
     const payment = searchParams.get('payment');
     const thisMonth = searchParams.get('period') === 'thisMonth';
-    const list = leads.filter((l) =>
+    const list = applyDateFilters(leads, dateFilters).filter((l) =>
       (scopeAll || l.status !== 'New') &&
       (statusFilter === 'All' || l.status === statusFilter) &&
       (interestFilter === 'All' || l.interestLevel === interestFilter) &&
@@ -119,8 +156,9 @@ export default function LeadListsTab({ view }) {
     );
   } else {
     const withFollowUp = leads.filter((l) => followUpBucket(l) !== null);
-    const list = (bucket === 'All' ? withFollowUp : withFollowUp.filter((l) => followUpBucket(l) === bucket.toLowerCase()))
+    let list = (bucket === 'All' ? withFollowUp : withFollowUp.filter((l) => followUpBucket(l) === bucket.toLowerCase()))
       .sort((a, b) => new Date(a.nextFollowUpDate) - new Date(b.nextFollowUpDate));
+    list = applyDateFilters(list, dateFilters);
     body = list.length ? cards(list) : <EmptyCard>No {bucket !== 'All' ? `${bucket.toLowerCase()} ` : ''}follow-ups right now.</EmptyCard>;
   }
 
@@ -151,6 +189,26 @@ export default function LeadListsTab({ view }) {
         )}
       </TabHeader>
       {view !== 'followups' && <LeadSearch />}
+      <div className="bg-app-card border border-app-border rounded-xl p-3 flex flex-wrap items-center gap-2">
+        <select value={dateField} onChange={(e) => setDateField(e.target.value)} className={selectClass} aria-label="Date type">
+          {Object.entries(DATE_FIELDS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+        </select>
+        <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className={selectClass} style={{ colorScheme: 'dark' }} aria-label="From date" />
+        <span className="text-xs text-app-text-muted">to</span>
+        <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className={selectClass} style={{ colorScheme: 'dark' }} aria-label="To date" />
+        <button onClick={() => setPreset(0)} className="px-2.5 py-1.5 rounded-lg text-xs font-semibold border border-app-border text-app-text-muted hover:text-app-text hover:border-primary/50 cursor-pointer">Today</button>
+        <button onClick={() => setPreset(6)} className="px-2.5 py-1.5 rounded-lg text-xs font-semibold border border-app-border text-app-text-muted hover:text-app-text hover:border-primary/50 cursor-pointer">Last 7 days</button>
+        <select value={connected} onChange={(e) => setConnected(e.target.value)} className={selectClass} aria-label="Call result">
+          <option value="All">Any call result</option>
+          <option value="Yes">Connected</option>
+          <option value="No">Not connected</option>
+        </select>
+        <select value={sort} onChange={(e) => setSort(e.target.value)} className={selectClass} aria-label="Sort">
+          <option value="">Default order</option>
+          {Object.entries(SORTS).map(([value, { label }]) => <option key={value} value={value}>{label}</option>)}
+        </select>
+        {datesActive && <button onClick={clearDates} className="text-xs text-app-text-muted underline hover:text-primary cursor-pointer">Clear</button>}
+      </div>
       {body}
     </div>
   );

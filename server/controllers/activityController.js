@@ -10,6 +10,21 @@ const CALL_STATUSES = ['Call connected', 'Call not connected'];
 // A lead on Hold has no active follow-up requirement — it's paused, not overdue.
 const NON_ACTIVE_STATUSES = [...TERMINAL_STATUSES, 'Hold'];
 
+/** `?dateFrom=YYYY-MM-DD&dateTo=YYYY-MM-DD` as a Mongo range (whole days), or null when neither is set. */
+function dateRangeFromQuery({ dateFrom, dateTo }) {
+  if (!dateFrom && !dateTo) return null;
+  const range = {};
+  if (dateFrom) {
+    range.$gte = new Date(dateFrom);
+    range.$gte.setHours(0, 0, 0, 0);
+  }
+  if (dateTo) {
+    range.$lte = new Date(dateTo);
+    range.$lte.setHours(23, 59, 59, 999);
+  }
+  return range;
+}
+
 // @desc    Cross-BD call activity feed — every "Call connected"/"Call not
 //          connected" entry across all leads, newest first.
 // @route   GET /api/admin/activity/calls
@@ -309,8 +324,10 @@ exports.getActionMissingQueue = async (req, res, next) => {
 // @access  Private (leads.assign)
 exports.getPipelineSummary = async (req, res, next) => {
   try {
+    // Optional ?dateFrom/dateTo: only leads received in that period.
+    const period = dateRangeFromQuery(req.query);
     const rows = await Lead.aggregate([
-      { $match: { leadType: { $in: ['Sales', null] } } },
+      { $match: { leadType: { $in: ['Sales', null] }, ...(period && { createdAt: period }) } },
       {
         $group: {
           _id: '$status',
@@ -354,8 +371,10 @@ exports.getPipelineSummary = async (req, res, next) => {
 // @access  Private (leads.assign)
 exports.getBDAccountability = async (req, res, next) => {
   try {
+    // Optional ?dateFrom/dateTo: only leads assigned in that period.
+    const period = dateRangeFromQuery(req.query);
     const rows = await Lead.aggregate([
-      { $match: { assignedTo: { $ne: null } } },
+      { $match: { assignedTo: { $ne: null }, ...(period && { assignedAt: period }) } },
       {
         $group: {
           _id: '$assignedTo',

@@ -290,6 +290,12 @@ const leadSchema = new mongoose.Schema({
   firstCallAt: {
     type: Date
   },
+  // Updated on every logged call outcome — "when did we last speak to this
+  // lead", for the date-wise lead filters. Older leads fall back to their
+  // newest callLogs.callDate (scripts/maintenance/backfillLastCallAt.js).
+  lastCallAt: {
+    type: Date
+  },
 
   // ── Follow-Up & Revenue Protection Engine ─────────────────────────────────
   // Escalation tracking for services/followUpEngine.js. All cleared whenever
@@ -512,6 +518,8 @@ leadSchema.index({ leadId: 1 });
 leadSchema.index({ leadType: 1, createdAt: -1 });
 leadSchema.index({ fbFormId: 1 });
 leadSchema.index({ assignedTo: 1, createdAt: -1 });
+leadSchema.index({ assignedAt: -1 });
+leadSchema.index({ lastCallAt: -1 });
 
 // Duplicate-detection lookups (see server/services/leadDedup.js) filter by
 // these on every incoming lead, so they need real indexes rather than falling
