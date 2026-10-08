@@ -3,8 +3,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FileText, Plus, Eye, Pencil, CheckCircle2, Send, Download, Copy, ArrowLeft, ExternalLink, Receipt } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Modal from '../../components/ui/Modal';
-import employeeApi from '../../services/employeeApi';
-import { essGet, essPost, essPut, essKeys, apiError, openPdf, useEssProfile } from '../lib/ess';
+import { essGet, essKeys, apiError } from '../lib/ess';
+import { proposalApi } from '../lib/proposalApi';
 import { fmtDate, fmtDateTime, fmtINR } from '../lib/datetime';
 import { WHATSAPP_APPS, buildWhatsAppUrl, openWhatsApp } from '../lib/whatsapp';
 import ProposalForm from './ProposalForm';
@@ -45,15 +45,16 @@ const formFromProposal = (p) => ({
   items: p.items?.length ? p.items.map(({ service, description, sac, uom, qty, rate, gstPercent }) => ({ service, description, sac, uom, qty, rate, gstPercent })) : [emptyItem()],
 });
 
-function PdfPreview({ proposal }) {
+function PdfPreview({ proposal, api }) {
   const [src, setSrc] = useState('');
   const [failed, setFailed] = useState(false);
   useEffect(() => {
     let url = '';
-    employeeApi.get(`/employee-portal/ess/proposals/${proposal._id}/pdf`, { responseType: 'blob' })
-      .then(({ data }) => { url = URL.createObjectURL(new Blob([data], { type: 'application/pdf' })); setSrc(url); })
+    api.blob(`/proposals/${proposal._id}/pdf`)
+      .then((data) => { url = URL.createObjectURL(new Blob([data], { type: 'application/pdf' })); setSrc(url); })
       .catch(() => setFailed(true));
     return () => { if (url) URL.revokeObjectURL(url); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [proposal._id, proposal.updatedAt]);
 
   if (failed) return <p className="text-sm text-rose-400">Could not load the preview.</p>;
@@ -72,13 +73,21 @@ function PdfPreview({ proposal }) {
  * Proposal generation & sharing for one lead: history → form (pre-filled
  * from the lead) → PDF preview → edit / generate final → share by Email or
  * WhatsApp. Finalizing and sharing are recorded on the lead timeline.
+ * `portal` picks the API: 'employee' (a BD's own leads) or 'admin' (Super
+ * Admin, any lead) — see lib/proposalApi.js.
  */
-export default function ProposalWorkflow({ lead, onClose, onLeadChanged }) {
+export default function ProposalWorkflow({ lead, onClose, onLeadChanged, portal = 'employee' }) {
   const queryClient = useQueryClient();
-  const { data: me } = useEssProfile();
+  const api = proposalApi(portal);
+  // The BD's saved WhatsApp app — an Employee Portal preference only.
+  const { data: me } = useQuery({
+    queryKey: essKeys.profile,
+    queryFn: () => essGet('/profile').then((d) => d.employee),
+    enabled: portal === 'employee',
+  });
   const { data: proposals = [], isLoading } = useQuery({
-    queryKey: essKeys.proposals(lead._id),
-    queryFn: () => essGet(`/leads/${lead._id}/proposals`).then((d) => d.proposals || []),
+    queryKey: api.keys.proposals(lead._id),
+    queryFn: () => api.get(`/leads/${lead._id}/proposals`).then((d) => d.proposals || []),
   });
 
   const [view, setView] = useState('list'); // list | form | preview | share
@@ -95,7 +104,7 @@ export default function ProposalWorkflow({ lead, onClose, onLeadChanged }) {
   }, [isLoading]);
 
   const refresh = (proposal) => {
-    queryClient.invalidateQueries({ queryKey: essKeys.proposals(lead._id) });
+    queryClient.invalidateQueries({ queryKey: api.keys.proposals(lead._id) });
     if (proposal) setCurrent(proposal);
   };
 
@@ -113,8 +122,8 @@ export default function ProposalWorkflow({ lead, onClose, onLeadChanged }) {
     setError('');
     try {
       const res = current?.status === 'Draft'
-        ? await essPut(`/proposals/${current._id}`, form)
-        : await essPost(`/leads/${lead._id}/proposals`, { ...form, basedOn: basedOn || undefined });
+        ? await api.put(`/proposals/${current._id}`, form)
+        : await api.post(`/leads/${lead._id}/proposals`, { ...form, basedOn: basedOn || undefined });
       refresh(res.proposal);
       setView('preview');
     } catch (err) {
@@ -128,7 +137,7 @@ export default function ProposalWorkflow({ lead, onClose, onLeadChanged }) {
     if (!window.confirm('Generate the final proposal? It can no longer be edited — changes will need a new version.')) return;
     setBusy(true);
     try {
-      const res = await essPost(`/proposals/${current._id}/finalize`);
+      const res = await api.post(`/proposals/${current._id}/finalize`);
       toast.success('Final proposal generated');
       refresh(res.proposal);
       onLeadChanged?.();
@@ -156,7 +165,7 @@ export default function ProposalWorkflow({ lead, onClose, onLeadChanged }) {
     setBusy(true);
     setError('');
     try {
-      const res = await essPost(`/proposals/${current._id}/share`, { channel: share.channel, recipient: share.recipient, message: share.message });
+      const res = await api.post(`/proposals/${current._id}/share`, { channel: share.channel, recipient: share.recipient, message: share.message });
       if (share.channel === 'WhatsApp') {
         openWhatsApp(buildWhatsAppUrl(share.app, share.recipient, res.whatsappText));
         if (res.missingPdfLink) toast('The PDF link is unavailable — download the PDF and attach it in WhatsApp.', { icon: '⚠️' });
@@ -173,11 +182,11 @@ export default function ProposalWorkflow({ lead, onClose, onLeadChanged }) {
   };
 
   // Allocates the proforma number on first open, so refresh the list afterwards.
-  const proforma = (p) => openPdf(`/employee-portal/ess/proposals/${p._id}/proforma`)
-    .then(() => { queryClient.invalidateQueries({ queryKey: essKeys.proposals(lead._id) }); onLeadChanged?.(); })
+  const proforma = (p) => api.openPdf(`/proposals/${p._id}/proforma`)
+    .then(() => { queryClient.invalidateQueries({ queryKey: api.keys.proposals(lead._id) }); onLeadChanged?.(); })
     .catch(() => toast.error('Could not generate the proforma invoice.'));
 
-  const download = (p) => openPdf(`/employee-portal/ess/proposals/${p._id}/pdf?download=1`, { download: true, filename: `Proposal-${p.proposalNumber}-v${p.version}.pdf` })
+  const download = (p) => api.openPdf(`/proposals/${p._id}/pdf?download=1`, { download: true, filename: `Proposal-${p.proposalNumber}-v${p.version}.pdf` })
     .catch(() => toast.error('Could not download the PDF.'));
 
   const hasDraftRevision = (p) => proposals.some((x) => x.proposalNumber === p.proposalNumber && x.status === 'Draft');
@@ -236,7 +245,7 @@ export default function ProposalWorkflow({ lead, onClose, onLeadChanged }) {
       {view === 'form' && form && (
         <div className="space-y-4">
           {basedOn && <p className="text-xs text-blue-400">Creating a new version — the earlier one stays exactly as it was shared.</p>}
-          <ProposalForm form={form} setForm={setForm} />
+          <ProposalForm form={form} setForm={setForm} portal={portal} />
           {error && <p className="text-xs text-rose-400" role="alert">{error}</p>}
           <button type="button" disabled={busy} onClick={saveForm} className={`${btn} w-full bg-primary text-white hover:bg-primary-hover py-2.5`}>
             <Eye size={14} /> {busy ? 'Saving…' : 'Save & preview'}
@@ -266,7 +275,7 @@ export default function ProposalWorkflow({ lead, onClose, onLeadChanged }) {
               )}
             </div>
           </div>
-          <PdfPreview proposal={current} />
+          <PdfPreview proposal={current} api={api} />
         </div>
       )}
 

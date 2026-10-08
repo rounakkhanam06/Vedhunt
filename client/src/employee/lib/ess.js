@@ -84,10 +84,10 @@ export const useCorrections = () =>
  * Fetches an authenticated PDF and either opens it in a new tab ("View") or
  * saves it. The tab is opened before the request so popup blockers allow it.
  */
-export async function openPdf(url, { download = false, filename = 'document.pdf' } = {}) {
+export async function openPdf(url, { download = false, filename = 'document.pdf', http = employeeApi } = {}) {
   const tab = download ? null : window.open('', '_blank');
   try {
-    const { data } = await employeeApi.get(url, { responseType: 'blob' });
+    const { data } = await http.get(url, { responseType: 'blob' });
     const href = URL.createObjectURL(new Blob([data], { type: 'application/pdf' }));
     if (tab) {
       tab.location.href = href;

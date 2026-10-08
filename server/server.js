@@ -49,6 +49,7 @@ const assignmentRoutes = require('./routes/assignmentRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const configRoutes = require('./routes/configRoutes');
 const activityRoutes = require('./routes/activityRoutes');
+const adminProposalRoutes = require('./routes/adminProposalRoutes');
 const auditRoutes = require('./routes/auditRoutes');
 const webhookRoutes = require('./routes/webhookRoutes');
 const subscribeRoutes = require('./routes/subscribeRoutes');
@@ -161,6 +162,7 @@ app.use('/api/leads', leadRoutes);         // write route — no cache
 app.use('/api/admin/lead-forms', leadFormRoutes);
 app.use('/api/admin/assignment', assignmentRoutes);
 app.use('/api/admin/activity', activityRoutes);
+app.use('/api/admin/sales', adminProposalRoutes); // Super Admin proposals on the admin Lead page
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/config', publicCache, configRoutes);
 app.use('/api/subscribe', subscribeRoutes);

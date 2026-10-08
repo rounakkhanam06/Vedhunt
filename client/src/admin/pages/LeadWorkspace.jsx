@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../services/api';
-import { ArrowLeft, Mail, Phone, Clock, FileText, Play, Square, MessageCircle, Trash2, Upload, PhoneCall, CalendarClock, ListChecks } from 'lucide-react';
+import { ArrowLeft, Mail, Phone, Clock, FileText, Play, Square, MessageCircle, Trash2, Upload, PhoneCall, CalendarClock, ListChecks, FileSignature } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { usePermissions } from '../hooks/usePermissions';
 import { useAdminStore } from '../../store/useAdminStore';
 import StageDataModal from '../components/StageDataModal';
 import FollowUpTasksPanel from '../components/FollowUpTasksPanel';
+import ProposalWorkflow from '../../employee/components/ProposalWorkflow';
 import { NOT_CONNECTED_REASONS, INTEREST_LEVELS, LOST_DROPPED_REASONS, FOLLOWUP_TRIGGER_INTEREST_LEVELS, PAYMENT_STATUS_OPTIONS } from '../../shared/leadConstants';
 import {
   SERVICES_REQUIRED_OPTIONS, MARKETING_TYPE_SERVICES, TIMELINE_OPTIONS, DECISION_MAKER_OPTIONS,
@@ -138,6 +139,8 @@ export default function LeadWorkspace() {
   // Stage transitions that need mandatory companion data (Proposal Sent,
   // Won, Lost, Dropped, Hold) open this instead of auto-saving instantly.
   const [stageModal, setStageModal] = useState(null); // { lead, targetStatus } | null
+  // Super Admin only — the same proposal flow BDs have (generate, preview PDF, share).
+  const [proposalOpen, setProposalOpen] = useState(false);
   // Call outcome (connected/notConnectedReason/interestLevel/nextFollowUpDate)
   // is staged locally until all fields the chosen branch requires are known,
   // then committed as one combined update — the state machine validates the
@@ -158,6 +161,16 @@ export default function LeadWorkspace() {
       setLoading(false);
     }
   }, [id, navigate]);
+
+  // Refresh without the full-page loader, so an open dialog (Proposal) stays mounted.
+  const reloadLead = useCallback(async () => {
+    try {
+      const res = await api.get(`/leads/${id}`);
+      if (res.data?.success) setLead(res.data.data);
+    } catch {
+      // keep showing the current copy
+    }
+  }, [id]);
 
   useEffect(() => {
     fetchLead();
@@ -402,7 +415,7 @@ export default function LeadWorkspace() {
               )}
             </div>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 w-full sm:w-auto min-w-0">
+          <div className={`grid grid-cols-2 sm:grid-cols-3 ${isSuperAdmin ? 'md:grid-cols-6' : 'md:grid-cols-5'} gap-2 w-full sm:w-auto min-w-0`}>
             <a href={`tel:${lead.phone}`} className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg bg-primary text-black font-bold text-xs sm:text-sm hover:opacity-90 transition-opacity min-w-0">
               <Phone size={14} className="shrink-0" /> <span className="truncate">Call</span>
             </a>
@@ -423,6 +436,11 @@ export default function LeadWorkspace() {
             <button onClick={() => scrollToRef(statusSelectRef)} className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg border border-app-border text-app-text font-bold text-xs sm:text-sm hover:border-primary hover:text-primary transition-colors min-w-0">
               <ListChecks size={14} className="shrink-0" /> <span className="truncate">Update Stage</span>
             </button>
+            {isSuperAdmin && (
+              <button onClick={() => setProposalOpen(true)} className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg border border-app-border text-app-text font-bold text-xs sm:text-sm hover:border-primary hover:text-primary transition-colors min-w-0 cursor-pointer">
+                <FileSignature size={14} className="shrink-0" /> <span className="truncate">Proposal</span>
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -1044,6 +1062,9 @@ export default function LeadWorkspace() {
         </div>
       </div>
 
+      {proposalOpen && (
+        <ProposalWorkflow lead={lead} portal="admin" onClose={() => setProposalOpen(false)} onLeadChanged={reloadLead} />
+      )}
       {stageModal && (
         <StageDataModal
           lead={stageModal.lead}

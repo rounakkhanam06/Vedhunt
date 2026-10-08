@@ -6,6 +6,7 @@
 const mongoose = require('mongoose');
 const Proposal = require('../models/Proposal');
 const Employee = require('../models/Employee');
+const Admin = require('../models/Admin');
 const { findLeadRaw } = require('../utils/leadLookup');
 const { appendLeadActivity } = require('./leadLifecycle');
 const { buildProposalPdfBuffer } = require('./proposalPdf');
@@ -167,10 +168,21 @@ async function preparedByOf(user) {
   };
 }
 
+/**
+ * "Prepared By" for a proposal's PDF: whoever created it, not whoever opens
+ * it — a Super Admin previewing or sharing a BD's proposal from the admin
+ * Lead page must not replace the BD's name on it.
+ */
+async function preparedByForProposal(proposal, user) {
+  if (!proposal.createdBy || String(proposal.createdBy) === String(user._id)) return preparedByOf(user);
+  const author = await Admin.findById(proposal.createdBy, { firstName: 1, lastName: 1, email: 1 }).lean();
+  return preparedByOf(author || user);
+}
+
 async function renderPdf(proposalId, user, leadFilter) {
   const { proposal, error } = await loadOwned(proposalId, leadFilter);
   if (error) return error;
-  const buffer = await buildProposalPdfBuffer(proposal, await preparedByOf(user));
+  const buffer = await buildProposalPdfBuffer(proposal, await preparedByForProposal(proposal, user));
   return ok({ buffer, proposal });
 }
 
@@ -182,7 +194,7 @@ async function finalize(user, proposalId, leadFilter) {
   proposal.status = 'Final';
   proposal.finalizedAt = new Date();
   proposal.finalizedBy = user._id;
-  const buffer = await buildProposalPdfBuffer(proposal, await preparedByOf(user));
+  const buffer = await buildProposalPdfBuffer(proposal, await preparedByForProposal(proposal, user));
   try {
     const uploaded = await uploadBuffer(buffer, {
       folder: 'vedhunt-proposals',
@@ -227,7 +239,7 @@ async function share(user, proposalId, { channel, recipient, message }, leadFilt
 
   let whatsappText = null;
   if (channel === 'Email') {
-    const buffer = await buildProposalPdfBuffer(proposal, await preparedByOf(user));
+    const buffer = await buildProposalPdfBuffer(proposal, await preparedByForProposal(proposal, user));
     const name = (await preparedByOf(user)).name || 'Vedhunt';
     try {
       await sendEmail({

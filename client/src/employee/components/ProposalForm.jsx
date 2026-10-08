@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Plus, Trash2 } from 'lucide-react';
-import { essGet } from '../lib/ess';
+import { proposalApi } from '../lib/proposalApi';
 import { fmtINR } from '../lib/datetime';
 import { emptyItem } from '../lib/proposal';
 
@@ -27,8 +27,9 @@ const GROUPS = [
 ];
 
 /** Proposal fields + Service Master line items. Controlled: `form` / `setForm` live in ProposalWorkflow. */
-export default function ProposalForm({ form, setForm }) {
-  const { data: masters } = useQuery({ queryKey: ['ess', 'proposal-masters'], queryFn: () => essGet('/proposal-masters'), staleTime: Infinity });
+export default function ProposalForm({ form, setForm, portal = 'employee' }) {
+  const proposals = proposalApi(portal);
+  const { data: masters } = useQuery({ queryKey: proposals.keys.masters, queryFn: () => proposals.get('/proposal-masters'), staleTime: Infinity });
   const services = masters?.services || [];
   const states = masters?.states || [];
 
