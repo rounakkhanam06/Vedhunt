@@ -189,14 +189,24 @@ export default function ManagementDashboard() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
           <div>
             <p className="text-xs font-bold text-app-text-muted uppercase tracking-wider mb-2">By Platform</p>
-            <div className="h-52">
+            <div className="max-h-[450px] overflow-y-auto pr-1" style={{ minHeight: '220px', height: `${Math.max(220, (volume?.byPlatform?.length || 0) * 36)}px` }}>
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={volume?.byPlatform || []} layout="vertical" margin={{ left: 8 }}>
+                <BarChart data={volume?.byPlatform || []} layout="vertical" margin={{ left: 8, right: 16, top: 4, bottom: 4 }}>
                   <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11, fill: '#9CA3AF' }} />
-                  <YAxis type="category" dataKey="platform" width={80} tick={{ fontSize: 11, fill: '#9CA3AF' }} />
+                  <YAxis
+                    type="category"
+                    dataKey="platform"
+                    width={90}
+                    interval={0}
+                    tick={{ fontSize: 11, fill: '#9CA3AF' }}
+                    tickFormatter={(val) => {
+                      if (!val) return '—';
+                      return val.length > 14 ? `${val.slice(0, 12)}…` : val;
+                    }}
+                  />
                   <Tooltip contentStyle={{ background: '#16161A', border: '1px solid #2D2D33', fontSize: 12 }} />
                   <Bar
                     dataKey="count"
@@ -211,12 +221,25 @@ export default function ManagementDashboard() {
           </div>
           <div>
             <p className="text-xs font-bold text-app-text-muted uppercase tracking-wider mb-2">By Service</p>
-            <div className="h-52">
+            <div className="max-h-[450px] overflow-y-auto pr-1" style={{ minHeight: '220px', height: `${Math.max(220, (volume?.byService?.length || 0) * 36)}px` }}>
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={volume?.byService || []} layout="vertical" margin={{ left: 8 }}>
+                <BarChart data={volume?.byService || []} layout="vertical" margin={{ left: 8, right: 16, top: 4, bottom: 4 }}>
                   <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11, fill: '#9CA3AF' }} />
-                  <YAxis type="category" dataKey="service" width={110} tick={{ fontSize: 10, fill: '#9CA3AF' }} />
-                  <Tooltip contentStyle={{ background: '#16161A', border: '1px solid #2D2D33', fontSize: 12 }} />
+                  <YAxis
+                    type="category"
+                    dataKey="service"
+                    width={140}
+                    interval={0}
+                    tick={{ fontSize: 10, fill: '#9CA3AF' }}
+                    tickFormatter={(val) => {
+                      if (!val) return '—';
+                      return val.length > 20 ? `${val.slice(0, 18)}…` : val;
+                    }}
+                  />
+                  <Tooltip
+                    contentStyle={{ background: '#16161A', border: '1px solid #2D2D33', fontSize: 12 }}
+                    formatter={(value, _name, item) => [value, item?.payload?.service || 'Leads']}
+                  />
                   <Bar
                     dataKey="count"
                     fill="#60a5fa"
