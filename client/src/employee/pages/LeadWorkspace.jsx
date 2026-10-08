@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import employeeApi from '../../services/employeeApi';
 import toast from 'react-hot-toast';
 import { ArrowLeft, Phone, Mail, Play, Square, Clock, FileText, Upload, Trash2, PhoneCall, CalendarClock, ListChecks, FileSignature } from 'lucide-react';
@@ -14,6 +15,7 @@ import WhatsAppAction from '../components/WhatsAppAction';
 import FollowUpForm from '../components/FollowUpForm';
 import ProposalWorkflow from '../components/ProposalWorkflow';
 import { toDateTimeInput, fromLocalInput } from '../lib/datetime';
+import { essKeys } from '../lib/ess';
 
 const sectionClass = 'bg-app-card border border-app-border rounded-xl p-4 sm:p-5 w-full min-w-0 overflow-hidden';
 const sectionLabelClass = 'text-xs font-bold text-app-text-muted uppercase tracking-wider mb-3 block';
@@ -33,6 +35,40 @@ function buildActivityTimeline(lead) {
   });
   return events.sort((a, b) => new Date(b.date) - new Date(a.date));
 }
+
+/** The editable form fields, as last loaded from the server. */
+function buildDraft(l) {
+  return {
+    remark: l.remark || '',
+    dealValue: l.dealValue || '',
+    dealCloseValue: l.dealCloseValue || '',
+    notConvertedReason: l.notConvertedReason || '',
+    proposalValue: l.proposalValue || '',
+    proposalSentDate: l.proposalSentDate ? new Date(l.proposalSentDate).toISOString() : '',
+    proposalReference: l.proposalReference || '',
+    expectedCloseDate: l.expectedCloseDate ? new Date(l.expectedCloseDate).toISOString() : '',
+    holdReason: l.holdReason || '',
+    holdUntil: l.holdUntil ? new Date(l.holdUntil).toISOString() : '',
+    status: l.status,
+    paymentStatus: l.paymentStatus || 'Not Applicable',
+    amountPaid: l.amountPaid || '',
+    businessName: l.businessName || '',
+    website: l.website || '',
+    servicesRequired: l.servicesRequired || [],
+    businessType: l.businessType || '',
+    projectBudget: l.projectBudget || '',
+    monthlyMarketingBudget: l.monthlyMarketingBudget || '',
+    timeline: l.timeline || '',
+    decisionMaker: l.decisionMaker || '',
+    currentVendor: l.currentVendor || '',
+    requirementSummary: l.requirementSummary || ''
+  };
+}
+
+// Loose equality for form values — inputs hold strings, the server numbers.
+const sameValue = (a, b) => (Array.isArray(a) || Array.isArray(b)
+  ? JSON.stringify(a || []) === JSON.stringify(b || [])
+  : String(a ?? '') === String(b ?? ''));
 
 export default function EmployeeLeadWorkspace() {
   const { id } = useParams();
@@ -63,39 +99,44 @@ export default function EmployeeLeadWorkspace() {
     ref.current?.focus();
   };
 
-  const buildDraft = (l) => ({
-    remark: l.remark || '',
-    dealValue: l.dealValue || '',
-    dealCloseValue: l.dealCloseValue || '',
-    notConvertedReason: l.notConvertedReason || '',
-    proposalValue: l.proposalValue || '',
-    proposalSentDate: l.proposalSentDate ? new Date(l.proposalSentDate).toISOString() : '',
-    proposalReference: l.proposalReference || '',
-    expectedCloseDate: l.expectedCloseDate ? new Date(l.expectedCloseDate).toISOString() : '',
-    holdReason: l.holdReason || '',
-    holdUntil: l.holdUntil ? new Date(l.holdUntil).toISOString() : '',
-    status: l.status,
-    paymentStatus: l.paymentStatus || 'Not Applicable',
-    amountPaid: l.amountPaid || '',
-    businessName: l.businessName || '',
-    website: l.website || '',
-    servicesRequired: l.servicesRequired || [],
-    businessType: l.businessType || '',
-    projectBudget: l.projectBudget || '',
-    monthlyMarketingBudget: l.monthlyMarketingBudget || '',
-    timeline: l.timeline || '',
-    decisionMaker: l.decisionMaker || '',
-    currentVendor: l.currentVendor || '',
-    requirementSummary: l.requirementSummary || ''
-  });
+
+  // The form as last loaded from the server. Anything in `draft` that differs
+  // from it is an unsaved edit — kept across reloads and the only thing Save
+  // sends.
+  const savedDraftRef = useRef({ leadId: null, draft: {} });
+
+  // Adopts a fresh copy of the lead from the server without discarding the
+  // BD's unsaved edits (a call outcome, call start/end or follow-up reloads
+  // the lead while a typed remark or picked status is still pending).
+  // `sentFields` were just saved, so the server's value wins for them.
+  const syncLead = useCallback((next, sentFields = []) => {
+    const saved = savedDraftRef.current;
+    const fresh = buildDraft(next);
+    savedDraftRef.current = { leadId: next._id, draft: fresh };
+    setLead(next);
+    setDraft((prev) => {
+      const merged = { ...fresh };
+      if (saved.leadId !== next._id) return merged;
+      for (const key of Object.keys(fresh)) {
+        if (key in prev && !sentFields.includes(key) && !sameValue(prev[key], saved.draft[key])) merged[key] = prev[key];
+      }
+      return merged;
+    });
+  }, []);
+
+  // The lead lists and today's agenda are cached (lib/ess.js) — without
+  // this they keep showing the old stage/remark after a save here.
+  const queryClient = useQueryClient();
+  const markListsStale = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: essKeys.leads });
+    queryClient.invalidateQueries({ queryKey: essKeys.today });
+  }, [queryClient]);
 
   const fetchLead = useCallback(async () => {
-    setLoading(true);
     try {
       const res = await employeeApi.get(`/employee-portal/ess/leads/${id}`);
       if (res.data?.success) {
-        setLead(res.data.lead);
-        setDraft(buildDraft(res.data.lead));
+        syncLead(res.data.lead);
         setOutcomeActionType(res.data.lead.nextActionType || 'Call');
       }
     } catch {
@@ -104,22 +145,35 @@ export default function EmployeeLeadWorkspace() {
     } finally {
       setLoading(false);
     }
-  }, [id, navigate]);
+  }, [id, navigate, syncLead]);
 
   useEffect(() => {
     fetchLead();
   }, [fetchLead]);
 
+  // For child components that changed the lead themselves.
+  const refreshAfterChange = useCallback(() => {
+    markListsStale();
+    fetchLead();
+  }, [markListsStale, fetchLead]);
+
   const updateDraft = (field, value) => setDraft((prev) => ({ ...prev, [field]: value }));
 
   const handleSave = async () => {
+    const changes = Object.fromEntries(
+      Object.entries(draft).filter(([key, value]) => !sameValue(value, savedDraftRef.current.draft[key]))
+    );
+    if (Object.keys(changes).length === 0) {
+      toast('No changes to save');
+      return;
+    }
     try {
       setSaving(true);
-      const res = await employeeApi.put(`/employee-portal/ess/leads/${id}`, draft);
+      const res = await employeeApi.put(`/employee-portal/ess/leads/${id}`, changes);
       if (res.data.success) {
         toast.success('Lead updated');
-        setLead(res.data.lead);
-        setDraft(buildDraft(res.data.lead));
+        syncLead(res.data.lead, Object.keys(changes));
+        markListsStale();
       }
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to update lead');
@@ -134,8 +188,8 @@ export default function EmployeeLeadWorkspace() {
   // partial ones.
   const handleFieldsChange = async (fields) => {
     const res = await employeeApi.put(`/employee-portal/ess/leads/${id}`, fields);
-    setLead(res.data.lead);
-    setDraft(buildDraft(res.data.lead));
+    syncLead(res.data.lead, Object.keys(fields));
+    markListsStale();
     return res.data;
   };
 
@@ -236,7 +290,7 @@ export default function EmployeeLeadWorkspace() {
       await employeeApi.put(`/employee-portal/ess/leads/${id}`, { callStartTime: now, callDate: now });
       window.location.href = `tel:${lead.phone}`;
       toast.success('Call started');
-      fetchLead();
+      refreshAfterChange();
     } catch {
       toast.error('Failed to start call');
     }
@@ -253,13 +307,14 @@ export default function EmployeeLeadWorkspace() {
       const durationMin = Math.max(1, Math.round(diffMs / 60000));
       await employeeApi.put(`/employee-portal/ess/leads/${id}`, { callEndTime: now, callDuration: durationMin });
       toast.success(`Call ended (${durationMin} min)`);
-      fetchLead();
+      refreshAfterChange();
     } catch {
       toast.error('Failed to end call');
     }
   };
 
-  if (loading) {
+  // Initial load only — a reload in place keeps the page (and the form) mounted.
+  if (loading || (lead && String(lead._id) !== id)) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="w-8 h-8 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
@@ -310,7 +365,7 @@ export default function EmployeeLeadWorkspace() {
           </a>
           <WhatsAppAction
             lead={lead}
-            onLogged={fetchLead}
+            onLogged={refreshAfterChange}
             className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg border border-app-border text-app-text font-bold text-xs sm:text-sm hover:border-primary hover:text-primary transition-colors min-w-0 cursor-pointer"
           />
           <a
@@ -334,7 +389,7 @@ export default function EmployeeLeadWorkspace() {
           <div className="mt-3">
             <FollowUpForm
               lead={lead}
-              onSaved={() => { setFollowUpOpen(false); fetchLead(); }}
+              onSaved={() => { setFollowUpOpen(false); refreshAfterChange(); }}
               onCancel={() => setFollowUpOpen(false)}
             />
           </div>
@@ -704,7 +759,7 @@ export default function EmployeeLeadWorkspace() {
         </button>
       </div>
 
-      <FollowUpTasksPanel key={lead.nextFollowUpDate || 'none'} lead={lead} onLeadChanged={fetchLead} />
+      <FollowUpTasksPanel key={lead.nextFollowUpDate || 'none'} lead={lead} onLeadChanged={refreshAfterChange} />
 
       {/* Qualification — service-aware discovery data, doesn't gate any
           stage transition; saved together with Stage & Deal Details via the
@@ -1009,7 +1064,7 @@ export default function EmployeeLeadWorkspace() {
         </div>
       )}
 
-      {proposalOpen && <ProposalWorkflow lead={lead} onClose={closeProposal} onLeadChanged={fetchLead} />}
+      {proposalOpen && <ProposalWorkflow lead={lead} onClose={closeProposal} onLeadChanged={refreshAfterChange} />}
     </div>
   );
 }

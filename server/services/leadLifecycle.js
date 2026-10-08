@@ -7,6 +7,14 @@ const { derivePriority } = require('../utils/serviceQualification');
 const { getLeadScoringSettings, computeLeadScore } = require('./leadScoring');
 const logger = require('../utils/logger');
 
+// Update fields validateLeadTransition never reads — they can't move a lead
+// through the pipeline, so an update made only of these skips it.
+const NON_GATING_FIELDS = [
+  'remark', 'city', 'country', 'callStartTime', 'callEndTime', 'callDuration', 'callDate',
+  'dealValue', 'paymentStatus', 'budget', 'timeline', 'decisionMaker', 'currentVendor', 'requirementSummary',
+  'businessName', 'website', 'servicesRequired', 'businessType', 'projectBudget', 'monthlyMarketingBudget'
+];
+
 /**
  * The one place every lead update (admin panel and Employee Portal alike)
  * goes through, so the state machine in utils/leadStateMachine.js is enforced
@@ -46,7 +54,13 @@ async function applyLeadUpdate(leadId, updates, actor, extraFilter = {}) {
     return { ok: false, status: 400, message: dateError };
   }
 
-  const error = validateLeadTransition(existingLead, updates, { isSuperAdmin: !!actor.isSuperAdmin });
+  // A remark, qualification or call-timer save changes nothing the state
+  // machine gates — validating the merged lead would block it on any
+  // unrelated pre-existing gap (e.g. a legacy Warm lead with no follow-up).
+  const touchesPipeline = Object.keys(updates).some((field) => !NON_GATING_FIELDS.includes(field));
+  const error = touchesPipeline
+    ? validateLeadTransition(existingLead, updates, { isSuperAdmin: !!actor.isSuperAdmin })
+    : null;
   if (error) {
     return { ok: false, status: 400, message: error };
   }
