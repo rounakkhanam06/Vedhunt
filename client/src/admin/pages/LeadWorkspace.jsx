@@ -1,13 +1,14 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../services/api';
-import { ArrowLeft, Mail, Phone, Clock, FileText, Play, Square, MessageCircle, Trash2, Upload, PhoneCall, CalendarClock, ListChecks, FileSignature } from 'lucide-react';
+import { Mail, Phone, Clock, FileText, Play, Square, MessageCircle, Trash2, Upload, PhoneCall, CalendarClock, ListChecks, FileSignature } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { usePermissions } from '../hooks/usePermissions';
 import { useAdminStore } from '../../store/useAdminStore';
 import StageDataModal from '../components/StageDataModal';
 import FollowUpTasksPanel from '../components/FollowUpTasksPanel';
 import ProposalWorkflow from '../../employee/components/ProposalWorkflow';
+import { isCallInProgress, lastCallLog, startedNewCall, isSameOutcome, fmtClock } from '../../shared/callHandling';
 import { NOT_CONNECTED_REASONS, INTEREST_LEVELS, LOST_DROPPED_REASONS, FOLLOWUP_TRIGGER_INTEREST_LEVELS, PAYMENT_STATUS_OPTIONS } from '../../shared/leadConstants';
 import {
   SERVICES_REQUIRED_OPTIONS, MARKETING_TYPE_SERVICES, TIMELINE_OPTIONS, DECISION_MAKER_OPTIONS,
@@ -146,6 +147,11 @@ export default function LeadWorkspace() {
   // then committed as one combined update — the state machine validates the
   // whole outcome together, not field-by-field.
   const [callOutcomeDraft, setCallOutcomeDraft] = useState(null);
+  // In-flight Start/End Call ('start' | 'end') and call-outcome saves — the
+  // buttons show it and ignore repeat clicks, which used to log duplicate calls.
+  const [callBusy, setCallBusy] = useState(null);
+  const [outcomeSaving, setOutcomeSaving] = useState(false);
+  const outcomeSavingRef = useRef(false);
   const [uploading, setUploading] = useState(false);
   const [docType, setDocType] = useState('Attachment');
 
@@ -248,21 +254,27 @@ export default function LeadWorkspace() {
   };
 
   const startCall = async () => {
+    if (callBusy || isCallInProgress(lead)) return;
+    setCallBusy('start');
     try {
       const now = new Date();
       const res = await api.put(`/leads/${id}`, { callStartTime: now, callDate: now });
       setLead(res.data.data);
-      toast.success('Call started', { position: 'bottom-right' });
+      toast.success('Call started — log the outcome below when you finish', { position: 'bottom-right' });
     } catch {
       toast.error('Failed to start call');
+    } finally {
+      setCallBusy(null);
     }
   };
 
   const endCall = async () => {
-    if (!lead?.callStartTime) {
-      toast.error('Please start the call first');
+    if (callBusy) return;
+    if (!isCallInProgress(lead)) {
+      toast.error('No call in progress — click Start Call first');
       return;
     }
+    setCallBusy('end');
     try {
       const now = new Date();
       const diffMs = now.getTime() - new Date(lead.callStartTime).getTime();
@@ -272,6 +284,8 @@ export default function LeadWorkspace() {
       toast.success(`Call ended (${durationMin} min)`, { position: 'bottom-right' });
     } catch {
       toast.error('Failed to end call');
+    } finally {
+      setCallBusy(null);
     }
   };
 
@@ -289,20 +303,34 @@ export default function LeadWorkspace() {
       [field]: value
     };
 
+    if (outcomeSavingRef.current) return;
+
     if (!isOutcomeReady(merged)) {
       setCallOutcomeDraft(merged);
       return;
     }
 
+    // Re-selecting what's already saved isn't a new call — only log it
+    // again once a new call has been started.
+    if (isSameOutcome(merged, lead) && !startedNewCall(lead)) {
+      setCallOutcomeDraft(null);
+      return;
+    }
+
     const fields = outcomeFields(merged);
 
+    outcomeSavingRef.current = true;
+    setOutcomeSaving(true);
+    setCallOutcomeDraft(merged);
     try {
       await handleFieldsChange(fields);
       setCallOutcomeDraft(null);
     } catch {
       // Keep the draft so the admin doesn't lose what they picked — the
       // error toast from handleFieldsChange already explains what's missing.
-      setCallOutcomeDraft(merged);
+    } finally {
+      outcomeSavingRef.current = false;
+      setOutcomeSaving(false);
     }
   };
 
@@ -370,23 +398,17 @@ export default function LeadWorkspace() {
 
   return (
     <div className="space-y-5 w-full min-w-0 max-w-full">
-      {/* Header row */}
-      <div className="flex items-center justify-between gap-4">
-        <button
-          onClick={() => navigate('/admin/leads')}
-          className="flex items-center gap-2 text-sm font-medium text-app-text-muted hover:text-app-text transition-colors"
-        >
-          <ArrowLeft size={16} /> Back to Leads
-        </button>
-        {isSuperAdmin && (
+      {/* Header row — "Back" comes from AdminLayout */}
+      {isSuperAdmin && (
+        <div className="flex justify-end">
           <button
             onClick={handleDelete}
             className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-red-500 bg-red-500/10 hover:bg-red-500/20 rounded-lg transition-colors cursor-pointer"
           >
             <Trash2 size={14} /> Delete Lead
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Identity + quick actions */}
       <div className={sectionClass}>
@@ -452,12 +474,27 @@ export default function LeadWorkspace() {
           <div className={sectionClass}>
             <label className={sectionLabelClass}>Call Handling</label>
             <div className="flex flex-wrap items-center gap-3 mb-4">
-              <button onClick={startCall} className="flex items-center gap-2 px-4 py-2 bg-green-500/10 text-green-500 hover:bg-green-500/20 rounded-lg text-sm font-semibold transition-colors cursor-pointer">
-                <Play size={14} /> Start Call
+              <button
+                onClick={startCall}
+                disabled={Boolean(callBusy) || isCallInProgress(lead)}
+                className="flex items-center gap-2 px-4 py-2 bg-green-500/10 text-green-500 hover:bg-green-500/20 rounded-lg text-sm font-semibold transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <Play size={14} /> {callBusy === 'start' ? 'Starting…' : 'Start Call'}
               </button>
-              <button onClick={endCall} className="flex items-center gap-2 px-4 py-2 bg-red-500/10 text-red-500 hover:bg-red-500/20 rounded-lg text-sm font-semibold transition-colors cursor-pointer">
-                <Square size={14} /> End Call
+              <button
+                onClick={endCall}
+                disabled={Boolean(callBusy) || !isCallInProgress(lead)}
+                className="flex items-center gap-2 px-4 py-2 bg-red-500/10 text-red-500 hover:bg-red-500/20 rounded-lg text-sm font-semibold transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <Square size={14} /> {callBusy === 'end' ? 'Ending…' : 'End Call'}
               </button>
+              {isCallInProgress(lead) ? (
+                <span className="flex items-center gap-1.5 text-xs font-semibold text-green-500">
+                  <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" /> Call in progress · started {fmtClock(lead.callStartTime)}
+                </span>
+              ) : (
+                <span className="text-xs text-app-text-muted">{lead.callStartTime ? 'No call in progress' : 'No call started yet'}</span>
+              )}
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 min-w-0">
               <div>
@@ -481,7 +518,12 @@ export default function LeadWorkspace() {
 
           {/* Call Outcome */}
           <div className={sectionClass}>
-            <label className={sectionLabelClass}>Call Outcome</label>
+            <div className="flex items-baseline justify-between gap-2">
+              <label className={sectionLabelClass}>Call Outcome</label>
+              <span className="text-[11px] text-app-text-muted">
+                {outcomeSaving ? 'Saving…' : lastCallLog(lead) ? `Last saved: Touch #${lastCallLog(lead).touchNumber} · ${fmtClock(lastCallLog(lead).loggedAt || lastCallLog(lead).callDate)}` : 'Nothing logged yet'}
+              </span>
+            </div>
             {outcomePending && (
               <button
                 type="button"

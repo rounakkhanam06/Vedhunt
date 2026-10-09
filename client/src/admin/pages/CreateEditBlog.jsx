@@ -146,7 +146,7 @@ const CreateEditBlog = () => {
   return (
     <div className="max-w-7xl mx-auto space-y-6">
       {/* Top action bar */}
-      <div className="flex justify-between items-center pb-4 border-b border-app-border">
+      <div className="flex flex-wrap gap-3 justify-between items-center pb-4 border-b border-app-border">
         <div className="flex items-center gap-4">
           <Link to="/admin/blogs" className="p-2 bg-surface-variant rounded-full text-app-text-muted hover:text-app-text transition-colors">
             <ArrowLeft size={20} />
@@ -209,14 +209,14 @@ const CreateEditBlog = () => {
             <div className="space-y-6">
               {formData.contentBlocks.map((block, index) => (
                 <div key={block.id || index} className="border border-app-border rounded-lg p-4 bg-app-card relative group">
-                  <div className="flex justify-between items-center mb-4 border-b border-app-border pb-2">
+                  <div className="flex flex-wrap gap-2 justify-between items-center mb-4 border-b border-app-border pb-2">
                     <div className="flex items-center gap-2">
                       <GripVertical size={16} className="text-app-text-muted cursor-grab active:cursor-grabbing" />
                       <span className="text-xs font-bold uppercase tracking-wider text-[#FF6B00] bg-[#FF6B00]/10 px-2 py-1 rounded">
                         {block.type}
                       </span>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <button onClick={() => moveBlock(index, -1)} disabled={index === 0} className="p-1 text-app-text-muted hover:text-app-text cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed">
                         <ArrowUp size={16} />
                       </button>

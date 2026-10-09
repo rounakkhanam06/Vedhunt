@@ -131,7 +131,7 @@ const RealTimeTimer = ({ activeTimer, tasks = [], onTimerStart, onTimerStop }) =
 
       {/* Start Modal */}
       {isStartModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+        <div className="fixed inset-0 overflow-y-auto z-[100] flex items-center-safe justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-[#141416] border border-white/10 rounded-2xl w-full max-w-md p-6">
             <h2 className="text-xl font-bold text-white mb-4">Start Work Timer</h2>
             <form onSubmit={handleStart} className="space-y-4">
@@ -181,7 +181,7 @@ const RealTimeTimer = ({ activeTimer, tasks = [], onTimerStart, onTimerStop }) =
                   {activityOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                 </select>
               </div>
-              <div className="flex gap-3 pt-4">
+              <div className="flex flex-wrap gap-3 pt-4">
                 <button type="button" onClick={() => setIsStartModalOpen(false)} className="flex-1 py-2 rounded-lg bg-white/5 text-white hover:bg-white/10 transition-colors cursor-pointer text-sm font-medium">Cancel</button>
                 <button type="submit" className="flex-1 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors cursor-pointer text-sm font-medium flex justify-center items-center gap-2">
                   <Play size={16} className="fill-current"/> Start Timer
@@ -194,7 +194,7 @@ const RealTimeTimer = ({ activeTimer, tasks = [], onTimerStart, onTimerStop }) =
 
       {/* Stop Modal */}
       {isStopModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+        <div className="fixed inset-0 overflow-y-auto z-[100] flex items-center-safe justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-[#141416] border border-white/10 rounded-2xl w-full max-w-md p-6">
             <h2 className="text-xl font-bold text-white mb-2">Stop Work Timer</h2>
             <p className="text-xs text-gray-400 mb-6 font-mono">Running time: {elapsedTime}</p>
@@ -227,7 +227,7 @@ const RealTimeTimer = ({ activeTimer, tasks = [], onTimerStart, onTimerStop }) =
                   </label>
                 </div>
               )}
-              <div className="flex gap-3 pt-4">
+              <div className="flex flex-wrap gap-3 pt-4">
                 <button type="button" onClick={() => setIsStopModalOpen(false)} className="flex-1 py-2 rounded-lg bg-white/5 text-white hover:bg-white/10 transition-colors cursor-pointer text-sm font-medium">Cancel</button>
                 <button type="submit" className="flex-1 py-2 rounded-lg bg-orange-600 text-white hover:bg-orange-700 transition-colors cursor-pointer text-sm font-medium flex justify-center items-center gap-2">
                   <Square size={16} className="fill-current"/> Stop & Log

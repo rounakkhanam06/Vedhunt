@@ -9,8 +9,13 @@ import { useEssLeads, essKeys } from '../lib/ess';
 import { fmtDateTime, toDateInput } from '../lib/datetime';
 import { followUpBucket, isCallPending, needsNextAction, isPaymentPending, isWonThisMonth, mergeLead } from '../lib/leads';
 import { INTEREST_LEVELS } from '../../shared/leadConstants';
+import { SERVICES_REQUIRED_OPTIONS, LEAD_PRIORITY_LEVELS } from '../../shared/serviceQualification';
 
 const WORKING_STATUSES = ['Contacted', 'Qualified', 'Proposal Sent', 'Negotiation', 'Hold', 'Won', 'Lost', 'Dropped'];
+// Same option lists as the admin Raw/Working Leads filters (admin/pages/LeadsManager.jsx).
+const PLATFORMS = ['Website', 'Facebook', 'Google Ads', 'Instagram', 'Manual'];
+const SOURCES = ['Google', 'Facebook', 'Instagram', 'LinkedIn', 'YouTube', 'Referral', 'Direct'];
+const NO_ATTR_FILTERS = { platform: 'All', source: 'All', form: 'All', service: 'All', priority: 'All', leadType: 'All', breached: false };
 const selectClass = 'bg-app-card border border-app-border rounded-lg px-3 py-1.5 text-sm text-app-text focus:outline-none focus:border-primary/50 cursor-pointer';
 
 const VIEWS = {
@@ -41,6 +46,18 @@ function applyDateFilters(list, { dateField, dateFrom, dateTo, connected, sort }
   const field = SORTS[sort].field;
   // Leads without that date (e.g. never called) go last.
   return [...out].sort((a, b) => (b[field] ? new Date(b[field]) : 0) - (a[field] ? new Date(a[field]) : 0));
+}
+
+/** Lead attribute filters for Raw/Working — mirrors the admin lead list's dropdowns. */
+function applyAttrFilters(list, f) {
+  return list.filter((l) =>
+    (f.platform === 'All' || l.platform === f.platform) &&
+    (f.source === 'All' || l.userSource === f.source) &&
+    (f.form === 'All' || l.fbFormId === f.form) &&
+    (f.service === 'All' || l.service === f.service) &&
+    (f.priority === 'All' || l.leadPriority === f.priority) &&
+    (f.leadType === 'All' || (l.leadType || 'Sales') === f.leadType) &&
+    (!f.breached || l.followUpBreached));
 }
 
 function FilterNotice({ children, onClear }) {
@@ -90,13 +107,18 @@ export default function LeadListsTab({ view }) {
   const [connected, setConnected] = useState('All');
   // '' keeps each view's own default order (e.g. follow-ups by due time).
   const [sort, setSort] = useState('');
+  const [attrs, setAttrs] = useState(NO_ATTR_FILTERS);
+  const setAttr = (key) => (e) => setAttrs((a) => ({ ...a, [key]: e.target.value }));
   const dateFilters = { dateField, dateFrom, dateTo, connected, sort };
-  const datesActive = Boolean(dateFrom || dateTo || connected !== 'All' || sort);
+  const attrsActive = Object.keys(NO_ATTR_FILTERS).some((k) => attrs[k] !== NO_ATTR_FILTERS[k]);
+  const datesActive = Boolean(dateFrom || dateTo || connected !== 'All' || sort) || attrsActive;
+  // Forms come from the BD's own leads — no admin-only forms endpoint needed.
+  const forms = [...new Map(leads.filter((l) => l.fbFormId).map((l) => [l.fbFormId, l.fbFormName || l.fbFormId])).entries()];
   const setPreset = (days) => {
     setDateFrom(toDateInput(new Date(Date.now() - days * 86400000)));
     setDateTo(toDateInput());
   };
-  const clearDates = () => { setDateFrom(''); setDateTo(''); setConnected('All'); setSort(''); };
+  const clearDates = () => { setDateFrom(''); setDateTo(''); setConnected('All'); setSort(''); setAttrs(NO_ATTR_FILTERS); };
 
   const updateLead = (updated) => {
     queryClient.setQueryData(essKeys.leads, (list = []) => list.map((l) => (l._id === updated._id ? mergeLead(l, updated) : l)));
@@ -115,7 +137,7 @@ export default function LeadListsTab({ view }) {
     body = <Spinner />;
   } else if (view === 'raw') {
     const urgentOnly = searchParams.get('urgent') === '1';
-    let list = applyDateFilters(leads.filter((l) => l.status === 'New'), dateFilters);
+    let list = applyAttrFilters(applyDateFilters(leads.filter((l) => l.status === 'New'), dateFilters), attrs);
     if (urgentOnly) list = list.filter(isCallPending).sort((a, b) => new Date(a.assignedAt) - new Date(b.assignedAt));
     body = (
       <>
@@ -128,7 +150,7 @@ export default function LeadListsTab({ view }) {
     const noNext = searchParams.get('noNext') === '1';
     const payment = searchParams.get('payment');
     const thisMonth = searchParams.get('period') === 'thisMonth';
-    const list = applyDateFilters(leads, dateFilters).filter((l) =>
+    const list = applyAttrFilters(applyDateFilters(leads, dateFilters), attrs).filter((l) =>
       (scopeAll || l.status !== 'New') &&
       (statusFilter === 'All' || l.status === statusFilter) &&
       (interestFilter === 'All' || l.interestLevel === interestFilter) &&
@@ -207,6 +229,41 @@ export default function LeadListsTab({ view }) {
           <option value="">Default order</option>
           {Object.entries(SORTS).map(([value, { label }]) => <option key={value} value={value}>{label}</option>)}
         </select>
+        {view !== 'followups' && (
+          <>
+            <select value={attrs.platform} onChange={setAttr('platform')} className={selectClass} aria-label="Platform">
+              <option value="All">All Platforms</option>
+              {PLATFORMS.map((p) => <option key={p} value={p}>{p}</option>)}
+            </select>
+            <select value={attrs.source} onChange={setAttr('source')} className={selectClass} aria-label="Source">
+              <option value="All">All Sources</option>
+              {SOURCES.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+            {forms.length > 0 && (
+              <select value={attrs.form} onChange={setAttr('form')} className={selectClass} aria-label="Form">
+                <option value="All">All Forms</option>
+                {forms.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+              </select>
+            )}
+            <select value={attrs.service} onChange={setAttr('service')} className={selectClass} aria-label="Service">
+              <option value="All">All Services</option>
+              {SERVICES_REQUIRED_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+            <select value={attrs.priority} onChange={setAttr('priority')} className={selectClass} aria-label="Priority">
+              <option value="All">All Priorities</option>
+              {LEAD_PRIORITY_LEVELS.map((p) => <option key={p} value={p}>{p}</option>)}
+            </select>
+            <select value={attrs.leadType} onChange={setAttr('leadType')} className={selectClass} aria-label="Lead type">
+              <option value="All">All Lead Types</option>
+              <option value="Sales">Sales</option>
+              <option value="Hiring">Hiring</option>
+            </select>
+            <button onClick={() => setAttrs((a) => ({ ...a, breached: !a.breached }))}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold border cursor-pointer ${attrs.breached ? 'bg-red-500/10 text-red-400 border-red-500/30' : 'border-app-border text-app-text-muted hover:border-red-500/30'}`}>
+              Breached only
+            </button>
+          </>
+        )}
         {datesActive && <button onClick={clearDates} className="text-xs text-app-text-muted underline hover:text-primary cursor-pointer">Clear</button>}
       </div>
       {body}

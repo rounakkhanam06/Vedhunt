@@ -191,11 +191,11 @@ export default function AssignmentLogManager() {
 
         {/* Pagination */}
         {!loading && totalPages > 1 && (
-          <div className="flex items-center justify-between mt-4 px-2">
+          <div className="flex flex-wrap gap-2 items-center justify-between mt-4 px-2">
             <div className="text-sm text-app-text-muted">
               Page {currentPage} of {totalPages}
             </div>
-            <div className="flex items-center gap-1">
+            <div className="flex flex-wrap items-center gap-1">
               <button
                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                 disabled={currentPage === 1}

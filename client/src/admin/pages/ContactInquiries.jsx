@@ -228,11 +228,11 @@ export default function ContactInquiries() {
 
           {/* Pagination Controls */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-between bg-app-card border border-app-border p-4 rounded-xl mt-4">
+            <div className="flex flex-wrap gap-2 items-center justify-between bg-app-card border border-app-border p-4 rounded-xl mt-4">
               <span className="text-sm text-app-text-muted">
                 Showing page <span className="font-bold text-app-text">{currentPage}</span> of <span className="font-bold text-app-text">{totalPages}</span>
               </span>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <button
                   onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                   disabled={currentPage === 1}
@@ -324,7 +324,7 @@ export default function ContactInquiries() {
                 </div>
               </div>
             </div>
-            <div className="p-4 border-t border-app-border flex justify-end gap-3 bg-app-card sticky bottom-0 z-10">
+            <div className="p-4 border-t border-app-border flex flex-wrap justify-end gap-3 bg-app-card sticky bottom-0 z-10">
               {isSuperAdmin && (
                 <button 
                   onClick={() => {

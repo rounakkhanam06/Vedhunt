@@ -177,7 +177,7 @@ export default function PortfolioManager() {
       {isModalOpen ? (
         // Full Page Form View
         <div className="bg-app-card border border-app-border rounded-xl p-8 shadow-sm">
-          <div className="flex items-center justify-between mb-8 pb-4 border-b border-app-border">
+          <div className="flex flex-wrap gap-3 items-center justify-between mb-8 pb-4 border-b border-app-border">
             <div>
               <h2 className="text-2xl font-bold text-app-text">
                 {editingId ? 'Edit Showcase' : 'Add New Showcase'}
@@ -489,7 +489,7 @@ export default function PortfolioManager() {
                     <p className="text-xs text-app-text-muted italic mb-2 line-clamp-1">{item.tagline}</p>
                     <p className="text-xs text-app-text-muted/80 mb-4 line-clamp-2 flex-1">{item.description}</p>
 
-                    <div className="flex items-center justify-between pt-4 border-t border-app-border mt-auto">
+                    <div className="flex flex-wrap gap-2 items-center justify-between pt-4 border-t border-app-border mt-auto">
                       <div className="flex gap-2">
                         <button 
                           onClick={() => openEditModal(item)}
@@ -522,7 +522,7 @@ export default function PortfolioManager() {
       )}
       {/* Delete Confirmation Modal */}
       {deleteModal.isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+        <div className="fixed inset-0 overflow-y-auto z-50 flex items-center-safe justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-app-card border border-app-border rounded-xl p-6 w-full max-w-md shadow-2xl relative">
             <div className="flex flex-col items-center text-center">
               <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center mb-4">

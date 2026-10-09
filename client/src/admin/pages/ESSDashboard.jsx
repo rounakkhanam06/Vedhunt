@@ -704,7 +704,7 @@ const ESSDashboard = () => {
 
             {/* Leave Request Modal */}
             {showLeaveModal && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+              <div className="fixed inset-0 overflow-y-auto z-50 flex items-center-safe justify-center p-4 bg-black/60 backdrop-blur-sm">
                 <div className="bg-[#141416] border border-white/10 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl">
                   <div className="p-5 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
                     <h2 className="text-lg font-bold">Submit Leave Request</h2>
@@ -819,7 +819,7 @@ const ESSDashboard = () => {
                   {new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
                 </div>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
                 <button
                   onClick={() => {
                     const d = new Date(selectedDate);
@@ -933,7 +933,7 @@ const ESSDashboard = () => {
                   <div className="text-xs text-gray-500">
                     Showing <span className="text-white font-bold">{(logsPage - 1) * LOGS_PER_PAGE + 1}–{Math.min(logsPage * LOGS_PER_PAGE, logsTotal)}</span> of <span className="text-white font-bold">{logsTotal}</span> entries
                   </div>
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex flex-wrap items-center gap-1.5">
                     <button
                       onClick={() => handleLogsPageChange(logsPage - 1)}
                       disabled={logsPage === 1}

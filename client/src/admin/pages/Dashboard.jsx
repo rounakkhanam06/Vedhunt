@@ -422,9 +422,9 @@ const Dashboard = () => {
 
               {/* Recent Leads — real, clickable, exportable */}
               <section className="bg-admin-glass border border-white/5 rounded-xl overflow-hidden">
-                <div className="p-6 border-b border-outline-variant flex justify-between items-center">
+                <div className="p-6 border-b border-outline-variant flex flex-wrap gap-2 justify-between items-center">
                   <h3 className="text-xl font-semibold text-on-surface">Recent Leads</h3>
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-wrap items-center gap-3">
                     <button onClick={handleExportRecent} className="bg-[#121215] border border-[#2D2D33] px-4 py-2 rounded-lg text-xs font-medium hover:border-secondary transition-all text-on-surface">
                       Export CSV
                     </button>

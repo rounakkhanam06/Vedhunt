@@ -156,7 +156,7 @@ const PrivacyPolicyManager = () => {
 
   return (
     <div className="p-8 max-w-5xl mx-auto pb-24">
-      <div className="flex justify-between items-center mb-8">
+      <div className="flex flex-wrap gap-3 justify-between items-center mb-8">
         <div>
           <h2 className="text-3xl font-bold text-app-text mb-2">Privacy Policy Manager</h2>
           <p className="text-app-text-muted">Manage the content of the Privacy Policy page.</p>

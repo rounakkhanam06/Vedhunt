@@ -207,7 +207,7 @@ export default function PresenceManager() {
 
           {/* Locations List */}
           <div className="bg-app-bg-secondary p-6 rounded-xl border border-app-border">
-            <div className="flex justify-between items-center mb-4">
+            <div className="flex flex-wrap gap-3 justify-between items-center mb-4">
               <h2 className="text-lg font-semibold text-app-text">Locations</h2>
               <button
                 onClick={openAddModal}
@@ -224,7 +224,7 @@ export default function PresenceManager() {
                     <div className="font-medium text-app-text">{loc.name}</div>
                     <div className="text-xs text-app-text-muted mt-1">Top: {loc.top} | Left: {loc.left}</div>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     <button
                       onClick={() => openEditModal(loc)}
                       className="p-1.5 text-app-text-muted hover:text-primary transition-colors bg-app-bg-secondary rounded-md"
@@ -314,7 +314,7 @@ export default function PresenceManager() {
 
       {/* Location Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+        <div className="fixed inset-0 overflow-y-auto z-50 flex items-center-safe justify-center p-4 bg-black/60 backdrop-blur-sm">
           <motion.div 
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}

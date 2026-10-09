@@ -253,8 +253,8 @@ export default function LeadsPipelineView({
                       )}
 
                       {/* Footer Actions */}
-                      <div className="flex items-center justify-between pt-3 border-t border-app-border">
-                        <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap gap-2 items-center justify-between pt-3 border-t border-app-border">
+                        <div className="flex flex-wrap items-center gap-2">
                            <button onClick={() => startCall(lead._id)} className="p-1.5 bg-green-500/10 text-green-500 hover:bg-green-500/20 rounded transition-colors" title="Start Call">
                              <Play size={12} />
                            </button>
@@ -294,7 +294,7 @@ export default function LeadsPipelineView({
       {/* Won/Lost: pick the outcome first, then StageDataModal below collects
           that outcome's mandatory fields (deal value, or a reason). */}
       {wonLostChoice && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+        <div className="fixed inset-0 overflow-y-auto z-[60] flex items-center-safe justify-center p-4 bg-black/50 backdrop-blur-sm">
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}

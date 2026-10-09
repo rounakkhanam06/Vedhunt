@@ -342,7 +342,7 @@ export default function AdvantageManager({ isNested = false }) {
 
       {/* Row Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 overflow-y-auto bg-black/60 backdrop-blur-sm flex items-center-safe justify-center p-4 z-50">
           <div className="bg-app-card rounded-xl shadow-2xl border border-app-border w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200">
             <div className="p-6 border-b border-app-border flex justify-between items-center">
               <h3 className="text-xl font-bold text-app-text">
@@ -416,7 +416,7 @@ export default function AdvantageManager({ isNested = false }) {
                 </div>
               </div>
 
-              <div className="pt-4 flex justify-end gap-3 border-t border-app-border">
+              <div className="pt-4 flex flex-wrap justify-end gap-3 border-t border-app-border">
                 <button
                   type="button"
                   onClick={handleCloseModal}
@@ -440,7 +440,7 @@ export default function AdvantageManager({ isNested = false }) {
 
       {/* Delete Confirmation Modal */}
       {rowToDelete && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[60]">
+        <div className="fixed inset-0 overflow-y-auto bg-black/60 backdrop-blur-sm flex items-center-safe justify-center p-4 z-[60]">
           <div className="bg-app-card rounded-xl shadow-2xl border border-app-border w-full max-w-sm overflow-hidden animate-in fade-in zoom-in-95 duration-200">
             <div className="p-6">
               <div className="flex items-center justify-center w-12 h-12 rounded-full bg-red-500/10 mx-auto mb-4">
@@ -451,7 +451,7 @@ export default function AdvantageManager({ isNested = false }) {
                 Are you sure you want to delete <span className="text-app-text font-semibold">{rowToDelete.feature}</span>? This action cannot be undone.
               </p>
               
-              <div className="flex gap-3">
+              <div className="flex flex-wrap gap-3">
                 <button
                   onClick={() => setRowToDelete(null)}
                   className="flex-1 px-4 py-2 border border-app-border rounded-lg text-sm font-medium text-app-text-muted hover:bg-surface-variant transition-colors"

@@ -91,12 +91,12 @@ const SubscriberManager = () => {
 
   return (
     <div className="p-6">
-      <div className="flex justify-between items-center mb-8">
+      <div className="flex flex-wrap gap-3 justify-between items-center mb-8">
         <div>
           <h1 className="text-2xl font-bold text-app-text mb-2">Newsletter Subscribers</h1>
           <p className="text-app-text-muted text-sm">Manage your community subscriptions</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
           <button
             onClick={() => { setTargetEmail(null); setShowBroadcastModal(true); }}
             className="bg-secondary text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 hover:bg-secondary-hover transition-colors cursor-pointer"
@@ -232,11 +232,11 @@ const SubscriberManager = () => {
 
         {/* Pagination */}
         {pagination.totalPages > 1 && (
-          <div className="bg-app-bg px-6 py-4 flex items-center justify-between border-t border-app-border">
+          <div className="bg-app-bg px-6 py-4 flex flex-wrap gap-2 items-center justify-between border-t border-app-border">
             <span className="text-sm text-app-text-muted">
               Page {pagination.page} of {pagination.totalPages}
             </span>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <button
                 onClick={() => fetchSubscribers(pagination.page - 1)}
                 disabled={pagination.page === 1}
@@ -314,7 +314,7 @@ const SubscriberManager = () => {
                 </div>
               </div>
 
-              <div className="mt-8 flex gap-3 justify-end">
+              <div className="mt-8 flex flex-wrap gap-3 justify-end">
                 <button
                   type="button"
                   onClick={() => setShowBroadcastModal(false)}

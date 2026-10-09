@@ -87,7 +87,7 @@ export default function NotificationBell() {
       {open && (
         <div className="absolute right-0 mt-2 w-80 sm:w-96 max-h-[460px] flex flex-col bg-app-card border border-app-border rounded-2xl shadow-2xl z-50 overflow-hidden">
           {/* Header */}
-          <div className="px-4 py-3 border-b border-app-border bg-app-card/90 backdrop-blur-sm flex items-center justify-between shrink-0">
+          <div className="px-4 py-3 border-b border-app-border bg-app-card/90 backdrop-blur-sm flex flex-wrap gap-2 items-center justify-between shrink-0">
             <div className="flex items-center gap-2">
               <span className="text-sm font-bold text-app-text">Notifications</span>
               {unreadCount > 0 && (
@@ -96,7 +96,7 @@ export default function NotificationBell() {
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               {unreadCount > 0 && (
                 <button
                   onClick={handleMarkAllRead}

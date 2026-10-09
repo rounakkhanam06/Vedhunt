@@ -115,7 +115,7 @@ export default function JobManager() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-8">
-      <div className="flex items-center justify-between border-b border-app-border pb-4">
+      <div className="flex flex-wrap gap-3 items-center justify-between border-b border-app-border pb-4">
         <div>
           <h1 className="text-2xl font-bold text-app-text">Job Manager</h1>
           <p className="text-app-text-muted text-sm mt-1">Manage open positions on the career page.</p>
@@ -156,8 +156,8 @@ export default function JobManager() {
                 {job.description}
               </div>
 
-              <div className="flex items-center justify-between pt-4 border-t border-app-border mt-auto">
-                <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2 items-center justify-between pt-4 border-t border-app-border mt-auto">
+                <div className="flex flex-wrap gap-2">
                   <button 
                     onClick={() => openEditModal(job)}
                     className="p-2 bg-blue-500/10 text-blue-600 hover:bg-blue-500/20 rounded-lg transition-colors cursor-pointer"

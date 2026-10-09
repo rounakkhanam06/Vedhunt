@@ -167,7 +167,7 @@ export default function ApplicationManager() {
   return (
     <>
       <div className="mx-auto max-w-6xl space-y-8">
-      <div className="flex items-center justify-between border-b border-app-border pb-4">
+      <div className="flex flex-wrap gap-3 items-center justify-between border-b border-app-border pb-4">
         <div>
           <h1 className="text-2xl font-bold text-app-text">Application Manager</h1>
           <p className="text-app-text-muted text-sm mt-1">Review candidate applications submitted from the career page.</p>
@@ -308,7 +308,7 @@ export default function ApplicationManager() {
 
       {/* Onboarding Modal */}
       {onboardingCandidate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+        <div className="fixed inset-0 overflow-y-auto z-50 flex items-center-safe justify-center p-4 bg-black/50 backdrop-blur-sm">
           <div className="bg-app-card rounded-xl border border-app-border w-full max-w-xl shadow-2xl overflow-hidden">
             <div className="flex items-center justify-between p-6 border-b border-app-border bg-app-bg/50">
               <h2 className="text-xl font-bold text-app-text">Onboard Employee - {onboardingCandidate.fullName}</h2>
@@ -395,7 +395,7 @@ export default function ApplicationManager() {
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-3 p-6 border-t border-app-border bg-app-bg/50">
+            <div className="flex flex-wrap items-center justify-end gap-3 p-6 border-t border-app-border bg-app-bg/50">
               <button 
                 onClick={() => setOnboardingCandidate(null)}
                 className="px-4 py-2 text-sm font-medium text-app-text-muted hover:text-app-text transition-colors cursor-pointer"

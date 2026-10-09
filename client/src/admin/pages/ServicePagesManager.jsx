@@ -464,7 +464,7 @@ const ServicePagesManager = () => {
         </div>
       ) : (
         <div className="bg-surface-container rounded-2xl border border-outline-variant p-6 max-w-4xl">
-          <div className="flex justify-between items-center mb-6 border-b border-outline-variant pb-4">
+          <div className="flex flex-wrap gap-3 justify-between items-center mb-6 border-b border-outline-variant pb-4">
             <div>
               <h2 className="text-xl font-bold text-on-surface">Editing: {selectedService.title}</h2>
               <p className="text-sm text-on-surface-variant mt-1">Update the text content below (buttons and complex layouts are preserved).</p>
@@ -900,12 +900,12 @@ const ServicePagesManager = () => {
 
             {/* Testimonials Section */}
             <div className="pt-6 border-t border-outline-variant">
-              <div className="flex justify-between items-center mb-4">
+              <div className="flex flex-wrap gap-2 justify-between items-center mb-4">
                 <div>
                   <h3 className="text-lg font-medium text-on-surface">Testimonials</h3>
                   <p className="text-xs text-on-surface-variant">Manage client reviews for this service page. Multiple reviews will show as a carousel.</p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <button
                     onClick={fetchGlobalTestimonials}
                     className="px-4 py-2 bg-surface-variant text-on-surface rounded-lg text-sm font-medium hover:bg-surface-variant/80 transition-colors"
@@ -1026,13 +1026,13 @@ const ServicePagesManager = () => {
       )}
       {/* Delete Confirmation Modal */}
       {deleteConfirmation && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 overflow-y-auto bg-black/60 z-50 flex items-center-safe justify-center p-4">
           <div className="bg-surface rounded-xl border border-outline-variant p-6 w-full max-w-sm shadow-xl">
             <h3 className="text-lg font-bold text-on-surface mb-2">Confirm Deletion</h3>
             <p className="text-sm text-on-surface-variant mb-6">
               Are you sure you want to delete this item? This action cannot be undone unless you cancel your unsaved changes.
             </p>
-            <div className="flex justify-end gap-3">
+            <div className="flex flex-wrap justify-end gap-3">
               <button
                 onClick={() => setDeleteConfirmation(null)}
                 className="px-4 py-2 bg-surface-variant text-on-surface rounded-lg text-sm font-medium hover:bg-surface-variant/80 transition-colors"

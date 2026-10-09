@@ -438,7 +438,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
 
       {/* Logout Confirmation Modal */}
       {showLogoutModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+        <div className="fixed inset-0 overflow-y-auto z-[100] flex items-center-safe justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-app-card border border-app-border rounded-xl w-full max-w-sm overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
             <div className="p-6 text-center">
               <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center mx-auto mb-4 text-red-500">
@@ -448,7 +448,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
               <p className="text-app-text-muted text-sm">Are you sure you want to log out of your admin account?</p>
             </div>
             
-            <div className="p-6 border-t border-app-border flex gap-3 bg-app-card">
+            <div className="p-6 border-t border-app-border flex flex-wrap gap-3 bg-app-card">
               <button 
                 onClick={() => setShowLogoutModal(false)}
                 className="flex-1 px-4 py-2.5 rounded-lg border border-app-border text-app-text hover:bg-app-border/30 transition-colors cursor-pointer"

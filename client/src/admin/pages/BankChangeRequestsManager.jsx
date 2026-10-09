@@ -151,7 +151,7 @@ export default function BankChangeRequestsManager() {
       </div>
 
       {review && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
+        <div className="fixed inset-0 overflow-y-auto z-50 flex items-center-safe justify-center p-4 bg-black/60">
           <div role="dialog" aria-modal="true" aria-labelledby="bank-review-title" className="w-full max-w-md bg-app-card border border-app-border rounded-2xl shadow-2xl">
             <div className="px-5 py-4 border-b border-app-border">
               <h3 id="bank-review-title" className="font-bold text-app-text">{review.status === 'Approved' ? 'Approve bank change' : 'Reject bank change'}</h3>

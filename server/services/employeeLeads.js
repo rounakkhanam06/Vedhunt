@@ -13,6 +13,8 @@ const LIST_FIELDS = [
   'nextFollowUpDate', 'nextActionType', 'assignedAt', 'createdAt', 'updatedAt', 'closedDate',
   'dealValue', 'dealCloseValue', 'proposalValue', 'paymentStatus', 'amountPaid', 'userSource', 'remark',
   'businessName', 'website', 'leadPriority', 'connected', 'touchNumber',
+  // Raw/Working list filters (platform, source, form, lead type, breached).
+  'leadType', 'fbFormId', 'fbFormName', 'followUpBreached',
 ];
 const listProjection = Object.fromEntries(LIST_FIELDS.map((f) => [f, 1]));
 

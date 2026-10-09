@@ -141,7 +141,7 @@ const PerformanceCycleManager = () => {
                 Created by: <span className="text-app-text-muted">{cycle.createdBy?.email || 'Admin'}</span>
               </div>
 
-              <div className="flex gap-2 pt-1 border-t border-app-border">
+              <div className="flex flex-wrap gap-2 pt-1 border-t border-app-border">
                 {cycle.status === 'Draft' && (
                   <button
                     onClick={() => handleStatusChange(cycle._id, 'Active')}
@@ -177,7 +177,7 @@ const PerformanceCycleManager = () => {
 
       {/* Create Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+        <div className="fixed inset-0 overflow-y-auto z-50 flex items-center-safe justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-app-card border border-app-border rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
             <div className="flex justify-between items-center p-5 border-b border-app-border">
               <div>

@@ -236,7 +236,7 @@ export default function PricingManager() {
       {/* Forms logic handling */}
       {isCategoryModalOpen && (
         <div className="bg-app-card border border-app-border rounded-xl p-6 sm:p-8 shadow-sm">
-          <div className="flex items-center justify-between mb-8 pb-4 border-b border-app-border">
+          <div className="flex flex-wrap gap-3 items-center justify-between mb-8 pb-4 border-b border-app-border">
             <div>
               <h2 className="text-2xl font-bold text-app-text">
                 {editingId ? 'Edit Category' : 'Add New Category'}
@@ -299,7 +299,7 @@ export default function PricingManager() {
 
       {isPlanModalOpen && (
         <div className="bg-app-card border border-app-border rounded-xl p-6 sm:p-8 shadow-sm">
-          <div className="flex items-center justify-between mb-8 pb-4 border-b border-app-border">
+          <div className="flex flex-wrap gap-3 items-center justify-between mb-8 pb-4 border-b border-app-border">
             <div>
               <h2 className="text-2xl font-bold text-app-text">
                 {editingId ? 'Edit Plan' : 'Add New Plan'}
@@ -466,7 +466,7 @@ export default function PricingManager() {
                       {item.pricing?.amount} {item.pricing?.currency} {item.pricing?.isStartingAt ? '+' : ''} {item.pricing?.period === 'monthly' ? '/mo' : ''}
                     </div>
                     
-                    <div className="flex items-center justify-between pt-4 border-t border-app-border mt-auto">
+                    <div className="flex flex-wrap gap-2 items-center justify-between pt-4 border-t border-app-border mt-auto">
                       <button onClick={() => openEditPlan(item)} className="px-3 py-1.5 bg-blue-500/10 text-blue-600 hover:bg-blue-500/20 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-semibold" title="Edit">
                         <Edit2 size={15} /> Edit
                       </button>
@@ -492,7 +492,7 @@ export default function PricingManager() {
                   <div key={item._id} className="bg-app-card border border-app-border rounded-xl p-6 relative flex flex-col shadow-sm transition-shadow hover:shadow-md">
                     <h3 className="text-lg font-bold text-app-text mb-2">{item.name}</h3>
                     <p className="text-xs text-app-text-muted mb-4">{item.description}</p>
-                    <div className="flex items-center justify-between pt-4 border-t border-app-border mt-auto">
+                    <div className="flex flex-wrap gap-2 items-center justify-between pt-4 border-t border-app-border mt-auto">
                       <button onClick={() => openEditCategory(item)} className="px-3 py-1.5 bg-blue-500/10 text-blue-600 hover:bg-blue-500/20 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-semibold" title="Edit">
                         <Edit2 size={15} /> Edit
                       </button>
@@ -510,7 +510,7 @@ export default function PricingManager() {
 
       {/* Delete Confirmation Modal */}
       {deleteModal.isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+        <div className="fixed inset-0 overflow-y-auto z-50 flex items-center-safe justify-center p-4 bg-black/50 backdrop-blur-sm">
           <div className="bg-app-card border border-app-border rounded-xl p-6 w-full max-w-md shadow-2xl relative">
             <div className="flex flex-col items-center text-center">
               <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center mb-4">
