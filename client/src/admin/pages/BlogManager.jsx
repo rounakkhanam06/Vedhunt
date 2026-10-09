@@ -84,7 +84,7 @@ const BlogManager = () => {
 
   return (
     <div className="max-w-7xl mx-auto space-y-8">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-wrap gap-3 justify-between items-center">
         <h1 className="text-2xl sm:text-3xl font-bold text-app-text">Manage Blogs & Categories</h1>
         <Link to="/admin/blogs/create" className="bg-[#FF6B00] text-white font-semibold px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-[#e66000] transition-colors shadow-sm">
           <Plus size={20} />
@@ -93,7 +93,7 @@ const BlogManager = () => {
       </div>
 
       {/* Tabs */}
-      <div className="flex space-x-4 border-b border-app-border mb-6">
+      <div className="flex space-x-4 border-b border-app-border mb-6 overflow-x-auto whitespace-nowrap">
         <button
           onClick={() => setActiveTab('blogs')}
           className={`py-3 px-4 font-semibold border-b-2 transition-colors ${
@@ -156,8 +156,8 @@ const BlogManager = () => {
             </form>
           </div>
 
-          <div className="bg-app-card border border-app-border rounded-xl overflow-hidden shadow-sm">
-            <table className="w-full text-left">
+          <div className="bg-app-card border border-app-border rounded-xl overflow-x-auto shadow-sm">
+            <table className="w-full text-left min-w-[600px]">
               <thead className="bg-surface-variant text-app-text-muted text-xs uppercase font-medium">
                 <tr>
                   <th className="px-6 py-3 font-medium">Post</th>
@@ -217,7 +217,7 @@ const BlogManager = () => {
 
           {/* Custom Delete Confirmation Modal */}
           {deleteTargetSlug && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <div className="fixed inset-0 overflow-y-auto z-50 flex items-center-safe justify-center p-4 bg-black/60 backdrop-blur-sm">
               <motion.div 
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
@@ -233,7 +233,7 @@ const BlogManager = () => {
                   </p>
                 </div>
                 
-                <div className="flex gap-3">
+                <div className="flex flex-wrap gap-3">
                   <button 
                     onClick={() => setDeleteTargetSlug(null)}
                     className="flex-1 py-2.5 px-4 bg-surface-variant hover:bg-gray-200 dark:hover:bg-gray-700 text-app-text font-semibold rounded-lg border border-app-border transition-colors"

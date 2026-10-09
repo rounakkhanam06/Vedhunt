@@ -483,7 +483,7 @@ export default function PayrollManager() {
 
       {/* Payroll Settings Modal */}
       {showSettings && settings && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={(e) => { if (e.target === e.currentTarget) setShowSettings(false); }}>
+        <div className="fixed inset-0 overflow-y-auto z-[100] flex items-center-safe justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={(e) => { if (e.target === e.currentTarget) setShowSettings(false); }}>
           <div className="bg-app-card border border-app-border rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
             <div className="flex justify-between items-center p-5 border-b border-app-border bg-app-bg">
               <h2 className="text-lg font-bold text-app-text">Payroll Settings</h2>

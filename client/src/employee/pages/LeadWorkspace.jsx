@@ -16,6 +16,7 @@ import FollowUpForm from '../components/FollowUpForm';
 import ProposalWorkflow from '../components/ProposalWorkflow';
 import { toDateTimeInput, fromLocalInput } from '../lib/datetime';
 import { essKeys } from '../lib/ess';
+import { isCallInProgress, lastCallLog, startedNewCall, isSameOutcome, fmtClock } from '../../shared/callHandling';
 
 const sectionClass = 'bg-app-card border border-app-border rounded-xl p-4 sm:p-5 w-full min-w-0 overflow-hidden';
 const sectionLabelClass = 'text-xs font-bold text-app-text-muted uppercase tracking-wider mb-3 block';
@@ -95,6 +96,11 @@ export default function EmployeeLeadWorkspace() {
   // required combination is known — a one-tap flow, no separate Save click
   // needed for the common case. Mirrors admin/pages/LeadWorkspace.jsx.
   const [callOutcomeDraft, setCallOutcomeDraft] = useState(null);
+  // In-flight Start/End Call ('start' | 'end') and call-outcome saves — the
+  // buttons show it and ignore repeat taps, which used to log duplicate calls.
+  const [callBusy, setCallBusy] = useState(null);
+  const [outcomeSaving, setOutcomeSaving] = useState(false);
+  const outcomeSavingRef = useRef(false);
   const [uploading, setUploading] = useState(false);
   const [docType, setDocType] = useState('Attachment');
   // "Update Stage" scrolls to (and focuses) the status select further down.
@@ -233,8 +239,18 @@ export default function EmployeeLeadWorkspace() {
       [field]: value
     };
 
+    if (outcomeSavingRef.current) return;
+
     if (!isOutcomeReady(merged)) {
       setCallOutcomeDraft(merged);
+      return;
+    }
+
+    // Re-tapping what's already saved isn't a new call — only log it again
+    // once a new call has been started.
+    if (isSameOutcome(merged, lead) && !startedNewCall(lead)) {
+      setCallOutcomeDraft(null);
+      toast(`Already saved as Touch #${lastCallLog(lead)?.touchNumber ?? lead.touchNumber}. Tap Start Call before logging another call.`, { duration: 2500 });
       return;
     }
 
@@ -243,13 +259,18 @@ export default function EmployeeLeadWorkspace() {
       ? { connected: 'Yes', interestLevel: merged.interestLevel, ...followUp }
       : { connected: 'No', notConnectedReason: merged.notConnectedReason, ...followUp };
 
+    outcomeSavingRef.current = true;
+    setOutcomeSaving(true);
+    setCallOutcomeDraft(merged);
     try {
-      await handleFieldsChange(fields);
+      const data = await handleFieldsChange(fields);
       setCallOutcomeDraft(null);
-      toast.success('Call outcome saved', { duration: 1200, position: 'bottom-right' });
+      toast.success(`Call outcome saved · Touch #${data.lead?.touchNumber ?? ''}`, { duration: 1500, position: 'bottom-right' });
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to save outcome');
-      setCallOutcomeDraft(merged);
+    } finally {
+      outcomeSavingRef.current = false;
+      setOutcomeSaving(false);
     }
   };
 
@@ -292,31 +313,41 @@ export default function EmployeeLeadWorkspace() {
   // Tapping Call hands off to the device's native dialer (tel: link) and
   // starts the timer in the same action, matching the admin table's behavior.
   const handleStartCall = async () => {
+    if (callBusy || isCallInProgress(lead)) return;
+    setCallBusy('start');
     try {
       const now = new Date();
-      await employeeApi.put(`/employee-portal/ess/leads/${id}`, { callStartTime: now, callDate: now });
+      const res = await employeeApi.put(`/employee-portal/ess/leads/${id}`, { callStartTime: now, callDate: now });
+      syncLead(res.data.lead);
+      markListsStale();
       window.location.href = `tel:${lead.phone}`;
-      toast.success('Call started');
-      refreshAfterChange();
+      toast.success('Call started — log the outcome below when you finish');
     } catch {
       toast.error('Failed to start call');
+    } finally {
+      setCallBusy(null);
     }
   };
 
   const handleEndCall = async () => {
-    if (!lead.callStartTime) {
-      toast.error('Please start the call first');
+    if (callBusy) return;
+    if (!isCallInProgress(lead)) {
+      toast.error('No call in progress — tap Start Call first');
       return;
     }
+    setCallBusy('end');
     try {
       const now = new Date();
       const diffMs = now.getTime() - new Date(lead.callStartTime).getTime();
       const durationMin = Math.max(1, Math.round(diffMs / 60000));
-      await employeeApi.put(`/employee-portal/ess/leads/${id}`, { callEndTime: now, callDuration: durationMin });
+      const res = await employeeApi.put(`/employee-portal/ess/leads/${id}`, { callEndTime: now, callDuration: durationMin });
+      syncLead(res.data.lead);
+      markListsStale();
       toast.success(`Call ended (${durationMin} min)`);
-      refreshAfterChange();
     } catch {
       toast.error('Failed to end call');
+    } finally {
+      setCallBusy(null);
     }
   };
 
@@ -467,23 +498,28 @@ export default function EmployeeLeadWorkspace() {
         <div className="flex flex-wrap items-center gap-3">
           <button
             onClick={handleStartCall}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 rounded-lg text-xs font-medium transition-colors"
+            disabled={Boolean(callBusy) || isCallInProgress(lead)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 rounded-lg text-xs font-medium transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            <Play size={12} /> Start Call
+            <Play size={12} /> {callBusy === 'start' ? 'Starting…' : 'Start Call'}
           </button>
           <button
             onClick={handleEndCall}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-lg text-xs font-medium transition-colors"
+            disabled={Boolean(callBusy) || !isCallInProgress(lead)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-lg text-xs font-medium transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            <Square size={12} /> End Call
+            <Square size={12} /> {callBusy === 'end' ? 'Ending…' : 'End Call'}
           </button>
-          {lead.callStartTime && (
-            <span className="text-xs text-app-text-muted">
-              Started {new Date(lead.callStartTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          {isCallInProgress(lead) ? (
+            <span className="flex items-center gap-1.5 text-xs font-semibold text-emerald-400">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" /> Call in progress · started {fmtClock(lead.callStartTime)}
             </span>
-          )}
-          {lead.callDuration && (
-            <span className="text-xs text-app-text-muted">Duration: {lead.callDuration} min</span>
+          ) : lead.callStartTime ? (
+            <span className="text-xs text-app-text-muted">
+              Last call {fmtClock(lead.callStartTime)}{lead.callEndTime ? `–${fmtClock(lead.callEndTime)}` : ''}{lead.callDuration ? ` · ${lead.callDuration} min` : ''}
+            </span>
+          ) : (
+            <span className="text-xs text-app-text-muted">No call started yet</span>
           )}
         </div>
       </div>
@@ -491,7 +527,12 @@ export default function EmployeeLeadWorkspace() {
       {/* Call Outcome — one-tap chips, auto-commits the instant the state
           machine's required combination for the chosen branch is known. */}
       <div className={sectionClass}>
-        <label className={sectionLabelClass}>Call Outcome</label>
+        <div className="flex items-baseline justify-between gap-2">
+          <label className={sectionLabelClass}>Call Outcome</label>
+          <span className="text-[11px] text-app-text-muted">
+            {outcomeSaving ? 'Saving…' : lastCallLog(lead) ? `Last saved: Touch #${lastCallLog(lead).touchNumber} · ${fmtClock(lastCallLog(lead).loggedAt || lastCallLog(lead).callDate)}` : 'Nothing logged yet'}
+          </span>
+        </div>
         {callOutcomeDraft?.connected && !isOutcomeReady(callOutcomeDraft) && (
           <p className="mb-3 text-xs font-medium text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
             Not saved yet — finish the required fields below to save this call outcome.

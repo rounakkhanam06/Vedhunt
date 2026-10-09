@@ -9,6 +9,12 @@ const logger = require('../utils/logger');
 
 // Update fields validateLeadTransition never reads — they can't move a lead
 // through the pipeline, so an update made only of these skips it.
+// Saving an outcome again for the same call — re-tapping a chip, correcting
+// the interest level — amends that call's log entry instead of logging a new
+// touch, as long as it's the same caller, no new Start Call happened since,
+// and it's within this long of the call first being logged.
+const SAME_CALL_WINDOW_MS = 5 * 60 * 1000;
+
 const NON_GATING_FIELDS = [
   'remark', 'city', 'country', 'callStartTime', 'callEndTime', 'callDuration', 'callDate',
   'dealValue', 'paymentStatus', 'budget', 'timeline', 'decisionMaker', 'currentVendor', 'requirementSummary',
@@ -127,9 +133,15 @@ async function applyLeadUpdate(leadId, updates, actor, extraFilter = {}) {
   if (pipelineEntries.length > 0) push.pipelineHistory = { $each: pipelineEntries };
 
   let touchNumberUpdate;
+  let mergedCallLogs = existingLead.callLogs || [];
   if ('connected' in updates && updates.connected) {
-    const touchNumber = (existingLead.touchNumber || 0) + 1;
-    touchNumberUpdate = touchNumber;
+    const lastLog = mergedCallLogs[mergedCallLogs.length - 1];
+    const amendsLastCall = Boolean(lastLog?.loggedAt) &&
+      String(lastLog.calledBy) === String(actor.id) &&
+      isSameInstant(lastLog.callStartTime, updates.callStartTime || existingLead.callStartTime) &&
+      now - new Date(lastLog.loggedAt) < SAME_CALL_WINDOW_MS;
+    const touchNumber = amendsLastCall ? lastLog.touchNumber : (existingLead.touchNumber || 0) + 1;
+    if (!amendsLastCall) touchNumberUpdate = touchNumber;
     const resultingStage = updates.status || existingLead.status;
     const resultingNotConnectedReason = updates.connected === 'No' ? (updates.notConnectedReason || '') : '';
     const callDateUsed = updates.callDate || existingLead.callDate || now;
@@ -151,22 +163,28 @@ async function applyLeadUpdate(leadId, updates, actor, extraFilter = {}) {
     else if (resultingStage === 'Proposal Sent') callType = 'Proposal';
     else if (resultingStage === 'Negotiation') callType = 'Negotiation';
 
-    push.callLogs = {
-      $each: [{
-        touchNumber,
-        calledBy: actor.id,
-        callDate: callDateUsed,
-        callStartTime: updates.callStartTime || existingLead.callStartTime,
-        callEndTime: updates.callEndTime || existingLead.callEndTime,
-        callDuration: updates.callDuration ?? existingLead.callDuration,
-        connected: updates.connected,
-        notConnectedReason: resultingNotConnectedReason,
-        interestLevel: updates.connected === 'Yes' ? (updates.interestLevel || existingLead.interestLevel || '') : '',
-        remark: updates.remark ?? existingLead.remark ?? '',
-        leadStage: resultingStage,
-        callType
-      }]
+    const callLog = {
+      touchNumber,
+      calledBy: actor.id,
+      callDate: callDateUsed,
+      callStartTime: updates.callStartTime || existingLead.callStartTime,
+      callEndTime: updates.callEndTime || existingLead.callEndTime,
+      callDuration: updates.callDuration ?? existingLead.callDuration,
+      connected: updates.connected,
+      notConnectedReason: resultingNotConnectedReason,
+      interestLevel: updates.connected === 'Yes' ? (updates.interestLevel || existingLead.interestLevel || '') : '',
+      remark: updates.remark ?? existingLead.remark ?? '',
+      leadStage: resultingStage,
+      callType: amendsLastCall ? lastLog.callType : callType,
+      loggedAt: amendsLastCall ? lastLog.loggedAt : now
     };
+    if (amendsLastCall) {
+      updates[`callLogs.${mergedCallLogs.length - 1}`] = callLog;
+      mergedCallLogs = [...mergedCallLogs.slice(0, -1), callLog];
+    } else {
+      push.callLogs = { $each: [callLog] };
+      mergedCallLogs = [...mergedCallLogs, callLog];
+    }
     if (!existingLead.firstCallAt) updates.firstCallAt = now;
     updates.lastCallAt = now;
   }
@@ -207,9 +225,6 @@ async function applyLeadUpdate(leadId, updates, actor, extraFilter = {}) {
   // pushing (not yet reflected in existingLead.callLogs).
   try {
     const scoringSettings = await getLeadScoringSettings();
-    const mergedCallLogs = push.callLogs
-      ? [...(existingLead.callLogs || []), ...push.callLogs.$each]
-      : (existingLead.callLogs || []);
     updates.leadScore = computeLeadScore({
       servicesRequired: 'servicesRequired' in updates ? updates.servicesRequired : existingLead.servicesRequired,
       projectBudget: 'projectBudget' in updates ? updates.projectBudget : existingLead.projectBudget,

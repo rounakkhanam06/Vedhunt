@@ -435,8 +435,8 @@ const ServiceManager = ({ isNested = false }) => {
 
             {/* Pagination */}
             {totalPages > 1 && (
-              <div className="bg-app-bg px-4 py-3 border-t border-app-border flex items-center justify-between sm:px-6">
-                <div className="flex-1 flex justify-between">
+              <div className="bg-app-bg px-4 py-3 border-t border-app-border flex flex-wrap gap-2 items-center justify-between sm:px-6">
+                <div className="flex-1 flex flex-wrap gap-2 justify-between">
                   <button
                     onClick={() => setPage(p => Math.max(1, p - 1))}
                     disabled={page === 1}
@@ -462,7 +462,7 @@ const ServiceManager = ({ isNested = false }) => {
       ) : (
         /* Rebuilt Custom Page Form (Just like Hero Section!) */
         <div className="space-y-6 animate-in fade-in duration-200">
-          <div className="flex justify-between items-center">
+          <div className="flex flex-wrap gap-3 justify-between items-center">
             <div>
               <h1 className="text-2xl font-bold text-app-text">
                 {editingService ? 'Edit Service' : 'Add New Service'}
@@ -726,7 +726,7 @@ const ServiceManager = ({ isNested = false }) => {
 
       {/* Custom Delete Confirmation Modal */}
       {deleteTargetId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="fixed inset-0 overflow-y-auto z-50 flex items-center-safe justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-app-card border border-app-border rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl space-y-6 text-left">
             <div className="flex items-center gap-4 text-red-500">
               <div className="p-3 bg-red-500/10 rounded-full">
@@ -742,7 +742,7 @@ const ServiceManager = ({ isNested = false }) => {
               Are you sure you want to delete this service? This will permanently remove the service from both the homepage and services directory.
             </p>
 
-            <div className="flex justify-end gap-3 pt-2">
+            <div className="flex flex-wrap justify-end gap-3 pt-2">
               <button
                 type="button"
                 onClick={() => setDeleteTargetId(null)}

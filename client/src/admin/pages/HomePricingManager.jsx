@@ -158,7 +158,7 @@ export default function HomePricingManager() {
     <div className="mx-auto max-w-6xl space-y-8">
       {isModalOpen && (
         <div className="bg-app-card border border-app-border rounded-xl p-6 sm:p-8 shadow-sm">
-          <div className="flex items-center justify-between mb-8 pb-4 border-b border-app-border">
+          <div className="flex flex-wrap gap-3 items-center justify-between mb-8 pb-4 border-b border-app-border">
             <div>
               <h2 className="text-2xl font-bold text-app-text">{editingId ? 'Edit Pricing Card' : 'Add New Pricing Card'}</h2>
             </div>
@@ -282,7 +282,7 @@ export default function HomePricingManager() {
 
       {!isModalOpen && (
         <>
-          <div className="flex items-center justify-between border-b border-app-border pb-4">
+          <div className="flex flex-wrap gap-3 items-center justify-between border-b border-app-border pb-4">
             <div>
               <h1 className="text-2xl font-bold text-app-text">Pricing Cards</h1>
               <p className="text-app-text-muted text-sm mt-1">Manage pricing cards displayed on the home page and ad landing pages.</p>
@@ -333,7 +333,7 @@ export default function HomePricingManager() {
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center justify-between pt-4 border-t border-app-border mt-auto">
+                <div className="flex flex-wrap gap-2 items-center justify-between pt-4 border-t border-app-border mt-auto">
                   <button onClick={() => handleDelete(item._id)} className="px-3 py-1.5 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors flex gap-1.5 items-center text-xs font-semibold cursor-pointer" title="Delete">
                     <Trash2 size={15} /> Delete
                   </button>

@@ -767,7 +767,7 @@ const EmployeeManager = () => {
           {/* Detail Panel */}
           {isDetailOpen && selectedEmp && (
             <div className="w-full xl:w-[420px] flex-shrink-0 bg-app-card p-6 rounded-xl border border-app-border space-y-6 overflow-y-auto max-h-[85vh] sticky top-6 shadow-xl">
-              <div className="flex justify-between items-start border-b border-app-border pb-4">
+              <div className="flex flex-wrap gap-3 justify-between items-start border-b border-app-border pb-4">
                 <div>
                   <div className="flex items-center gap-2">
                     <h2 className="text-xl font-bold">{selectedEmp.firstName} {selectedEmp.lastName}</h2>
@@ -777,7 +777,7 @@ const EmployeeManager = () => {
                   </div>
                   <div className="text-xs text-orange-500 font-mono mt-0.5">{selectedEmp.employeeId}</div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <button
                     onClick={handleOpenEditModal}
                     className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg bg-orange-600/15 text-orange-400 border border-orange-500/20 hover:bg-orange-600 hover:text-white transition-all cursor-pointer font-medium"
@@ -966,7 +966,7 @@ const EmployeeManager = () => {
                   {/* Action Buttons */}
                   {showProbationPanel && ['Probation', 'Extended'].includes(selectedEmp.probation.status) && (
                     <div className="space-y-3 pt-2 border-t border-app-border">
-                      <div className="flex gap-2">
+                      <div className="flex flex-wrap gap-2">
                         <button
                           onClick={() => { setProbationAction('confirm'); }}
                           className={`flex-1 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${probationAction === 'confirm' ? 'bg-emerald-600 text-white border-emerald-600' : 'border-emerald-500/25 text-emerald-400 hover:bg-emerald-600 hover:text-white'}`}

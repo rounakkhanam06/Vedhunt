@@ -378,7 +378,7 @@ export default function UnassignedLeadsManager() {
 
       {/* Leads Table Toolbar: lead type selector */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex bg-app-card border border-app-border p-1 rounded-lg w-max">
+        <div className="flex bg-app-card border border-app-border p-1 rounded-lg w-max max-w-full overflow-x-auto">
           {['Sales', 'Hiring', 'All'].map((type) => (
             <button
               key={type}

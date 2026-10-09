@@ -217,7 +217,7 @@ export default function LifeAtVedhuntManager() {
 
       {/* Cards List */}
       <div className="bg-app-card border border-app-border rounded-xl p-6 shadow-sm">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-wrap gap-3 items-center justify-between mb-6">
           <h2 className="text-lg font-bold text-app-text">Culture Cards</h2>
           <button
             onClick={openAddModal}
@@ -243,7 +243,7 @@ export default function LifeAtVedhuntManager() {
                 <h3 className="text-app-text font-bold text-base">{card.title}</h3>
               </div>
               
-              <div className="flex items-center gap-2 mt-4 pt-4 border-t border-app-border">
+              <div className="flex flex-wrap items-center gap-2 mt-4 pt-4 border-t border-app-border">
                 <button 
                   onClick={() => openEditModal(card)}
                   className="flex-1 flex justify-center items-center gap-1.5 py-1.5 bg-blue-500/10 text-blue-600 hover:bg-blue-500/20 rounded-lg transition-colors text-xs font-semibold cursor-pointer"

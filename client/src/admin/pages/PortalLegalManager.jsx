@@ -192,7 +192,7 @@ const PortalLegalManager = () => {
             <div className="space-y-5">
               {data.policyData.map((s, i) => (
                 <div key={s.id} className="bg-app-bg border border-app-border rounded-xl p-5">
-                  <div className="flex items-end gap-3 mb-4">
+                  <div className="flex flex-wrap items-end gap-3 mb-4">
                     <div className="flex-1">
                       <label className={label} htmlFor={`pl-title-${s.id}`}>Section Title</label>
                       <input id={`pl-title-${s.id}`} className={input} value={s.title} onChange={(e) => setSection(i, 'title', e.target.value)} />

@@ -353,7 +353,7 @@ export default function LeadsManager({ stageGroup }) {
             </div>
           )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {stageGroup === 'raw' && isSuperAdmin && (
             <button
               onClick={() => setShowImportModal(true)}
@@ -402,7 +402,7 @@ export default function LeadsManager({ stageGroup }) {
 
       {/* Toolbar: type split + view toggle, one row */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex bg-app-card border border-app-border p-1 rounded-lg w-max">
+        <div className="flex bg-app-card border border-app-border p-1 rounded-lg w-max max-w-full overflow-x-auto">
           {['Sales', 'Hiring', 'All'].map((type) => (
             <button
               key={type}
@@ -419,7 +419,7 @@ export default function LeadsManager({ stageGroup }) {
           ))}
         </div>
 
-        <div className="flex bg-app-card border border-app-border p-1 rounded-lg w-max">
+        <div className="flex bg-app-card border border-app-border p-1 rounded-lg w-max max-w-full overflow-x-auto">
           <button
             onClick={() => handleViewModeChange('table')}
             className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-semibold transition-all ${

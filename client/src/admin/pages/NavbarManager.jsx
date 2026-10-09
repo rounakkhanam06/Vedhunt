@@ -163,8 +163,8 @@ const NavbarManager = ({ isNested = false }) => {
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="bg-app-card px-4 py-3 border-t border-app-border flex items-center justify-between sm:px-6">
-            <div className="flex-1 flex justify-between">
+          <div className="bg-app-card px-4 py-3 border-t border-app-border flex flex-wrap gap-2 items-center justify-between sm:px-6">
+            <div className="flex-1 flex flex-wrap gap-2 justify-between">
               <button
                 onClick={() => setPage(p => Math.max(1, p - 1))}
                 disabled={page === 1}
