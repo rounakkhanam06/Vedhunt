@@ -145,7 +145,7 @@ const LeaveRequestsManager = ({ embedded = false }) => {
 
       {/* Action Modal */}
       {actionModal.isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+        <div className="fixed inset-0 overflow-y-auto z-50 flex items-center-safe justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-app-card border border-app-border rounded-2xl w-full max-w-md overflow-hidden shadow-2xl">
             <div className="p-5 border-b border-app-border flex justify-between items-center bg-app-bg/50">
               <h2 className="text-lg font-bold text-app-text">
@@ -171,7 +171,7 @@ const LeaveRequestsManager = ({ embedded = false }) => {
                   className="w-full text-sm rounded-lg border border-app-border bg-app-bg px-4 py-2 text-app-text placeholder:text-app-text-muted/60 resize-none outline-none focus:border-primary"
                 />
               </div>
-              <div className="pt-2 flex justify-end gap-3">
+              <div className="pt-2 flex flex-wrap justify-end gap-3">
                 <button
                   type="button"
                   onClick={() => setActionModal({ isOpen: false, reqId: null, status: null })}

@@ -308,7 +308,7 @@ const PaymentVerificationManager = () => {
                       className="w-full px-4 py-2.5 bg-admin-surface border border-outline-variant rounded-xl text-on-surface text-sm focus:outline-none focus:border-red-500 transition-colors placeholder:text-on-surface-variant/50"
                     />
                   </div>
-                  <div className="flex items-center gap-3 shrink-0">
+                  <div className="flex flex-wrap items-center gap-3 shrink-0">
                     <button
                       onClick={() => handleReject(selectedPayment._id)}
                       disabled={actionLoading}

@@ -123,7 +123,7 @@ export default function BlogCategoryManager() {
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center justify-between border-b border-app-border pb-4">
+      <div className="flex flex-wrap gap-3 items-center justify-between border-b border-app-border pb-4">
         <div>
           <h2 className="text-xl font-bold text-app-text">Categories</h2>
           <p className="text-app-text-muted text-sm mt-1">Manage categories for your blog posts.</p>
@@ -164,8 +164,8 @@ export default function BlogCategoryManager() {
                 </p>
               </div>
 
-              <div className="flex items-center justify-between pt-4 border-t border-app-border mt-auto">
-                <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2 items-center justify-between pt-4 border-t border-app-border mt-auto">
+                <div className="flex flex-wrap gap-2">
                   <button 
                     onClick={() => openEditModal(category)}
                     className="p-2 bg-blue-500/10 text-blue-500 hover:bg-blue-500/20 rounded-lg transition-colors"
@@ -200,7 +200,7 @@ export default function BlogCategoryManager() {
       )}
 
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 overflow-y-auto z-50 bg-black/60 backdrop-blur-sm flex items-center-safe justify-center p-4">
           <div className="bg-app-card border border-app-border rounded-xl p-6 w-full max-w-md relative shadow-2xl animate-in fade-in zoom-in-95 duration-200">
             <h2 className="text-xl font-bold text-app-text mb-6">
               {editingId ? 'Edit Category' : 'Add New Category'}

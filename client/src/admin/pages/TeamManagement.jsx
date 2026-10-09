@@ -454,7 +454,7 @@ const TeamManagement = () => {
               </div>
             </form>
 
-            <div className="p-6 border-t border-app-border shrink-0 flex gap-3 bg-app-card">
+            <div className="p-6 border-t border-app-border shrink-0 flex flex-wrap gap-3 bg-app-card">
               <button 
                 type="button" 
                 onClick={() => setShowModal(false)}

@@ -185,7 +185,7 @@ export default function WhyChooseUsManager({ isNested = false }) {
 
       {/* Cards Management Section */}
       <div className="space-y-4">
-        <div className="flex items-center justify-between border-b border-app-border pb-4">
+        <div className="flex flex-wrap gap-3 items-center justify-between border-b border-app-border pb-4">
           <h2 className="text-xl font-bold text-app-text">Feature Cards</h2>
           <button
             onClick={openAddModal}
@@ -200,11 +200,11 @@ export default function WhyChooseUsManager({ isNested = false }) {
             const Icon = LucideIcons[card.icon] || LucideIcons.HelpCircle;
             return (
               <div key={card._id} className={`bg-app-card border border-app-border rounded-xl p-6 relative shadow-sm ${!card.isActive ? 'opacity-50' : ''}`}>
-                <div className="flex justify-between items-start mb-4">
+                <div className="flex flex-wrap gap-2 justify-between items-start mb-4">
                   <div className="w-12 h-12 rounded-lg bg-[#FF6B00]/10 text-[#FF6B00] flex items-center justify-center">
                     <Icon size={24} />
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     <button onClick={() => toggleCardStatus(card)} className="p-2 bg-surface-variant hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-app-text-muted transition-colors" title="Toggle Visibility">
                       {card.isActive ? <Eye size={16} /> : <EyeOff size={16} />}
                     </button>
@@ -232,7 +232,7 @@ export default function WhyChooseUsManager({ isNested = false }) {
 
       {/* Add/Edit Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 overflow-y-auto z-50 bg-black/60 backdrop-blur-sm flex items-center-safe justify-center p-4">
           <div className="bg-app-card border border-app-border rounded-xl p-6 w-full max-w-lg relative shadow-2xl animate-in fade-in zoom-in-95 duration-200">
             <h2 className="text-xl font-bold text-app-text mb-6">{editingCard ? 'Edit Card' : 'Add New Card'}</h2>
             
@@ -294,7 +294,7 @@ export default function WhyChooseUsManager({ isNested = false }) {
                 <label htmlFor="isActive" className="text-sm text-app-text">Active (Visible)</label>
               </div>
 
-              <div className="flex justify-end gap-3 mt-8 pt-4 border-t border-app-border">
+              <div className="flex flex-wrap justify-end gap-3 mt-8 pt-4 border-t border-app-border">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}

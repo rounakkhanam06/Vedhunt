@@ -166,11 +166,11 @@ export default function LeadActivity() {
       )}
 
       {totalPages > 1 && (
-        <div className="flex items-center justify-between bg-app-card border border-app-border p-4 rounded-xl">
+        <div className="flex flex-wrap gap-2 items-center justify-between bg-app-card border border-app-border p-4 rounded-xl">
           <span className="text-sm text-app-text-muted">
             Page <span className="font-bold text-app-text">{currentPage}</span> of <span className="font-bold text-app-text">{totalPages}</span>
           </span>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
               disabled={currentPage === 1}

@@ -283,7 +283,10 @@ const leadSchema = new mongoose.Schema({
     callType: {
       type: String,
       enum: ['First Call', 'Follow-up', 'Callback', 'Proposal', 'Negotiation', 'Other']
-    }
+    },
+    // When the outcome was first saved — re-saving the same call within a few
+    // minutes amends this entry instead of adding a touch (leadLifecycle.js).
+    loggedAt: Date
   }],
   // Set once, from the first callLogs entry — used for BD response-time
   // reporting (time from assignment to first call).

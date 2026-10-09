@@ -259,9 +259,9 @@ export default function ProjectManager() {
         )}
 
         {pagination.totalPages > 1 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-outline-variant">
+          <div className="flex flex-wrap gap-2 items-center justify-between px-4 py-3 border-t border-outline-variant">
             <p className="text-on-surface-variant text-xs">Page {pagination.page} of {pagination.totalPages}</p>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <button disabled={page <= 1} onClick={() => setPage(p => p - 1)}
                 className="p-1.5 rounded-lg bg-admin-bg border border-outline-variant text-on-surface-variant hover:text-on-surface disabled:opacity-40 cursor-pointer">
                 <ChevronLeft size={14} />

@@ -87,7 +87,7 @@ export default function ManageAgreement() {
   if (selectedClient && viewMode) {
     return (
       <div className="space-y-6 max-w-5xl mx-auto">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap gap-3 items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-on-surface">Preview Agreement</h1>
             <p className="text-on-surface-variant text-sm mt-1">Viewing agreement for {selectedClient.businessName}</p>
@@ -113,7 +113,7 @@ export default function ManageAgreement() {
   if (selectedClient && !viewMode) {
     return (
       <div className="space-y-6 max-w-5xl mx-auto">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap gap-3 items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-on-surface">Edit Agreement Details</h1>
             <p className="text-on-surface-variant text-sm mt-1">For {selectedClient.businessName}</p>

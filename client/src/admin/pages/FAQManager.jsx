@@ -311,7 +311,7 @@ const FAQManager = () => {
       </div>
 
       {/* FAQ Items Section */}
-      <div className="flex justify-between items-center mb-4">
+      <div className="flex flex-wrap gap-3 justify-between items-center mb-4">
         <h2 className="text-xl font-bold text-app-text">FAQ Items</h2>
         <button
           onClick={() => handleOpenFaqForm()}
@@ -376,7 +376,7 @@ const FAQManager = () => {
 
       {/* FAQ Form Modal */}
       {isFaqModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="fixed inset-0 overflow-y-auto z-50 flex items-center-safe justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-app-card border border-app-border rounded-2xl p-6 max-w-2xl w-full mx-4 shadow-2xl space-y-6">
             <h3 className="text-xl font-bold text-app-text">
               {editingFaq ? 'Edit FAQ' : 'Add FAQ'}
@@ -451,7 +451,7 @@ const FAQManager = () => {
 
       {/* Custom Delete Confirmation Modal */}
       {deleteTargetId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="fixed inset-0 overflow-y-auto z-50 flex items-center-safe justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-app-card border border-app-border rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl space-y-6 text-left">
             <div className="flex items-center gap-4 text-red-500">
               <div className="p-3 bg-red-500/10 rounded-full">
@@ -467,7 +467,7 @@ const FAQManager = () => {
               Are you sure you want to delete this FAQ? It will be removed immediately.
             </p>
 
-            <div className="flex justify-end gap-3 pt-2">
+            <div className="flex flex-wrap justify-end gap-3 pt-2">
               <button
                 type="button"
                 onClick={() => setDeleteTargetId(null)}

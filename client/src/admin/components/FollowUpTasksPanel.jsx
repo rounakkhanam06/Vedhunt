@@ -168,7 +168,7 @@ export default function FollowUpTasksPanel({ leadId, canManage, bds, myAdminId }
                         onChange={(e) => setResultText(e.target.value)}
                         className={selectClass}
                       />
-                      <div className="flex justify-end gap-2">
+                      <div className="flex flex-wrap justify-end gap-2">
                         <button onClick={() => { setCompletingId(null); setResultText(''); }} className="p-1.5 text-app-text-muted hover:text-app-text"><X size={14} /></button>
                         <button onClick={() => handleComplete(task._id)} className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-black bg-primary rounded-lg">
                           <CheckCircle2 size={13} /> Save

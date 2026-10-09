@@ -16,6 +16,16 @@ const queryClient = new QueryClient({
   },
 })
 
+// Clicking anywhere on a date/time input opens its calendar, not just the
+// small icon — browsers otherwise only select the dd/mm/yyyy segment.
+const PICKER_TYPES = new Set(['date', 'datetime-local', 'month', 'week', 'time'])
+document.addEventListener('click', (e) => {
+  const input = e.target
+  if (!(input instanceof HTMLInputElement) || !PICKER_TYPES.has(input.type)) return
+  if (input.disabled || input.readOnly || typeof input.showPicker !== 'function') return
+  try { input.showPicker() } catch { /* already open, or not allowed in this frame */ }
+})
+
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>

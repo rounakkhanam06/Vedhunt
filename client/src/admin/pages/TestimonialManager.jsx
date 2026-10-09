@@ -189,7 +189,7 @@ export default function TestimonialManager() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-8">
-      <div className="flex items-center justify-between border-b border-app-border pb-4">
+      <div className="flex flex-wrap gap-3 items-center justify-between border-b border-app-border pb-4">
         <div>
           <h1 className="text-2xl font-bold text-app-text">Testimonials Management</h1>
           <p className="text-app-text-muted text-sm mt-1">Manage client reviews and approve public submissions.</p>
@@ -276,8 +276,8 @@ export default function TestimonialManager() {
                 "{t.quote}"
               </div>
 
-                <div className="flex items-center justify-between pt-3 border-t border-app-border mt-auto">
-                  <div className="flex gap-1.5">
+                <div className="flex flex-wrap gap-2 items-center justify-between pt-3 border-t border-app-border mt-auto">
+                  <div className="flex flex-wrap gap-1.5">
                     <button 
                       onClick={() => openEditModal(t)}
                       className="p-1.5 bg-blue-500/10 text-blue-600 hover:bg-blue-500/20 rounded-lg transition-all cursor-pointer"
@@ -321,7 +321,7 @@ export default function TestimonialManager() {
 
       {/* Add Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 overflow-y-auto z-50 bg-black/50 backdrop-blur-sm flex items-center-safe justify-center p-4">
           <div className="bg-app-card border border-app-border rounded-xl p-6 w-full max-w-lg relative shadow-2xl">
             <h2 className="text-xl font-bold text-app-text mb-4">
               {editingId ? 'Edit Testimonial' : 'Add New Testimonial'}
@@ -451,7 +451,7 @@ export default function TestimonialManager() {
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3 pt-3 border-t border-app-border mt-3">
+              <div className="flex flex-wrap justify-end gap-3 pt-3 border-t border-app-border mt-3">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
@@ -474,7 +474,7 @@ export default function TestimonialManager() {
 
       {/* Delete Confirmation Modal */}
       {deleteConfirmId && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 overflow-y-auto z-50 bg-black/50 backdrop-blur-sm flex items-center-safe justify-center p-4">
           <div className="bg-app-card border border-app-border rounded-xl p-6 w-full max-w-sm relative text-center shadow-2xl">
             <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center mx-auto mb-4 border border-red-500/20">
               <AlertTriangle className="w-6 h-6 text-red-500" />
