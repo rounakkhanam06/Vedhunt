@@ -166,6 +166,37 @@ export default function LeadsManager({ stageGroup }) {
     fetchLeads();
   }, [fetchLeads]);
 
+  // Raw Leads hides anything a BD has already touched, so its count runs
+  // below the "Results" Facebook shows for the same form — which reads like a
+  // sync gap. For a selected form, show the full split so the numbers add up.
+  // Scoped to the form (and received-date range) only, matching what Ads
+  // Manager counts; other filters on the page don't apply.
+  const [formSummary, setFormSummary] = useState(null);
+  useEffect(() => {
+    if (stageGroup !== 'raw' || formFilter === 'All') return;
+    let cancelled = false;
+    const useDates = dateField === 'received';
+    const countFor = (group) => api.get('/leads', {
+      params: {
+        stageGroup: group,
+        fbFormId: formFilter,
+        leadType: 'All',
+        dateFrom: (useDates && dateFrom) || undefined,
+        dateTo: (useDates && dateTo) || undefined,
+        limit: 1
+      }
+    }).then((res) => res.data?.totalLeads ?? 0);
+
+    Promise.all([countFor('raw'), countFor('working')])
+      .then(([raw, working]) => {
+        if (!cancelled) setFormSummary({ formId: formFilter, raw, working, total: raw + working });
+      })
+      .catch(() => { /* summary is a convenience — just leave it hidden */ });
+
+    return () => { cancelled = true; };
+    // totalLeads is a dependency so the summary refreshes after a delete.
+  }, [stageGroup, formFilter, dateField, dateFrom, dateTo, totalLeads]);
+
   // Populate the form filter dropdown. Forms register themselves as leads
   // arrive, so this list grows on its own.
   useEffect(() => {
@@ -343,6 +374,15 @@ export default function LeadsManager({ stageGroup }) {
             {leadTypeFilter === 'All' ? 'Total' : leadTypeFilter} leads:{' '}
             <span className="font-semibold text-app-text">{totalLeads}</span>
           </p>
+          {stageGroup === 'raw' && formSummary?.formId === formFilter && (
+            <p className="text-xs text-app-text-muted mt-1.5">
+              This form{dateField === 'received' && (dateFrom || dateTo) ? ' (selected dates)' : ''}:{' '}
+              <span className="font-semibold text-app-text">{formSummary.total}</span> total ={' '}
+              <span className="font-semibold text-app-text">{formSummary.raw}</span> raw +{' '}
+              <span className="font-semibold text-app-text">{formSummary.working}</span> working
+              <span className="opacity-75"> — compare the total with Facebook&apos;s Results</span>
+            </p>
+          )}
           {activeFilterChips.length > 0 && (
             <div className="flex flex-wrap gap-1.5 mt-2">
               {activeFilterChips.map((chip) => (
