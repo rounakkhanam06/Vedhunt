@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import HolidayCalendar from '../components/HolidayCalendar';
 import { User, Plug, BarChart2, Database, Save, Mail, Lock, Smartphone, DownloadCloud, AlertCircle, Phone, MapPin, Share2, Clock, CreditCard, QrCode, UploadCloud, LifeBuoy, Gauge, Key, ShieldCheck } from 'lucide-react';
 import { useAdminStore } from '../../store/useAdminStore';
 import { authService } from '../../services/authService';
@@ -80,9 +81,6 @@ const SettingsPage = () => {
     defaultLeaves: { CL: 6, SL: 6, PL: 12 }
   });
 
-  const [holidays, setHolidays] = useState([]);
-  const [newHoliday, setNewHoliday] = useState({ name: '', date: '', type: 'Public' });
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
   const [paymentSettings, setPaymentSettings] = useState({
     upiId: '',
@@ -178,21 +176,6 @@ const SettingsPage = () => {
       }
     } catch (error) {
       toast.error('Failed to load attendance rules');
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchHolidays = async () => {
-    try {
-      setLoading(true);
-      const res = await api.get(`/employees/holidays?year=${selectedYear}`);
-      if (res.data.success) {
-        setHolidays(res.data.holidays);
-      }
-    } catch (error) {
-      toast.error('Failed to load holidays');
       console.error(error);
     } finally {
       setLoading(false);
@@ -396,7 +379,6 @@ const SettingsPage = () => {
     if (activeTab === 'integrations') fetchEmailSettings();
     if (activeTab === 'officeTimings') fetchOfficeTimings();
     if (activeTab === 'attendanceRules') fetchAttendanceRules();
-    if (activeTab === 'holidays') fetchHolidays();
     if (activeTab === 'payment') fetchPaymentSettings();
     if (activeTab === 'assignmentRules') {
       fetchAssignmentSettings();
@@ -404,7 +386,7 @@ const SettingsPage = () => {
       fetchBdRoster();
     }
     if (activeTab === 'leadScoring') fetchLeadScoring();
-  }, [activeTab, selectedYear]);
+  }, [activeTab]);
 
   const handleContactChange = (e) => {
     const { name, value } = e.target;
@@ -522,37 +504,6 @@ const SettingsPage = () => {
       console.error(error);
     } finally {
       setSaving(false);
-    }
-  };
-
-  const handleAddHoliday = async (e) => {
-    e.preventDefault();
-    if (!newHoliday.name || !newHoliday.date) return toast.error('Name and Date are required');
-    try {
-      setSaving(true);
-      const res = await api.post('/employees/holidays', newHoliday);
-      if (res.data.success) {
-        toast.success('Holiday added');
-        setNewHoliday({ name: '', date: '', type: 'Public' });
-        fetchHolidays();
-      }
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to add holiday');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleDeleteHoliday = async (id) => {
-    if (!window.confirm('Delete this holiday?')) return;
-    try {
-      const res = await api.delete(`/employees/holidays/${id}`);
-      if (res.data.success) {
-        toast.success('Holiday deleted');
-        fetchHolidays();
-      }
-    } catch (error) {
-      toast.error('Failed to delete holiday');
     }
   };
 
@@ -1402,88 +1353,7 @@ const SettingsPage = () => {
         )}
 
         {/* Holidays Tab */}
-        {activeTab === 'holidays' && (
-          <div className="max-w-3xl animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <h3 className="text-2xl font-bold text-app-text mb-2">Company Holiday Calendar</h3>
-            <p className="text-app-text-muted text-sm mb-8">Manage official non-working holidays. Employees get paid leaves for these days.</p>
-            
-            <div className="flex justify-between items-center mb-6">
-              <h4 className="text-sm font-semibold text-[#FF5A1F] uppercase tracking-widest">Holidays for {selectedYear}</h4>
-              <select 
-                value={selectedYear}
-                onChange={(e) => setSelectedYear(e.target.value)}
-                className="bg-app-bg border border-app-border rounded-lg px-4 py-2 text-white outline-none"
-              >
-                {[...Array(5)].map((_, i) => {
-                  const y = new Date().getFullYear() - 2 + i;
-                  return <option key={y} value={y}>{y}</option>;
-                })}
-              </select>
-            </div>
-
-            <div className="bg-app-bg border border-app-border p-6 rounded-xl mb-8">
-              <form onSubmit={handleAddHoliday} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-end">
-                <div className="col-span-1">
-                  <label className={labelClasses}>Date</label>
-                  <input type="date" required value={newHoliday.date} onChange={e => setNewHoliday({...newHoliday, date: e.target.value})} className={inputClasses} style={{ colorScheme: 'dark' }} />
-                </div>
-                <div className="col-span-1">
-                  <label className={labelClasses}>Holiday Name</label>
-                  <input type="text" required placeholder="Diwali" value={newHoliday.name} onChange={e => setNewHoliday({...newHoliday, name: e.target.value})} className={inputClasses} />
-                </div>
-                <div className="col-span-1">
-                  <label className={labelClasses}>Type</label>
-                  <select value={newHoliday.type} onChange={e => setNewHoliday({...newHoliday, type: e.target.value})} className={inputClasses}>
-                    <option value="Public">Public</option>
-                    <option value="Restricted">Restricted</option>
-                  </select>
-                </div>
-                <div className="col-span-1">
-                  <button type="submit" disabled={saving} className="w-full bg-[#FF5A1F] hover:bg-[#EA580C] text-white px-4 py-2 rounded-lg font-bold transition-all h-[42px] whitespace-nowrap">
-                    Add Holiday
-                  </button>
-                </div>
-              </form>
-            </div>
-
-            {loading ? (
-              <div className="text-app-text-muted">Loading...</div>
-            ) : (
-              <div className="bg-app-bg border border-app-border rounded-xl overflow-x-auto">
-                <table className="w-full text-left text-sm text-app-text min-w-[500px]">
-                  <thead className="bg-surface-variant text-xs uppercase text-app-text-muted border-b border-app-border">
-                    <tr>
-                      <th className="px-6 py-4">Date</th>
-                      <th className="px-6 py-4">Name</th>
-                      <th className="px-6 py-4">Type</th>
-                      <th className="px-6 py-4 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#2D2D33]">
-                    {holidays.length === 0 ? (
-                      <tr><td colSpan="4" className="px-6 py-8 text-center text-app-text-muted">No holidays found for {selectedYear}</td></tr>
-                    ) : (
-                      holidays.map(h => (
-                        <tr key={h._id} className="hover:bg-white/[0.02]">
-                          <td className="px-6 py-4 font-mono">{new Date(h.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
-                          <td className="px-6 py-4 font-semibold text-app-text">{h.name}</td>
-                          <td className="px-6 py-4">
-                            <span className={`px-2 py-1 rounded text-[10px] uppercase font-bold tracking-wider ${h.type === 'Public' ? 'bg-green-500/10 text-green-500' : 'bg-orange-500/10 text-orange-500'}`}>
-                              {h.type}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 text-right">
-                            <button onClick={() => handleDeleteHoliday(h._id)} className="text-red-500 hover:text-red-400 font-medium text-xs">Delete</button>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
+        {activeTab === 'holidays' && <HolidayCalendar />}
 
         {/* Assignment Rules Tab */}
         {activeTab === 'assignmentRules' && (
@@ -1746,7 +1616,7 @@ const SettingsPage = () => {
       </div>
 
       {/* Sticky Floating Action Button (for global config tabs) */}
-      {activeTab !== 'profile' && (
+      {activeTab !== 'profile' && activeTab !== 'holidays' && (
         <div className="absolute bottom-6 right-6 z-10">
           <button 
             onClick={() => {
@@ -1755,7 +1625,6 @@ const SettingsPage = () => {
               if (activeTab === 'campaigns') handleSaveCampaigns();
               if (activeTab === 'officeTimings') handleSaveOfficeTimings();
               if (activeTab === 'attendanceRules') handleSaveAttendanceRules();
-              if (activeTab === 'holidays') fetchHolidays();
               if (activeTab === 'payment') handleSavePaymentSettings();
               if (activeTab === 'assignmentRules') fetchAssignmentRules();
               if (activeTab === 'leadScoring') handleSaveLeadScoring();

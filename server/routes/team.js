@@ -4,6 +4,7 @@ const Role = require('../models/Role');
 const AuditLog = require('../models/AuditLog');
 const authMiddleware = require('../middleware/authMiddleware');
 const requirePermission = require('../middleware/requirePermission');
+const { grantError } = require('../utils/roleGrants');
 const logger = require('../utils/logger');
 
 const router = express.Router();
@@ -74,6 +75,8 @@ router.post('/', requirePermission('team.manage'), async (req, res) => {
     if (await assignsEmployeeRole(assignedRoles)) {
       return res.status(400).json({ success: false, message: 'Employee accounts must be created from the Employee Manager, not Team Management.' });
     }
+    const createGrantError = await grantError(req.user, assignedRoles);
+    if (createGrantError) return res.status(403).json({ success: false, message: createGrantError });
 
     // Super Admin assignment check
     if (assignedRoles && assignedRoles.length > 0) {
@@ -139,6 +142,11 @@ router.put('/:id', requirePermission('team.manage'), async (req, res) => {
       if (wantsEmployeeRole) {
         return res.status(400).json({ success: false, message: 'Employee accounts must be created from the Employee Manager, not Team Management.' });
       }
+      // Only roles being newly added need checking — keeping a role the
+      // account already has isn't granting anything.
+      const addedRoles = roles.filter((id) => !admin.roles.some((r) => String(r) === String(id)));
+      const updateGrantError = await grantError(req.user, addedRoles);
+      if (updateGrantError) return res.status(403).json({ success: false, message: updateGrantError });
 
       // Super Admin assignment check
       const superAdminRole = await Role.findOne({ name: 'SUPER_ADMIN' });

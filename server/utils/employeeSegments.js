@@ -16,6 +16,7 @@ const DEFAULT_ROLE_SEGMENTS = {
   HR: 'Operations',
   EMPLOYEE: 'General',
   PROJECT_MANAGER: 'Technology',
+  'PROJECT MANAGER': 'Technology', // created by hand in Role Management with a space
   MIS_FINANCE: 'Operations',
   DIRECTOR: 'Management',
 };

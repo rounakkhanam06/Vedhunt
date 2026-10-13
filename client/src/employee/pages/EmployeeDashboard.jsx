@@ -17,6 +17,7 @@ import PayslipsTab from '../tabs/PayslipsTab';
 import PerformanceTab from '../tabs/PerformanceTab';
 import ProfileTab from '../tabs/ProfileTab';
 import TeamApprovalsTab from '../tabs/TeamApprovalsTab';
+import TeamPerformanceTab from '../tabs/TeamPerformanceTab';
 import ProjectsTab from '../tabs/ProjectsTab';
 
 const TABS = {
@@ -32,6 +33,7 @@ const TABS = {
   performance: PerformanceTab,
   profile: ProfileTab,
   team: TeamApprovalsTab,
+  'team-performance': TeamPerformanceTab,
   projects: ProjectsTab,
 };
 

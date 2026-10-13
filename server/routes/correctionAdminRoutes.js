@@ -7,7 +7,7 @@ const corrections = require('../services/corrections');
 const { sendResult } = require('../utils/apiResponse');
 
 const router = express.Router();
-router.use(authMiddleware, requirePermission('team.manage'));
+router.use(authMiddleware, requirePermission('attendance.manage'));
 
 router.get('/', async (req, res) => {
   res.json({ success: true, requests: await corrections.listForReview(req.query) });

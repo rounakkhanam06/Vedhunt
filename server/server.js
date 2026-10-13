@@ -62,6 +62,7 @@ const payrollRoutes = require('./routes/payrollRoutes');
 const analyticsRoutes = require('./routes/analyticsRoutes');
 const { seedServicePages } = require('./controllers/servicePageSeeder');
 const { ensureDefaultEmployeeRoles } = require('./utils/employeeRoles');
+const { migratePermissions } = require('./utils/permissionMigration');
 const { generateSitemap } = require('./controllers/sitemapController');
 
 // Client Portal Routes (isolated from admin auth)
@@ -322,6 +323,7 @@ mongoose
     await seedFaqData();
     await seedServicePages();
     await ensureDefaultEmployeeRoles();
+    await migratePermissions();
 
     // Start background jobs worker
     require('./jobs/agenda');

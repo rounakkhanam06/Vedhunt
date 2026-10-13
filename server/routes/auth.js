@@ -1,4 +1,5 @@
 const express = require('express');
+const { permissionsOf, grantsAdminPanel } = require('../config/permissions');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
@@ -39,13 +40,14 @@ router.post('/login', ...loginMiddleware, async (req, res) => {
         return res.status(401).json({ success: false, message: 'Account is inactive' });
       }
 
-      // Prevent portal-only accounts (plain employees, and any other
-      // Employee-Manager-created role — see Role.isEmployeeRole) from
-      // logging into the Admin portal — they work entirely from the
-      // Employee Portal.
+      // Portal-only accounts (plain employees, BDEs — any Employee-Manager
+      // role, see Role.isEmployeeRole) work entirely from the Employee
+      // Portal. An employee role that also grants an Admin-panel permission
+      // (e.g. an HR role with employees.view / leave.manage) is let in, and
+      // only sees the pages those permissions open.
       const hasPortalOnlyRole = admin.roles?.some(role => role.isEmployeeRole);
       const hasAdminRole = admin.roles?.some(role => !role.isEmployeeRole);
-      if (hasPortalOnlyRole && !hasAdminRole) {
+      if (hasPortalOnlyRole && !hasAdminRole && !grantsAdminPanel(permissionsOf(admin.roles))) {
         return res.status(403).json({ success: false, message: 'Access Denied: Please use the Employee Portal.' });
       }
 

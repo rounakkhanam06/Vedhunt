@@ -15,6 +15,27 @@ const logger = require('../utils/logger');
 // and it's within this long of the call first being logged.
 const SAME_CALL_WINDOW_MS = 5 * 60 * 1000;
 
+// How long after Start Call the caller keeps the right to end the call and
+// log its outcome regardless of who holds the lead lock.
+const CALL_SESSION_MS = 2 * 60 * 60 * 1000;
+
+function ownsCallSession(lead, userId) {
+  return Boolean(
+    lead.callStartedBy &&
+    String(lead.callStartedBy) === String(userId) &&
+    lead.callStartTime &&
+    Date.now() - new Date(lead.callStartTime).getTime() < CALL_SESSION_MS
+  );
+}
+
+// A call another user started and hasn't ended yet.
+function hasActiveCallByOther(lead, userId) {
+  if (!lead.callStartTime || !lead.callStartedBy || String(lead.callStartedBy) === String(userId)) return false;
+  const started = new Date(lead.callStartTime).getTime();
+  const ended = lead.callEndTime ? new Date(lead.callEndTime).getTime() : 0;
+  return ended < started && Date.now() - started < CALL_SESSION_MS;
+}
+
 const NON_GATING_FIELDS = [
   'remark', 'city', 'country', 'callStartTime', 'callEndTime', 'callDuration', 'callDate',
   'dealValue', 'paymentStatus', 'budget', 'timeline', 'decisionMaker', 'currentVendor', 'requirementSummary',
@@ -41,8 +62,17 @@ async function applyLeadUpdate(leadId, updates, actor, extraFilter = {}) {
   }
 
   // 1. Lock Enforcement (Temporary protection during active handling)
+  // Whoever started the current call can always finish it — End Call and the
+  // outcome save — even if someone else opened the lead meanwhile and took
+  // the lock; otherwise the caller is stuck "in call" with no way out.
+  // Super Admins are never locked out.
   const LOCK_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
-  if (existingLead.lockedBy && String(existingLead.lockedBy) !== String(actor.id)) {
+  if (
+    existingLead.lockedBy &&
+    String(existingLead.lockedBy) !== String(actor.id) &&
+    !actor.isSuperAdmin &&
+    !ownsCallSession(existingLead, actor.id)
+  ) {
     if (existingLead.lockedAt && (Date.now() - new Date(existingLead.lockedAt).getTime()) < LOCK_TIMEOUT_MS) {
       return { ok: false, status: 409, message: 'Lead is currently locked by another user for active handling.' };
     }
@@ -73,6 +103,14 @@ async function applyLeadUpdate(leadId, updates, actor, extraFilter = {}) {
 
   const now = new Date();
   const pipelineEntries = [];
+
+  // Starting a call claims the lead for the caller (set after validation —
+  // these aren't fields the state machine knows about).
+  if (updates.callStartTime) {
+    updates.callStartedBy = actor.id;
+    updates.lockedBy = actor.id;
+    updates.lockedAt = now;
+  }
 
   if (updates.status && updates.status !== existingLead.status) {
     let note = '';
@@ -365,4 +403,4 @@ async function appendLeadActivity(leadId, { status, note = '', actorId }, extraF
   return result?.value || result;
 }
 
-module.exports = { applyLeadUpdate, completeFollowUp, appendLeadActivity, TERMINAL_STATUSES };
+module.exports = { applyLeadUpdate, completeFollowUp, appendLeadActivity, hasActiveCallByOther, TERMINAL_STATUSES };

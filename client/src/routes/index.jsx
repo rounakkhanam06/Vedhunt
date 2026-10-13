@@ -69,6 +69,7 @@ const LeadWorkspace = lazy(() => import('../admin/pages/LeadWorkspace'));
 const UnassignedLeadsManager = lazy(() => import('../admin/pages/UnassignedLeadsManager'));
 const AllLeadsManager = lazy(() => import('../admin/pages/AllLeadsManager'));
 const LeadActivity = lazy(() => import('../admin/pages/LeadActivity'));
+const TeamPerformancePage = lazy(() => import('../admin/pages/TeamPerformancePage'));
 const ActivityLog = lazy(() => import('../admin/pages/ActivityLog'));
 const AssignmentLogManager = lazy(() => import('../admin/pages/AssignmentLogManager'));
 const FollowUpsManager = lazy(() => import('../admin/pages/FollowUpsManager'));
@@ -81,6 +82,7 @@ const RoleManager = lazy(() => import('../admin/pages/RoleManager'));
 const TempPasswordReset = lazy(() => import('../admin/pages/TempPasswordReset'));
 const EmployeeManager = lazy(() => import('../admin/pages/EmployeeManager'));
 const LeaveRequestsManager = lazy(() => import('../admin/pages/LeaveRequestsManager'));
+const HolidayCalendar = lazy(() => import('../admin/components/HolidayCalendar'));
 const BankChangeRequestsManager = lazy(() => import('../admin/pages/BankChangeRequestsManager'));
 const CorrectionRequestsManager = lazy(() => import('../admin/pages/CorrectionRequestsManager'));
 const AdminTasks = lazy(() => import('../admin/pages/AdminTasks'));
@@ -369,27 +371,31 @@ export const router = createBrowserRouter([
           },
           {
             path: 'employees',
-            element: withPermission(EmployeeManager, 'team.manage')
+            element: withPermission(EmployeeManager, 'employees.view')
+          },
+          {
+            path: 'holidays',
+            element: withPermission(HolidayCalendar, 'holidays.manage')
           },
           {
             path: 'leave-requests',
-            element: withPermission(LeaveRequestsManager, 'team.manage')
+            element: withPermission(LeaveRequestsManager, 'leave.manage')
           },
           {
             path: 'bank-change-requests',
-            element: withPermission(BankChangeRequestsManager, 'team.manage')
+            element: withPermission(BankChangeRequestsManager, 'bankchanges.manage')
           },
           {
             path: 'corrections',
-            element: withPermission(CorrectionRequestsManager, 'team.manage')
+            element: withPermission(CorrectionRequestsManager, 'attendance.manage')
           },
           {
             path: 'attendance-roster',
-            element: withPermission(AttendanceManager, 'team.manage')
+            element: withPermission(AttendanceManager, 'attendance.manage')
           },
           {
             path: 'tasks',
-            element: withPermission(AdminTasks, 'team.manage')
+            element: withPermission(AdminTasks, 'tasks.manage')
           },
           {
             path: 'manager-dashboard',
@@ -397,15 +403,15 @@ export const router = createBrowserRouter([
           },
           {
             path: 'performance-cycles',
-            element: withPermission(PerformanceCycleManager, 'team.manage')
+            element: withPermission(PerformanceCycleManager, 'performance.manage')
           },
           {
             path: 'performance-goals',
-            element: withPermission(PerformanceGoalAssigner, 'team.manage')
+            element: withPermission(PerformanceGoalAssigner, 'performance.manage')
           },
           {
             path: 'performance-matrix',
-            element: withPermission(CompanyPerformanceMatrix, 'team.manage')
+            element: withPermission(CompanyPerformanceMatrix, 'performance.manage')
           },
           {
             path: 'payroll',
@@ -541,7 +547,7 @@ export const router = createBrowserRouter([
           },
           {
             path: 'leads/all',
-            element: withPermission(AllLeadsManager, '*')
+            element: withPermission(AllLeadsManager, 'leads.viewAll')
           },
           {
             path: 'leads/:id',
@@ -549,15 +555,19 @@ export const router = createBrowserRouter([
           },
           {
             path: 'audit/activity',
-            element: withPermission(ActivityLog, '*')
+            element: withPermission(ActivityLog, 'audit.view')
           },
           {
             path: 'audit/assignments',
-            element: withPermission(AssignmentLogManager, '*')
+            element: withPermission(AssignmentLogManager, 'audit.view')
           },
           {
             path: 'lead-activity',
             element: withPermission(LeadActivity, 'leads.assign')
+          },
+          {
+            path: 'team-performance',
+            element: withPermission(TeamPerformancePage, 'team.performance')
           },
           {
             path: 'follow-ups',
@@ -565,7 +575,7 @@ export const router = createBrowserRouter([
           },
           {
             path: 'management-dashboard',
-            element: withPermission(ManagementDashboard, '*')
+            element: withPermission(ManagementDashboard, 'dashboard.management')
           },
           {
             path: 'facebook-integration',

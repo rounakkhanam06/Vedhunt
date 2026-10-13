@@ -162,11 +162,11 @@ router.put(
 );
 
 // Activity master for the work timer/timesheet (HR-managed)
-router.get('/admin/settings/activity-master', authMiddleware, requirePermission('team.manage'), async (req, res) => {
+router.get('/admin/settings/activity-master', authMiddleware, requirePermission(['settings.manage', 'tasks.manage']), async (req, res) => {
   res.json({ success: true, types: await activityMaster.getActivityTypes() });
 });
 
-router.put('/admin/settings/activity-master', authMiddleware, requirePermission('team.manage'), async (req, res) => {
+router.put('/admin/settings/activity-master', authMiddleware, requirePermission(['settings.manage', 'tasks.manage']), async (req, res) => {
   const { types, error } = await activityMaster.saveActivityTypes(req.body.types);
   if (error) return res.status(400).json({ success: false, message: error });
   res.json({ success: true, types });

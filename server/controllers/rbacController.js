@@ -2,32 +2,19 @@ const Role = require('../models/Role');
 const AuditLog = require('../models/AuditLog');
 const logger = require('../utils/logger');
 const { SEGMENTS, PORTAL_MODULES, PORTAL_MODULE_KEYS } = require('../utils/employeeSegments');
+const { PERMISSIONS, PERMISSION_GROUPS } = require('../config/permissions');
 
 // Unknown keys are dropped; an empty list means "use the portal defaults".
 const cleanPortalModules = (value) =>
   (Array.isArray(value) ? [...new Set(value.filter((k) => PORTAL_MODULE_KEYS.includes(k)))] : undefined);
 
-// Available permissions in the system
-const PERMISSIONS = [
-  'team.manage',
-  'roles.manage',
-  'services.manage',
-  'portfolio.manage',
-  'cms.manage',
-  'pricing.manage',
-  'careers.manage',
-  'legal.manage',
-  'leads.view',
-  'leads.viewAll',
-  'leads.assign',
-  'followups.view',
-  'settings.manage',
-  'payroll.manage',
-  'ess.access'
-];
+// Every assignable permission lives in config/permissions.js. Unknown keys
+// sent from the client are dropped; '*' is never assignable from here.
+const cleanPermissions = (value) =>
+  (Array.isArray(value) ? [...new Set(value.filter((k) => PERMISSIONS.includes(k)))] : undefined);
 
 exports.getPermissions = (req, res) => {
-  res.json({ success: true, permissions: PERMISSIONS, segments: SEGMENTS, portalModules: PORTAL_MODULES });
+  res.json({ success: true, permissions: PERMISSIONS, permissionGroups: PERMISSION_GROUPS, segments: SEGMENTS, portalModules: PORTAL_MODULES });
 };
 
 exports.getRoles = async (req, res) => {
@@ -42,7 +29,8 @@ exports.getRoles = async (req, res) => {
 
 exports.createRole = async (req, res) => {
   try {
-    const { name, description, permissions } = req.body;
+    const { name, description } = req.body;
+    const permissions = cleanPermissions(req.body.permissions);
 
     if (!name) {
       return res.status(400).json({ success: false, message: 'Role name is required' });
@@ -97,7 +85,8 @@ exports.createRole = async (req, res) => {
 
 exports.updateRole = async (req, res) => {
   try {
-    const { description, permissions, isEmployeeRole, label } = req.body;
+    const { description, isEmployeeRole, label } = req.body;
+    const permissions = cleanPermissions(req.body.permissions);
     const roleId = req.params.id;
 
     const role = await Role.findById(roleId);

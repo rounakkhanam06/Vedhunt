@@ -44,7 +44,7 @@ async function recomputeRanks(cycleId) {
 // ════════════════════════════════════════════════════════════════
 
 // GET /api/performance/cycles — list all cycles
-router.get('/cycles', requirePermission('team.manage'), async (req, res) => {
+router.get('/cycles', requirePermission('performance.manage'), async (req, res) => {
   try {
     const cycles = await PerformanceCycle.find({})
       .populate('createdBy', 'firstName lastName email')
@@ -57,7 +57,7 @@ router.get('/cycles', requirePermission('team.manage'), async (req, res) => {
 });
 
 // POST /api/performance/cycles — create new cycle
-router.post('/cycles', requirePermission('team.manage'), async (req, res) => {
+router.post('/cycles', requirePermission('performance.manage'), async (req, res) => {
   try {
     const { title, quarter, year, startDate, endDate } = req.body;
 
@@ -91,7 +91,7 @@ router.post('/cycles', requirePermission('team.manage'), async (req, res) => {
 });
 
 // PUT /api/performance/cycles/:id — update or activate/close cycle
-router.put('/cycles/:id', requirePermission('team.manage'), async (req, res) => {
+router.put('/cycles/:id', requirePermission('performance.manage'), async (req, res) => {
   try {
     const { status, title, startDate, endDate } = req.body;
     const cycle = await PerformanceCycle.findById(req.params.id);
@@ -120,7 +120,7 @@ router.put('/cycles/:id', requirePermission('team.manage'), async (req, res) => 
 // ════════════════════════════════════════════════════════════════
 
 // GET /api/performance/presets — return role presets + metric types
-router.get('/presets', requirePermission('team.manage'), (req, res) => {
+router.get('/presets', requirePermission('performance.manage'), (req, res) => {
   res.json({ success: true, presets: ROLE_PRESETS, metricTypes: METRIC_TYPES, metricDefs: METRIC_DEFS });
 });
 
@@ -129,7 +129,7 @@ router.get('/presets', requirePermission('team.manage'), (req, res) => {
 // ════════════════════════════════════════════════════════════════
 
 // POST /api/performance/targets — assign KPI targets (bulk for one employee)
-router.post('/targets', requirePermission('team.manage'), async (req, res) => {
+router.post('/targets', requirePermission('performance.manage'), async (req, res) => {
   try {
     const { cycleId, employeeId, kpis } = req.body;
     // kpis = [{ metricType, targetValue, weightage, unit }]
@@ -190,7 +190,7 @@ router.post('/targets', requirePermission('team.manage'), async (req, res) => {
 });
 
 // GET /api/performance/targets/:cycleId — get all KPI targets for a cycle
-router.get('/targets/:cycleId', requirePermission('team.manage'), async (req, res) => {
+router.get('/targets/:cycleId', requirePermission('performance.manage'), async (req, res) => {
   try {
     const targets = await KPITarget.find({ cycleId: req.params.cycleId })
       .populate('employeeId', 'firstName lastName employeeId roleDept');
@@ -226,7 +226,7 @@ router.get('/targets/employee/:employeeId/:cycleId', async (req, res) => {
 });
 
 // PUT /api/performance/targets/:id/manual-actual — Manager manually sets actualValue (for ROAS, FollowUpQuality)
-router.put('/targets/:id/manual-actual', requirePermission('team.manage'), async (req, res) => {
+router.put('/targets/:id/manual-actual', requirePermission('performance.manage'), async (req, res) => {
   try {
     const { actualValue } = req.body;
     if (actualValue === undefined || actualValue === null) {
@@ -263,7 +263,7 @@ router.put('/targets/:id/manual-actual', requirePermission('team.manage'), async
 // ════════════════════════════════════════════════════════════════
 
 // POST /api/performance/sync-actual/:cycleId — auto-pull actuals for entire cycle
-router.post('/sync-actual/:cycleId', requirePermission('team.manage'), async (req, res) => {
+router.post('/sync-actual/:cycleId', requirePermission('performance.manage'), async (req, res) => {
   try {
     const cycle = await PerformanceCycle.findById(req.params.cycleId);
     if (!cycle) return res.status(404).json({ success: false, message: 'Cycle not found.' });
@@ -423,7 +423,7 @@ router.post('/review/self', async (req, res) => {
 });
 
 // POST /api/performance/review/manager/:reviewId — Manager submits review
-router.post('/review/manager/:reviewId', requirePermission('team.manage'), async (req, res) => {
+router.post('/review/manager/:reviewId', requirePermission('performance.manage'), async (req, res) => {
   try {
     const { managerRating, managerFeedback } = req.body;
 
@@ -464,7 +464,7 @@ router.post('/review/manager/:reviewId', requirePermission('team.manage'), async
 // ════════════════════════════════════════════════════════════════
 
 // GET /api/performance/company-matrix/:cycleId — Admin: full ranked company table
-router.get('/company-matrix/:cycleId', requirePermission('team.manage'), async (req, res) => {
+router.get('/company-matrix/:cycleId', requirePermission('performance.manage'), async (req, res) => {
   try {
     const reviews = await PerformanceReview.find({ cycleId: req.params.cycleId })
       .populate('employeeId', 'firstName lastName employeeId roleDept')

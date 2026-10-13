@@ -394,7 +394,7 @@ export default function LeadsManager({ stageGroup }) {
           )}
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {stageGroup === 'raw' && isSuperAdmin && (
+          {stageGroup === 'raw' && can('leads.import') && (
             <button
               onClick={() => setShowImportModal(true)}
               className="flex items-center gap-2 bg-app-card border border-app-border hover:border-primary px-4 py-2 rounded-lg font-semibold text-sm text-app-text transition-colors"
@@ -946,7 +946,7 @@ export default function LeadsManager({ stageGroup }) {
                           >
                             <Eye className="w-4 h-4" />
                           </button>
-                          {isSuperAdmin && (
+                          {can('leads.delete') && (
                             <button
                               onClick={() => deleteLead(lead._id)}
                               className="text-xs text-red-500 hover:text-red-400 transition-colors font-medium px-2 py-1 cursor-pointer"

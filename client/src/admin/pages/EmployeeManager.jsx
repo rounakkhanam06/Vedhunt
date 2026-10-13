@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import api from '../../services/api';
+import { usePermissions } from '../hooks/usePermissions';
 import toast from 'react-hot-toast';
 import { Plus, Trash2, Eye, Shield, Award, AlertCircle, CheckCircle, Search, IndianRupee, Copy, Check, ExternalLink, Info, Edit2, Lock, Key, Power, Clock, UserCheck, UserX, ChevronDown, ChevronUp } from 'lucide-react';
 
@@ -76,6 +77,12 @@ const Field = ({ label, hint, error, touched, children, optional }) => (
 const profileInput = 'w-full text-sm rounded-lg border border-app-border bg-form-input-bg p-2.5 text-app-text focus:outline-none focus:ring-1 focus:ring-orange-500';
 
 const EmployeeManager = () => {
+  const { can } = usePermissions();
+  // Server-enforced too (routes/employeeRoutes.js) — this just hides what
+  // the viewer can't use. Without employees.sensitive, PAN/Aadhaar/bank come
+  // back masked and salary is left out, so those fields stay read-only.
+  const canManage = can('employees.manage');
+  const canSensitive = can('employees.sensitive');
   const [employees, setEmployees] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -295,7 +302,7 @@ const EmployeeManager = () => {
 
   const handleUpdateEmployee = async (e) => {
     e.preventDefault();
-    const fields = ['firstName', 'lastName', 'email', 'phone', 'joinDate', 'salaryCTC', 'panNumber', 'aadhaarNumber'];
+    const fields = ['firstName', 'lastName', 'email', 'phone', 'joinDate', ...(canSensitive ? ['salaryCTC', 'panNumber', 'aadhaarNumber'] : [])];
     const newTouched = {};
     const newErrors = {};
     fields.forEach(f => {
@@ -312,11 +319,10 @@ const EmployeeManager = () => {
 
     setIsUpdatingEmp(true);
     try {
-      const res = await api.put(`/employees/${selectedEmp._id}`, {
-        ...editForm,
-        salaryCTC: Number(editForm.salaryCTC),
-        panNumber: editForm.panNumber.toUpperCase(),
-      });
+      const { salaryCTC, panNumber, aadhaarNumber, ...rest } = editForm;
+      const res = await api.put(`/employees/${selectedEmp._id}`, canSensitive
+        ? { ...rest, aadhaarNumber, salaryCTC: Number(salaryCTC), panNumber: panNumber.toUpperCase() }
+        : rest);
       if (res.data.success) {
         toast.success('Employee details updated successfully!');
         setSelectedEmp(res.data.employee);
@@ -627,12 +633,14 @@ const EmployeeManager = () => {
           <h1 className="text-3xl font-extrabold tracking-tight">HRMS Employee Directory</h1>
           <p className="text-app-text-muted text-sm mt-1">Module 15 · Create accounts, manage operations, vault documents, assign tasks.</p>
         </div>
+        {canManage && (
         <button
           onClick={openModal}
           className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-orange-600 hover:bg-orange-700 text-white font-medium transition-all shadow-lg hover:shadow-orange-500/20 active:scale-[0.98] cursor-pointer"
         >
           <Plus size={18} /> Add New Employee
         </button>
+        )}
       </div>
 
       {/* Employee Portal Login Guidance Banner */}
@@ -749,6 +757,7 @@ const EmployeeManager = () => {
                         >
                           <Eye size={16} />
                         </button>
+                        {canManage && (
                         <button
                           onClick={() => handleDeleteEmployee(emp._id)}
                           className="p-2 bg-rose-500/10 hover:bg-rose-500/20 rounded-lg text-rose-400 transition-all cursor-pointer"
@@ -756,6 +765,7 @@ const EmployeeManager = () => {
                         >
                           <Trash2 size={16} />
                         </button>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -778,6 +788,7 @@ const EmployeeManager = () => {
                   <div className="text-xs text-orange-500 font-mono mt-0.5">{selectedEmp.employeeId}</div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
+                  {canManage && (
                   <button
                     onClick={handleOpenEditModal}
                     className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg bg-orange-600/15 text-orange-400 border border-orange-500/20 hover:bg-orange-600 hover:text-white transition-all cursor-pointer font-medium"
@@ -785,6 +796,7 @@ const EmployeeManager = () => {
                   >
                     <Edit2 size={13} /> Edit
                   </button>
+                  )}
                   <button onClick={() => setIsDetailOpen(false)} className="text-app-text-muted hover:text-app-text text-xs cursor-pointer p-1">Close ✕</button>
                 </div>
               </div>
@@ -864,7 +876,7 @@ const EmployeeManager = () => {
               </div>
 
               <div className="text-xs space-y-2 border-b border-app-border pb-4 text-app-text-muted">
-                <div className="flex justify-between"><span>CTC:</span><span className="font-bold text-app-text">₹{selectedEmp.salaryCTC?.toLocaleString()}</span></div>
+                <div className="flex justify-between"><span>CTC:</span><span className="font-bold text-app-text">{selectedEmp.salaryCTC != null ? `₹${selectedEmp.salaryCTC.toLocaleString()}` : "Hidden"}</span></div>
                 <div className="flex justify-between"><span>Type:</span><span className="font-bold text-app-text">{selectedEmp.employmentType}</span></div>
                 <div className="flex justify-between"><span>Email:</span><span className="font-bold text-app-text">{selectedEmp.email}</span></div>
                 <div className="flex justify-between"><span>Phone:</span><span className="font-bold text-app-text">{selectedEmp.phone || 'N/A'}</span></div>
@@ -1497,9 +1509,11 @@ const EmployeeManager = () => {
                       name="salaryCTC"
                       type="number"
                       className="w-full text-sm rounded-lg border border-app-border bg-form-input-bg p-2.5 text-app-text focus:outline-none focus:ring-1 focus:ring-orange-500"
-                      value={editForm.salaryCTC}
+                      value={canSensitive ? editForm.salaryCTC : ''}
+                      placeholder={canSensitive ? undefined : 'Hidden'}
                       onChange={handleEditChange}
                       onBlur={handleEditBlur}
+                      readOnly={!canSensitive}
                     />
                   </Field>
                 </div>
@@ -1558,6 +1572,8 @@ const EmployeeManager = () => {
                         value={editForm.panNumber}
                         onChange={handleEditChange}
                         onBlur={handleEditBlur}
+                        readOnly={!canSensitive}
+                        title={canSensitive ? undefined : 'Needs the Employee PAN, Aadhaar, Bank & Salary permission'}
                       />
                     </Field>
                     <Field label="Aadhaar Number" error={editErrors.aadhaarNumber} touched={editTouched.aadhaarNumber}>
@@ -1569,6 +1585,8 @@ const EmployeeManager = () => {
                         value={editForm.aadhaarNumber}
                         onChange={handleEditChange}
                         onBlur={handleEditBlur}
+                        readOnly={!canSensitive}
+                        title={canSensitive ? undefined : 'Needs the Employee PAN, Aadhaar, Bank & Salary permission'}
                       />
                     </Field>
                   </div>

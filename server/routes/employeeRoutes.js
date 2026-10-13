@@ -16,6 +16,8 @@ const Settings = require('../models/Settings');
 const Holiday = require('../models/Holiday');
 const authMiddleware = require('../middleware/authMiddleware');
 const requirePermission = require('../middleware/requirePermission');
+const { hasPermission } = require('../config/permissions');
+const { grantError } = require('../utils/roleGrants');
 const { encrypt, decrypt } = require('../utils/encryption');
 const { sendEmail } = require('../utils/sendEmail');
 const { createInitialSalaryRevision } = require('../services/payrollEngine');
@@ -52,6 +54,38 @@ function pickProfileFields(body = {}) {
   return out;
 }
 
+// "1234567890" → "••••••7890"
+const maskId = (value) => {
+  const v = String(value || '');
+  return v.length > 4 ? `${'•'.repeat(v.length - 4)}${v.slice(-4)}` : v;
+};
+
+/**
+ * An employee document as the viewer may see it: PAN, Aadhaar and bank
+ * details in full only with employees.sensitive (masked otherwise), salary
+ * only with employees.sensitive or payroll.manage.
+ */
+function viewEmployee(doc, perms = []) {
+  const obj = doc.toObject ? doc.toObject() : { ...doc };
+  const sensitive = hasPermission(perms, 'employees.sensitive');
+  const pan = decrypt(obj.panNumber);
+  const aadhaar = decrypt(obj.aadhaarNumber);
+  obj.panNumber = sensitive ? pan : maskId(pan);
+  obj.aadhaarNumber = sensitive ? aadhaar : maskId(aadhaar);
+  if (obj.bankDetails) obj.bankDetails = sensitive ? bank.decrypted(obj.bankDetails) : bank.masked(obj.bankDetails);
+  if (!sensitive && !hasPermission(perms, 'payroll.manage')) {
+    delete obj.salaryCTC;
+    delete obj.payslips;
+  }
+  return obj;
+}
+
+// Fields of PUT /:id that only employees.sensitive may change — a viewer who
+// sees them masked must not be able to save the mask back over the real value.
+const SENSITIVE_FIELDS = ['salaryCTC', 'panNumber', 'aadhaarNumber'];
+// All a tasks.manage-only user (Organization Tasks) may send to PUT /:id.
+const TASK_FIELDS = ['newTask', 'taskStatusUpdate'];
+
 const NEW_TASK_FIELDS = ['title', 'description', 'dueDate', 'startDate', 'priority', 'project', 'client', 'estimatedHours', 'acceptanceCriteria'];
 const adminName = (user) => `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Admin';
 
@@ -64,7 +98,7 @@ const adminName = (user) => `${user.firstName || ''} ${user.lastName || ''}`.tri
 // role marked that way). Admin-side roles (EDITOR, SUPER_ADMIN, ...) must
 // never be offered here — see the isEmployeeRole check in POST/PUT below,
 // which is the authoritative guard this list mirrors.
-router.get('/roles', requirePermission('team.manage'), async (req, res) => {
+router.get('/roles', requirePermission(['employees.view', 'employees.manage']), async (req, res) => {
   try {
     const roles = await Role.find({ isEmployeeRole: true }).select('name label description permissions isEmployeeRole isSystem');
     res.json({ success: true, roles });
@@ -75,19 +109,12 @@ router.get('/roles', requirePermission('team.manage'), async (req, res) => {
 });
 
 // Get all employees (Admin/HR only)
-router.get('/', requirePermission('team.manage'), async (req, res) => {
+router.get('/', requirePermission(['employees.view', 'employees.manage', 'tasks.manage', 'performance.manage']), async (req, res) => {
   try {
     const employees = await Employee.find({})
       .populate('adminId', 'isActive')
       .populate('tasks.assignedBy', 'firstName lastName email');
-    // Decrypt PAN and Aadhaar for administration view
-    const decryptedEmployees = employees.map(emp => {
-      const obj = emp.toObject();
-      obj.panNumber = decrypt(obj.panNumber);
-      obj.aadhaarNumber = decrypt(obj.aadhaarNumber);
-      if (obj.bankDetails) obj.bankDetails = bank.decrypted(obj.bankDetails);
-      return obj;
-    });
+    const decryptedEmployees = employees.map((emp) => viewEmployee(emp, req.user.permissions));
     res.json({ success: true, employees: decryptedEmployees });
   } catch (error) {
     logger.error('Error fetching employees:', error);
@@ -96,7 +123,7 @@ router.get('/', requirePermission('team.manage'), async (req, res) => {
 });
 
 // Create new employee (Admin/HR only)
-router.post('/', requirePermission('team.manage'), async (req, res) => {
+router.post('/', requirePermission('employees.manage'), async (req, res) => {
   try {
     const {
       firstName,
@@ -166,6 +193,8 @@ router.post('/', requirePermission('team.manage'), async (req, res) => {
     if (!selectedRole.isEmployeeRole) {
       return res.status(400).json({ success: false, message: 'Selected role is not an employee role. Choose an employee role, or mark this role as an employee role in Role Management first.' });
     }
+    const createGrantError = await grantError(req.user, [selectedRole._id]);
+    if (createGrantError) return res.status(403).json({ success: false, message: createGrantError });
 
     // Join date parsing
     const parsedJoinDate = new Date(joinDate);
@@ -320,7 +349,7 @@ router.post('/', requirePermission('team.manage'), async (req, res) => {
 });
 
 // ── GET Probation Status ──────────────────────────────────────────────────────
-router.get('/:id/probation', requirePermission('team.manage'), async (req, res) => {
+router.get('/:id/probation', requirePermission(['employees.view', 'employees.manage']), async (req, res) => {
   try {
     const employee = await Employee.findById(req.params.id);
     if (!employee) return res.status(404).json({ success: false, message: 'Employee not found' });
@@ -347,7 +376,7 @@ router.get('/:id/probation', requirePermission('team.manage'), async (req, res) 
 
 // ── PUT Probation Action ──────────────────────────────────────────────────────
 // action: 'confirm' | 'extend' | 'terminate'
-router.put('/:id/probation', requirePermission('team.manage'), async (req, res) => {
+router.put('/:id/probation', requirePermission('employees.manage'), async (req, res) => {
   try {
     const { action, extensionDays, extensionNote } = req.body;
     if (!['confirm', 'extend', 'terminate'].includes(action)) {
@@ -424,10 +453,7 @@ router.put('/:id/probation', requirePermission('team.manage'), async (req, res) 
     }
 
     const updated = await Employee.findById(employee._id).populate('adminId', 'isActive');
-    const decrypted = updated.toObject();
-    decrypted.panNumber = require('../utils/encryption').decrypt(decrypted.panNumber);
-    decrypted.aadhaarNumber = require('../utils/encryption').decrypt(decrypted.aadhaarNumber);
-    if (decrypted.bankDetails) decrypted.bankDetails = bank.decrypted(decrypted.bankDetails);
+    const decrypted = viewEmployee(updated, req.user.permissions);
 
     res.json({ success: true, message: `Employee probation ${action}ed successfully.`, employee: decrypted });
   } catch (error) {
@@ -437,8 +463,18 @@ router.put('/:id/probation', requirePermission('team.manage'), async (req, res) 
 });
 
 // Update Employee (Admin/HR only)
-router.put('/:id', requirePermission('team.manage'), async (req, res) => {
+router.put('/:id', requirePermission(['employees.manage', 'tasks.manage']), async (req, res) => {
   try {
+    const perms = req.user.permissions;
+    if (!hasPermission(perms, 'employees.manage')) {
+      const sent = Object.keys(req.body || {}).filter((k) => req.body[k] !== undefined);
+      if (sent.some((k) => !TASK_FIELDS.includes(k))) {
+        return res.status(403).json({ success: false, message: "Forbidden: editing an employee requires 'employees.manage' permission" });
+      }
+    }
+    if (!hasPermission(perms, 'employees.sensitive')) {
+      for (const field of SENSITIVE_FIELDS) delete req.body[field];
+    }
     const {
       firstName,
       lastName,
@@ -474,6 +510,12 @@ router.put('/:id', requirePermission('team.manage'), async (req, res) => {
       if (!newRole.isEmployeeRole) {
         return res.status(400).json({ success: false, message: 'Selected role is not an employee role. Employees can only be assigned employee-type roles.' });
       }
+      // The edit form resends the current role on every save — only an
+      // actual role change is a grant to check.
+      const currentLogin = employee.adminId ? await Admin.findById(employee.adminId, { roles: 1 }).lean() : null;
+      const isRoleChange = !currentLogin?.roles?.some((r) => String(r) === String(newRole._id));
+      const updateGrantError = isRoleChange ? await grantError(req.user, [newRole._id]) : null;
+      if (updateGrantError) return res.status(403).json({ success: false, message: updateGrantError });
     }
 
     const NAME_REGEX = /^[a-zA-Z\s'-]{2,50}$/;
@@ -581,10 +623,7 @@ router.put('/:id', requirePermission('team.manage'), async (req, res) => {
     const updatedEmployee = await Employee.findById(employee._id)
       .populate('adminId', 'isActive')
       .populate('tasks.assignedBy', 'firstName lastName email');
-    const decrypted = updatedEmployee.toObject();
-    decrypted.panNumber = decrypt(decrypted.panNumber);
-    decrypted.aadhaarNumber = decrypt(decrypted.aadhaarNumber);
-    if (decrypted.bankDetails) decrypted.bankDetails = bank.decrypted(decrypted.bankDetails);
+    const decrypted = viewEmployee(updatedEmployee, req.user.permissions);
 
     res.json({ success: true, employee: decrypted });
   } catch (error) {
@@ -594,7 +633,7 @@ router.put('/:id', requirePermission('team.manage'), async (req, res) => {
 });
 
 // Delete Employee (Admin/HR only)
-router.delete('/:id', requirePermission('team.manage'), async (req, res) => {
+router.delete('/:id', requirePermission('employees.manage'), async (req, res) => {
   try {
     const employee = await findEmployeeRaw(req.params.id);
     if (!employee) {
@@ -641,7 +680,7 @@ const bankRequestForHR = (r) => ({
   createdAt: r.createdAt,
 });
 
-router.get('/admin/bank-change-requests', requirePermission('team.manage'), async (req, res) => {
+router.get('/admin/bank-change-requests', requirePermission('bankchanges.manage'), async (req, res) => {
   try {
     const filter = {};
     if (['Pending', 'Approved', 'Rejected', 'Cancelled'].includes(req.query.status)) filter.status = req.query.status;
@@ -658,7 +697,7 @@ router.get('/admin/bank-change-requests', requirePermission('team.manage'), asyn
   }
 });
 
-router.put('/admin/bank-change-requests/:id/status', requirePermission('team.manage'), async (req, res) => {
+router.put('/admin/bank-change-requests/:id/status', requirePermission('bankchanges.manage'), async (req, res) => {
   try {
     const { status } = req.body;
     const comment = typeof req.body.comment === 'string' ? req.body.comment.trim().slice(0, 500) : '';
@@ -713,7 +752,7 @@ router.put('/admin/bank-change-requests/:id/status', requirePermission('team.man
   }
 });
 
-router.get('/admin/leave-requests', requirePermission('team.manage'), async (req, res) => {
+router.get('/admin/leave-requests', requirePermission('leave.manage'), async (req, res) => {
   try {
     const leaveRequests = await LeaveRequest.find({})
       .populate('employeeId', 'firstName lastName employeeId leaveBalances leavesUsed')
@@ -726,7 +765,7 @@ router.get('/admin/leave-requests', requirePermission('team.manage'), async (req
 });
 
 // Update leave request status (Admin/HR only)
-router.put('/admin/leave-requests/:id/status', requirePermission('team.manage'), async (req, res) => {
+router.put('/admin/leave-requests/:id/status', requirePermission('leave.manage'), async (req, res) => {
   const { status, adminComment } = req.body;
   sendResult(res, await reviewLeaveRequest(req.params.id, status, adminComment, { reviewerLabel: 'HR', reviewerId: req.user._id }));
 });
@@ -809,7 +848,7 @@ router.get('/manager/productivity', authMiddleware, requirePermission('ess.manag
 });
 
 // Admin: Get Daily Attendance Roster
-router.get('/admin/attendance/daily', requirePermission('team.manage'), async (req, res) => {
+router.get('/admin/attendance/daily', requirePermission('attendance.manage'), async (req, res) => {
   try {
     const targetDateStr = req.query.date || new Date().toISOString().split('T')[0];
     const targetDate = new Date(targetDateStr);
@@ -911,7 +950,7 @@ router.get('/admin/attendance/daily', requirePermission('team.manage'), async (r
 });
 
 // Admin: Get Monthly Payroll Summary for an Employee
-router.get('/admin/attendance/monthly/:id', requirePermission('team.manage'), async (req, res) => {
+router.get('/admin/attendance/monthly/:id', requirePermission('attendance.manage'), async (req, res) => {
   try {
     const { month, year } = req.query; // month Name (e.g. 'June') and year (e.g. 2026)
     if (!month || !year) return res.status(400).json({ success: false, message: 'Month and year required' });
@@ -1009,7 +1048,7 @@ router.get('/admin/attendance/monthly/:id', requirePermission('team.manage'), as
 // ==========================================
 
 // Get all holidays
-router.get('/holidays', requirePermission('employee.view'), async (req, res) => {
+router.get('/holidays', async (req, res) => {
   try {
     const year = req.query.year || new Date().getFullYear();
     const startDate = new Date(year, 0, 1);
@@ -1027,7 +1066,7 @@ router.get('/holidays', requirePermission('employee.view'), async (req, res) => 
 });
 
 // Add a new holiday
-router.post('/holidays', requirePermission('employee.manage'), async (req, res) => {
+router.post('/holidays', requirePermission('holidays.manage'), async (req, res) => {
   try {
     const { name, date, type } = req.body;
     
@@ -1045,7 +1084,7 @@ router.post('/holidays', requirePermission('employee.manage'), async (req, res) 
 });
 
 // Delete a holiday
-router.delete('/holidays/:id', requirePermission('employee.manage'), async (req, res) => {
+router.delete('/holidays/:id', requirePermission('holidays.manage'), async (req, res) => {
   try {
     await Holiday.findByIdAndDelete(req.params.id);
     res.json({ success: true, message: 'Holiday removed' });

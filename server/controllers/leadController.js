@@ -10,7 +10,7 @@ const AssignmentLog = require('../models/AssignmentLog');
 const { manualAssign, autoAssignLead } = require('../services/leadAssignment');
 const { findLeadRaw } = require('../utils/leadLookup');
 const { LEAD_UPDATE_FIELDS, TERMINAL_STATUSES } = require('../utils/leadStateMachine');
-const { applyLeadUpdate } = require('../services/leadLifecycle');
+const { applyLeadUpdate, hasActiveCallByOther } = require('../services/leadLifecycle');
 const { addLeadDocument, removeLeadDocument } = require('../services/leadDocuments');
 const { prepareImport, previewImport } = require('../services/leadImport');
 const { startImportJob, getImportJob } = require('../services/importJobs');
@@ -562,6 +562,10 @@ exports.lockLead = async (req, res, next) => {
       if (lead.lockedAt && (Date.now() - new Date(lead.lockedAt).getTime()) < LOCK_TIMEOUT_MS) {
         return res.status(409).json({ success: false, message: 'Lead is currently locked by another user.' });
       }
+    }
+    // Opening a lead mid-call must not take it away from the caller.
+    if (hasActiveCallByOther(lead, req.user._id)) {
+      return res.status(409).json({ success: false, message: 'Another user is on a call with this lead right now.' });
     }
 
     // Raw driver, not lead.save() — .save()'s version-checked update throws a

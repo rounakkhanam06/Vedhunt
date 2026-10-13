@@ -1,9 +1,10 @@
-import { LayoutDashboard, Clock, CheckSquare, FileSpreadsheet, CreditCard, Award, User, LifeBuoy, UserCheck, AlertTriangle, UsersRound, FolderKanban } from 'lucide-react';
+import { BarChart3, LayoutDashboard, Clock, CheckSquare, FileSpreadsheet, CreditCard, Award, User, LifeBuoy, UserCheck, AlertTriangle, UsersRound, FolderKanban } from 'lucide-react';
 
 /**
  * Employee Portal module matrix — which sidebar modules a person sees.
  *   - `always`: Dashboard and My Profile, shown to everyone
  *   - `requiresTeam`: only for someone who is a reporting manager
+ *     (`orPermission`: or anyone holding that permission)
  *   - `requiresProjects`: only for a Project Manager / team member on a project
  *   - `permission`: needs that role permission (same check the API enforces)
  *   - otherwise, if any of the person's roles lists modules in Admin →
@@ -24,6 +25,7 @@ export const EMPLOYEE_MODULES = [
   { key: 'tickets', name: 'Assigned Tickets', icon: LifeBuoy, hideForSegments: ['BD'] },
   { key: 'projects', name: 'My Projects', icon: FolderKanban, requiresProjects: true },
   { key: 'team', name: 'Team Approvals', icon: UsersRound, requiresTeam: true },
+  { key: 'team-performance', name: 'My Team Performance', icon: BarChart3, requiresTeam: true, orPermission: 'team.performance' },
   { key: 'profile', name: 'My Profile', icon: User, always: true },
 ];
 
@@ -32,7 +34,7 @@ export const modulePath = (key) => `/employee/dashboard?tab=${key}`;
 export function canAccessModule(module, { can, segment, portalModules, hasTeam, hasProjects }) {
   if (!module) return false;
   if (module.always) return true;
-  if (module.requiresTeam) return Boolean(hasTeam);
+  if (module.requiresTeam) return Boolean(hasTeam) || Boolean(module.orPermission && can(module.orPermission));
   if (module.requiresProjects && !hasProjects) return false;
   if (module.permission && !can(module.permission)) return false;
   if (Array.isArray(portalModules)) return portalModules.includes(module.key);

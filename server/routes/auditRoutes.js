@@ -5,6 +5,6 @@ const authMiddleware = require('../middleware/authMiddleware');
 const requirePermission = require('../middleware/requirePermission');
 
 // Only Super Admins can view audit logs
-router.get('/', authMiddleware, requirePermission('*'), getAuditLogs);
+router.get('/', authMiddleware, requirePermission('audit.view'), getAuditLogs);
 
 module.exports = router;

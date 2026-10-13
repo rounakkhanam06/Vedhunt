@@ -322,8 +322,8 @@ export default function EmployeeLeadWorkspace() {
       markListsStale();
       window.location.href = `tel:${lead.phone}`;
       toast.success('Call started — log the outcome below when you finish');
-    } catch {
-      toast.error('Failed to start call');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to start call');
     } finally {
       setCallBusy(null);
     }
@@ -344,8 +344,8 @@ export default function EmployeeLeadWorkspace() {
       syncLead(res.data.lead);
       markListsStale();
       toast.success(`Call ended (${durationMin} min)`);
-    } catch {
-      toast.error('Failed to end call');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to end call');
     } finally {
       setCallBusy(null);
     }

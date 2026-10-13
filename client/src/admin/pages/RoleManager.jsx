@@ -17,12 +17,14 @@ const permissionLabels = {
   'followups.view': 'Follow-Ups',
   'settings.manage': 'Settings Management',
   'payroll.manage': 'Payroll & Payslips',
+  'ess.manage': 'Productivity Reports (all staff)',
   'ess.access': 'Employee Portal Access (ESS)',
 };
 
 const RoleManager = () => {
   const [roles, setRoles] = useState([]);
   const [availablePermissions, setAvailablePermissions] = useState([]);
+  const [permissionGroups, setPermissionGroups] = useState([]);
   const [segments, setSegments] = useState([]);
   const [portalModuleOptions, setPortalModuleOptions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -52,6 +54,7 @@ const RoleManager = () => {
       }
       if (permsRes.data.success) {
         setAvailablePermissions(permsRes.data.permissions);
+        setPermissionGroups(permsRes.data.permissionGroups || []);
         setSegments(permsRes.data.segments || []);
         setPortalModuleOptions(permsRes.data.portalModules || []);
       }
@@ -162,6 +165,25 @@ const RoleManager = () => {
 
   const inputClasses = "w-full bg-form-input-bg border border-app-border rounded-lg px-4 py-2 text-app-text placeholder-app-text-muted focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all duration-300";
   const labelClasses = "block text-[12px] font-medium text-app-text-muted mb-1.5 font-mono uppercase tracking-wider";
+
+  // The lead permissions have their own section above; everything else is
+  // grouped as the server lists it (server/config/permissions.js). A
+  // permission the server knows but no group lists still gets shown.
+  const LEAD_SECTION = ['leads.view', 'leads.viewAll', 'leads.assign'];
+  const grouped = permissionGroups.flatMap((g) => g.permissions.map((p) => p.key));
+  const otherGroups = [
+    ...permissionGroups.map((g) => ({ ...g, permissions: g.permissions.filter((p) => !LEAD_SECTION.includes(p.key)) })),
+    { group: 'Other', permissions: availablePermissions.filter((k) => !grouped.includes(k) && !LEAD_SECTION.includes(k)).map((key) => ({ key })) },
+  ].filter((g) => g.permissions.length > 0);
+
+  const setGroupPermissions = (keys, on) => {
+    setFormData((prev) => ({
+      ...prev,
+      permissions: on
+        ? [...new Set([...prev.permissions, ...keys])]
+        : prev.permissions.filter((p) => !keys.includes(p)),
+    }));
+  };
 
   return (
     <div className="p-8 max-w-6xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -466,31 +488,47 @@ const RoleManager = () => {
                 </div>
               </div>
 
-              <div className="pt-2">
-                <label className={labelClasses}>Other Permissions ({formData.permissions.filter(p => !['leads.view', 'leads.viewAll', 'leads.assign'].includes(p)).length} selected)</label>
-                <div className="bg-app-bg border border-app-border rounded-lg p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {availablePermissions.filter(p => !['leads.view', 'leads.viewAll', 'leads.assign'].includes(p)).map(permission => {
-                    const isSelected = formData.permissions.includes(permission);
-                    return (
-                      <div
-                        key={permission}
-                        onClick={() => handleTogglePermission(permission)}
-                        className={`
-                          flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all duration-200
-                          ${isSelected
-                            ? 'bg-primary/10 border-primary/30 text-app-text'
-                            : 'bg-app-card border-app-border text-app-text-muted hover:border-app-text-muted'}
-                        `}
+              {otherGroups.map(({ group, permissions }) => {
+                const keys = permissions.map((p) => p.key);
+                const selected = keys.filter((k) => formData.permissions.includes(k)).length;
+                const allSelected = selected === keys.length;
+                return (
+                  <div key={group} className="pt-2">
+                    <div className="flex items-center justify-between mb-2">
+                      <label className={`${labelClasses} mb-0`}>{group} ({selected} of {keys.length})</label>
+                      <button
+                        type="button"
+                        onClick={() => setGroupPermissions(keys, !allSelected)}
+                        className="text-xs font-semibold text-primary hover:underline cursor-pointer"
                       >
-                        <div className={`mt-0.5 rounded flex items-center justify-center shrink-0 w-4 h-4 border ${isSelected ? 'bg-primary border-primary' : 'border-app-text-muted'}`}>
-                          {isSelected && <CheckCircle2 size={12} className="text-white" />}
-                        </div>
-                        <div className="text-sm font-medium break-all">{permissionLabels[permission] || permission}</div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
+                        {allSelected ? 'Clear all' : 'Select all'}
+                      </button>
+                    </div>
+                    <div className="bg-app-bg border border-app-border rounded-lg p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                      {permissions.map(({ key, label }) => {
+                        const isSelected = formData.permissions.includes(key);
+                        return (
+                          <div
+                            key={key}
+                            onClick={() => handleTogglePermission(key)}
+                            className={`
+                              flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all duration-200
+                              ${isSelected
+                                ? 'bg-primary/10 border-primary/30 text-app-text'
+                                : 'bg-app-card border-app-border text-app-text-muted hover:border-app-text-muted'}
+                            `}
+                          >
+                            <div className={`mt-0.5 rounded flex items-center justify-center shrink-0 w-4 h-4 border ${isSelected ? 'bg-primary border-primary' : 'border-app-text-muted'}`}>
+                              {isSelected && <CheckCircle2 size={12} className="text-white" />}
+                            </div>
+                            <div className="text-sm font-medium">{label || permissionLabels[key] || key}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
             </form>
 
             <div className="p-6 border-t border-app-border shrink-0 flex gap-3 bg-app-card">

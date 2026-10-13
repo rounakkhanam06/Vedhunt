@@ -73,6 +73,7 @@ router.get('/ess/proposal-masters', requirePermission('leads.view'), (req, res) 
 router.use('/ess/proposals', requirePermission('leads.view'), essProposalRoutes.proposalRouter);
 router.use('/ess/leads/:leadId/proposals', requirePermission('leads.view'), essProposalRoutes.leadProposalRouter);
 router.use('/ess/corrections', essCorrectionRoutes);
+router.use('/ess/team-performance', require('./teamPerformanceRoutes'));
 router.use('/ess/team', essTeamRoutes);
 router.use('/ess/projects', essProjectRoutes);
 

@@ -8,16 +8,21 @@ const {
 const authMiddleware = require('../middleware/authMiddleware');
 const requirePermission = require('../middleware/requirePermission');
 
-router.use(authMiddleware, requirePermission('leads.assign'));
+// Lead Activity / Follow-ups reports need leads.assign; the reports the
+// Management Dashboard reads are also open to dashboard.management.
+const LEAD_REPORTS = 'leads.assign';
+const DASHBOARD_REPORTS = ['leads.assign', 'dashboard.management'];
 
-router.get('/calls', getCallActivity);
-router.get('/followup-compliance', getFollowUpCompliance);
-router.get('/followups', getFollowUpsList);
-router.get('/action-missing', getActionMissingQueue);
-router.get('/pipeline-summary', getPipelineSummary);
-router.get('/bd-accountability', getBDAccountability);
-// Management Dashboard — Super Admin only, an extra gate stacked on top of
-// this router's own leads.assign check.
-router.get('/lead-volume', requirePermission('*'), getLeadVolumeBreakdown);
+router.use(authMiddleware);
+
+router.get('/calls', requirePermission(LEAD_REPORTS), getCallActivity);
+router.get('/followups', requirePermission(LEAD_REPORTS), getFollowUpsList);
+router.get('/followup-compliance', requirePermission(DASHBOARD_REPORTS), getFollowUpCompliance);
+router.get('/action-missing', requirePermission(DASHBOARD_REPORTS), getActionMissingQueue);
+router.get('/pipeline-summary', requirePermission(DASHBOARD_REPORTS), getPipelineSummary);
+router.get('/bd-accountability', requirePermission(DASHBOARD_REPORTS), getBDAccountability);
+router.get('/lead-volume', requirePermission('dashboard.management'), getLeadVolumeBreakdown);
+// BDE Team Performance — every BDE (managers use the Employee Portal tab).
+router.use('/team-performance', requirePermission('team.performance'), require('./teamPerformanceRoutes'));
 
 module.exports = router;

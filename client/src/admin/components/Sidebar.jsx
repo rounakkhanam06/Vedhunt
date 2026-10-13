@@ -54,7 +54,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
 
   const navItems = [
     { name: 'Overview', path: '/admin/dashboard', icon: LayoutDashboard },
-    { name: 'Management Dashboard', path: '/admin/management-dashboard', icon: Gauge, requiredPermission: '*' },
+    { name: 'Management Dashboard', path: '/admin/management-dashboard', icon: Gauge, requiredPermission: 'dashboard.management' },
     {
       name: 'Leads Management',
       icon: Users,
@@ -64,8 +64,9 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
         { name: 'Raw Leads', path: '/admin/leads' },
         { name: 'Working Leads', path: '/admin/leads/working' },
         { name: 'Unassigned Leads', path: '/admin/leads/unassigned' },
-        { name: 'All Leads', path: '/admin/leads/all', requiredPermission: '*' },
+        { name: 'All Leads', path: '/admin/leads/all', requiredPermission: 'leads.viewAll' },
         { name: 'Lead Activity', path: '/admin/lead-activity', requiredPermission: 'leads.assign' },
+        { name: 'BDE Team Performance', path: '/admin/team-performance', requiredPermission: 'team.performance' },
         { name: 'Follow-ups', path: '/admin/follow-ups', requiredPermission: 'leads.assign' },
         { name: 'Subscribers', path: '/admin/subscribers' }
       ]
@@ -74,7 +75,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
       name: 'Audit & Logs',
       icon: ShieldCheck,
       dropdownKey: 'audit',
-      requiredPermission: '*',
+      requiredPermission: 'audit.view',
       subItems: [
         { name: 'Activity Log', path: '/admin/audit/activity' },
         { name: 'Assignment Log', path: '/admin/audit/assignments' },
@@ -170,19 +171,22 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     { 
       name: 'HRMS (Module)', 
       icon: Users, 
-      dropdownKey: 'hrms', 
-      requiredPermission: 'team.manage',
+      dropdownKey: 'hrms',
+      // Each page has its own permission (server/config/permissions.js);
+      // the menu shows whenever at least one of them is granted.
       subItems: [
-        { name: 'Employees List', path: '/admin/employees' },
+        { name: 'Employees List', path: '/admin/employees', requiredPermission: 'employees.view' },
+        { name: 'Leave Requests', path: '/admin/leave-requests', requiredPermission: 'leave.manage' },
+        { name: 'Attendance Roster', path: '/admin/attendance-roster', requiredPermission: 'attendance.manage' },
+        { name: 'Correction Requests', path: '/admin/corrections', requiredPermission: 'attendance.manage' },
+        { name: 'Bank Change Requests', path: '/admin/bank-change-requests', requiredPermission: 'bankchanges.manage' },
+        { name: 'Holiday Calendar', path: '/admin/holidays', requiredPermission: 'holidays.manage' },
         { name: 'Payroll', path: '/admin/payroll', requiredPermission: 'payroll.manage' },
-        { name: 'Attendance Roster', path: '/admin/attendance-roster' },
-        { name: 'Bank Change Requests', path: '/admin/bank-change-requests' },
-        { name: 'Correction Requests', path: '/admin/corrections' },
-        { name: 'Organization Tasks', path: '/admin/tasks' },
-        { name: 'Productivity Reports', path: '/admin/manager-dashboard' },
-        { name: 'Performance Cycles', path: '/admin/performance-cycles' },
-        { name: 'KPI Goal Assigner', path: '/admin/performance-goals' },
-        { name: 'Company Performance Matrix', path: '/admin/performance-matrix' },
+        { name: 'Organization Tasks', path: '/admin/tasks', requiredPermission: 'tasks.manage' },
+        { name: 'Productivity Reports', path: '/admin/manager-dashboard', requiredPermission: 'ess.manage' },
+        { name: 'Performance Cycles', path: '/admin/performance-cycles', requiredPermission: 'performance.manage' },
+        { name: 'KPI Goal Assigner', path: '/admin/performance-goals', requiredPermission: 'performance.manage' },
+        { name: 'Company Performance Matrix', path: '/admin/performance-matrix', requiredPermission: 'performance.manage' },
       ]
     },
     { name: 'Team Management', path: '/admin/team', icon: ShieldCheck, requiredPermission: 'team.manage' },

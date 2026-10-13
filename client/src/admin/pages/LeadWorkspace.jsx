@@ -261,8 +261,8 @@ export default function LeadWorkspace() {
       const res = await api.put(`/leads/${id}`, { callStartTime: now, callDate: now });
       setLead(res.data.data);
       toast.success('Call started — log the outcome below when you finish', { position: 'bottom-right' });
-    } catch {
-      toast.error('Failed to start call');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to start call');
     } finally {
       setCallBusy(null);
     }
@@ -282,8 +282,8 @@ export default function LeadWorkspace() {
       const res = await api.put(`/leads/${id}`, { callEndTime: now, callDuration: durationMin });
       setLead(res.data.data);
       toast.success(`Call ended (${durationMin} min)`, { position: 'bottom-right' });
-    } catch {
-      toast.error('Failed to end call');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to end call');
     } finally {
       setCallBusy(null);
     }
