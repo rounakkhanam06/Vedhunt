@@ -164,12 +164,22 @@ function CallTable({ calls, leadHref, showCaller }) {
 const selectClass = 'text-xs rounded-lg border border-app-border bg-form-input-bg px-2 py-1.5 text-app-text';
 const pageBtn = 'px-3 py-1.5 rounded-lg border border-app-border text-app-text disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed';
 
-/** Every call by everyone visible, newest first — filter by BDE and result, 25 per page. */
-function TeamCallLog({ scope, fetchData, params, members, leadHref }) {
+/**
+ * Calls newest first, 25 per page — filter by result, and by BDE for the
+ * whole team. With `member`, only that BDE's calls (their drill-down log).
+ */
+function TeamCallLog({ scope, fetchData, params, members, leadHref, member }) {
   const [by, setBy] = useState('All');
   const [result, setResult] = useState('All');
   const [page, setPage] = useState(1);
-  const query = { ...params, by, result, page };
+  // back to page 1 when the period changes, so a shorter range never lands past its last page
+  const periodKey = JSON.stringify(params);
+  const [pagePeriod, setPagePeriod] = useState(periodKey);
+  if (pagePeriod !== periodKey) {
+    setPagePeriod(periodKey);
+    setPage(1);
+  }
+  const query = { ...params, by: member ? member.adminId : by, result, page };
   const { data, isLoading, error } = useQuery({
     queryKey: [scope, 'team-performance', 'calls', query],
     queryFn: () => fetchData('/calls', query),
@@ -180,10 +190,12 @@ function TeamCallLog({ scope, fetchData, params, members, leadHref }) {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
-        <select value={by} onChange={pick(setBy)} className={selectClass}>
-          <option value="All">All BDEs</option>
-          {members.map((m) => <option key={m.adminId} value={m.adminId}>{m.name}</option>)}
-        </select>
+        {!member && (
+          <select value={by} onChange={pick(setBy)} className={selectClass}>
+            <option value="All">All BDEs</option>
+            {members.map((m) => <option key={m.adminId} value={m.adminId}>{m.name}</option>)}
+          </select>
+        )}
         <select value={result} onChange={pick(setResult)} className={selectClass}>
           <option value="All">All results</option>
           <option value="Connected">Connected</option>
@@ -194,7 +206,7 @@ function TeamCallLog({ scope, fetchData, params, members, leadHref }) {
       {error && <div className="text-sm text-red-400">{errorOf(error, 'Could not load the team call log.')}</div>}
       {isLoading ? <Loader /> : !data?.calls.length ? <Empty>No calls logged in this period.</Empty> : (
         <>
-          <CallTable calls={data.calls} leadHref={leadHref} showCaller />
+          <CallTable calls={data.calls} leadHref={leadHref} showCaller={!member} />
           {data.pages > 1 && (
             <div className="flex items-center justify-end gap-2 text-xs">
               <button type="button" disabled={page <= 1} onClick={() => setPage(page - 1)} className={pageBtn}>Previous</button>
@@ -208,7 +220,7 @@ function TeamCallLog({ scope, fetchData, params, members, leadHref }) {
   );
 }
 
-function MemberDetail({ member, data, loading, leadHref, onBack }) {
+function MemberDetail({ member, data, loading, leadHref, onBack, scope, fetchData, params }) {
   const summary = member;
   return (
     <div className="space-y-5">
@@ -229,15 +241,13 @@ function MemberDetail({ member, data, loading, leadHref, onBack }) {
         ))}
       </div>
 
+      <section className="space-y-2">
+        <h4 className="text-sm font-bold text-app-text">Call log</h4>
+        <TeamCallLog scope={scope} fetchData={fetchData} params={params} leadHref={leadHref} member={member} />
+      </section>
+
       {loading ? <Loader /> : !data ? null : (
         <>
-          <section className="space-y-2">
-            <h4 className="text-sm font-bold text-app-text">Call log ({data.calls.length})</h4>
-            {data.calls.length === 0 ? <Empty>No calls logged in this period.</Empty> : (
-              <CallTable calls={data.calls} leadHref={leadHref} />
-            )}
-          </section>
-
           <section className="space-y-2">
             <h4 className="text-sm font-bold text-app-text">Leads they are working on ({data.leads.length})</h4>
             {data.leads.length === 0 ? <Empty>No active leads assigned.</Empty> : (
@@ -341,7 +351,10 @@ export default function TeamPerformance({ scope, fetchData, leadHref, title = 'M
       {error && <div className="text-sm text-red-400">{error}</div>}
 
       {summaryQuery.isLoading ? <Loader /> : selectedMember ? (
-        <MemberDetail member={selectedMember} data={detailQuery.data} loading={detailQuery.isLoading} leadHref={leadHref} onBack={() => setSelected(null)} />
+        <MemberDetail
+          member={selectedMember} data={detailQuery.data} loading={detailQuery.isLoading} leadHref={leadHref}
+          onBack={() => setSelected(null)} scope={scope} fetchData={fetchData} params={params}
+        />
       ) : members.length === 0 ? (
         <Empty>No BDEs report to you yet.</Empty>
       ) : (

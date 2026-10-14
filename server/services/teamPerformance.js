@@ -164,44 +164,22 @@ async function teamSummary(user, range) {
   return { members: rows, totals };
 }
 
-/** One BDE's active leads and their call log for the range — null if not visible to `user`. */
-async function memberDetail(user, adminId, range) {
+/**
+ * One BDE's active leads — null if not visible to `user`. Their call log is
+ * paged through teamCalls() with `by` set to this BDE.
+ */
+async function memberDetail(user, adminId) {
   const members = await visibleMembers(user);
   const member = members.find((m) => String(m.adminId) === String(adminId));
   if (!member) return null;
   const [id] = toObjectIds([adminId]);
 
-  const [leads, calls] = await Promise.all([
-    Lead.find(
-      { assignedTo: id, status: { $nin: TERMINAL_STATUSES } },
-      { leadId: 1, fullName: 1, phone: 1, status: 1, interestLevel: 1, nextFollowUpDate: 1, nextActionType: 1, lastCallAt: 1, touchNumber: 1, assignedAt: 1 }
-    ).sort({ nextFollowUpDate: 1, lastCallAt: -1 }).limit(300).lean(),
-    Lead.aggregate([
-      { $unwind: '$callLogs' },
-      { $match: { 'callLogs.calledBy': id, ...callInRange(range) } },
-      { $sort: { 'callLogs.loggedAt': -1, 'callLogs.callDate': -1 } },
-      { $limit: 300 },
-      {
-        $project: {
-          _id: 0,
-          leadRef: '$_id',
-          leadId: 1,
-          fullName: 1,
-          touchNumber: '$callLogs.touchNumber',
-          at: { $ifNull: ['$callLogs.loggedAt', '$callLogs.callDate'] },
-          duration: '$callLogs.callDuration',
-          connected: '$callLogs.connected',
-          notConnectedReason: '$callLogs.notConnectedReason',
-          interestLevel: '$callLogs.interestLevel',
-          remark: '$callLogs.remark',
-          leadStage: '$callLogs.leadStage',
-          callType: '$callLogs.callType',
-        },
-      },
-    ]),
-  ]);
+  const leads = await Lead.find(
+    { assignedTo: id, status: { $nin: TERMINAL_STATUSES } },
+    { leadId: 1, fullName: 1, phone: 1, status: 1, interestLevel: 1, nextFollowUpDate: 1, nextActionType: 1, lastCallAt: 1, touchNumber: 1, assignedAt: 1 }
+  ).sort({ nextFollowUpDate: 1, lastCallAt: -1 }).limit(300).lean();
 
-  return { member, leads, calls };
+  return { member, leads };
 }
 
 const CALL_LOG_PROJECTION = {

@@ -48,7 +48,7 @@ router.get('/:adminId', async (req, res) => {
   try {
     const range = rangeFrom(req, res);
     if (!range) return;
-    const data = await memberDetail(req.user, req.params.adminId, range);
+    const data = await memberDetail(req.user, req.params.adminId);
     if (!data) return res.status(404).json({ success: false, message: 'This person is not in your team.' });
     res.json({ success: true, range, asOf: new Date(), ...data });
   } catch (err) {
