@@ -1,4 +1,4 @@
-import { BarChart3, LayoutDashboard, Clock, CheckSquare, FileSpreadsheet, CreditCard, Award, User, LifeBuoy, UserCheck, AlertTriangle, UsersRound, FolderKanban } from 'lucide-react';
+import { BarChart3, PhoneCall, LayoutDashboard, Clock, CheckSquare, FileSpreadsheet, CreditCard, Award, User, LifeBuoy, UserCheck, AlertTriangle, UsersRound, FolderKanban } from 'lucide-react';
 
 /**
  * Employee Portal module matrix — which sidebar modules a person sees.
@@ -16,6 +16,7 @@ export const EMPLOYEE_MODULES = [
   { key: 'raw-leads', name: 'Raw Leads', icon: UserCheck, permission: 'leads.view' },
   { key: 'working-leads', name: 'Working Leads', icon: UserCheck, permission: 'leads.view' },
   { key: 'followups', name: 'Follow-ups', icon: AlertTriangle, permission: 'followups.view' },
+  { key: 'my-calls', name: 'My Call Log', icon: PhoneCall, permission: 'leads.view' },
   { key: 'attendance', name: 'Attendance & Leave', icon: Clock },
   { key: 'tasks', name: 'My Tasks', icon: CheckSquare },
   { key: 'timesheet', name: 'My Timesheet', icon: FileSpreadsheet },

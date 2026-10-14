@@ -38,11 +38,16 @@ const TeamManagement = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [teamRes, rolesRes] = await Promise.all([
+      // allSettled: the role list needs roles.manage, which not everyone with
+      // team.manage has — that must not blank the account list too.
+      const [teamResult, rolesResult] = await Promise.allSettled([
         api.get('/team'),
         api.get('/rbac/roles')
       ]);
-      
+      if (teamResult.status === 'rejected') throw teamResult.reason;
+      const teamRes = teamResult.value;
+      const rolesRes = rolesResult.status === 'fulfilled' ? rolesResult.value : { data: { success: false } };
+
       if (teamRes.data.success) {
         // GET /api/team returns every login in the Admin collection, which
         // includes HRMS employee accounts (Support Desk's ticket-assignment

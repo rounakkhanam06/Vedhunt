@@ -44,6 +44,7 @@ const PORTAL_MODULES = [
   { key: 'raw-leads', label: 'Raw Leads' },
   { key: 'working-leads', label: 'Working Leads' },
   { key: 'followups', label: 'Follow-ups' },
+  { key: 'my-calls', label: 'My Call Log' },
   { key: 'attendance', label: 'Attendance & Leave' },
   { key: 'tasks', label: 'My Tasks' },
   { key: 'timesheet', label: 'My Timesheet' },

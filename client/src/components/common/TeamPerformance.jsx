@@ -14,6 +14,8 @@ import RemarkCell from './RemarkCell';
  *
  * @param {(path: string, params: object) => Promise<object>} fetchData  GET relative to the team-performance endpoint
  * @param {(leadRef: string) => string} [leadHref]  link to open a lead, when the viewer can open it
+ * Also exports MyCallLog — a BDE's own calls, same period picker and call table.
+ *
  * @param {boolean} [showBackButton=true]  in-page "Back to team" — off where the layout already has a Back
  *   button; the open BDE lives in the URL (?bde=) so browser/layout Back returns to the team either way
  */
@@ -204,9 +206,11 @@ const SEARCH_HINT = 'Search lead name, ID or phone…';
 
 /**
  * Calls newest first, 25 per page — search by lead, filter by result, and by
- * BDE for the whole team. With `member`, only that BDE's calls (their drill-down log).
+ * BDE for the whole team. With `member`, only that BDE's calls (their
+ * drill-down log); with `self`, the signed-in BDE's own calls.
  */
-function TeamCallLog({ scope, fetchData, params, members, leadHref, member }) {
+function TeamCallLog({ scope, fetchData, params, members = [], leadHref, member, self }) {
+  const oneCaller = Boolean(member || self);
   const [by, setBy] = useState('All');
   const [result, setResult] = useState('All');
   const [search, setSearch] = useState('');
@@ -219,7 +223,7 @@ function TeamCallLog({ scope, fetchData, params, members, leadHref, member }) {
     setPageFor(resetKey);
     setPage(1);
   }
-  const query = { ...params, by: member ? member.adminId : by, result, q, page };
+  const query = { ...params, ...(self ? {} : { by: member ? member.adminId : by }), result, q, page };
   const { data, isLoading, error } = useQuery({
     queryKey: [scope, 'team-performance', 'calls', query],
     queryFn: () => fetchData('/calls', query),
@@ -231,7 +235,7 @@ function TeamCallLog({ scope, fetchData, params, members, leadHref, member }) {
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
         <SearchBox value={search} onChange={setSearch} placeholder={SEARCH_HINT} />
-        {!member && (
+        {!oneCaller && (
           <select value={by} onChange={pick(setBy)} className={selectClass}>
             <option value="All">All BDEs</option>
             {members.map((m) => <option key={m.adminId} value={m.adminId}>{m.name}</option>)}
@@ -249,7 +253,7 @@ function TeamCallLog({ scope, fetchData, params, members, leadHref, member }) {
         <Empty>{q ? `No calls on leads matching "${q}" in this period.` : 'No calls logged in this period.'}</Empty>
       ) : (
         <>
-          <CallTable calls={data.calls} leadHref={leadHref} showCaller={!member} />
+          <CallTable calls={data.calls} leadHref={leadHref} showCaller={!oneCaller} />
           <Pager page={data.page} pages={data.pages} onPage={setPage} />
         </>
       )}
@@ -355,10 +359,86 @@ function MemberDetail({ member, leadHref, onBack, scope, fetchData, params, show
   );
 }
 
-export default function TeamPerformance({ scope, fetchData, leadHref, title = 'My Team Performance', subtitle, showBackButton = true }) {
+function usePeriod() {
   const [period, setPeriod] = useState('today');
   const [from, setFrom] = useState(toDateInput());
   const [to, setTo] = useState(toDateInput());
+  const params = period === 'custom' ? { period, from, to } : { period };
+  return { period, setPeriod, from, setFrom, to, setTo, params };
+}
+
+function PeriodPicker({ period, setPeriod, from, setFrom, to, setTo }) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      {PERIODS.map((p) => (
+        <button
+          key={p.key}
+          type="button"
+          onClick={() => setPeriod(p.key)}
+          className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors cursor-pointer ${period === p.key ? 'bg-primary text-black border-primary' : 'border-app-border text-app-text hover:border-primary'}`}
+        >
+          {p.label}
+        </button>
+      ))}
+      {period === 'custom' && (
+        <div className="flex items-center gap-1.5">
+          <input type="date" value={from} max={to} onChange={(e) => setFrom(e.target.value)}
+            className="text-xs rounded-lg border border-app-border bg-form-input-bg px-2 py-1.5 text-app-text" />
+          <span className="text-xs text-app-text-muted">to</span>
+          <input type="date" value={to} min={from} onChange={(e) => setTo(e.target.value)}
+            className="text-xs rounded-lg border border-app-border bg-form-input-bg px-2 py-1.5 text-app-text" />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * A BDE's own call log: totals for the period, then every call they made —
+ * searchable, filterable by result, 25 per page. `fetchData('')` returns the
+ * totals and `fetchData('/calls')` a page of calls, both scoped server-side
+ * to the signed-in user.
+ */
+export function MyCallLog({ scope, fetchData, leadHref, title = 'My Call Log' }) {
+  const periodState = usePeriod();
+  const { params } = periodState;
+  const { data: summary, error } = useQuery({
+    queryKey: [scope, 'my-calls', params],
+    queryFn: () => fetchData('', params),
+    placeholderData: keepPreviousData,
+  });
+  const range = summary?.range;
+
+  return (
+    <div className="space-y-5 min-w-0">
+      <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-bold text-app-text">{title}</h2>
+          <p className="text-xs text-app-text-muted mt-1">
+            Every call you logged{range && ` · ${fmtDate(range.start)} – ${fmtDate(range.end)}`}
+          </p>
+        </div>
+        <PeriodPicker {...periodState} />
+      </div>
+
+      {error && <div className="text-sm text-red-400">{errorOf(error, 'Could not load your calls.')}</div>}
+      {summary && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <Tile icon={Phone} label="Calls made" value={summary.calls} sub={`${summary.leadsWorked} leads called`} />
+          <Tile icon={PhoneCall} label="Connected" value={summary.connected} sub={`${summary.connectRate}% connect rate`} tone="text-emerald-400 bg-emerald-500/10" />
+          <Tile icon={AlertTriangle} label="Not connected" value={summary.notConnected} tone="text-red-400 bg-red-500/10" />
+          <Tile icon={Clock} label="Talk time" value={fmtMinutes(summary.talkMinutes)} tone="text-sky-400 bg-sky-500/10" />
+        </div>
+      )}
+
+      <TeamCallLog scope={scope} fetchData={fetchData} params={params} leadHref={leadHref} self />
+    </div>
+  );
+}
+
+export default function TeamPerformance({ scope, fetchData, leadHref, title = 'My Team Performance', subtitle, showBackButton = true }) {
+  const periodState = usePeriod();
+  const { params } = periodState;
   const [searchParams, setSearchParams] = useSearchParams();
   const selected = searchParams.get('bde');
   // opening a BDE pushes a history entry, so Back (browser or layout) returns to the team
@@ -368,8 +448,6 @@ export default function TeamPerformance({ scope, fetchData, leadHref, title = 'M
     return next;
   });
   const [view, setView] = useState('members'); // members | calls
-
-  const params = period === 'custom' ? { period, from, to } : { period };
 
   const summaryQuery = useQuery({
     queryKey: [scope, 'team-performance', params],
@@ -393,27 +471,7 @@ export default function TeamPerformance({ scope, fetchData, leadHref, title = 'M
             {range && ` · ${fmtDate(range.start)} – ${fmtDate(range.end)}`}
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {PERIODS.map((p) => (
-            <button
-              key={p.key}
-              type="button"
-              onClick={() => setPeriod(p.key)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors cursor-pointer ${period === p.key ? 'bg-primary text-black border-primary' : 'border-app-border text-app-text hover:border-primary'}`}
-            >
-              {p.label}
-            </button>
-          ))}
-          {period === 'custom' && (
-            <div className="flex items-center gap-1.5">
-              <input type="date" value={from} max={to} onChange={(e) => setFrom(e.target.value)}
-                className="text-xs rounded-lg border border-app-border bg-form-input-bg px-2 py-1.5 text-app-text" />
-              <span className="text-xs text-app-text-muted">to</span>
-              <input type="date" value={to} min={from} onChange={(e) => setTo(e.target.value)}
-                className="text-xs rounded-lg border border-app-border bg-form-input-bg px-2 py-1.5 text-app-text" />
-            </div>
-          )}
-        </div>
+        <PeriodPicker {...periodState} />
       </div>
 
       {error && <div className="text-sm text-red-400">{error}</div>}

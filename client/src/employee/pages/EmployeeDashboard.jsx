@@ -18,6 +18,7 @@ import PerformanceTab from '../tabs/PerformanceTab';
 import ProfileTab from '../tabs/ProfileTab';
 import TeamApprovalsTab from '../tabs/TeamApprovalsTab';
 import TeamPerformanceTab from '../tabs/TeamPerformanceTab';
+import MyCallLogTab from '../tabs/MyCallLogTab';
 import ProjectsTab from '../tabs/ProjectsTab';
 
 const TABS = {
@@ -25,6 +26,7 @@ const TABS = {
   'raw-leads': (props) => <LeadListsTab view="raw" {...props} />,
   'working-leads': (props) => <LeadListsTab view="working" {...props} />,
   followups: (props) => <LeadListsTab view="followups" {...props} />,
+  'my-calls': MyCallLogTab,
   tickets: TicketsTab,
   attendance: AttendanceTab,
   tasks: TasksTab,

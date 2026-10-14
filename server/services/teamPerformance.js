@@ -214,16 +214,11 @@ const CALL_LOG_PROJECTION = {
 };
 
 /**
- * Every call by everyone `user` may see, newest first, one page at a time.
- * `by` narrows to one BDE (must be visible); `result` is Connected / Not
- * Connected; `q` keeps calls on leads matching a search (lead ID, name, phone …).
+ * Calls made by `ids` in `range`, newest first, one page at a time.
+ * `result` is Connected / Not Connected; `q` keeps calls on leads matching
+ * a search (lead ID, name, phone …).
  */
-async function teamCalls(user, range, { by, result, q, page, limit } = {}) {
-  const members = await visibleMembers(user);
-  const visibleIds = members.map((m) => String(m.adminId));
-  const ids = toObjectIds(by && by !== 'All' ? visibleIds.filter((id) => id === String(by)) : visibleIds);
-  if (!ids.length) return { calls: [], total: 0, page: 1, pages: 1, members };
-
+async function pagedCalls(ids, range, { result, q, page, limit } = {}) {
   const match = { 'callLogs.calledBy': { $in: ids }, ...callInRange(range) };
   if (result === 'Connected') match['callLogs.connected'] = 'Yes';
   else if (result === 'Not Connected') match['callLogs.connected'] = { $ne: 'Yes' };
@@ -243,15 +238,61 @@ async function teamCalls(user, range, { by, result, q, page, limit } = {}) {
     },
   ]);
 
-  const names = new Map(members.map((m) => [String(m.adminId), m.name]));
   const total = out?.total?.[0]?.n || 0;
+  return { calls: out?.calls || [], total, page: safePage, pages: pagesFor(total) };
+}
+
+/**
+ * Every call by everyone `user` may see — pagedCalls() across the team.
+ * `by` narrows to one BDE (must be visible).
+ */
+async function teamCalls(user, range, { by, ...options } = {}) {
+  const members = await visibleMembers(user);
+  const visibleIds = members.map((m) => String(m.adminId));
+  const ids = toObjectIds(by && by !== 'All' ? visibleIds.filter((id) => id === String(by)) : visibleIds);
+  if (!ids.length) return { calls: [], total: 0, page: 1, pages: 1, members };
+
+  const names = new Map(members.map((m) => [String(m.adminId), m.name]));
+  const out = await pagedCalls(ids, range, options);
   return {
-    calls: (out?.calls || []).map((c) => ({ ...c, calledByName: names.get(String(c.calledBy)) || 'Unknown' })),
-    total,
-    page: safePage,
-    pages: pagesFor(total),
+    ...out,
+    calls: out.calls.map((c) => ({ ...c, calledByName: names.get(String(c.calledBy)) || 'Unknown' })),
     members,
   };
 }
 
-module.exports = { PERIODS, periodRange, visibleMembers, teamSummary, memberDetail, teamCalls };
+/** A BDE's own call log — only ever their calls, whatever the request asks for. */
+async function myCalls(user, range, options = {}) {
+  return pagedCalls(toObjectIds([user._id]), range, options);
+}
+
+/** Totals for a BDE's own calls in `range` (calls, connected, talk time, leads called). */
+async function myCallSummary(user, range) {
+  const [id] = toObjectIds([user._id]);
+  const [row] = await Lead.aggregate([
+    { $match: { 'callLogs.calledBy': id } },
+    { $unwind: '$callLogs' },
+    { $match: { 'callLogs.calledBy': id, ...callInRange(range) } },
+    {
+      $group: {
+        _id: null,
+        calls: { $sum: 1 },
+        connected: { $sum: { $cond: [{ $eq: ['$callLogs.connected', 'Yes'] }, 1, 0] } },
+        talkMinutes: { $sum: { $ifNull: ['$callLogs.callDuration', 0] } },
+        leads: { $addToSet: '$_id' },
+      },
+    },
+  ]);
+  const calls = row?.calls || 0;
+  const connected = row?.connected || 0;
+  return {
+    calls,
+    connected,
+    notConnected: calls - connected,
+    connectRate: calls ? Math.round((connected / calls) * 100) : 0,
+    talkMinutes: row?.talkMinutes || 0,
+    leadsWorked: row?.leads?.length || 0,
+  };
+}
+
+module.exports = { PERIODS, periodRange, visibleMembers, teamSummary, memberDetail, teamCalls, myCalls, myCallSummary };

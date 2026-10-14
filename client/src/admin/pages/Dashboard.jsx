@@ -10,6 +10,7 @@ import api from '../../services/api';
 import toast from 'react-hot-toast';
 import { usePermissions } from '../hooks/usePermissions';
 import { downloadLeadsCsv } from '../utils/leadExport';
+import HrQuickAccess from '../components/HrQuickAccess';
 
 // firstName/lastName aren't guaranteed on every Admin account (the original
 // legacy seed account predates those fields being required) — fall back
@@ -119,6 +120,9 @@ const Dashboard = () => {
 
   return (
     <div className="space-y-8">
+      {/* HR shortcuts — Super Admin already has every page in the sidebar */}
+      {!isSuperAdmin && <HrQuickAccess />}
+
       {/* Financial Overview */}
       <section>
         <h2 className="text-xl font-bold text-white mb-4">Financial Overview</h2>

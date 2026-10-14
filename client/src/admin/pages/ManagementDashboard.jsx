@@ -8,6 +8,7 @@ import {
 } from 'recharts';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
+import { formatMinutes } from '../../shared/formatDuration';
 import { LEAD_PRIORITY_BADGE_CLASSES } from '../../shared/serviceQualification';
 
 // Canonical pipeline sequence — server/utils/leadStateMachine.js's ALLOWED_TRANSITIONS
@@ -271,7 +272,7 @@ export default function ManagementDashboard() {
           <StatCard
             icon={Clock}
             label="Avg. Response Time"
-            value={avgResponseMinutes != null ? `${avgResponseMinutes} min` : '—'}
+            value={formatMinutes(avgResponseMinutes)}
             sub="Assignment → first call, company-wide"
             onClick={() => goToLeads({ stage: 'open', dateField: 'assigned', dateFrom, dateTo })}
           />
@@ -321,7 +322,7 @@ export default function ManagementDashboard() {
                     <span className={row.noOutcomeCount > 0 ? 'text-amber-500 font-bold' : 'text-app-text-muted'}>{row.noOutcomeCount || 0}</span>
                   </td>
                   <td className="px-4 py-2 text-app-text-muted">{row.connectRate}%</td>
-                  <td className="px-4 py-2 text-app-text-muted">{row.avgResponseMinutes != null ? `${row.avgResponseMinutes} min` : '-'}</td>
+                  <td className="px-4 py-2 text-app-text-muted">{formatMinutes(row.avgResponseMinutes)}</td>
                   <td className="px-4 py-2">
                     <span className={row.breachCount > 0 ? 'text-red-400 font-bold' : 'text-app-text-muted'}>{row.breachCount}</span>
                   </td>

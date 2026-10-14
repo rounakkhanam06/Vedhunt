@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Clock, Filter, ChevronDown, ChevronLeft, ChevronRight, Phone, AlertTriangle, TrendingUp, Users } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
+import { formatMinutes } from '../../shared/formatDuration';
 
 const BUCKET_TABS = ['All', 'Overdue', 'Today', 'Upcoming', 'Action Missing'];
 
@@ -158,7 +159,7 @@ export default function FollowUpsManager() {
                   <td className="px-4 py-2 text-app-text-muted">{row.assignedCount}</td>
                   <td className="px-4 py-2 text-app-text-muted">{row.callsMade}</td>
                   <td className="px-4 py-2 text-app-text-muted">{row.connectRate}%</td>
-                  <td className="px-4 py-2 text-app-text-muted">{row.avgResponseMinutes != null ? `${row.avgResponseMinutes} min` : '-'}</td>
+                  <td className="px-4 py-2 text-app-text-muted">{formatMinutes(row.avgResponseMinutes)}</td>
                   <td className="px-4 py-2">
                     <span className={row.breachCount > 0 ? 'text-red-400 font-bold' : 'text-app-text-muted'}>{row.breachCount}</span>
                   </td>
