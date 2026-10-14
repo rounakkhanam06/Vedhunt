@@ -88,6 +88,9 @@ export default function ManagementDashboard() {
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
   /** Every drill-down funnels through here — builds the /admin/leads/all URL. */
+  // Calls Made → the Lead Activity log for that BD and this date range.
+  const goToCalls = (bdId) => navigate(`/admin/lead-activity?${new URLSearchParams({ by: bdId, dateFrom, dateTo })}`);
+
   const goToLeads = (params) => {
     const qs = new URLSearchParams(
       Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== '')
@@ -286,7 +289,8 @@ export default function ManagementDashboard() {
               <tr>
                 <th className="px-4 py-2 font-semibold">BD</th>
                 <th className="px-4 py-2 font-semibold">Assigned</th>
-                <th className="px-4 py-2 font-semibold">Calls Made</th>
+                <th className="px-4 py-2 font-semibold" title="Calls this BD made in the period (click to see which leads)">Calls Made</th>
+                <th className="px-4 py-2 font-semibold" title="Start Call pressed but no outcome saved">No Outcome</th>
                 <th className="px-4 py-2 font-semibold">Connect Rate</th>
                 <th className="px-4 py-2 font-semibold">Avg. Response</th>
                 <th className="px-4 py-2 font-semibold">Breaches</th>
@@ -301,7 +305,21 @@ export default function ManagementDashboard() {
                 >
                   <td className="px-4 py-2 text-app-text font-medium">{displayName(row.bd)}</td>
                   <td className="px-4 py-2 text-app-text-muted">{row.assignedCount}</td>
-                  <td className="px-4 py-2 text-app-text-muted">{row.callsMade}</td>
+                  <td className="px-4 py-2">
+                    {row.callsMade > 0 ? (
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); goToCalls(row.bd._id); }}
+                        className="font-bold text-primary hover:underline cursor-pointer"
+                        title="See which leads these calls were made to"
+                      >
+                        {row.callsMade}
+                      </button>
+                    ) : <span className="text-app-text-muted">0</span>}
+                  </td>
+                  <td className="px-4 py-2">
+                    <span className={row.noOutcomeCount > 0 ? 'text-amber-500 font-bold' : 'text-app-text-muted'}>{row.noOutcomeCount || 0}</span>
+                  </td>
                   <td className="px-4 py-2 text-app-text-muted">{row.connectRate}%</td>
                   <td className="px-4 py-2 text-app-text-muted">{row.avgResponseMinutes != null ? `${row.avgResponseMinutes} min` : '-'}</td>
                   <td className="px-4 py-2">
@@ -310,7 +328,7 @@ export default function ManagementDashboard() {
                 </tr>
               ))}
               {bdAccountability.length === 0 && (
-                <tr><td colSpan={6} className="px-4 py-6 text-center text-app-text-muted">No leads were assigned in this period.</td></tr>
+                <tr><td colSpan={7} className="px-4 py-6 text-center text-app-text-muted">No leads were assigned in this period.</td></tr>
               )}
             </tbody>
           </table>

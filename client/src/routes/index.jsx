@@ -563,7 +563,7 @@ export const router = createBrowserRouter([
           },
           {
             path: 'lead-activity',
-            element: withPermission(LeadActivity, 'leads.assign')
+            element: withPermission(LeadActivity, ['leads.assign', 'dashboard.management'])
           },
           {
             path: 'team-performance',

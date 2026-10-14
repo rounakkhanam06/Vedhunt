@@ -10,7 +10,7 @@ const EmployeeLogin = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading]- = useState(false);
 
   const { login, isAuthenticated } = useEmployeeStore();
   const navigate = useNavigate();

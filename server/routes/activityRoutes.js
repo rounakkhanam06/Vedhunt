@@ -15,7 +15,7 @@ const DASHBOARD_REPORTS = ['leads.assign', 'dashboard.management'];
 
 router.use(authMiddleware);
 
-router.get('/calls', requirePermission(LEAD_REPORTS), getCallActivity);
+router.get('/calls', requirePermission(DASHBOARD_REPORTS), getCallActivity);
 router.get('/followups', requirePermission(LEAD_REPORTS), getFollowUpsList);
 router.get('/followup-compliance', requirePermission(DASHBOARD_REPORTS), getFollowUpCompliance);
 router.get('/action-missing', requirePermission(DASHBOARD_REPORTS), getActionMissingQueue);

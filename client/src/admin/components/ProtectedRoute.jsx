@@ -4,7 +4,7 @@ import { useAdminStore } from '../../store/useAdminStore';
 
 const ProtectedRoute = ({ children, requiredPermission }) => {
   const { admin, isAuthenticated, isInitializing } = useAdminStore();
-  const { can } = usePermissions();
+  const { can, hasAnyPermission } = usePermissions();
 
   if (isInitializing) {
     return (
@@ -21,7 +21,9 @@ const ProtectedRoute = ({ children, requiredPermission }) => {
     return <Navigate to="/admin/login" replace />;
   }
 
-  if (requiredPermission && !can(requiredPermission)) {
+  // An array means any one of those permissions opens the page.
+  const allowed = Array.isArray(requiredPermission) ? hasAnyPermission(requiredPermission) : can(requiredPermission);
+  if (requiredPermission && !allowed) {
     return <Navigate to="/admin/dashboard" replace />;
   }
 

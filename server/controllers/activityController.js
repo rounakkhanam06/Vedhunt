@@ -1,11 +1,8 @@
 const Lead = require('../models/Lead');
+const Admin = require('../models/Admin');
 const mongoose = require('mongoose');
 const logger = require('../utils/logger');
 const { TERMINAL_STATUSES, FOLLOWUP_TRIGGER_INTEREST_LEVELS, FOLLOWUP_TRIGGER_STATUSES } = require('../utils/leadStateMachine');
-
-// pipelineHistory entries a BD's call outcome writes (see leadController.js's
-// updateLead and employeePortalRoutes.js's PUT /ess/leads/:id).
-const CALL_STATUSES = ['Call connected', 'Call not connected'];
 
 // A lead on Hold has no active follow-up requirement — it's paused, not overdue.
 const NON_ACTIVE_STATUSES = [...TERMINAL_STATUSES, 'Hold'];
@@ -25,43 +22,58 @@ function dateRangeFromQuery({ dateFrom, dateTo }) {
   return range;
 }
 
-// @desc    Cross-BD call activity feed — every "Call connected"/"Call not
-//          connected" entry across all leads, newest first.
+// A callLogs entry's time: loggedAt, or callDate on entries written before
+// loggedAt existed.
+const CALL_AT = { $ifNull: ['$callLogs.loggedAt', '$callLogs.callDate'] };
+
+// @desc    Cross-BD call log — every call outcome any BD logged (the lead's
+//          append-only callLogs, credited to whoever made the call), newest
+//          first. Filters: ?by=<adminId>, ?result=Connected|Not Connected,
+//          ?dateFrom/dateTo. Also returns per-BD counts for the same filters
+//          (ignoring ?by) so the page can show "who made how many".
 // @route   GET /api/admin/activity/calls
-// @access  Private (leads.assign)
+// @access  Private (leads.assign or dashboard.management)
 exports.getCallActivity = async (req, res, next) => {
   try {
-    const page = parseInt(req.query.page, 10) || 1;
-    const limit = parseInt(req.query.limit, 10) || 20;
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 20, 1), 100);
     const skip = (page - 1) * limit;
 
-    const match = { 'pipelineHistory.status': { $in: CALL_STATUSES } };
-    if (req.query.by && req.query.by !== 'All') {
-      match['pipelineHistory.updatedBy'] = new mongoose.Types.ObjectId(req.query.by);
-    }
-    if (req.query.result === 'Connected') {
-      match['pipelineHistory.status'] = 'Call connected';
-    } else if (req.query.result === 'Not Connected') {
-      match['pipelineHistory.status'] = 'Call not connected';
-    }
+    const base = { 'callLogs.calledBy': { $ne: null } };
+    if (req.query.result === 'Connected') base['callLogs.connected'] = 'Yes';
+    else if (req.query.result === 'Not Connected') base['callLogs.connected'] = { $ne: 'Yes' };
+    const period = dateRangeFromQuery(req.query);
+    const inPeriod = period ? [{ $match: { $expr: { $and: [
+      ...(period.$gte ? [{ $gte: [CALL_AT, period.$gte] }] : []),
+      ...(period.$lte ? [{ $lte: [CALL_AT, period.$lte] }] : []),
+    ] } } }] : [];
+
+    const byId = req.query.by && req.query.by !== 'All' && mongoose.Types.ObjectId.isValid(req.query.by)
+      ? new mongoose.Types.ObjectId(req.query.by) : null;
+    const onlyBd = byId ? [{ $match: { 'callLogs.calledBy': byId } }] : [];
 
     const [result] = await Lead.aggregate([
-      { $unwind: '$pipelineHistory' },
-      { $match: match },
-      { $sort: { 'pipelineHistory.date': -1 } },
+      { $unwind: '$callLogs' },
+      { $match: base },
+      ...inPeriod,
       {
         $facet: {
+          perBd: [
+            { $group: { _id: '$callLogs.calledBy', calls: { $sum: 1 }, connected: { $sum: { $cond: [{ $eq: ['$callLogs.connected', 'Yes'] }, 1, 0] } }, leads: { $addToSet: '$_id' } } },
+            { $lookup: { from: 'admins', localField: '_id', foreignField: '_id', as: 'admin' } },
+            { $project: {
+              _id: 0, bdId: '$_id', calls: 1, connected: 1, leads: { $size: '$leads' },
+              name: { $let: { vars: { a: { $arrayElemAt: ['$admin', 0] } }, in: { $trim: { input: { $concat: [{ $ifNull: ['$$a.firstName', ''] }, ' ', { $ifNull: ['$$a.lastName', ''] }] } } } } },
+              email: { $arrayElemAt: ['$admin.email', 0] },
+            } },
+            { $sort: { calls: -1 } },
+          ],
           data: [
+            ...onlyBd,
+            { $sort: { 'callLogs.loggedAt': -1, 'callLogs.callDate': -1 } },
             { $skip: skip },
             { $limit: limit },
-            {
-              $lookup: {
-                from: 'admins',
-                localField: 'pipelineHistory.updatedBy',
-                foreignField: '_id',
-                as: 'byAdmin'
-              }
-            },
+            { $lookup: { from: 'admins', localField: 'callLogs.calledBy', foreignField: '_id', as: 'byAdmin' } },
             {
               $project: {
                 _id: 0,
@@ -69,34 +81,40 @@ exports.getCallActivity = async (req, res, next) => {
                 leadDisplayId: '$leadId',
                 leadName: '$fullName',
                 leadPhone: '$phone',
-                status: '$pipelineHistory.status',
-                note: '$pipelineHistory.note',
-                date: '$pipelineHistory.date',
+                date: CALL_AT,
+                connected: '$callLogs.connected',
+                notConnectedReason: '$callLogs.notConnectedReason',
+                interestLevel: '$callLogs.interestLevel',
+                duration: '$callLogs.callDuration',
+                touchNumber: '$callLogs.touchNumber',
+                callType: '$callLogs.callType',
+                leadStage: '$callLogs.leadStage',
+                remark: '$callLogs.remark',
                 by: {
                   $let: {
                     vars: { a: { $arrayElemAt: ['$byAdmin', 0] } },
-                    // firstName/lastName aren't guaranteed — the original
-                    // legacy admin seed account predates those being
-                    // required, so email is included as a display fallback.
-                    in: { $cond: [{ $ifNull: ['$$a', false] }, { _id: '$$a._id', firstName: '$$a.firstName', lastName: '$$a.lastName', email: '$$a.email' }, null] }
+                    // firstName/lastName aren't guaranteed on the legacy
+                    // admin seed account — email is the display fallback.
+                    in: { _id: '$$a._id', firstName: '$$a.firstName', lastName: '$$a.lastName', email: '$$a.email' }
                   }
                 }
               }
             }
           ],
-          totalCount: [{ $count: 'count' }]
+          totalCount: [...onlyBd, { $count: 'count' }],
+          leadCount: [...onlyBd, { $group: { _id: '$_id' } }, { $count: 'count' }],
         }
       }
     ]);
 
-    const data = result?.data || [];
     const total = result?.totalCount?.[0]?.count || 0;
-
     res.status(200).json({
       success: true,
-      data,
+      data: result?.data || [],
       total,
-      totalPages: Math.ceil(total / limit),
+      leadCount: result?.leadCount?.[0]?.count || 0,
+      perBd: result?.perBd || [],
+      totalPages: Math.max(Math.ceil(total / limit), 1),
       currentPage: page
     });
   } catch (error) {
@@ -371,48 +389,87 @@ exports.getPipelineSummary = async (req, res, next) => {
 // @access  Private (leads.assign)
 exports.getBDAccountability = async (req, res, next) => {
   try {
-    // Optional ?dateFrom/dateTo: only leads assigned in that period.
+    // Optional ?dateFrom/dateTo: lead metrics cover leads *assigned* in that
+    // period; calls cover calls *made* in it.
     const period = dateRangeFromQuery(req.query);
-    const rows = await Lead.aggregate([
-      { $match: { assignedTo: { $ne: null }, ...(period && { assignedAt: period }) } },
-      {
-        $group: {
-          _id: '$assignedTo',
-          assignedCount: { $sum: 1 },
-          callsMade: { $sum: { $size: { $ifNull: ['$callLogs', []] } } },
-          connectedCount: { $sum: { $cond: [{ $eq: ['$connected', 'Yes'] }, 1, 0] } },
-          breachCount: { $sum: { $cond: [{ $eq: ['$followUpBreached', true] }, 1, 0] } },
-          totalResponseMs: {
-            $sum: {
-              $cond: [
-                { $and: ['$firstCallAt', '$assignedAt'] },
-                { $subtract: ['$firstCallAt', '$assignedAt'] },
-                0
-              ]
-            }
-          },
-          respondedCount: { $sum: { $cond: [{ $and: ['$firstCallAt', '$assignedAt'] }, 1, 0] } }
-        }
-      },
-      { $lookup: { from: 'admins', localField: '_id', foreignField: '_id', as: 'admin' } },
-      { $unwind: '$admin' },
-      {
-        $project: {
-          _id: 0,
-          bd: { _id: '$admin._id', firstName: '$admin.firstName', lastName: '$admin.lastName', email: '$admin.email' },
-          assignedCount: 1,
-          callsMade: 1,
-          connectRate: {
-            $cond: [{ $gt: ['$assignedCount', 0] }, { $round: [{ $multiply: [{ $divide: ['$connectedCount', '$assignedCount'] }, 100] }, 0] }, 0]
-          },
-          breachCount: 1,
-          avgResponseMinutes: {
-            $cond: [{ $gt: ['$respondedCount', 0] }, { $round: [{ $divide: [{ $divide: ['$totalResponseMs', '$respondedCount'] }, 60000] }, 0] }, null]
+    const callPeriod = period ? [{ $match: { $expr: { $and: [
+      ...(period.$gte ? [{ $gte: [CALL_AT, period.$gte] }] : []),
+      ...(period.$lte ? [{ $lte: [CALL_AT, period.$lte] }] : []),
+    ] } } }] : [];
+
+    const [leadRows, callRows, noOutcomeRows] = await Promise.all([
+      Lead.aggregate([
+        { $match: { assignedTo: { $ne: null }, ...(period && { assignedAt: period }) } },
+        {
+          $group: {
+            _id: '$assignedTo',
+            assignedCount: { $sum: 1 },
+            connectedCount: { $sum: { $cond: [{ $eq: ['$connected', 'Yes'] }, 1, 0] } },
+            breachCount: { $sum: { $cond: [{ $eq: ['$followUpBreached', true] }, 1, 0] } },
+            totalResponseMs: {
+              $sum: {
+                $cond: [
+                  { $and: ['$firstCallAt', '$assignedAt'] },
+                  { $subtract: ['$firstCallAt', '$assignedAt'] },
+                  0
+                ]
+              }
+            },
+            respondedCount: { $sum: { $cond: [{ $and: ['$firstCallAt', '$assignedAt'] }, 1, 0] } }
           }
         }
-      },
-      { $sort: { breachCount: -1, assignedCount: -1 } }
+      ]),
+      // Calls are credited to whoever made them (callLogs.calledBy), not to
+      // whoever the lead is assigned to now — a reassigned lead keeps its
+      // earlier calls with the BD who made them.
+      Lead.aggregate([
+        { $unwind: '$callLogs' },
+        { $match: { 'callLogs.calledBy': { $ne: null } } },
+        ...callPeriod,
+        { $group: { _id: '$callLogs.calledBy', callsMade: { $sum: 1 } } }
+      ]),
+      // Start Call pressed but no outcome ever saved for that call — the
+      // lead's latest callStartTime has no matching callLogs entry. Credited
+      // to whoever started it (callStartedBy), else the assignee.
+      Lead.aggregate([
+        { $match: { callStartTime: { $ne: null }, ...(period && { callStartTime: period }) } },
+        { $project: {
+          by: { $ifNull: ['$callStartedBy', '$assignedTo'] },
+          logged: { $in: ['$callStartTime', { $ifNull: ['$callLogs.callStartTime', []] }] }
+        } },
+        { $match: { logged: false, by: { $ne: null } } },
+        { $group: { _id: '$by', noOutcomeCount: { $sum: 1 } } }
+      ])
     ]);
+
+    const byBd = new Map();
+    const row = (id) => {
+      const key = String(id);
+      if (!byBd.has(key)) byBd.set(key, { _id: id, assignedCount: 0, connectedCount: 0, breachCount: 0, totalResponseMs: 0, respondedCount: 0, callsMade: 0, noOutcomeCount: 0 });
+      return byBd.get(key);
+    };
+    for (const r of leadRows) Object.assign(row(r._id), r);
+    for (const r of callRows) row(r._id).callsMade = r.callsMade;
+    for (const r of noOutcomeRows) row(r._id).noOutcomeCount = r.noOutcomeCount;
+
+    const admins = await Admin.find({ _id: { $in: [...byBd.values()].map((r) => r._id) } }, { firstName: 1, lastName: 1, email: 1 }).lean();
+    const adminById = new Map(admins.map((a) => [String(a._id), a]));
+
+    const rows = [...byBd.values()]
+      .filter((r) => adminById.has(String(r._id)))
+      .map((r) => {
+        const a = adminById.get(String(r._id));
+        return {
+          bd: { _id: a._id, firstName: a.firstName, lastName: a.lastName, email: a.email },
+          assignedCount: r.assignedCount,
+          callsMade: r.callsMade,
+          noOutcomeCount: r.noOutcomeCount,
+          connectRate: r.assignedCount > 0 ? Math.round((r.connectedCount / r.assignedCount) * 100) : 0,
+          breachCount: r.breachCount,
+          avgResponseMinutes: r.respondedCount > 0 ? Math.round(r.totalResponseMs / r.respondedCount / 60000) : null
+        };
+      })
+      .sort((x, y) => y.breachCount - x.breachCount || y.assignedCount - x.assignedCount || y.callsMade - x.callsMade);
 
     res.status(200).json({ success: true, data: rows });
   } catch (error) {
@@ -420,11 +477,6 @@ exports.getBDAccountability = async (req, res, next) => {
     next(error);
   }
 };
-
-// A tier's-worth of the conversion-likelihood breakdown is only meaningful
-// for leads still actually in play.
-const OPEN_STATUS_FILTER = { $nin: NON_ACTIVE_STATUSES };
-const LEAD_PRIORITY_ORDER = ['Hot', 'Warm', 'Normal', 'Low'];
 
 // @desc    Lead volume/source/service breakdown (period-scoped) plus a
 //          conversion-likelihood snapshot of the current open pipeline
