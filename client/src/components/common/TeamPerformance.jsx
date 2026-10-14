@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
-import { ArrowLeft, Phone, PhoneCall, Clock, AlertTriangle, Trophy, Target } from 'lucide-react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { ArrowLeft, Phone, PhoneCall, Clock, AlertTriangle, Trophy, Target, Search } from 'lucide-react';
 import { fmtDateTime, fmtDate, fmtMinutes, fmtINR, toDateInput } from '../../employee/lib/datetime';
+import RemarkCell from './RemarkCell';
 
 /**
  * My Team Performance — per-BDE calls, leads and follow-ups for a period, with
@@ -13,6 +14,8 @@ import { fmtDateTime, fmtDate, fmtMinutes, fmtINR, toDateInput } from '../../emp
  *
  * @param {(path: string, params: object) => Promise<object>} fetchData  GET relative to the team-performance endpoint
  * @param {(leadRef: string) => string} [leadHref]  link to open a lead, when the viewer can open it
+ * @param {boolean} [showBackButton=true]  in-page "Back to team" — off where the layout already has a Back
+ *   button; the open BDE lives in the URL (?bde=) so browser/layout Back returns to the team either way
  */
 
 const PERIODS = [
@@ -152,7 +155,7 @@ function CallTable({ calls, leadHref, showCaller }) {
               <td className={td}>{c.callType || '—'}</td>
               <td className={td}>{c.leadStage || '—'}</td>
               <td className={`${td} text-right`}>{c.duration ? `${c.duration} min` : '—'}</td>
-              <td className={`${td} max-w-[220px] text-xs whitespace-pre-wrap`}>{c.remark || '—'}</td>
+              <td className={`${td} w-[280px] min-w-[220px] max-w-[280px]`}><RemarkCell text={c.remark} /></td>
             </tr>
           ))}
         </tbody>
@@ -164,22 +167,59 @@ function CallTable({ calls, leadHref, showCaller }) {
 const selectClass = 'text-xs rounded-lg border border-app-border bg-form-input-bg px-2 py-1.5 text-app-text';
 const pageBtn = 'px-3 py-1.5 rounded-lg border border-app-border text-app-text disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed';
 
+/** `value`, settled for `delay` ms — so a search box doesn't query on every keystroke. */
+function useDebounced(value, delay = 350) {
+  const [settled, setSettled] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setSettled(value), delay);
+    return () => clearTimeout(t);
+  }, [value, delay]);
+  return settled;
+}
+
+function SearchBox({ value, onChange, placeholder }) {
+  return (
+    <div className="relative w-full sm:w-72">
+      <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-app-text-muted pointer-events-none" />
+      <input
+        type="search" value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
+        className="w-full text-xs rounded-lg border border-app-border bg-form-input-bg pl-8 pr-2 py-1.5 text-app-text"
+      />
+    </div>
+  );
+}
+
+function Pager({ page, pages, onPage }) {
+  if (pages <= 1) return null;
+  return (
+    <div className="flex items-center justify-end gap-2 text-xs">
+      <button type="button" disabled={page <= 1} onClick={() => onPage(page - 1)} className={pageBtn}>Previous</button>
+      <span className="text-app-text-muted">Page {page} of {pages}</span>
+      <button type="button" disabled={page >= pages} onClick={() => onPage(page + 1)} className={pageBtn}>Next</button>
+    </div>
+  );
+}
+
+const SEARCH_HINT = 'Search lead name, ID or phone…';
+
 /**
- * Calls newest first, 25 per page — filter by result, and by BDE for the
- * whole team. With `member`, only that BDE's calls (their drill-down log).
+ * Calls newest first, 25 per page — search by lead, filter by result, and by
+ * BDE for the whole team. With `member`, only that BDE's calls (their drill-down log).
  */
 function TeamCallLog({ scope, fetchData, params, members, leadHref, member }) {
   const [by, setBy] = useState('All');
   const [result, setResult] = useState('All');
+  const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
-  // back to page 1 when the period changes, so a shorter range never lands past its last page
-  const periodKey = JSON.stringify(params);
-  const [pagePeriod, setPagePeriod] = useState(periodKey);
-  if (pagePeriod !== periodKey) {
-    setPagePeriod(periodKey);
+  const q = useDebounced(search.trim());
+  // back to page 1 when the period or search changes, so a smaller result never lands past its last page
+  const resetKey = JSON.stringify([params, q]);
+  const [pageFor, setPageFor] = useState(resetKey);
+  if (pageFor !== resetKey) {
+    setPageFor(resetKey);
     setPage(1);
   }
-  const query = { ...params, by: member ? member.adminId : by, result, page };
+  const query = { ...params, by: member ? member.adminId : by, result, q, page };
   const { data, isLoading, error } = useQuery({
     queryKey: [scope, 'team-performance', 'calls', query],
     queryFn: () => fetchData('/calls', query),
@@ -190,6 +230,7 @@ function TeamCallLog({ scope, fetchData, params, members, leadHref, member }) {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
+        <SearchBox value={search} onChange={setSearch} placeholder={SEARCH_HINT} />
         {!member && (
           <select value={by} onChange={pick(setBy)} className={selectClass}>
             <option value="All">All BDEs</option>
@@ -204,29 +245,92 @@ function TeamCallLog({ scope, fetchData, params, members, leadHref, member }) {
         {data && <span className="text-xs text-app-text-muted">{data.total} call{data.total === 1 ? '' : 's'}</span>}
       </div>
       {error && <div className="text-sm text-red-400">{errorOf(error, 'Could not load the team call log.')}</div>}
-      {isLoading ? <Loader /> : !data?.calls.length ? <Empty>No calls logged in this period.</Empty> : (
+      {isLoading ? <Loader /> : !data?.calls.length ? (
+        <Empty>{q ? `No calls on leads matching "${q}" in this period.` : 'No calls logged in this period.'}</Empty>
+      ) : (
         <>
           <CallTable calls={data.calls} leadHref={leadHref} showCaller={!member} />
-          {data.pages > 1 && (
-            <div className="flex items-center justify-end gap-2 text-xs">
-              <button type="button" disabled={page <= 1} onClick={() => setPage(page - 1)} className={pageBtn}>Previous</button>
-              <span className="text-app-text-muted">Page {data.page} of {data.pages}</span>
-              <button type="button" disabled={page >= data.pages} onClick={() => setPage(page + 1)} className={pageBtn}>Next</button>
-            </div>
-          )}
+          <Pager page={data.page} pages={data.pages} onPage={setPage} />
         </>
       )}
     </div>
   );
 }
 
-function MemberDetail({ member, data, loading, leadHref, onBack, scope, fetchData, params }) {
+/** One BDE's active leads, 25 per page, searchable. Not tied to the period — it's their book as of now. */
+function MemberLeads({ scope, fetchData, member, leadHref }) {
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const q = useDebounced(search.trim());
+  const [pageFor, setPageFor] = useState(q);
+  if (pageFor !== q) {
+    setPageFor(q);
+    setPage(1);
+  }
+  const query = { q, page };
+  const { data, isLoading, error } = useQuery({
+    queryKey: [scope, 'team-performance', 'leads', String(member.adminId), query],
+    queryFn: () => fetchData(`/${member.adminId}`, query),
+    placeholderData: keepPreviousData,
+  });
+
+  return (
+    <section className="space-y-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h4 className="text-sm font-bold text-app-text">
+          Leads they are working on{data ? ` (${data.total}${q ? ' matching' : ''})` : ''}
+        </h4>
+        <SearchBox value={search} onChange={setSearch} placeholder={SEARCH_HINT} />
+      </div>
+      {error && <div className="text-sm text-red-400">{errorOf(error, 'Could not load this team member.')}</div>}
+      {isLoading ? <Loader /> : !data?.leads.length ? (
+        <Empty>{q ? `No active leads matching "${q}".` : 'No active leads assigned.'}</Empty>
+      ) : (
+        <>
+          <div className={`${card} overflow-x-auto`}>
+            <table className="w-full text-left min-w-[760px] text-sm">
+              <thead>
+                <tr className="border-b border-app-border text-xs text-app-text-muted uppercase">
+                  <th className={th}>Lead</th><th className={th}>Stage</th><th className={th}>Interest</th>
+                  <th className={th}>Next follow-up</th><th className={th}>Last call</th><th className={`${th} text-right`}>Touches</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-app-border">
+                {data.leads.map((l) => {
+                  const overdue = l.nextFollowUpDate && new Date(l.nextFollowUpDate) < new Date(data.asOf) && l.status !== 'Hold';
+                  return (
+                    <tr key={l._id} className="align-top">
+                      <td className={td}><LeadName leadRef={l._id} name={l.fullName} leadId={l.leadId} leadHref={leadHref} /></td>
+                      <td className={td}>{l.status}</td>
+                      <td className={td}>{l.interestLevel || '—'}</td>
+                      <td className={`${td} ${overdue ? 'text-red-400 font-semibold' : ''}`}>
+                        {l.nextFollowUpDate ? fmtDateTime(l.nextFollowUpDate) : '—'}
+                        {l.nextActionType && <div className="text-[11px] text-app-text-muted">{l.nextActionType}{overdue ? ' · overdue' : ''}</div>}
+                      </td>
+                      <td className={td}>{l.lastCallAt ? fmtDateTime(l.lastCallAt) : 'Never called'}</td>
+                      <td className={`${td} text-right`}>{l.touchNumber || 0}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <Pager page={data.page} pages={data.pages} onPage={setPage} />
+        </>
+      )}
+    </section>
+  );
+}
+
+function MemberDetail({ member, leadHref, onBack, scope, fetchData, params, showBackButton }) {
   const summary = member;
   return (
     <div className="space-y-5">
-      <button type="button" onClick={onBack} className="flex items-center gap-1.5 text-sm font-semibold text-app-text-muted hover:text-primary cursor-pointer">
-        <ArrowLeft size={15} /> Back to team
-      </button>
+      {showBackButton && (
+        <button type="button" onClick={onBack} className="flex items-center gap-1.5 text-sm font-semibold text-app-text-muted hover:text-primary cursor-pointer">
+          <ArrowLeft size={15} /> Back to team
+        </button>
+      )}
       <div>
         <h3 className="text-lg font-bold text-app-text">{summary.name}</h3>
         <p className="text-xs text-app-text-muted">{[summary.employeeId, summary.designation].filter(Boolean).join(' · ')}</p>
@@ -246,52 +350,23 @@ function MemberDetail({ member, data, loading, leadHref, onBack, scope, fetchDat
         <TeamCallLog scope={scope} fetchData={fetchData} params={params} leadHref={leadHref} member={member} />
       </section>
 
-      {loading ? <Loader /> : !data ? null : (
-        <>
-          <section className="space-y-2">
-            <h4 className="text-sm font-bold text-app-text">Leads they are working on ({data.leads.length})</h4>
-            {data.leads.length === 0 ? <Empty>No active leads assigned.</Empty> : (
-              <div className={`${card} overflow-x-auto`}>
-                <table className="w-full text-left min-w-[760px] text-sm">
-                  <thead>
-                    <tr className="border-b border-app-border text-xs text-app-text-muted uppercase">
-                      <th className={th}>Lead</th><th className={th}>Stage</th><th className={th}>Interest</th>
-                      <th className={th}>Next follow-up</th><th className={th}>Last call</th><th className={`${th} text-right`}>Touches</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-app-border">
-                    {data.leads.map((l) => {
-                      const overdue = l.nextFollowUpDate && new Date(l.nextFollowUpDate) < new Date(data.asOf) && l.status !== 'Hold';
-                      return (
-                        <tr key={l._id} className="align-top">
-                          <td className={td}><LeadName leadRef={l._id} name={l.fullName} leadId={l.leadId} leadHref={leadHref} /></td>
-                          <td className={td}>{l.status}</td>
-                          <td className={td}>{l.interestLevel || '—'}</td>
-                          <td className={`${td} ${overdue ? 'text-red-400 font-semibold' : ''}`}>
-                            {l.nextFollowUpDate ? fmtDateTime(l.nextFollowUpDate) : '—'}
-                            {l.nextActionType && <div className="text-[11px] text-app-text-muted">{l.nextActionType}{overdue ? ' · overdue' : ''}</div>}
-                          </td>
-                          <td className={td}>{l.lastCallAt ? fmtDateTime(l.lastCallAt) : 'Never called'}</td>
-                          <td className={`${td} text-right`}>{l.touchNumber || 0}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </section>
-        </>
-      )}
+      <MemberLeads scope={scope} fetchData={fetchData} member={member} leadHref={leadHref} />
     </div>
   );
 }
 
-export default function TeamPerformance({ scope, fetchData, leadHref, title = 'My Team Performance', subtitle }) {
+export default function TeamPerformance({ scope, fetchData, leadHref, title = 'My Team Performance', subtitle, showBackButton = true }) {
   const [period, setPeriod] = useState('today');
   const [from, setFrom] = useState(toDateInput());
   const [to, setTo] = useState(toDateInput());
-  const [selected, setSelected] = useState(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const selected = searchParams.get('bde');
+  // opening a BDE pushes a history entry, so Back (browser or layout) returns to the team
+  const setSelected = (adminId) => setSearchParams((prev) => {
+    const next = new URLSearchParams(prev);
+    if (adminId) next.set('bde', adminId); else next.delete('bde');
+    return next;
+  });
   const [view, setView] = useState('members'); // members | calls
 
   const params = period === 'custom' ? { period, from, to } : { period };
@@ -301,16 +376,9 @@ export default function TeamPerformance({ scope, fetchData, leadHref, title = 'M
     queryFn: () => fetchData('', params),
     placeholderData: keepPreviousData,
   });
-  const detailQuery = useQuery({
-    queryKey: [scope, 'team-performance', params, selected],
-    queryFn: () => fetchData(`/${selected}`, params),
-    enabled: Boolean(selected),
-  });
 
   const summary = summaryQuery.data;
-  const error = summaryQuery.error
-    ? errorOf(summaryQuery.error, 'Could not load team performance.')
-    : detailQuery.error ? errorOf(detailQuery.error, 'Could not load this team member.') : '';
+  const error = summaryQuery.error ? errorOf(summaryQuery.error, 'Could not load team performance.') : '';
   const members = summary?.members || [];
   const selectedMember = members.find((m) => String(m.adminId) === String(selected));
   const range = summary?.range;
@@ -352,8 +420,8 @@ export default function TeamPerformance({ scope, fetchData, leadHref, title = 'M
 
       {summaryQuery.isLoading ? <Loader /> : selectedMember ? (
         <MemberDetail
-          member={selectedMember} data={detailQuery.data} loading={detailQuery.isLoading} leadHref={leadHref}
-          onBack={() => setSelected(null)} scope={scope} fetchData={fetchData} params={params}
+          member={selectedMember} leadHref={leadHref}
+          onBack={() => setSelected(null)} showBackButton={showBackButton} scope={scope} fetchData={fetchData} params={params}
         />
       ) : members.length === 0 ? (
         <Empty>No BDEs report to you yet.</Empty>

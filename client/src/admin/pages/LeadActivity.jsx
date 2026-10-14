@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { Activity, Filter, ChevronDown, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import api from '../../services/api';
+import RemarkCell from '../../components/common/RemarkCell';
 
 // firstName/lastName aren't guaranteed on every Admin account (the original
 // legacy seed account predates those fields being required) — fall back
@@ -228,7 +229,7 @@ export default function LeadActivity() {
                     <td className="px-4 py-3 text-app-text-muted">{entry.callType || 'Call'}</td>
                     <td className="px-4 py-3 text-app-text-muted">{entry.leadStage || '—'}</td>
                     <td className="px-4 py-3 text-app-text-muted text-right">{entry.duration ? `${entry.duration} min` : '—'}</td>
-                    <td className="px-4 py-3 text-app-text-muted text-xs max-w-[240px] whitespace-pre-wrap">{entry.remark || '—'}</td>
+                    <td className="px-4 py-3 w-[280px] min-w-[220px] max-w-[280px]"><RemarkCell text={entry.remark} /></td>
                   </tr>
                 ))
               )}

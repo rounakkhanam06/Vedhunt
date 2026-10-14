@@ -35,8 +35,8 @@ router.get('/calls', async (req, res) => {
   try {
     const range = rangeFrom(req, res);
     if (!range) return;
-    const { by, result, page, limit } = req.query;
-    const data = await teamCalls(req.user, range, { by, result, page, limit });
+    const { by, result, q, page, limit } = req.query;
+    const data = await teamCalls(req.user, range, { by, result, q, page, limit });
     res.json({ success: true, range, ...data });
   } catch (err) {
     logger.error('Team call log failed:', err);
@@ -48,7 +48,8 @@ router.get('/:adminId', async (req, res) => {
   try {
     const range = rangeFrom(req, res);
     if (!range) return;
-    const data = await memberDetail(req.user, req.params.adminId);
+    const { q, page, limit } = req.query;
+    const data = await memberDetail(req.user, req.params.adminId, { q, page, limit });
     if (!data) return res.status(404).json({ success: false, message: 'This person is not in your team.' });
     res.json({ success: true, range, asOf: new Date(), ...data });
   } catch (err) {

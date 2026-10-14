@@ -478,6 +478,11 @@ exports.getBDAccountability = async (req, res, next) => {
   }
 };
 
+// A tier's-worth of the conversion-likelihood breakdown is only meaningful
+// for leads still actually in play.
+const OPEN_STATUS_FILTER = { $nin: NON_ACTIVE_STATUSES };
+const LEAD_PRIORITY_ORDER = ['Hot', 'Warm', 'Normal', 'Low'];
+
 // @desc    Lead volume/source/service breakdown (period-scoped) plus a
 //          conversion-likelihood snapshot of the current open pipeline
 //          (priority tiers + top-scored leads) — feeds the Management

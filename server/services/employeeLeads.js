@@ -45,14 +45,13 @@ const maskEmail = (email) => {
 };
 
 /**
- * Searches by Vedhunt Lead ID, Meta Lead ID, name, phone, email, business
- * name or website. Everyone searches their own leads; roles holding
- * leads.viewAll search the whole database, but another BD's lead comes back
- * masked and read-only (ownership/editing stays with the assignee).
+ * Mongo filter matching a typed search against Vedhunt Lead ID, Meta Lead ID,
+ * name, phone/alt phone, email, business name or website — null when the
+ * query is too short to search on.
  */
-async function searchLeads(user, rawQuery) {
+function leadSearchFilter(rawQuery) {
   const q = String(rawQuery || '').trim().slice(0, 100);
-  if (q.length < 2) return [];
+  if (q.length < 2) return null;
   const pattern = new RegExp(escapeRegex(q), 'i');
   const or = [
     { leadId: new RegExp(`^${escapeRegex(q)}`, 'i') },
@@ -64,9 +63,21 @@ async function searchLeads(user, rawQuery) {
     const phone = new RegExp(escapeRegex(digits.length > 10 ? normalizePhone(digits) : digits));
     or.push({ phoneNormalized: phone }, { altPhoneNormalized: phone });
   }
+  return { $or: or };
+}
+
+/**
+ * Searches by Vedhunt Lead ID, Meta Lead ID, name, phone, email, business
+ * name or website. Everyone searches their own leads; roles holding
+ * leads.viewAll search the whole database, but another BD's lead comes back
+ * masked and read-only (ownership/editing stays with the assignee).
+ */
+async function searchLeads(user, rawQuery) {
+  const search = leadSearchFilter(rawQuery);
+  if (!search) return [];
 
   const canSearchAll = user.permissions?.includes('*') || user.permissions?.includes('leads.viewAll');
-  const filter = canSearchAll ? { $or: or } : { $or: or, assignedTo: user._id };
+  const filter = canSearchAll ? search : { ...search, assignedTo: user._id };
   const leads = await Lead.find(filter, { ...listProjection, assignedTo: 1 }).sort({ createdAt: -1 }).limit(20).lean();
 
   const otherOwnerIds = [...new Set(leads
@@ -158,4 +169,4 @@ async function todayAgenda(user, tasks = []) {
   };
 }
 
-module.exports = { listAssignedLeads, searchLeads, todayAgenda, LIST_FIELDS };
+module.exports = { listAssignedLeads, searchLeads, leadSearchFilter, todayAgenda, LIST_FIELDS };

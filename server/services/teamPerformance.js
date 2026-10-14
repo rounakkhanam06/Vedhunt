@@ -6,6 +6,7 @@ const { getBDERole } = require('./leadAssignment');
 const { directReportIds } = require('./approvalRouting');
 const { TERMINAL_STATUSES } = require('../utils/leadStateMachine');
 const { hasPermission } = require('../config/permissions');
+const { leadSearchFilter } = require('./employeeLeads');
 
 /**
  * My Team Performance — per-BDE call and lead numbers for a manager's direct
@@ -164,22 +165,35 @@ async function teamSummary(user, range) {
   return { members: rows, totals };
 }
 
+/** Clamps page/limit query values; 25 per page by default, at most 100. */
+function paging({ page, limit } = {}) {
+  const safeLimit = Math.min(Math.max(Number(limit) || 25, 1), 100);
+  const safePage = Math.max(Number(page) || 1, 1);
+  return { safePage, safeLimit, skip: (safePage - 1) * safeLimit, pagesFor: (total) => Math.max(Math.ceil(total / safeLimit), 1) };
+}
+
 /**
- * One BDE's active leads — null if not visible to `user`. Their call log is
- * paged through teamCalls() with `by` set to this BDE.
+ * One BDE's active leads, a page at a time, optionally filtered by `q`
+ * (lead ID, name, phone, email …) — null if not visible to `user`. Their
+ * call log is paged through teamCalls() with `by` set to this BDE.
  */
-async function memberDetail(user, adminId) {
+async function memberDetail(user, adminId, { q, page, limit } = {}) {
   const members = await visibleMembers(user);
   const member = members.find((m) => String(m.adminId) === String(adminId));
   if (!member) return null;
   const [id] = toObjectIds([adminId]);
 
-  const leads = await Lead.find(
-    { assignedTo: id, status: { $nin: TERMINAL_STATUSES } },
-    { leadId: 1, fullName: 1, phone: 1, status: 1, interestLevel: 1, nextFollowUpDate: 1, nextActionType: 1, lastCallAt: 1, touchNumber: 1, assignedAt: 1 }
-  ).sort({ nextFollowUpDate: 1, lastCallAt: -1 }).limit(300).lean();
+  const filter = { assignedTo: id, status: { $nin: TERMINAL_STATUSES }, ...leadSearchFilter(q) };
+  const { safePage, safeLimit, skip, pagesFor } = paging({ page, limit });
+  const [leads, total] = await Promise.all([
+    Lead.find(
+      filter,
+      { leadId: 1, fullName: 1, phone: 1, status: 1, interestLevel: 1, nextFollowUpDate: 1, nextActionType: 1, lastCallAt: 1, touchNumber: 1, assignedAt: 1 }
+    ).sort({ nextFollowUpDate: 1, lastCallAt: -1, _id: 1 }).skip(skip).limit(safeLimit).lean(),
+    Lead.countDocuments(filter),
+  ]);
 
-  return { member, leads };
+  return { member, leads, total, page: safePage, pages: pagesFor(total) };
 }
 
 const CALL_LOG_PROJECTION = {
@@ -201,9 +215,10 @@ const CALL_LOG_PROJECTION = {
 
 /**
  * Every call by everyone `user` may see, newest first, one page at a time.
- * `by` narrows to one BDE (must be visible); `result` is Connected / Not Connected.
+ * `by` narrows to one BDE (must be visible); `result` is Connected / Not
+ * Connected; `q` keeps calls on leads matching a search (lead ID, name, phone …).
  */
-async function teamCalls(user, range, { by, result, page = 1, limit = 25 } = {}) {
+async function teamCalls(user, range, { by, result, q, page, limit } = {}) {
   const members = await visibleMembers(user);
   const visibleIds = members.map((m) => String(m.adminId));
   const ids = toObjectIds(by && by !== 'All' ? visibleIds.filter((id) => id === String(by)) : visibleIds);
@@ -213,15 +228,16 @@ async function teamCalls(user, range, { by, result, page = 1, limit = 25 } = {})
   if (result === 'Connected') match['callLogs.connected'] = 'Yes';
   else if (result === 'Not Connected') match['callLogs.connected'] = { $ne: 'Yes' };
 
-  const safeLimit = Math.min(Math.max(Number(limit) || 25, 1), 100);
-  const safePage = Math.max(Number(page) || 1, 1);
+  const { safePage, safeLimit, skip, pagesFor } = paging({ page, limit });
   const [out] = await Lead.aggregate([
+    // narrow to leads these BDEs called (and that match the search) before unwinding
+    { $match: { 'callLogs.calledBy': { $in: ids }, ...leadSearchFilter(q) } },
     { $unwind: '$callLogs' },
     { $match: match },
     { $sort: { 'callLogs.loggedAt': -1, 'callLogs.callDate': -1 } },
     {
       $facet: {
-        calls: [{ $skip: (safePage - 1) * safeLimit }, { $limit: safeLimit }, { $project: CALL_LOG_PROJECTION }],
+        calls: [{ $skip: skip }, { $limit: safeLimit }, { $project: CALL_LOG_PROJECTION }],
         total: [{ $count: 'n' }],
       },
     },
@@ -233,7 +249,7 @@ async function teamCalls(user, range, { by, result, page = 1, limit = 25 } = {})
     calls: (out?.calls || []).map((c) => ({ ...c, calledByName: names.get(String(c.calledBy)) || 'Unknown' })),
     total,
     page: safePage,
-    pages: Math.max(Math.ceil(total / safeLimit), 1),
+    pages: pagesFor(total),
     members,
   };
 }
