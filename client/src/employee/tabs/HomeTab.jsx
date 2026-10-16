@@ -2,12 +2,11 @@ import { useNavigate } from 'react-router-dom';
 import {
   UserPlus, PhoneCall, CalendarClock, AlertCircle, Flame, FileText, Handshake, Trophy, Users, ListTodo, CircleDashed, ChevronRight,
 } from 'lucide-react';
-import { StatTile } from '../components/PortalUI';
+import { StatTile, LateBadge } from '../components/PortalUI';
 import { useAccess, useEssLeads, useEssToday } from '../lib/ess';
 import { fmtDateTime, fmtINR } from '../lib/datetime';
 import { followUpBucket, isCallPending, needsNextAction, isWonThisMonth, PIPELINE_STAGES } from '../lib/leads';
 import { taskStatusLabel } from '../../shared/taskConstants';
-import { formatDuration } from '../../utils/formatDuration';
 
 const go = (navigate, query) => () => navigate(`/employee/dashboard?${query}`);
 
@@ -157,7 +156,7 @@ export default function HomeTab({ employee }) {
                   <div className="flex flex-col gap-1 items-start">
                     <span>{todayLog.status} ({todayLog.clockIn} - {todayLog.clockOut || 'Now'})</span>
                     {todayLog.lateByMins > 0 && (
-                      <span className="text-[10px] font-bold bg-rose-500/10 text-rose-500 px-2 py-0.5 rounded tracking-wider">LATE BY {formatDuration(todayLog.lateByMins).toUpperCase()}</span>
+                      <LateBadge minutes={todayLog.lateByMins} />
                     )}
                   </div>
                 ) : 'Not Logged Today'}

@@ -156,9 +156,33 @@ export function CorrectionRequestList({ kind }) {
   };
 
   return (
-    <div className="bg-app-card p-6 rounded-xl border border-app-border space-y-4">
+    <div className="bg-app-card p-4 sm:p-6 rounded-xl border border-app-border space-y-4">
       <h2 className="text-lg font-bold">{kind === 'Attendance' ? 'Regularization Requests' : 'Time Correction Requests'}</h2>
-      <div className="overflow-x-auto">
+
+      {/* Mobile: one card per request */}
+      <div className="md:hidden divide-y divide-app-border">
+        {mine.map((r) => (
+          <div key={r._id} className="py-3 space-y-1.5 text-sm">
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-mono font-semibold whitespace-nowrap">{fmtDate(r.date)}</span>
+              <div className="flex items-center gap-2">
+                <ApprovalBadge status={r.status} />
+                {r.status === 'Pending' && (
+                  <button type="button" onClick={() => cancel(r)} disabled={cancelling === r._id} className="text-xs font-semibold text-rose-400 hover:underline disabled:opacity-50 cursor-pointer">
+                    Cancel
+                  </button>
+                )}
+              </div>
+            </div>
+            <div className="text-xs text-app-text-muted">{TYPE_LABEL[r.type] || r.type}</div>
+            <div className="text-xs text-app-text">{describe(r)}</div>
+            {r.reason && <p className="text-xs text-app-text break-words">Reason: {r.reason}</p>}
+            {r.reviewComment && <p className="text-xs text-app-text-muted italic break-words">Manager: {r.reviewComment}</p>}
+          </div>
+        ))}
+      </div>
+
+      <div className="hidden md:block overflow-x-auto">
         <table className="w-full text-left">
           <thead>
             <tr className="border-b border-app-border text-xs text-app-text-muted uppercase">

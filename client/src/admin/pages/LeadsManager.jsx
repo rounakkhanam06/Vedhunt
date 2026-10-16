@@ -342,7 +342,7 @@ export default function LeadsManager({ stageGroup }) {
 
   const [showExportDropdown, setShowExportDropdown] = useState(false);
 
-  const compactSelectClass = "bg-app-bg border border-app-border rounded-lg pl-3 pr-8 py-2 text-sm text-app-text focus:outline-none focus:border-primary transition-colors appearance-none cursor-pointer";
+  const compactSelectClass = "bg-app-bg border border-app-border rounded-lg pl-3 pr-8 py-2 text-sm text-app-text focus:outline-none focus:border-primary transition-colors appearance-none cursor-pointer w-full sm:w-auto sm:max-w-[220px] truncate";
 
   // Plain-English summary of every active filter — so a lead list reached by
   // clicking a dashboard KPI always shows what's actually inside that number,
@@ -481,7 +481,7 @@ export default function LeadsManager({ stageGroup }) {
 
       {/* Filters & Search */}
       <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 bg-app-card p-3 rounded-xl border border-app-border">
-        <div className="relative flex-grow min-w-[220px]">
+        <div className="relative flex-grow sm:min-w-[220px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-app-text-muted w-4 h-4" />
           <input
             type="text"
@@ -494,9 +494,9 @@ export default function LeadsManager({ stageGroup }) {
 
         <div className="hidden sm:block w-px h-6 bg-app-border" />
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
           {stageGroup !== 'raw' && (
-            <div className="relative">
+            <div className="relative min-w-0">
               <select
                 value={statusFilter}
                 onChange={(e) => {
@@ -520,7 +520,7 @@ export default function LeadsManager({ stageGroup }) {
             </div>
           )}
 
-          <div className="relative">
+          <div className="relative min-w-0">
             <select
               value={platformFilter}
               onChange={(e) => {
@@ -539,7 +539,7 @@ export default function LeadsManager({ stageGroup }) {
             <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 text-app-text-muted w-3.5 h-3.5 pointer-events-none" />
           </div>
 
-          <div className="relative">
+          <div className="relative min-w-0">
             <select
               value={sourceFilter}
               onChange={(e) => {
@@ -561,7 +561,7 @@ export default function LeadsManager({ stageGroup }) {
           </div>
 
           {leadForms.length > 0 && (
-            <div className="relative">
+            <div className="relative min-w-0">
               <select
                 value={formFilter}
                 onChange={(e) => {
@@ -582,7 +582,7 @@ export default function LeadsManager({ stageGroup }) {
           )}
 
           {canAssign && (
-            <div className="relative">
+            <div className="relative min-w-0">
               <select
                 value={assignedBdFilter}
                 onChange={(e) => {
@@ -604,7 +604,7 @@ export default function LeadsManager({ stageGroup }) {
             </div>
           )}
 
-          <div className="relative">
+          <div className="relative min-w-0">
             <select
               value={serviceFilter}
               onChange={(e) => { setServiceFilter(e.target.value); setCurrentPage(1); }}
@@ -618,7 +618,7 @@ export default function LeadsManager({ stageGroup }) {
             <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 text-app-text-muted w-3.5 h-3.5 pointer-events-none" />
           </div>
 
-          <div className="relative">
+          <div className="relative min-w-0">
             <select
               value={priorityFilter}
               onChange={(e) => { setPriorityFilter(e.target.value); setCurrentPage(1); }}
@@ -634,15 +634,15 @@ export default function LeadsManager({ stageGroup }) {
 
           <button
             onClick={() => { setBreachedOnly((v) => !v); setCurrentPage(1); }}
-            className={`px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${
+            className={`w-full sm:w-auto px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${
               breachedOnly ? 'bg-red-500/10 text-red-400 border-red-500/30' : 'bg-app-bg text-app-text-muted border-app-border hover:border-red-500/30'
             }`}
           >
             Breached only
           </button>
 
-          <div className="flex items-center gap-1.5">
-            <div className="relative">
+          <div className="col-span-2 flex flex-wrap items-center gap-1.5">
+            <div className="relative min-w-0 w-full sm:w-auto">
               <select
                 value={dateField}
                 onChange={(e) => { setDateField(e.target.value); setCurrentPage(1); }}
@@ -659,7 +659,7 @@ export default function LeadsManager({ stageGroup }) {
               type="date"
               value={dateFrom}
               onChange={(e) => { setDateFrom(e.target.value); setCurrentPage(1); }}
-              className={compactSelectClass}
+              className={`${compactSelectClass} flex-1 min-w-[130px] sm:flex-none sm:w-auto`}
               style={{ colorScheme: 'dark' }}
               title="From date"
             />
@@ -668,7 +668,7 @@ export default function LeadsManager({ stageGroup }) {
               type="date"
               value={dateTo}
               onChange={(e) => { setDateTo(e.target.value); setCurrentPage(1); }}
-              className={compactSelectClass}
+              className={`${compactSelectClass} flex-1 min-w-[130px] sm:flex-none sm:w-auto`}
               style={{ colorScheme: 'dark' }}
               title="To date"
             />

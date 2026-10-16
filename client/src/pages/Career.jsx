@@ -28,6 +28,19 @@ export default function Career() {
   const [isLoadingCulture, setIsLoadingCulture] = useState(true);
   const [fileName, setFileName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [expandedJobs, setExpandedJobs] = useState({});
+
+  // Drop lines that only repeat the job title or act as separators (e.g. "--", "---")
+  const cleanDescription = (job) =>
+    (job.description || '')
+      .split('\n')
+      .filter((line) => {
+        const t = line.trim();
+        return !/^[-–—_*=\s]+$/.test(t) && t.toLowerCase() !== (job.title || '').trim().toLowerCase();
+      })
+      .join('\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
   
   useEffect(() => {
     fetchJobs();
@@ -134,7 +147,6 @@ export default function Career() {
       });
       reset();
       setFileName('');
-      setFileError('');
       if (fileInput) fileInput.value = '';
       
       // Redirect to success page
@@ -349,7 +361,24 @@ export default function Career() {
                       </span>
                     </div>
 
-                    <p className="text-xs text-slate-600 dark:text-app-text-muted leading-relaxed whitespace-pre-line line-clamp-3">{job.description}</p>
+                    {cleanDescription(job) && (
+                      <div>
+                        <p className={`text-xs text-slate-600 dark:text-app-text-muted leading-relaxed whitespace-pre-line ${expandedJobs[job._id] ? '' : 'line-clamp-4'}`}>
+                          {cleanDescription(job)}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setExpandedJobs((prev) => ({ ...prev, [job._id]: !prev[job._id] }));
+                          }}
+                          className="mt-1.5 text-[11px] font-bold text-primary hover:underline flex items-center gap-1"
+                        >
+                          {expandedJobs[job._id] ? 'Show less' : 'Read more'}
+                          <ChevronDown className={`w-3 h-3 transition-transform ${expandedJobs[job._id] ? 'rotate-180' : ''}`} />
+                        </button>
+                      </div>
+                    )}
 
                     <div className="flex flex-wrap items-center gap-4 text-[11px] text-slate-500 dark:text-app-text-muted/80 pt-2 border-t border-slate-100 dark:border-app-border/50">
                       <div className="flex items-center gap-1.5">
