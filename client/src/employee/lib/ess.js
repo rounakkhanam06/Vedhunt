@@ -91,6 +91,14 @@ export async function openPdf(url, { download = false, filename = 'document.pdf'
     const href = URL.createObjectURL(new Blob([data], { type: 'application/pdf' }));
     if (tab) {
       tab.location.href = href;
+      // The viewer's own download/print re-reads the blob URL, so keep it
+      // alive until that tab is closed instead of on a fixed timer.
+      const watch = setInterval(() => {
+        if (tab.closed) {
+          clearInterval(watch);
+          URL.revokeObjectURL(href);
+        }
+      }, 30_000);
     } else {
       const a = document.createElement('a');
       a.href = href;
@@ -98,8 +106,8 @@ export async function openPdf(url, { download = false, filename = 'document.pdf'
       document.body.appendChild(a);
       a.click();
       a.remove();
+      setTimeout(() => URL.revokeObjectURL(href), 60_000);
     }
-    setTimeout(() => URL.revokeObjectURL(href), 60_000);
   } catch (err) {
     tab?.close();
     throw err;

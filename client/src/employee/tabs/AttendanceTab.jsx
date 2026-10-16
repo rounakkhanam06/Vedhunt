@@ -5,7 +5,7 @@ import Modal from '../../components/ui/Modal';
 import { CorrectionRequestModal, CorrectionRequestList } from '../components/CorrectionRequests';
 import { essPost, essPut, apiError, useEssLeave } from '../lib/ess';
 import { toDateInput } from '../lib/datetime';
-import { formatDuration } from '../../utils/formatDuration';
+import { LateBadge, ApprovalBadge } from '../components/PortalUI';
 
 const LEAVE_TYPES = [
   { value: 'CL', label: 'Casual Leave (CL)' },
@@ -102,11 +102,38 @@ export default function AttendanceTab({ employee }) {
         </div>
       </div>
 
-      <div className="bg-app-card p-6 rounded-xl border border-app-border space-y-6">
+      <div className="bg-app-card p-4 sm:p-6 rounded-xl border border-app-border space-y-4 sm:space-y-6">
         <div className="flex justify-between items-center border-b border-app-border pb-4">
-          <h2 className="text-xl font-bold">My Leave Requests</h2>
+          <h2 className="text-lg sm:text-xl font-bold">My Leave Requests</h2>
         </div>
-        <div className="overflow-x-auto">
+
+        {/* Mobile: one card per request */}
+        <div className="md:hidden divide-y divide-app-border">
+          {leaveRequests.map((req) => (
+            <div key={req._id} className="py-3 space-y-1.5 text-sm">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-bold">{req.leaveType || 'PL'}</span>
+                <div className="flex items-center gap-2">
+                  <ApprovalBadge status={req.status} />
+                  {req.status === 'Pending' && (
+                    <button type="button" onClick={() => handleCancelLeave(req)} disabled={cancellingLeaveId === req._id}
+                      className="text-xs font-semibold text-rose-400 hover:underline disabled:opacity-50 cursor-pointer">
+                      {cancellingLeaveId === req._id ? 'Cancelling…' : 'Cancel'}
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div className="font-mono text-xs text-app-text-muted">
+                {new Date(req.startDate).toLocaleDateString()} – {new Date(req.endDate).toLocaleDateString()}
+              </div>
+              {req.reason && <p className="text-xs text-app-text break-words">{req.reason}</p>}
+              {req.adminComment && <p className="text-xs text-app-text-muted italic break-words">Comment: {req.adminComment}</p>}
+            </div>
+          ))}
+          {leaveRequests.length === 0 && <p className="text-center py-6 text-sm text-app-text-muted">No leave requests submitted yet.</p>}
+        </div>
+
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left">
             <thead>
               <tr className="border-b border-app-border text-xs text-app-text-muted uppercase">
@@ -154,12 +181,48 @@ export default function AttendanceTab({ employee }) {
 
       <CorrectionRequestList kind="Attendance" />
 
-      <div className="bg-app-card p-6 rounded-xl border border-app-border space-y-6">
-        <div className="flex justify-between items-center border-b border-app-border pb-4">
-          <h2 className="text-xl font-bold">Attendance Log</h2>
-          <div className="text-sm text-app-text-muted">Total days present: {attendance.filter((a) => a.status === 'Present').length}</div>
+      <div className="bg-app-card p-4 sm:p-6 rounded-xl border border-app-border space-y-4 sm:space-y-6">
+        <div className="flex flex-wrap justify-between items-center gap-2 border-b border-app-border pb-4">
+          <h2 className="text-lg sm:text-xl font-bold">Attendance Log</h2>
+          <div className="text-xs sm:text-sm text-app-text-muted">Total days present: {attendance.filter((a) => a.status === 'Present').length}</div>
         </div>
-        <div className="overflow-x-auto">
+
+        {/* Mobile: one card per day */}
+        <div className="md:hidden divide-y divide-app-border">
+          {attendance.map((log) => {
+            const isToday = toDateInput(log.date) === today;
+            const canRegularize = log.status !== 'Leave' && !(isToday && !log.clockOut);
+            const missingOut = log.missedClockOut && !log.clockOut;
+            return (
+              <div key={log._id || log.date} className="py-3 space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm font-semibold text-app-text">{new Date(log.date).toLocaleDateString()}</span>
+                  <div className="flex items-center gap-1.5">
+                    {log.regularized && <span className="text-[10px] font-bold uppercase text-blue-400">Regularized</span>}
+                    <span className={`px-2 py-0.5 rounded text-xs ${STATUS_CLASS[log.status] || 'bg-rose-500/10 text-rose-400'}`}>{log.status}</span>
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs">
+                  <span className="text-app-text-muted">In <span className="font-mono text-app-text">{log.clockIn || '--'}</span></span>
+                  <span className="text-app-text-muted">Out <span className="font-mono text-app-text">{log.clockOut || '--'}</span></span>
+                  <LateBadge minutes={log.lateByMins} />
+                  {missingOut && (
+                    <span className="text-[11px] bg-amber-500/10 text-amber-500 px-2 py-0.5 rounded-full font-semibold border border-amber-500/20 whitespace-nowrap">Clock-out missing</span>
+                  )}
+                </div>
+                {canRegularize && (
+                  <button type="button" onClick={() => setRegularize({ date: log.date, clockIn: log.clockIn, clockOut: log.clockOut })}
+                    className={`text-xs font-semibold hover:underline cursor-pointer ${missingOut ? 'text-amber-500' : 'text-primary'}`}>
+                    {missingOut ? 'Add clock-out' : 'Request correction'}
+                  </button>
+                )}
+              </div>
+            );
+          })}
+          {attendance.length === 0 && <p className="text-center py-6 text-sm text-app-text-muted">No attendance entries recorded yet.</p>}
+        </div>
+
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left">
             <thead>
               <tr className="border-b border-app-border text-xs text-app-text-muted uppercase">
@@ -176,24 +239,24 @@ export default function AttendanceTab({ employee }) {
                 const canRegularize = log.status !== 'Leave' && !(isToday && !log.clockOut);
                 return (
                   <tr key={log._id || log.date} className="hover:bg-white/[0.01]">
-                    <td className="py-3 px-4">{new Date(log.date).toLocaleDateString()}</td>
+                    <td className="py-3 px-4 whitespace-nowrap">{new Date(log.date).toLocaleDateString()}</td>
                     <td className="py-3 px-4 font-mono text-app-text">
-                      {log.clockIn || '--'}
-                      {log.lateByMins > 0 && (
-                        <span className="ml-2 text-[10px] bg-rose-500/10 text-rose-500 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider inline-flex items-center gap-1 border border-rose-500/20">
-                          Late by {formatDuration(log.lateByMins)}
-                        </span>
-                      )}
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="whitespace-nowrap">{log.clockIn || '--'}</span>
+                        <LateBadge minutes={log.lateByMins} />
+                      </div>
                     </td>
                     <td className="py-3 px-4 font-mono text-app-text">
-                      {log.clockOut || '--'}
-                      {log.missedClockOut && !log.clockOut && (
-                        <span className="ml-2 text-[10px] bg-amber-500/10 text-amber-500 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider border border-amber-500/20">
-                          Clock-out missing
-                        </span>
-                      )}
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="whitespace-nowrap">{log.clockOut || '--'}</span>
+                        {log.missedClockOut && !log.clockOut && (
+                          <span className="font-sans text-[11px] bg-amber-500/10 text-amber-500 px-2 py-0.5 rounded-full font-semibold border border-amber-500/20 whitespace-nowrap">
+                            Clock-out missing
+                          </span>
+                        )}
+                      </div>
                     </td>
-                    <td className="py-3 px-4 text-right">
+                    <td className="py-3 px-4 text-right whitespace-nowrap">
                       <span className={`px-2 py-0.5 rounded text-xs ${STATUS_CLASS[log.status] || 'bg-rose-500/10 text-rose-400'}`}>{log.status}</span>
                       {log.regularized && <span className="ml-1.5 text-[10px] font-bold uppercase text-blue-400">Regularized</span>}
                     </td>

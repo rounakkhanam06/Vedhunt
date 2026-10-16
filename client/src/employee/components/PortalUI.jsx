@@ -1,4 +1,6 @@
 // Small presentational pieces repeated across the Employee Portal tabs.
+import { AlarmClock } from 'lucide-react';
+import { formatDuration } from '../../utils/formatDuration';
 
 export const Spinner = ({ className = 'py-12' }) => (
   <div className={`flex justify-center items-center ${className}`}>
@@ -30,6 +32,22 @@ const APPROVAL_CLASSES = {
 export const ApprovalBadge = ({ status }) => (
   <span className={`px-2 py-0.5 rounded text-xs font-bold ${APPROVAL_CLASSES[status] || APPROVAL_CLASSES.Pending}`}>{status}</span>
 );
+
+/** Compact "Late 8h 30m" pill; the full wording is in the tooltip. */
+export const LateBadge = ({ minutes, className = '' }) => {
+  const total = Math.max(0, Math.round(Number(minutes) || 0));
+  if (!total) return null;
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  const short = [h && `${h}h`, m && `${m}m`].filter(Boolean).join(' ');
+  return (
+    <span title={`Late by ${formatDuration(total)}`}
+      className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-rose-500/20 bg-rose-500/10 px-2 py-0.5 font-sans text-[11px] font-semibold text-rose-400 ${className}`}>
+      <AlarmClock className="w-3 h-3" />
+      Late {short}
+    </span>
+  );
+};
 
 const TONES = {
   danger: 'bg-red-500/10 text-red-400',

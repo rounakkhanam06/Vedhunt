@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import api from '../../services/api';
 import { usePermissions } from '../hooks/usePermissions';
@@ -89,6 +89,7 @@ const EmployeeManager = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [selectedEmp, setSelectedEmp] = useState(null);
+  const detailPanelRef = useRef(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [copiedUrl, setCopiedUrl] = useState(false);
 
@@ -145,6 +146,16 @@ const EmployeeManager = () => {
       fetchRoles();
     }
   }, [isModalOpen, isDetailOpen, roles.length]);
+
+  // Below xl the detail panel stacks under the table, so bring it into view when an employee is opened
+  const selectedEmpId = selectedEmp?._id;
+  useEffect(() => {
+    if (!isDetailOpen || !selectedEmpId || !detailPanelRef.current) return;
+    detailPanelRef.current.scrollTop = 0;
+    if (window.matchMedia('(min-width: 1280px)').matches) return;
+    const id = requestAnimationFrame(() => detailPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    return () => cancelAnimationFrame(id);
+  }, [isDetailOpen, selectedEmpId]);
 
   useEffect(() => {
     if (selectedEmp) {
@@ -776,7 +787,7 @@ const EmployeeManager = () => {
 
           {/* Detail Panel */}
           {isDetailOpen && selectedEmp && (
-            <div className="w-full xl:w-[420px] flex-shrink-0 bg-app-card p-6 rounded-xl border border-app-border space-y-6 overflow-y-auto max-h-[85vh] sticky top-6 shadow-xl">
+            <div ref={detailPanelRef} className="w-full xl:w-[420px] flex-shrink-0 bg-app-card p-4 sm:p-6 rounded-xl border border-app-border space-y-6 scroll-mt-4 xl:overflow-y-auto xl:max-h-[85vh] xl:sticky xl:top-6 shadow-xl">
               <div className="flex flex-wrap gap-3 justify-between items-start border-b border-app-border pb-4">
                 <div>
                   <div className="flex items-center gap-2">
