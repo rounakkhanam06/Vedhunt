@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import api from '../../services/api';
-import { usePermissions } from '../hooks/usePermissions';
+import { usePageAccess } from '../../shared/crmAccess';
 
 const inputClasses = "w-full bg-form-input-bg border border-app-border rounded-lg px-4 py-2 text-app-text placeholder-app-text-muted focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all duration-300";
 const labelClasses = "block text-[12px] font-medium text-app-text-muted mb-1.5 font-mono uppercase tracking-wider";
@@ -13,8 +12,10 @@ const labelClasses = "block text-[12px] font-medium text-app-text-muted mb-1.5 f
  * Adding/deleting needs holidays.manage; anyone signed in can view.
  */
 export default function HolidayCalendar() {
-  const { can } = usePermissions();
-  const canManage = can('holidays.manage');
+  // Admin panel (role) or Employee Portal (person-wise grant) — shared/crmAccess.js
+  const { http, root, allowed } = usePageAccess();
+  const canCreate = allowed('holidays.manage', 'holidays', 'create');
+  const canDelete = allowed('holidays.manage', 'holidays', 'delete');
   const queryClient = useQueryClient();
   const [saving, setSaving] = useState(false);
   const [newHoliday, setNewHoliday] = useState({ name: '', date: '', type: 'Public' });
@@ -22,7 +23,7 @@ export default function HolidayCalendar() {
 
   const { data: holidays = [], isLoading: loading } = useQuery({
     queryKey: ['admin', 'holidays', String(selectedYear)],
-    queryFn: () => api.get(`/employees/holidays?year=${selectedYear}`).then((r) => r.data.holidays || []),
+    queryFn: () => http.get(`${root}/employees/holidays?year=${selectedYear}`).then((r) => r.data.holidays || []),
   });
   const fetchHolidays = () => queryClient.invalidateQueries({ queryKey: ['admin', 'holidays'] });
 
@@ -31,7 +32,7 @@ export default function HolidayCalendar() {
     if (!newHoliday.name || !newHoliday.date) return toast.error('Name and Date are required');
     try {
       setSaving(true);
-      const res = await api.post('/employees/holidays', newHoliday);
+      const res = await http.post(`${root}/employees/holidays`, newHoliday);
       if (res.data.success) {
         toast.success('Holiday added');
         setNewHoliday({ name: '', date: '', type: 'Public' });
@@ -47,7 +48,7 @@ export default function HolidayCalendar() {
   const handleDeleteHoliday = async (id) => {
     if (!window.confirm('Delete this holiday?')) return;
     try {
-      const res = await api.delete(`/employees/holidays/${id}`);
+      const res = await http.delete(`${root}/employees/holidays/${id}`);
       if (res.data.success) {
         toast.success('Holiday deleted');
         fetchHolidays();
@@ -76,7 +77,7 @@ export default function HolidayCalendar() {
         </select>
       </div>
 
-      {canManage && (
+      {canCreate && (
         <div className="bg-app-bg border border-app-border p-6 rounded-xl mb-8">
           <form onSubmit={handleAddHoliday} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-end">
             <div className="col-span-1">
@@ -113,12 +114,12 @@ export default function HolidayCalendar() {
                 <th className="px-6 py-4">Date</th>
                 <th className="px-6 py-4">Name</th>
                 <th className="px-6 py-4">Type</th>
-                {canManage && <th className="px-6 py-4 text-right">Actions</th>}
+                {canDelete && <th className="px-6 py-4 text-right">Actions</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-app-border">
               {holidays.length === 0 ? (
-                <tr><td colSpan={canManage ? 4 : 3} className="px-6 py-8 text-center text-app-text-muted">No holidays found for {selectedYear}</td></tr>
+                <tr><td colSpan={canDelete ? 4 : 3} className="px-6 py-8 text-center text-app-text-muted">No holidays found for {selectedYear}</td></tr>
               ) : (
                 holidays.map(h => (
                   <tr key={h._id} className="hover:bg-white/[0.02]">
@@ -129,7 +130,7 @@ export default function HolidayCalendar() {
                         {h.type}
                       </span>
                     </td>
-                    {canManage && (
+                    {canDelete && (
                       <td className="px-6 py-4 text-right">
                         <button onClick={() => handleDeleteHoliday(h._id)} className="text-red-500 hover:text-red-400 font-medium text-xs">Delete</button>
                       </td>

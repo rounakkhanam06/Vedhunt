@@ -6,6 +6,7 @@ import toast, { Toaster } from 'react-hot-toast';
 import faqImage from '../assets/footer-illustration/undraw_mobile-assistant_iifm.svg';
 import { faqService } from '../services/faqService';
 
+
 const AccordionItem = ({ question, answer, isOpen, onClick }) => {
   return (
     <div className="mb-4 overflow-hidden rounded-xl border border-app-border bg-app-card shadow-sm transition-all duration-300">

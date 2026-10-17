@@ -1,9 +1,10 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { useLocation } from 'react-router-dom';
-import api from '../../services/api';
-import { usePermissions } from '../hooks/usePermissions';
+import { useState, useEffect, useCallback } from 'react';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { usePageAccess } from '../../shared/crmAccess';
+import CrmAccessEditor from '../components/CrmAccessEditor';
+import EmployeeProfile from '../components/EmployeeProfile';
 import toast from 'react-hot-toast';
-import { Plus, Trash2, Eye, Shield, Award, AlertCircle, CheckCircle, Search, IndianRupee, Copy, Check, ExternalLink, Info, Edit2, Lock, Key, Power, Clock, UserCheck, UserX, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Trash2, Eye, Shield, Award, AlertCircle, CheckCircle, Search, IndianRupee, Copy, Check, ExternalLink, Info, Key, Power, Clock, UserCheck, UserX, ChevronDown, ChevronUp } from 'lucide-react';
 
 // ─── Validation Rules ────────────────────────────────────────────────────────
 const NAME_REGEX = /^[a-zA-Z\s'-]{2,50}$/;
@@ -77,19 +78,22 @@ const Field = ({ label, hint, error, touched, children, optional }) => (
 const profileInput = 'w-full text-sm rounded-lg border border-app-border bg-form-input-bg p-2.5 text-app-text focus:outline-none focus:ring-1 focus:ring-orange-500';
 
 const EmployeeManager = () => {
-  const { can } = usePermissions();
+  // Admin panel (role) or Employee Portal (person-wise grant) — shared/crmAccess.js
+  const { http, root, can, allowed, inPortal } = usePageAccess();
   // Server-enforced too (routes/employeeRoutes.js) — this just hides what
   // the viewer can't use. Without employees.sensitive, PAN/Aadhaar/bank come
   // back masked and salary is left out, so those fields stay read-only.
   const canManage = can('employees.manage');
   const canSensitive = can('employees.sensitive');
+  // Salary history comes from Payroll: its own access (Sensitive to read, Process to revise)
+  const canSalary = allowed('payroll.manage', 'payroll', 'sensitive');
+  const canReviseSalary = allowed('payroll.manage', 'payroll', 'process');
   const [employees, setEmployees] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [selectedEmp, setSelectedEmp] = useState(null);
-  const detailPanelRef = useRef(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [copiedUrl, setCopiedUrl] = useState(false);
 
@@ -139,30 +143,46 @@ const EmployeeManager = () => {
   const [probationExtendNote, setProbationExtendNote] = useState('');
   const [isProbationSubmitting, setIsProbationSubmitting] = useState(false);
 
-  useEffect(() => { fetchEmployees(); fetchRoles(); }, []);
+  useEffect(() => { fetchEmployees(); if (canManage) fetchRoles(); }, []);
 
   useEffect(() => {
     if ((isModalOpen || isDetailOpen) && roles.length === 0) {
-      fetchRoles();
+      if (canManage) fetchRoles();
     }
   }, [isModalOpen, isDetailOpen, roles.length]);
 
-  // Below xl the detail panel stacks under the table, so bring it into view when an employee is opened
-  const selectedEmpId = selectedEmp?._id;
+  // Employee profile page. In the Admin panel it has its own URL
+  // (/admin/employees/:id); in the Employee Portal (a granted Employees page)
+  // it opens in place, since the portal has no admin URLs.
+  const navigate = useNavigate();
+  const { id: routeEmployeeId } = useParams();
+  const openProfile = (emp) => {
+    if (inPortal) { setSelectedEmp(emp); setIsDetailOpen(true); window.scrollTo({ top: 0 }); }
+    else navigate(`/admin/employees/${emp._id}`);
+  };
+  const closeProfile = () => {
+    if (inPortal) setIsDetailOpen(false);
+    else navigate('/admin/employees');
+  };
   useEffect(() => {
-    if (!isDetailOpen || !selectedEmpId || !detailPanelRef.current) return;
-    detailPanelRef.current.scrollTop = 0;
-    if (window.matchMedia('(min-width: 1280px)').matches) return;
-    const id = requestAnimationFrame(() => detailPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
-    return () => cancelAnimationFrame(id);
-  }, [isDetailOpen, selectedEmpId]);
+    if (inPortal) return;
+    if (!routeEmployeeId) { setIsDetailOpen(false); return; }
+    const found = employees.find((e) => String(e._id) === routeEmployeeId);
+    if (found) {
+      setSelectedEmp(found);
+      setIsDetailOpen(true);
+      window.scrollTo({ top: 0 });
+    }
+  }, [routeEmployeeId, employees, inPortal]);
+  const showProfile = isDetailOpen && selectedEmp;
+  const profileMissing = !inPortal && routeEmployeeId && !isLoading && !employees.some((e) => String(e._id) === routeEmployeeId);
 
   useEffect(() => {
     if (selectedEmp) {
       setNewCL(selectedEmp.leaveBalances?.CL ?? 6);
       setNewSL(selectedEmp.leaveBalances?.SL ?? 6);
       setNewPL(selectedEmp.leaveBalances?.PL ?? 12);
-      fetchSalaryHistory(selectedEmp._id);
+      if (canSalary) fetchSalaryHistory(selectedEmp._id);
       setShowRevisionForm(false);
       setChangeRoleId('');
     }
@@ -175,7 +195,7 @@ const EmployeeManager = () => {
   // permission) does not, so it's filtered client-side too.
   const fetchRoles = async () => {
     try {
-      const res = await api.get('/rbac/roles');
+      const res = await http.get('/rbac/roles');
       if (res.data?.success && res.data?.roles) {
         setRoles(res.data.roles.filter(r => r.isEmployeeRole));
         return;
@@ -185,7 +205,7 @@ const EmployeeManager = () => {
     }
 
     try {
-      const res = await api.get('/employees/roles');
+      const res = await http.get(`${root}/employees/roles`);
       if (res.data?.success && res.data?.roles) {
         setRoles(res.data.roles.filter(r => r.isEmployeeRole));
       }
@@ -197,10 +217,10 @@ const EmployeeManager = () => {
   const handleChangeRole = async () => {
     if (!changeRoleId || !selectedEmp) return;
     try {
-      const res = await api.put(`/employees/${selectedEmp._id}`, { roleId: changeRoleId });
+      const res = await http.put(`${root}/employees/${selectedEmp._id}`, { roleId: changeRoleId });
       if (res.data.success) {
         toast.success('Role updated.');
-        const updatedRes = await api.get('/employees');
+        const updatedRes = await http.get(`${root}/employees`);
         const found = updatedRes.data.employees.find(e => e._id === selectedEmp._id);
         setSelectedEmp(found);
         setEmployees(updatedRes.data.employees);
@@ -220,7 +240,7 @@ const EmployeeManager = () => {
     }
     setIsTogglingStatus(true);
     try {
-      const res = await api.put(`/employees/${selectedEmp._id}`, { isActive: newStatus });
+      const res = await http.put(`${root}/employees/${selectedEmp._id}`, { isActive: newStatus });
       if (res.data.success) {
         toast.success(`Employee account ${newStatus ? 'activated' : 'deactivated'}.`);
         setSelectedEmp(res.data.employee);
@@ -241,7 +261,7 @@ const EmployeeManager = () => {
     }
     setIsUpdatingPassword(true);
     try {
-      const res = await api.put(`/employees/${selectedEmp._id}`, { password: newAdminPassword.trim() });
+      const res = await http.put(`${root}/employees/${selectedEmp._id}`, { password: newAdminPassword.trim() });
       if (res.data.success) {
         toast.success('Password updated successfully!');
         setSelectedEmp(res.data.employee);
@@ -331,7 +351,7 @@ const EmployeeManager = () => {
     setIsUpdatingEmp(true);
     try {
       const { salaryCTC, panNumber, aadhaarNumber, ...rest } = editForm;
-      const res = await api.put(`/employees/${selectedEmp._id}`, canSensitive
+      const res = await http.put(`${root}/employees/${selectedEmp._id}`, canSensitive
         ? { ...rest, aadhaarNumber, salaryCTC: Number(salaryCTC), panNumber: panNumber.toUpperCase() }
         : rest);
       if (res.data.success) {
@@ -349,7 +369,7 @@ const EmployeeManager = () => {
 
   const fetchSalaryHistory = async (employeeId) => {
     try {
-      const res = await api.get(`/payroll/salary-revisions/${employeeId}`);
+      const res = await http.get(`${root}/payroll/salary-revisions/${employeeId}`);
       if (res.data.success) setSalaryHistory(res.data.revisions);
     } catch {
       setSalaryHistory([]);
@@ -364,7 +384,7 @@ const EmployeeManager = () => {
 
     setIsSavingRevision(true);
     try {
-      const res = await api.post('/payroll/salary-revisions', {
+      const res = await http.post(`${root}/payroll/salary-revisions`, {
         employeeId: selectedEmp._id,
         ctc: Number(revisionForm.ctc),
         effectiveFrom: revisionForm.effectiveFrom,
@@ -446,7 +466,7 @@ const EmployeeManager = () => {
   const fetchEmployees = async () => {
     setIsLoading(true);
     try {
-      const res = await api.get('/employees');
+      const res = await http.get(`${root}/employees`);
       if (res.data.success) setEmployees(res.data.employees);
     } catch {
       toast.error('Failed to load employee list.');
@@ -503,7 +523,7 @@ const EmployeeManager = () => {
     }
     setIsSubmitting(true);
     try {
-      const res = await api.post('/employees', {
+      const res = await http.post(`${root}/employees`, {
         ...form,
         salaryCTC: Number(form.salaryCTC),
         panNumber: form.panNumber.toUpperCase(),
@@ -558,7 +578,7 @@ const EmployeeManager = () => {
         payload.extensionDays = Number(probationExtendDays);
         payload.extensionNote = probationExtendNote.trim();
       }
-      const res = await api.put(`/employees/${selectedEmp._id}/probation`, payload);
+      const res = await http.put(`${root}/employees/${selectedEmp._id}/probation`, payload);
       if (res.data.success) {
         const msgs = {
           confirm: '✅ Employee confirmed as permanent!',
@@ -582,10 +602,10 @@ const EmployeeManager = () => {
   const handleDeleteEmployee = async (id) => {
     if (!window.confirm('Are you sure? This will also remove their user account.')) return;
     try {
-      const res = await api.delete(`/employees/${id}`);
+      const res = await http.delete(`${root}/employees/${id}`);
       if (res.data.success) {
         toast.success('Employee deleted.');
-        if (selectedEmp?._id === id) setIsDetailOpen(false);
+        if (selectedEmp?._id === id) closeProfile();
         fetchEmployees();
       }
     } catch {
@@ -608,10 +628,10 @@ const EmployeeManager = () => {
         if (cl < 0 || isNaN(cl) || sl < 0 || isNaN(sl) || pl < 0 || isNaN(pl)) { toast.error('Enter valid non-negative leave balances.'); return; }
         payload.leaveBalances = { CL: cl, SL: sl, PL: pl };
       }
-      const res = await api.put(`/employees/${selectedEmp._id}`, payload);
+      const res = await http.put(`${root}/employees/${selectedEmp._id}`, payload);
       if (res.data.success) {
         toast.success(`${type.charAt(0).toUpperCase() + type.slice(1)} added successfully!`);
-        const updatedRes = await api.get('/employees');
+        const updatedRes = await http.get(`${root}/employees`);
         const found = updatedRes.data.employees.find(e => e._id === selectedEmp._id);
         setSelectedEmp(found);
         setEmployees(updatedRes.data.employees);
@@ -638,6 +658,370 @@ const EmployeeManager = () => {
 
   return (
     <div className="space-y-6 text-app-text">
+      {profileMissing && (
+        <div className="text-center py-16 bg-app-card rounded-xl border border-app-border space-y-3">
+          <p className="text-app-text-muted">This employee wasn't found, or isn't in your access.</p>
+          <button type="button" onClick={closeProfile} className="text-sm font-semibold text-primary hover:underline cursor-pointer">Back to all employees</button>
+        </div>
+      )}
+
+      {showProfile && (
+        <EmployeeProfile
+          emp={selectedEmp}
+          employees={employees}
+          canManage={canManage}
+          canSalary={canSalary}
+          onBack={closeProfile}
+          onEdit={canManage ? handleOpenEditModal : null}
+          access={{
+            account: (<>
+              {/* Account Security & Access Control */}
+              <div className="bg-surface-variant/40 border border-app-border rounded-xl p-3.5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-app-text flex items-center gap-1.5">
+                    <Power size={14} className={selectedEmp.adminId?.isActive ? 'text-emerald-400' : 'text-rose-400'} />
+                    Login Access Status
+                  </span>
+                  {canManage && (<button
+                    onClick={handleToggleStatus}
+                    disabled={isTogglingStatus}
+                    className={`text-xs px-3 py-1 rounded-lg font-semibold transition-all cursor-pointer border disabled:opacity-50 ${
+                      selectedEmp.adminId?.isActive
+                        ? 'bg-rose-500/15 text-rose-400 border-rose-500/25 hover:bg-rose-600 hover:text-white'
+                        : 'bg-emerald-500/15 text-emerald-400 border-emerald-500/25 hover:bg-emerald-600 hover:text-white'
+                    }`}
+                  >
+                    {isTogglingStatus ? 'Updating...' : selectedEmp.adminId?.isActive ? 'Deactivate Access' : 'Activate Access'}
+                  </button>)}
+                </div>
+                <p className="text-[11px] text-app-text-muted">
+                  {selectedEmp.adminId?.isActive
+                    ? 'Account is active. Deactivating will immediately revoke login access to the portal.'
+                    : 'Account is deactivated. Employee cannot log in or perform any actions.'}
+                </p>
+              </div>
+
+              <div className="bg-orange-500/5 border border-orange-500/10 rounded-xl p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-orange-500 font-bold text-sm">
+                    <Shield size={16} /> Credentials & Vault
+                  </div>
+                  {canManage && (<button
+                    onClick={() => setShowPasswordReset(v => !v)}
+                    className="text-xs text-orange-400 hover:text-orange-300 font-semibold flex items-center gap-1 cursor-pointer"
+                  >
+                    <Key size={13} /> {showPasswordReset ? 'Cancel' : 'Change Password'}
+                  </button>)}
+                </div>
+
+                {showPasswordReset ? (
+                  <form onSubmit={handleResetPassword} className="space-y-2 bg-app-bg/60 p-3 rounded-lg border border-orange-500/20">
+                    <label className="block text-[10px] font-semibold text-app-text-muted uppercase tracking-wider">New Password (min 6 chars) *</label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="Enter new password"
+                        value={newAdminPassword}
+                        onChange={e => setNewAdminPassword(e.target.value)}
+                        className="flex-1 text-xs rounded-lg border border-app-border bg-form-input-bg px-3 py-2 text-app-text focus:outline-none"
+                      />
+                      <button
+                        type="submit"
+                        disabled={isUpdatingPassword || !newAdminPassword || newAdminPassword.length < 6}
+                        className="px-3 py-2 rounded-lg bg-orange-600 text-white text-xs font-semibold hover:bg-orange-700 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        {isUpdatingPassword ? 'Saving...' : 'Set'}
+                      </button>
+                    </div>
+                  </form>
+                ) : null}
+
+                <div className="text-xs space-y-1 text-app-text-muted font-mono">
+                  {selectedEmp.tempPassword && (
+                    <div className="mb-2 pb-2 border-b border-orange-500/10 flex items-center justify-between">
+                      <div>
+                        <span className="text-orange-400 font-semibold">Current Password:</span> {selectedEmp.tempPassword}
+                      </div>
+                    </div>
+                  )}
+                  <div>PAN: {selectedEmp.panNumber || 'N/A'}</div>
+                  <div>Aadhaar: {selectedEmp.aadhaarNumber || 'N/A'}</div>
+                </div>
+              </div>
+
+              {/* Change Role — determines actual Employee Portal access
+                  (sidebar tabs + APIs), not just a display label. */}
+              {canManage && (<div className="space-y-3">
+                <h3 className="text-sm font-bold text-app-text-muted flex items-center gap-1.5"><Shield size={14} /> Role</h3>
+                <div className="flex gap-2">
+                  <select
+                    className="flex-1 text-xs rounded-lg border border-app-border bg-form-input-bg px-2 py-2 text-app-text focus:outline-none"
+                    value={changeRoleId}
+                    onChange={e => setChangeRoleId(e.target.value)}
+                  >
+                    <option value="" className="bg-white dark:bg-[#1a1f2b] text-gray-900 dark:text-white">Change role...</option>
+                    {roles.map(r => (
+                      <option key={r._id} value={r._id} className="bg-white dark:bg-[#1a1f2b] text-gray-900 dark:text-white">{r.label || r.name.replace(/_/g, ' ')}</option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={handleChangeRole}
+                    disabled={!changeRoleId}
+                    className="px-4 rounded-lg bg-orange-600/20 text-orange-400 border border-orange-500/20 text-xs font-semibold hover:bg-orange-600 hover:text-white transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    Save
+                  </button>
+                </div>
+              </div>)}
+
+            </>),
+            pages: <CrmAccessEditor key={selectedEmp._id} employeeId={selectedEmp._id} />,
+          }}
+          probation={selectedEmp.probation?.isApplicable ? (<>
+              {/* ── Probation Status Card ──────────────────────────────────────── */}
+              {selectedEmp.probation?.isApplicable && (
+                <div className={`rounded-xl border p-4 space-y-3 ${
+                  selectedEmp.probation.status === 'Confirmed' ? 'border-emerald-500/20 bg-emerald-500/5'
+                  : selectedEmp.probation.status === 'Terminated' ? 'border-rose-500/20 bg-rose-500/5'
+                  : selectedEmp.probation.status === 'Extended' ? 'border-orange-500/20 bg-orange-500/5'
+                  : 'border-blue-500/20 bg-blue-500/5'
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-sm font-bold text-app-text">
+                      <Clock size={14} className="text-blue-400" /> Probation Status
+                    </div>
+                    {canManage && ['Probation', 'Extended'].includes(selectedEmp.probation.status) && (
+                      <button
+                        onClick={() => setShowProbationPanel(v => !v)}
+                        className="text-[11px] text-blue-400 hover:text-blue-300 font-semibold flex items-center gap-1 cursor-pointer"
+                      >
+                        Actions {showProbationPanel ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Status Badge + Days */}
+                  <div className="flex items-center gap-3">
+                    <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${
+                      selectedEmp.probation.status === 'Confirmed' ? 'bg-emerald-500/15 text-emerald-400'
+                      : selectedEmp.probation.status === 'Terminated' ? 'bg-rose-500/15 text-rose-400'
+                      : selectedEmp.probation.status === 'Extended' ? 'bg-orange-500/15 text-orange-400'
+                      : 'bg-blue-500/15 text-blue-400'
+                    }`}>
+                      {selectedEmp.probation.status === 'Confirmed' ? '✅ Confirmed' 
+                       : selectedEmp.probation.status === 'Terminated' ? '🚫 Terminated'
+                       : selectedEmp.probation.status === 'Extended' ? '📅 Extended'
+                       : '⏳ On Probation'}
+                    </span>
+                    {selectedEmp.probation.endDate && (
+                      <span className="text-[11px] text-app-text-muted">
+                        Ends: {new Date(selectedEmp.probation.endDate).toLocaleDateString('en-IN')}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Progress bar for active probation */}
+                  {['Probation', 'Extended'].includes(selectedEmp.probation.status) && selectedEmp.probation.startDate && selectedEmp.probation.endDate && (() => {
+                    const total = new Date(selectedEmp.probation.endDate) - new Date(selectedEmp.probation.startDate);
+                    const elapsed = Date.now() - new Date(selectedEmp.probation.startDate);
+                    const pct = Math.min(100, Math.max(0, Math.round((elapsed / total) * 100)));
+                    const daysLeft = Math.max(0, Math.ceil((new Date(selectedEmp.probation.endDate) - Date.now()) / 86400000));
+                    return (
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-[10px] text-app-text-muted">
+                          <span>{pct}% elapsed</span>
+                          <span>{daysLeft} day{daysLeft !== 1 ? 's' : ''} remaining</span>
+                        </div>
+                        <div className="h-1.5 rounded-full bg-app-border overflow-hidden">
+                          <div className={`h-full rounded-full transition-all ${pct > 80 ? 'bg-rose-500' : pct > 50 ? 'bg-orange-500' : 'bg-blue-500'}`} style={{ width: `${pct}%` }} />
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Extension note if applicable */}
+                  {selectedEmp.probation.extensionNote && (
+                    <p className="text-[11px] text-app-text-muted italic">Extension reason: {selectedEmp.probation.extensionNote}</p>
+                  )}
+
+                  {/* Action Buttons */}
+                  {showProbationPanel && ['Probation', 'Extended'].includes(selectedEmp.probation.status) && (
+                    <div className="space-y-3 pt-2 border-t border-app-border">
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          onClick={() => { setProbationAction('confirm'); }}
+                          className={`flex-1 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${probationAction === 'confirm' ? 'bg-emerald-600 text-white border-emerald-600' : 'border-emerald-500/25 text-emerald-400 hover:bg-emerald-600 hover:text-white'}`}
+                        >
+                          <UserCheck size={13} className="inline mr-1" /> Confirm
+                        </button>
+                        <button
+                          onClick={() => { setProbationAction(probationAction === 'extend' ? '' : 'extend'); }}
+                          className={`flex-1 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${probationAction === 'extend' ? 'bg-orange-600 text-white border-orange-600' : 'border-orange-500/25 text-orange-400 hover:bg-orange-600 hover:text-white'}`}
+                        >
+                          <Clock size={13} className="inline mr-1" /> Extend
+                        </button>
+                        <button
+                          onClick={() => { setProbationAction('terminate'); }}
+                          className={`flex-1 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${probationAction === 'terminate' ? 'bg-rose-600 text-white border-rose-600' : 'border-rose-500/25 text-rose-400 hover:bg-rose-600 hover:text-white'}`}
+                        >
+                          <UserX size={13} className="inline mr-1" /> Terminate
+                        </button>
+                      </div>
+
+                      {/* Extend form */}
+                      {probationAction === 'extend' && (
+                        <div className="space-y-2 bg-app-bg/60 p-3 rounded-lg border border-orange-500/20">
+                          <div className="flex gap-2">
+                            <input
+                              type="number"
+                              min={1}
+                              placeholder="Extra days"
+                              value={probationExtendDays}
+                              onChange={e => setProbationExtendDays(e.target.value)}
+                              className="w-28 text-xs rounded-lg border border-app-border bg-form-input-bg px-2 py-1.5 text-app-text focus:outline-none"
+                            />
+                            <input
+                              type="text"
+                              placeholder="Reason for extension *"
+                              value={probationExtendNote}
+                              onChange={e => setProbationExtendNote(e.target.value)}
+                              className="flex-1 text-xs rounded-lg border border-app-border bg-form-input-bg px-2 py-1.5 text-app-text focus:outline-none"
+                            />
+                          </div>
+                          <button
+                            onClick={() => handleProbationAction('extend')}
+                            disabled={isProbationSubmitting}
+                            className="w-full py-1.5 rounded-lg bg-orange-600 text-white text-xs font-semibold hover:bg-orange-700 transition-all cursor-pointer disabled:opacity-50"
+                          >
+                            {isProbationSubmitting ? 'Saving...' : 'Save Extension'}
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Confirm / Terminate immediate action */}
+                      {(probationAction === 'confirm' || probationAction === 'terminate') && (
+                        <button
+                          onClick={() => handleProbationAction(probationAction)}
+                          disabled={isProbationSubmitting}
+                          className={`w-full py-1.5 rounded-lg text-white text-xs font-semibold transition-all cursor-pointer disabled:opacity-50 ${probationAction === 'confirm' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700'}`}
+                        >
+                          {isProbationSubmitting ? 'Processing...' : probationAction === 'confirm' ? '✅ Confirm as Permanent Employee' : '🚫 Terminate Employment'}
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+          </>) : null}
+          leaveForm={canManage ? (<>
+              {/* Update Leave Balance */}
+              {canManage && (<div className="space-y-3">
+                <h3 className="text-sm font-bold text-app-text-muted flex items-center gap-1.5">Update Leave Balances</h3>
+                <div className="flex gap-2">
+                  <input type="number" placeholder="CL" title="Casual Leave" className="w-16 text-xs rounded-lg border border-app-border bg-form-input-bg px-2 py-2 text-app-text placeholder-app-text-muted focus:outline-none" value={newCL} onChange={e => setNewCL(e.target.value)} />
+                  <input type="number" placeholder="SL" title="Sick Leave" className="w-16 text-xs rounded-lg border border-app-border bg-form-input-bg px-2 py-2 text-app-text placeholder-app-text-muted focus:outline-none" value={newSL} onChange={e => setNewSL(e.target.value)} />
+                  <input type="number" placeholder="PL" title="Paid Leave" className="w-16 text-xs rounded-lg border border-app-border bg-form-input-bg px-2 py-2 text-app-text placeholder-app-text-muted focus:outline-none" value={newPL} onChange={e => setNewPL(e.target.value)} />
+                  <button onClick={() => handleAddSubItem('leaveBalances')} className="px-4 rounded-lg bg-orange-600/20 text-orange-400 border border-orange-500/20 text-xs font-semibold hover:bg-orange-600 hover:text-white transition-all cursor-pointer">Update</button>
+                </div>
+              </div>)}
+
+          </>) : null}
+          goalForm={canManage ? (<>
+              {/* Add Goal */}
+              {canManage && (<div className="space-y-3">
+                <h3 className="text-sm font-bold text-app-text-muted flex items-center gap-1.5"><Award size={14} /> Performance Goal</h3>
+                <div>
+                  <label className="block text-[10px] font-semibold text-app-text-muted uppercase tracking-wider mb-1">Goal Description *</label>
+                  <input type="text" placeholder="e.g. Increase sales by 10%" className="w-full text-xs rounded-lg border border-app-border bg-form-input-bg px-3 py-2 text-app-text placeholder-app-text-muted focus:outline-none" value={goalText} onChange={e => setGoalText(e.target.value)} />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-semibold text-app-text-muted uppercase tracking-wider mb-1">Target Achievement Date *</label>
+                  <input type="date" className="w-full text-xs rounded-lg border border-app-border bg-form-input-bg px-3 py-2 text-app-text focus:outline-none" value={goalTargetDate} onChange={e => setGoalTargetDate(e.target.value)} />
+                </div>
+                <button onClick={() => handleAddSubItem('goal')} className="w-full mt-1 py-1.5 rounded-lg bg-orange-600/20 text-orange-400 border border-orange-500/20 text-xs font-semibold hover:bg-orange-600 hover:text-white transition-all cursor-pointer">Assign Goal</button>
+              </div>)}
+
+          </>) : null}
+          salary={canSalary ? (<>
+              {/* Salary History — payroll itself (calculation/review/approval/
+                  payslips) lives on the dedicated Payroll page; this is just
+                  where a salary revision gets recorded. */}
+              {canSalary && (<div className="space-y-3 border-t border-app-border pt-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-bold text-app-text-muted flex items-center gap-1.5"><IndianRupee size={14} /> Salary History</h3>
+                  {canReviseSalary && (<button
+                    onClick={() => setShowRevisionForm((v) => !v)}
+                    className="text-xs font-semibold text-orange-400 hover:text-orange-300 cursor-pointer"
+                  >
+                    {showRevisionForm ? 'Cancel' : '+ Add Revision'}
+                  </button>)}
+                </div>
+
+                {showRevisionForm && (
+                  <form onSubmit={handleAddRevision} className="space-y-2 bg-form-input-bg border border-app-border rounded-lg p-3">
+                    <div>
+                      <label className="block text-[10px] font-semibold text-app-text-muted uppercase tracking-wider mb-1">
+                        Previous CTC (₹/year)
+                      </label>
+                      <div className="text-xs text-app-text py-2 px-3 bg-app-bg rounded-lg border border-app-border">
+                        {salaryHistory[0] ? `₹${salaryHistory[0].ctc.toLocaleString()}` : 'No prior revision'}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-semibold text-app-text-muted uppercase tracking-wider mb-1">New CTC (₹/year) *</label>
+                      <input type="number" placeholder="e.g. 700000" className="w-full text-xs rounded-lg border border-app-border bg-app-bg px-3 py-2 text-app-text placeholder-app-text-muted focus:outline-none"
+                        value={revisionForm.ctc} onChange={(e) => setRevisionForm((f) => ({ ...f, ctc: e.target.value }))} />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-semibold text-app-text-muted uppercase tracking-wider mb-1">Effective Date *</label>
+                      <input type="date" className="w-full text-xs rounded-lg border border-app-border bg-app-bg px-3 py-2 text-app-text focus:outline-none"
+                        value={revisionForm.effectiveFrom} onChange={(e) => setRevisionForm((f) => ({ ...f, effectiveFrom: e.target.value }))} />
+                      <p className="text-[10px] text-app-text-muted mt-1">If mid-month, payroll auto-prorates old vs. new salary for that month.</p>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-semibold text-app-text-muted uppercase tracking-wider mb-1">Reason for Revision *</label>
+                      <input type="text" placeholder="e.g. Annual increment" className="w-full text-xs rounded-lg border border-app-border bg-app-bg px-3 py-2 text-app-text placeholder-app-text-muted focus:outline-none"
+                        value={revisionForm.reason} onChange={(e) => setRevisionForm((f) => ({ ...f, reason: e.target.value }))} />
+                    </div>
+                    <button type="submit" disabled={isSavingRevision} className="w-full mt-1 py-1.5 rounded-lg bg-orange-600/20 text-orange-400 border border-orange-500/20 text-xs font-semibold hover:bg-orange-600 hover:text-white transition-all cursor-pointer disabled:opacity-50">
+                      {isSavingRevision ? 'Saving...' : 'Save Revision'}
+                    </button>
+                  </form>
+                )}
+
+                <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                  {salaryHistory.length === 0 ? (
+                    <p className="text-xs text-app-text-muted">No salary revisions yet.</p>
+                  ) : salaryHistory.map((rev) => (
+                    <div key={rev._id} className="bg-form-input-bg p-3 rounded-lg border border-app-border text-xs">
+                      <div className="flex justify-between items-center mb-1.5">
+                        <span className="font-bold text-app-text">₹{rev.ctc.toLocaleString()}/yr</span>
+                        {rev.status === 'Active' ? (
+                          <span className="bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded font-medium">Current</span>
+                        ) : (
+                          <span className="bg-surface-variant text-app-text-muted px-2 py-0.5 rounded font-medium">Superseded</span>
+                        )}
+                      </div>
+                      {rev.previousCTC && <div className="text-app-text-muted">From ₹{rev.previousCTC.toLocaleString()}/yr</div>}
+                      <div className="text-app-text-muted">
+                        Effective {new Date(rev.effectiveFrom).toLocaleDateString('en-IN')}
+                        {rev.effectiveTo ? ` – ${new Date(rev.effectiveTo).toLocaleDateString('en-IN')}` : ' onwards'}
+                      </div>
+                      <div className="text-app-text-muted italic mt-0.5">{rev.reason}</div>
+                    </div>
+                  ))}
+                </div>
+
+                <a href="/admin/payroll" className="text-xs font-semibold text-orange-400 hover:text-orange-300 inline-block mt-1">
+                  View payslips & payroll →
+                </a>
+              </div>)}
+          </>) : null}
+        />
+      )}
+
+      {!showProfile && !profileMissing && (<>
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
@@ -762,9 +1146,9 @@ const EmployeeManager = () => {
                       <td className="px-6 py-4 text-app-text-muted whitespace-nowrap">{new Date(emp.joinDate).toLocaleDateString()}</td>
                       <td className="px-6 py-4 text-right space-x-2 whitespace-nowrap">
                         <button
-                          onClick={() => { setSelectedEmp(emp); setIsDetailOpen(true); }}
+                          onClick={() => openProfile(emp)}
                           className="p-2 bg-surface-variant hover:bg-app-border rounded-lg text-app-text-muted hover:text-app-text transition-all cursor-pointer"
-                          title="Manage"
+                          title="Open profile"
                         >
                           <Eye size={16} />
                         </button>
@@ -785,378 +1169,10 @@ const EmployeeManager = () => {
             </div>
           </div>
 
-          {/* Detail Panel */}
-          {isDetailOpen && selectedEmp && (
-            <div ref={detailPanelRef} className="w-full xl:w-[420px] flex-shrink-0 bg-app-card p-4 sm:p-6 rounded-xl border border-app-border space-y-6 scroll-mt-4 xl:overflow-y-auto xl:max-h-[85vh] xl:sticky xl:top-6 shadow-xl">
-              <div className="flex flex-wrap gap-3 justify-between items-start border-b border-app-border pb-4">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h2 className="text-xl font-bold">{selectedEmp.firstName} {selectedEmp.lastName}</h2>
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${selectedEmp.adminId?.isActive ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'}`}>
-                      {selectedEmp.adminId?.isActive ? 'Active' : 'Deactivated'}
-                    </span>
-                  </div>
-                  <div className="text-xs text-orange-500 font-mono mt-0.5">{selectedEmp.employeeId}</div>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  {canManage && (
-                  <button
-                    onClick={handleOpenEditModal}
-                    className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg bg-orange-600/15 text-orange-400 border border-orange-500/20 hover:bg-orange-600 hover:text-white transition-all cursor-pointer font-medium"
-                    title="Edit Employee Details"
-                  >
-                    <Edit2 size={13} /> Edit
-                  </button>
-                  )}
-                  <button onClick={() => setIsDetailOpen(false)} className="text-app-text-muted hover:text-app-text text-xs cursor-pointer p-1">Close ✕</button>
-                </div>
-              </div>
-
-              {/* Account Security & Access Control */}
-              <div className="bg-surface-variant/40 border border-app-border rounded-xl p-3.5 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-app-text flex items-center gap-1.5">
-                    <Power size={14} className={selectedEmp.adminId?.isActive ? 'text-emerald-400' : 'text-rose-400'} />
-                    Login Access Status
-                  </span>
-                  <button
-                    onClick={handleToggleStatus}
-                    disabled={isTogglingStatus}
-                    className={`text-xs px-3 py-1 rounded-lg font-semibold transition-all cursor-pointer border disabled:opacity-50 ${
-                      selectedEmp.adminId?.isActive
-                        ? 'bg-rose-500/15 text-rose-400 border-rose-500/25 hover:bg-rose-600 hover:text-white'
-                        : 'bg-emerald-500/15 text-emerald-400 border-emerald-500/25 hover:bg-emerald-600 hover:text-white'
-                    }`}
-                  >
-                    {isTogglingStatus ? 'Updating...' : selectedEmp.adminId?.isActive ? 'Deactivate Access' : 'Activate Access'}
-                  </button>
-                </div>
-                <p className="text-[11px] text-app-text-muted">
-                  {selectedEmp.adminId?.isActive
-                    ? 'Account is active. Deactivating will immediately revoke login access to the portal.'
-                    : 'Account is deactivated. Employee cannot log in or perform any actions.'}
-                </p>
-              </div>
-
-              <div className="bg-orange-500/5 border border-orange-500/10 rounded-xl p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-orange-500 font-bold text-sm">
-                    <Shield size={16} /> Credentials & Vault
-                  </div>
-                  <button
-                    onClick={() => setShowPasswordReset(v => !v)}
-                    className="text-xs text-orange-400 hover:text-orange-300 font-semibold flex items-center gap-1 cursor-pointer"
-                  >
-                    <Key size={13} /> {showPasswordReset ? 'Cancel' : 'Change Password'}
-                  </button>
-                </div>
-
-                {showPasswordReset ? (
-                  <form onSubmit={handleResetPassword} className="space-y-2 bg-app-bg/60 p-3 rounded-lg border border-orange-500/20">
-                    <label className="block text-[10px] font-semibold text-app-text-muted uppercase tracking-wider">New Password (min 6 chars) *</label>
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        placeholder="Enter new password"
-                        value={newAdminPassword}
-                        onChange={e => setNewAdminPassword(e.target.value)}
-                        className="flex-1 text-xs rounded-lg border border-app-border bg-form-input-bg px-3 py-2 text-app-text focus:outline-none"
-                      />
-                      <button
-                        type="submit"
-                        disabled={isUpdatingPassword || !newAdminPassword || newAdminPassword.length < 6}
-                        className="px-3 py-2 rounded-lg bg-orange-600 text-white text-xs font-semibold hover:bg-orange-700 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                      >
-                        {isUpdatingPassword ? 'Saving...' : 'Set'}
-                      </button>
-                    </div>
-                  </form>
-                ) : null}
-
-                <div className="text-xs space-y-1 text-app-text-muted font-mono">
-                  {selectedEmp.tempPassword && (
-                    <div className="mb-2 pb-2 border-b border-orange-500/10 flex items-center justify-between">
-                      <div>
-                        <span className="text-orange-400 font-semibold">Current Password:</span> {selectedEmp.tempPassword}
-                      </div>
-                    </div>
-                  )}
-                  <div>PAN: {selectedEmp.panNumber || 'N/A'}</div>
-                  <div>Aadhaar: {selectedEmp.aadhaarNumber || 'N/A'}</div>
-                </div>
-              </div>
-
-              <div className="text-xs space-y-2 border-b border-app-border pb-4 text-app-text-muted">
-                <div className="flex justify-between"><span>CTC:</span><span className="font-bold text-app-text">{selectedEmp.salaryCTC != null ? `₹${selectedEmp.salaryCTC.toLocaleString()}` : "Hidden"}</span></div>
-                <div className="flex justify-between"><span>Type:</span><span className="font-bold text-app-text">{selectedEmp.employmentType}</span></div>
-                <div className="flex justify-between"><span>Email:</span><span className="font-bold text-app-text">{selectedEmp.email}</span></div>
-                <div className="flex justify-between"><span>Phone:</span><span className="font-bold text-app-text">{selectedEmp.phone || 'N/A'}</span></div>
-                <div className="flex justify-between"><span>Leaves Used:</span><span className="font-bold text-app-text">CL: {selectedEmp.leavesUsed?.CL || 0}, SL: {selectedEmp.leavesUsed?.SL || 0}, PL: {selectedEmp.leavesUsed?.PL || 0}</span></div>
-                <div className="flex justify-between"><span>Role:</span><span className="font-bold text-app-text">{selectedEmp.roleDept}</span></div>
-              </div>
-
-              {/* Change Role — determines actual Employee Portal access
-                  (sidebar tabs + APIs), not just a display label. */}
-              <div className="space-y-3">
-                <h3 className="text-sm font-bold text-app-text-muted flex items-center gap-1.5"><Shield size={14} /> Role</h3>
-                <div className="flex gap-2">
-                  <select
-                    className="flex-1 text-xs rounded-lg border border-app-border bg-form-input-bg px-2 py-2 text-app-text focus:outline-none"
-                    value={changeRoleId}
-                    onChange={e => setChangeRoleId(e.target.value)}
-                  >
-                    <option value="" className="bg-white dark:bg-[#1a1f2b] text-gray-900 dark:text-white">Change role...</option>
-                    {roles.map(r => (
-                      <option key={r._id} value={r._id} className="bg-white dark:bg-[#1a1f2b] text-gray-900 dark:text-white">{r.label || r.name.replace(/_/g, ' ')}</option>
-                    ))}
-                  </select>
-                  <button
-                    onClick={handleChangeRole}
-                    disabled={!changeRoleId}
-                    className="px-4 rounded-lg bg-orange-600/20 text-orange-400 border border-orange-500/20 text-xs font-semibold hover:bg-orange-600 hover:text-white transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    Save
-                  </button>
-                </div>
-              </div>
-
-              {/* ── Probation Status Card ──────────────────────────────────────── */}
-              {selectedEmp.probation?.isApplicable && (
-                <div className={`rounded-xl border p-4 space-y-3 ${
-                  selectedEmp.probation.status === 'Confirmed' ? 'border-emerald-500/20 bg-emerald-500/5'
-                  : selectedEmp.probation.status === 'Terminated' ? 'border-rose-500/20 bg-rose-500/5'
-                  : selectedEmp.probation.status === 'Extended' ? 'border-orange-500/20 bg-orange-500/5'
-                  : 'border-blue-500/20 bg-blue-500/5'
-                }`}>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-sm font-bold text-app-text">
-                      <Clock size={14} className="text-blue-400" /> Probation Status
-                    </div>
-                    {['Probation', 'Extended'].includes(selectedEmp.probation.status) && (
-                      <button
-                        onClick={() => setShowProbationPanel(v => !v)}
-                        className="text-[11px] text-blue-400 hover:text-blue-300 font-semibold flex items-center gap-1 cursor-pointer"
-                      >
-                        Actions {showProbationPanel ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Status Badge + Days */}
-                  <div className="flex items-center gap-3">
-                    <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${
-                      selectedEmp.probation.status === 'Confirmed' ? 'bg-emerald-500/15 text-emerald-400'
-                      : selectedEmp.probation.status === 'Terminated' ? 'bg-rose-500/15 text-rose-400'
-                      : selectedEmp.probation.status === 'Extended' ? 'bg-orange-500/15 text-orange-400'
-                      : 'bg-blue-500/15 text-blue-400'
-                    }`}>
-                      {selectedEmp.probation.status === 'Confirmed' ? '✅ Confirmed' 
-                       : selectedEmp.probation.status === 'Terminated' ? '🚫 Terminated'
-                       : selectedEmp.probation.status === 'Extended' ? '📅 Extended'
-                       : '⏳ On Probation'}
-                    </span>
-                    {selectedEmp.probation.endDate && (
-                      <span className="text-[11px] text-app-text-muted">
-                        Ends: {new Date(selectedEmp.probation.endDate).toLocaleDateString('en-IN')}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Progress bar for active probation */}
-                  {['Probation', 'Extended'].includes(selectedEmp.probation.status) && selectedEmp.probation.startDate && selectedEmp.probation.endDate && (() => {
-                    const total = new Date(selectedEmp.probation.endDate) - new Date(selectedEmp.probation.startDate);
-                    const elapsed = Date.now() - new Date(selectedEmp.probation.startDate);
-                    const pct = Math.min(100, Math.max(0, Math.round((elapsed / total) * 100)));
-                    const daysLeft = Math.max(0, Math.ceil((new Date(selectedEmp.probation.endDate) - Date.now()) / 86400000));
-                    return (
-                      <div className="space-y-1">
-                        <div className="flex justify-between text-[10px] text-app-text-muted">
-                          <span>{pct}% elapsed</span>
-                          <span>{daysLeft} day{daysLeft !== 1 ? 's' : ''} remaining</span>
-                        </div>
-                        <div className="h-1.5 rounded-full bg-app-border overflow-hidden">
-                          <div className={`h-full rounded-full transition-all ${pct > 80 ? 'bg-rose-500' : pct > 50 ? 'bg-orange-500' : 'bg-blue-500'}`} style={{ width: `${pct}%` }} />
-                        </div>
-                      </div>
-                    );
-                  })()}
-
-                  {/* Extension note if applicable */}
-                  {selectedEmp.probation.extensionNote && (
-                    <p className="text-[11px] text-app-text-muted italic">Extension reason: {selectedEmp.probation.extensionNote}</p>
-                  )}
-
-                  {/* Action Buttons */}
-                  {showProbationPanel && ['Probation', 'Extended'].includes(selectedEmp.probation.status) && (
-                    <div className="space-y-3 pt-2 border-t border-app-border">
-                      <div className="flex flex-wrap gap-2">
-                        <button
-                          onClick={() => { setProbationAction('confirm'); }}
-                          className={`flex-1 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${probationAction === 'confirm' ? 'bg-emerald-600 text-white border-emerald-600' : 'border-emerald-500/25 text-emerald-400 hover:bg-emerald-600 hover:text-white'}`}
-                        >
-                          <UserCheck size={13} className="inline mr-1" /> Confirm
-                        </button>
-                        <button
-                          onClick={() => { setProbationAction(probationAction === 'extend' ? '' : 'extend'); }}
-                          className={`flex-1 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${probationAction === 'extend' ? 'bg-orange-600 text-white border-orange-600' : 'border-orange-500/25 text-orange-400 hover:bg-orange-600 hover:text-white'}`}
-                        >
-                          <Clock size={13} className="inline mr-1" /> Extend
-                        </button>
-                        <button
-                          onClick={() => { setProbationAction('terminate'); }}
-                          className={`flex-1 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${probationAction === 'terminate' ? 'bg-rose-600 text-white border-rose-600' : 'border-rose-500/25 text-rose-400 hover:bg-rose-600 hover:text-white'}`}
-                        >
-                          <UserX size={13} className="inline mr-1" /> Terminate
-                        </button>
-                      </div>
-
-                      {/* Extend form */}
-                      {probationAction === 'extend' && (
-                        <div className="space-y-2 bg-app-bg/60 p-3 rounded-lg border border-orange-500/20">
-                          <div className="flex gap-2">
-                            <input
-                              type="number"
-                              min={1}
-                              placeholder="Extra days"
-                              value={probationExtendDays}
-                              onChange={e => setProbationExtendDays(e.target.value)}
-                              className="w-28 text-xs rounded-lg border border-app-border bg-form-input-bg px-2 py-1.5 text-app-text focus:outline-none"
-                            />
-                            <input
-                              type="text"
-                              placeholder="Reason for extension *"
-                              value={probationExtendNote}
-                              onChange={e => setProbationExtendNote(e.target.value)}
-                              className="flex-1 text-xs rounded-lg border border-app-border bg-form-input-bg px-2 py-1.5 text-app-text focus:outline-none"
-                            />
-                          </div>
-                          <button
-                            onClick={() => handleProbationAction('extend')}
-                            disabled={isProbationSubmitting}
-                            className="w-full py-1.5 rounded-lg bg-orange-600 text-white text-xs font-semibold hover:bg-orange-700 transition-all cursor-pointer disabled:opacity-50"
-                          >
-                            {isProbationSubmitting ? 'Saving...' : 'Save Extension'}
-                          </button>
-                        </div>
-                      )}
-
-                      {/* Confirm / Terminate immediate action */}
-                      {(probationAction === 'confirm' || probationAction === 'terminate') && (
-                        <button
-                          onClick={() => handleProbationAction(probationAction)}
-                          disabled={isProbationSubmitting}
-                          className={`w-full py-1.5 rounded-lg text-white text-xs font-semibold transition-all cursor-pointer disabled:opacity-50 ${probationAction === 'confirm' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700'}`}
-                        >
-                          {isProbationSubmitting ? 'Processing...' : probationAction === 'confirm' ? '✅ Confirm as Permanent Employee' : '🚫 Terminate Employment'}
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Update Leave Balance */}
-              <div className="space-y-3">
-                <h3 className="text-sm font-bold text-app-text-muted flex items-center gap-1.5">Update Leave Balances</h3>
-                <div className="flex gap-2">
-                  <input type="number" placeholder="CL" title="Casual Leave" className="w-16 text-xs rounded-lg border border-app-border bg-form-input-bg px-2 py-2 text-app-text placeholder-app-text-muted focus:outline-none" value={newCL} onChange={e => setNewCL(e.target.value)} />
-                  <input type="number" placeholder="SL" title="Sick Leave" className="w-16 text-xs rounded-lg border border-app-border bg-form-input-bg px-2 py-2 text-app-text placeholder-app-text-muted focus:outline-none" value={newSL} onChange={e => setNewSL(e.target.value)} />
-                  <input type="number" placeholder="PL" title="Paid Leave" className="w-16 text-xs rounded-lg border border-app-border bg-form-input-bg px-2 py-2 text-app-text placeholder-app-text-muted focus:outline-none" value={newPL} onChange={e => setNewPL(e.target.value)} />
-                  <button onClick={() => handleAddSubItem('leaveBalances')} className="px-4 rounded-lg bg-orange-600/20 text-orange-400 border border-orange-500/20 text-xs font-semibold hover:bg-orange-600 hover:text-white transition-all cursor-pointer">Update</button>
-                </div>
-              </div>
-
-              {/* Add Goal */}
-              <div className="space-y-3">
-                <h3 className="text-sm font-bold text-app-text-muted flex items-center gap-1.5"><Award size={14} /> Performance Goal</h3>
-                <div>
-                  <label className="block text-[10px] font-semibold text-app-text-muted uppercase tracking-wider mb-1">Goal Description *</label>
-                  <input type="text" placeholder="e.g. Increase sales by 10%" className="w-full text-xs rounded-lg border border-app-border bg-form-input-bg px-3 py-2 text-app-text placeholder-app-text-muted focus:outline-none" value={goalText} onChange={e => setGoalText(e.target.value)} />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-semibold text-app-text-muted uppercase tracking-wider mb-1">Target Achievement Date *</label>
-                  <input type="date" className="w-full text-xs rounded-lg border border-app-border bg-form-input-bg px-3 py-2 text-app-text focus:outline-none" value={goalTargetDate} onChange={e => setGoalTargetDate(e.target.value)} />
-                </div>
-                <button onClick={() => handleAddSubItem('goal')} className="w-full mt-1 py-1.5 rounded-lg bg-orange-600/20 text-orange-400 border border-orange-500/20 text-xs font-semibold hover:bg-orange-600 hover:text-white transition-all cursor-pointer">Assign Goal</button>
-              </div>
-
-              {/* Salary History — payroll itself (calculation/review/approval/
-                  payslips) lives on the dedicated Payroll page; this is just
-                  where a salary revision gets recorded. */}
-              <div className="space-y-3 border-t border-app-border pt-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-bold text-app-text-muted flex items-center gap-1.5"><IndianRupee size={14} /> Salary History</h3>
-                  <button
-                    onClick={() => setShowRevisionForm((v) => !v)}
-                    className="text-xs font-semibold text-orange-400 hover:text-orange-300 cursor-pointer"
-                  >
-                    {showRevisionForm ? 'Cancel' : '+ Add Revision'}
-                  </button>
-                </div>
-
-                {showRevisionForm && (
-                  <form onSubmit={handleAddRevision} className="space-y-2 bg-form-input-bg border border-app-border rounded-lg p-3">
-                    <div>
-                      <label className="block text-[10px] font-semibold text-app-text-muted uppercase tracking-wider mb-1">
-                        Previous CTC (₹/year)
-                      </label>
-                      <div className="text-xs text-app-text py-2 px-3 bg-app-bg rounded-lg border border-app-border">
-                        {salaryHistory[0] ? `₹${salaryHistory[0].ctc.toLocaleString()}` : 'No prior revision'}
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-semibold text-app-text-muted uppercase tracking-wider mb-1">New CTC (₹/year) *</label>
-                      <input type="number" placeholder="e.g. 700000" className="w-full text-xs rounded-lg border border-app-border bg-app-bg px-3 py-2 text-app-text placeholder-app-text-muted focus:outline-none"
-                        value={revisionForm.ctc} onChange={(e) => setRevisionForm((f) => ({ ...f, ctc: e.target.value }))} />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-semibold text-app-text-muted uppercase tracking-wider mb-1">Effective Date *</label>
-                      <input type="date" className="w-full text-xs rounded-lg border border-app-border bg-app-bg px-3 py-2 text-app-text focus:outline-none"
-                        value={revisionForm.effectiveFrom} onChange={(e) => setRevisionForm((f) => ({ ...f, effectiveFrom: e.target.value }))} />
-                      <p className="text-[10px] text-app-text-muted mt-1">If mid-month, payroll auto-prorates old vs. new salary for that month.</p>
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-semibold text-app-text-muted uppercase tracking-wider mb-1">Reason for Revision *</label>
-                      <input type="text" placeholder="e.g. Annual increment" className="w-full text-xs rounded-lg border border-app-border bg-app-bg px-3 py-2 text-app-text placeholder-app-text-muted focus:outline-none"
-                        value={revisionForm.reason} onChange={(e) => setRevisionForm((f) => ({ ...f, reason: e.target.value }))} />
-                    </div>
-                    <button type="submit" disabled={isSavingRevision} className="w-full mt-1 py-1.5 rounded-lg bg-orange-600/20 text-orange-400 border border-orange-500/20 text-xs font-semibold hover:bg-orange-600 hover:text-white transition-all cursor-pointer disabled:opacity-50">
-                      {isSavingRevision ? 'Saving...' : 'Save Revision'}
-                    </button>
-                  </form>
-                )}
-
-                <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
-                  {salaryHistory.length === 0 ? (
-                    <p className="text-xs text-app-text-muted">No salary revisions yet.</p>
-                  ) : salaryHistory.map((rev) => (
-                    <div key={rev._id} className="bg-form-input-bg p-3 rounded-lg border border-app-border text-xs">
-                      <div className="flex justify-between items-center mb-1.5">
-                        <span className="font-bold text-app-text">₹{rev.ctc.toLocaleString()}/yr</span>
-                        {rev.status === 'Active' ? (
-                          <span className="bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded font-medium">Current</span>
-                        ) : (
-                          <span className="bg-surface-variant text-app-text-muted px-2 py-0.5 rounded font-medium">Superseded</span>
-                        )}
-                      </div>
-                      {rev.previousCTC && <div className="text-app-text-muted">From ₹{rev.previousCTC.toLocaleString()}/yr</div>}
-                      <div className="text-app-text-muted">
-                        Effective {new Date(rev.effectiveFrom).toLocaleDateString('en-IN')}
-                        {rev.effectiveTo ? ` – ${new Date(rev.effectiveTo).toLocaleDateString('en-IN')}` : ' onwards'}
-                      </div>
-                      <div className="text-app-text-muted italic mt-0.5">{rev.reason}</div>
-                    </div>
-                  ))}
-                </div>
-
-                <a href="/admin/payroll" className="text-xs font-semibold text-orange-400 hover:text-orange-300 inline-block mt-1">
-                  View payslips & payroll →
-                </a>
-              </div>
-            </div>
-          )}
         </div>
       )}
+
+      </>)}
 
       {/* ─── Add Employee Modal ─────────────────────────────────────────────── */}
       {isModalOpen && (

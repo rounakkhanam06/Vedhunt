@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { Activity, Filter, ChevronDown, ChevronLeft, ChevronRight, X } from 'lucide-react';
-import api from '../../services/api';
+import { useLeadAccess } from '../../shared/crmAccess';
 import RemarkCell from '../../components/common/RemarkCell';
 
 // firstName/lastName aren't guaranteed on every Admin account (the original
@@ -44,6 +44,8 @@ const fmtWhen = (d) => new Date(d).toLocaleString('en-IN', { day: '2-digit', mon
  * so the Management Dashboard's "Calls Made" links straight to one BD's calls.
  */
 export default function LeadActivity() {
+  // Admin panel (role) or Employee Portal (person-wise grant) — shared/crmAccess.js
+  const { http, root, leadPath } = useLeadAccess();
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const by = params.get('by') || 'All';
@@ -63,7 +65,7 @@ export default function LeadActivity() {
   const query = { page, limit: 20, by, result, dateFrom: dateFrom || undefined, dateTo: dateTo || undefined };
   const { data, isLoading, isFetching, error } = useQuery({
     queryKey: ['admin', 'call-activity', query],
-    queryFn: () => api.get('/admin/activity/calls', { params: query }).then((r) => r.data),
+    queryFn: () => http.get(`${root}/admin/activity/calls`, { params: query }).then((r) => r.data),
     placeholderData: keepPreviousData,
   });
 
@@ -71,7 +73,7 @@ export default function LeadActivity() {
   // the assignable BD list when the viewer may read it.
   const { data: roster = [] } = useQuery({
     queryKey: ['admin', 'assignable-bds'],
-    queryFn: () => api.get('/admin/assignment/bds').then((r) => r.data?.data || []),
+    queryFn: () => http.get(`${root}/admin/assignment/bds`).then((r) => r.data?.data || []),
     retry: false,
   });
   const perBd = data?.perBd;
@@ -213,7 +215,7 @@ export default function LeadActivity() {
                     <td className="px-4 py-3 text-app-text font-medium">{displayName(entry.by)}</td>
                     <td className="px-4 py-3">
                       <button
-                        onClick={() => navigate(`/admin/leads/${entry.leadId}`)}
+                        onClick={() => navigate(leadPath(entry.leadId))}
                         className="font-medium text-app-text hover:text-primary hover:underline text-left cursor-pointer"
                       >
                         {entry.leadName || '—'}

@@ -2,7 +2,6 @@ const express = require('express');
 const router = express.Router();
 const settingsController = require('../controllers/settingsController');
 const authMiddleware = require('../middleware/authMiddleware');
-const roleMiddleware = require('../middleware/roleMiddleware');
 const requirePermission = require('../middleware/requirePermission');
 const portalLegalController = require('../controllers/portalLegalController');
 const activityMaster = require('../services/activityMaster');
@@ -14,7 +13,7 @@ router.get('/settings/contact', settingsController.getContactInfo);
 router.put(
   '/admin/settings/contact',
   authMiddleware,
-  roleMiddleware('SUPER_ADMIN', 'EDITOR'),
+  requirePermission('settings.manage'),
   settingsController.updateContactInfo
 );
 
@@ -25,7 +24,7 @@ router.get('/settings/privacy-policy', settingsController.getPrivacyPolicy);
 router.put(
   '/admin/settings/privacy-policy',
   authMiddleware,
-  roleMiddleware('SUPER_ADMIN', 'EDITOR'),
+  requirePermission('legal.manage'),
   settingsController.updatePrivacyPolicy
 );
 
@@ -36,7 +35,7 @@ router.get('/settings/terms-conditions', settingsController.getTermsConditions);
 router.put(
   '/admin/settings/terms-conditions',
   authMiddleware,
-  roleMiddleware('SUPER_ADMIN', 'EDITOR'),
+  requirePermission('legal.manage'),
   settingsController.updateTermsConditions
 );
 
@@ -47,7 +46,7 @@ router.get('/settings/cookie-policy', settingsController.getCookiePolicy);
 router.put(
   '/admin/settings/cookie-policy',
   authMiddleware,
-  roleMiddleware('SUPER_ADMIN', 'EDITOR'),
+  requirePermission('legal.manage'),
   settingsController.updateCookiePolicy
 );
 
@@ -58,7 +57,7 @@ router.get('/settings/dpa', settingsController.getDPA);
 router.put(
   '/admin/settings/dpa',
   authMiddleware,
-  roleMiddleware('SUPER_ADMIN', 'EDITOR'),
+  requirePermission('legal.manage'),
   settingsController.updateDPA
 );
 
@@ -69,7 +68,7 @@ router.get('/settings/refund-policy', settingsController.getRefundPolicy);
 router.put(
   '/admin/settings/refund-policy',
   authMiddleware,
-  roleMiddleware('SUPER_ADMIN', 'EDITOR'),
+  requirePermission('legal.manage'),
   settingsController.updateRefundPolicy
 );
 
@@ -80,7 +79,7 @@ router.get('/settings/facebook', settingsController.getFacebookSettings);
 router.put(
   '/admin/settings/facebook',
   authMiddleware,
-  roleMiddleware('SUPER_ADMIN', 'EDITOR'),
+  requirePermission('settings.manage'),
   settingsController.updateFacebookSettings
 );
 
@@ -91,40 +90,43 @@ router.get('/settings/campaigns', settingsController.getCampaignSettings);
 router.put(
   '/admin/settings/campaigns',
   authMiddleware,
-  roleMiddleware('SUPER_ADMIN', 'EDITOR'),
+  requirePermission('settings.manage'),
   settingsController.updateCampaignSettings
 );
 
 // Public route to get Email Settings
-router.get('/settings/email', settingsController.getEmailSettings);
+// Internal configuration — only the Settings page reads it (the server reads the DB directly)
+router.get('/settings/email', authMiddleware, requirePermission('settings.manage'), settingsController.getEmailSettings);
 
 // Admin route to update Email Settings
 router.put(
   '/admin/settings/email',
   authMiddleware,
-  roleMiddleware('SUPER_ADMIN', 'EDITOR'),
+  requirePermission('settings.manage'),
   settingsController.updateEmailSettings
 );
 
 // Public route to get Office Timings
-router.get('/settings/office-timings', settingsController.getOfficeTimings);
+// Internal configuration — only the Settings page reads it (the server reads the DB directly)
+router.get('/settings/office-timings', authMiddleware, requirePermission('settings.manage'), settingsController.getOfficeTimings);
 
 // Admin route to update Office Timings
 router.put(
   '/admin/settings/office-timings',
   authMiddleware,
-  roleMiddleware('SUPER_ADMIN', 'EDITOR'),
+  requirePermission('settings.manage'),
   settingsController.updateOfficeTimings
 );
 
 // Public route to get Attendance Rules
-router.get('/settings/attendance-rules', settingsController.getAttendanceRules);
+// Internal configuration — only the Settings page reads it (the server reads the DB directly)
+router.get('/settings/attendance-rules', authMiddleware, requirePermission('settings.manage'), settingsController.getAttendanceRules);
 
 // Admin route to update Attendance Rules
 router.put(
   '/admin/settings/attendance-rules',
   authMiddleware,
-  roleMiddleware('SUPER_ADMIN', 'EDITOR'),
+  requirePermission('settings.manage'),
   settingsController.updateAttendanceRules
 );
 
@@ -135,7 +137,7 @@ router.get('/settings/payment', settingsController.getPaymentSettings);
 router.put(
   '/admin/settings/payment',
   authMiddleware,
-  roleMiddleware('SUPER_ADMIN', 'EDITOR'),
+  requirePermission('settings.manage'),
   settingsController.updatePaymentSettings
 );
 
@@ -146,7 +148,7 @@ router.get('/settings/support-categories', settingsController.getSupportCategori
 router.put(
   '/admin/settings/support-categories',
   authMiddleware,
-  roleMiddleware('SUPER_ADMIN', 'EDITOR'),
+  requirePermission('cms.manage'),
   settingsController.updateSupportCategories
 );
 

@@ -1,7 +1,7 @@
 const express = require('express');
 const Hero = require('../models/Hero');
 const authMiddleware = require('../middleware/authMiddleware');
-const roleMiddleware = require('../middleware/roleMiddleware');
+const requirePermission = require('../middleware/requirePermission');
 const validate = require('../middleware/validate');
 const { heroUpdateSchema } = require('../validators/heroValidator');
 const logger = require('../utils/logger');
@@ -29,7 +29,7 @@ router.get('/', async (req, res) => {
 // @route   PUT /api/hero
 // @desc    Update Hero content
 // @access  Private (Admin)
-router.put('/', authMiddleware, roleMiddleware('SUPER_ADMIN', 'EDITOR'), validate(heroUpdateSchema), async (req, res) => {
+router.put('/', authMiddleware, requirePermission('cms.manage'), validate(heroUpdateSchema), async (req, res) => {
   try {
     // Upsert logic - update existing active hero, or create new if none
     let hero = await Hero.findOne({ isActive: true });

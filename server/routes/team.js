@@ -5,6 +5,7 @@ const AuditLog = require('../models/AuditLog');
 const authMiddleware = require('../middleware/authMiddleware');
 const requirePermission = require('../middleware/requirePermission');
 const { grantError } = require('../utils/roleGrants');
+const { outranksActor } = require('../utils/accountRank');
 const logger = require('../utils/logger');
 
 const router = express.Router();
@@ -133,6 +134,14 @@ router.put('/:id', requirePermission('team.manage'), async (req, res) => {
       return res.status(400).json({ success: false, message: 'This is an HRMS employee account — manage its role from Employee Manager (admin/employees), not Team Management.' });
     }
 
+    // Nobody switches off their own login, and nobody changes an account
+    // that has access they don't have (e.g. a Super Admin) — utils/accountRank.js
+    if (adminId === req.user._id.toString() && isActive === false) {
+      return res.status(400).json({ success: false, message: "You can't deactivate your own login." });
+    }
+    const rankError = await outranksActor(req.user, admin._id);
+    if (rankError) return res.status(403).json({ success: false, message: rankError });
+
     const beforeSnapshot = admin.toObject();
 
     if (roles !== undefined) {
@@ -212,6 +221,8 @@ router.delete('/:id', requirePermission('team.manage'), async (req, res) => {
     if (isEmployeeManagedAccount(admin)) {
       return res.status(400).json({ success: false, message: 'This is an HRMS employee account — delete it from Employee Manager (admin/employees) so the linked HR record is removed too.' });
     }
+    const rankError = await outranksActor(req.user, admin._id);
+    if (rankError) return res.status(403).json({ success: false, message: rankError });
 
     const superAdminRole = await Role.findOne({ name: 'SUPER_ADMIN' });
     if (superAdminRole && admin.roles.includes(superAdminRole._id)) {

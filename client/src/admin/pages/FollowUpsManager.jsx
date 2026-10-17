@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Clock, Filter, ChevronDown, ChevronLeft, ChevronRight, Phone, AlertTriangle, TrendingUp, Users } from 'lucide-react';
 import toast from 'react-hot-toast';
-import api from '../../services/api';
+import { useLeadAccess } from '../../shared/crmAccess';
 import { formatMinutes } from '../../shared/formatDuration';
 
 const BUCKET_TABS = ['All', 'Overdue', 'Today', 'Upcoming', 'Action Missing'];
@@ -31,6 +31,8 @@ function displayName(person) {
 }
 
 export default function FollowUpsManager() {
+  // Admin panel (role) or Employee Portal (person-wise grant) — shared/crmAccess.js
+  const { http, root, leadPath } = useLeadAccess();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [followUps, setFollowUps] = useState([]);
@@ -59,8 +61,8 @@ export default function FollowUpsManager() {
     setLoading(true);
     try {
       const response = isActionMissing
-        ? await api.get('/admin/activity/action-missing', { params: { page: currentPage, limit: 20, by: bdFilter, category: categoryFilter } })
-        : await api.get('/admin/activity/followups', { params: { page: currentPage, limit: 20, by: bdFilter, bucket: bucketFilter } });
+        ? await http.get(`${root}/admin/activity/action-missing`, { params: { page: currentPage, limit: 20, by: bdFilter, category: categoryFilter } })
+        : await http.get(`${root}/admin/activity/followups`, { params: { page: currentPage, limit: 20, by: bdFilter, bucket: bucketFilter } });
       if (response.data.success) {
         setFollowUps(response.data.data);
         setTotalPages(response.data.totalPages);
@@ -79,7 +81,7 @@ export default function FollowUpsManager() {
   }, [fetchFollowUps]);
 
   useEffect(() => {
-    api.get('/admin/assignment/bds')
+    http.get(`${root}/admin/assignment/bds`)
       .then((res) => setBds(res.data?.data || []))
       .catch(() => { /* filter just stays empty */ });
   }, []);
@@ -87,10 +89,10 @@ export default function FollowUpsManager() {
   // Management Visibility — pipeline value/conversion and per-BD accountability,
   // fetched once (not paginated/filtered like the table above).
   useEffect(() => {
-    api.get('/admin/activity/pipeline-summary').then((res) => {
+    http.get(`${root}/admin/activity/pipeline-summary`).then((res) => {
       if (res.data.success) setPipelineSummary(res.data);
     }).catch(() => {});
-    api.get('/admin/activity/bd-accountability').then((res) => {
+    http.get(`${root}/admin/activity/bd-accountability`).then((res) => {
       if (res.data.success) setBdAccountability(res.data.data || []);
     }).catch(() => {});
   }, []);
@@ -256,7 +258,7 @@ export default function FollowUpsManager() {
                   <tr key={lead._id} className="hover:bg-app-bg transition-colors">
                     <td className="px-4 py-3">
                       <button
-                        onClick={() => navigate(`/admin/leads/${lead._id}`)}
+                        onClick={() => navigate(leadPath(lead._id))}
                         className="font-medium text-app-text hover:text-primary hover:underline text-left flex items-center gap-1.5"
                       >
                         <Phone size={12} className="text-app-text-muted" /> {lead.fullName}

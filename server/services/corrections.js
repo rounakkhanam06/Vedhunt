@@ -258,8 +258,10 @@ async function cancelOwnRequest(adminId, id) {
   return ok({ request });
 }
 
-async function listForReview({ status, kind } = {}) {
+// employeeIds: limit to these employees (a person-wise grant), or null for everyone
+async function listForReview({ status, kind } = {}, employeeIds = null) {
   const filter = {};
+  if (employeeIds) filter.employee = { $in: employeeIds };
   if (['Pending', 'Approved', 'Rejected', 'Cancelled'].includes(status)) filter.status = status;
   if (['Attendance', 'Timesheet'].includes(kind)) filter.kind = kind;
   return CorrectionRequest.find(filter)

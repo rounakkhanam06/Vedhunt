@@ -46,6 +46,7 @@ const PERMISSION_GROUPS = [
       { key: 'settings.manage', label: 'Settings' },
       { key: 'audit.view', label: 'Audit & Logs' },
       { key: 'dashboard.management', label: 'Management Dashboard' },
+      { key: 'finance.view', label: 'Revenue & Earnings (Overview dashboard)' },
     ],
   },
   {
@@ -94,6 +95,19 @@ const hasPermission = (perms = [], key) => perms.includes('*') || perms.includes
 const grantsAdminPanel = (perms = []) => perms.includes('*') || perms.some((p) => ADMIN_PANEL_PERMISSIONS.includes(p));
 
 /**
+ * True for a login that belongs in the Employee Portal only: every role is
+ * an employee role and none of them grants an Admin-panel permission. Such
+ * a login is refused by the Admin login (routes/auth.js) and by every Admin
+ * API (authMiddleware.js) — portal tokens are signed the same way, so the
+ * API check is what keeps a portal token out of the Admin APIs.
+ */
+const isPortalOnly = (roles = []) => {
+  const hasPortalOnlyRole = roles?.some((role) => role?.isEmployeeRole);
+  const hasAdminRole = roles?.some((role) => role && !role.isEmployeeRole);
+  return Boolean(hasPortalOnlyRole && !hasAdminRole && !grantsAdminPanel(permissionsOf(roles)));
+};
+
+/**
  * The permissions in `rolePerms` that `granterPerms` doesn't hold — a user
  * can only hand out (assign/create) access they have themselves.
  */
@@ -108,5 +122,6 @@ module.exports = {
   permissionsOf,
   hasPermission,
   grantsAdminPanel,
+  isPortalOnly,
   missingGrants,
 };

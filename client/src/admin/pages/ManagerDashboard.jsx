@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
-import api from '../../services/api';
+import { usePageAccess } from '../../shared/crmAccess';
 import toast from 'react-hot-toast';
 import { BarChart3, Users, Clock, Filter, Download } from 'lucide-react';
 
 const ManagerDashboard = () => {
+  // Admin panel (role) or Employee Portal (person-wise grant) — shared/crmAccess.js
+  const { http, root } = usePageAccess();
   const [stats, setStats] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   
@@ -18,7 +20,7 @@ const ManagerDashboard = () => {
   const fetchProductivity = async () => {
     setIsLoading(true);
     try {
-      const res = await api.get('/employees/manager/productivity', {
+      const res = await http.get(`${root}/employees/manager/productivity`, {
         params: { dateRange, department }
       });
       if (res.data.success) {

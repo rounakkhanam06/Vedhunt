@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import api from '../../services/api';
+import { usePageAccess } from '../../shared/crmAccess';
 import Modal from '../../components/ui/Modal';
 
 const TYPE_LABEL = { Backdated: 'Backdated attendance', MissedClockOut: 'Missed clock-out', Correction: 'Correction', TimeEntry: 'Missing time entry' };
@@ -36,6 +36,8 @@ function RequestDetails({ r }) {
 
 /** HRMS → Correction Requests: approve/reject attendance regularizations and timesheet corrections. */
 export default function CorrectionRequestsManager() {
+  // Admin panel (role) or Employee Portal (person-wise grant) — shared/crmAccess.js
+  const { http, root, allowed } = usePageAccess();
   const queryClient = useQueryClient();
   const [status, setStatus] = useState('Pending');
   const [kind, setKind] = useState('All');
@@ -45,14 +47,14 @@ export default function CorrectionRequestsManager() {
 
   const { data: requests = [], isLoading } = useQuery({
     queryKey: ['admin', 'corrections', status, kind],
-    queryFn: () => api.get('/corrections', { params: { status: status === 'All' ? undefined : status, kind: kind === 'All' ? undefined : kind } }).then((r) => r.data.requests || []),
+    queryFn: () => http.get(`${root}/corrections`, { params: { status: status === 'All' ? undefined : status, kind: kind === 'All' ? undefined : kind } }).then((r) => r.data.requests || []),
   });
 
   const submit = async (e) => {
     e.preventDefault();
     setSaving(true);
     try {
-      const res = await api.put(`/corrections/${action.request._id}/status`, { status: action.status, comment });
+      const res = await http.put(`${root}/corrections/${action.request._id}/status`, { status: action.status, comment });
       toast.success(res.data.message);
       setAction(null);
       queryClient.invalidateQueries({ queryKey: ['admin', 'corrections'] });
@@ -108,8 +110,8 @@ export default function CorrectionRequestsManager() {
                 <td className="py-3 px-4 text-right whitespace-nowrap">
                   {r.status === 'Pending' ? (
                     <div className="flex justify-end gap-2">
-                      <button onClick={() => { setAction({ request: r, status: 'Approved' }); setComment(''); }} className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded cursor-pointer">Approve</button>
-                      <button onClick={() => { setAction({ request: r, status: 'Rejected' }); setComment(''); }} className="px-3 py-1 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded cursor-pointer">Reject</button>
+                      {allowed('attendance.manage', 'corrections', 'edit') && (<button onClick={() => { setAction({ request: r, status: 'Approved' }); setComment(''); }} className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded cursor-pointer">Approve</button>)}
+                      {allowed('attendance.manage', 'corrections', 'edit') && (<button onClick={() => { setAction({ request: r, status: 'Rejected' }); setComment(''); }} className="px-3 py-1 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded cursor-pointer">Reject</button>)}
                     </div>
                   ) : (
                     <div>

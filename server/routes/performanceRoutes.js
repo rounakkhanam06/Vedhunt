@@ -10,8 +10,23 @@ const authMiddleware = require('../middleware/authMiddleware');
 const requirePermission = require('../middleware/requirePermission');
 const logger = require('../utils/logger');
 
+const requirePageAccess = require('../middleware/requirePageAccess');
+const { scopedEmployeeIds, employeeInScope } = require('../utils/employeeScope');
+const { pageScope } = require('../config/pageAccess');
+
 const router = express.Router();
-router.use(authMiddleware);
+router.use(authMiddleware.allowPortal); // /me routes serve the Employee Portal too
+
+// Performance page, grantable per person (config/pageAccess.js): View = cycles,
+// KPI goals and the matrix; Edit = assign KPI goals, set manual actuals, write
+// manager reviews — for the employees in their scope (never their own).
+// Creating / editing cycles and the company-wide sync stay with
+// performance.manage. No auth here: mounted at the end of this file behind the
+// Admin auth, and behind the Employee Portal auth at
+// /api/employee-portal/grants/performance.
+const scoped = express.Router();
+const perf = (action) => requirePageAccess('performance', action);
+const notFound = (res, what) => res.status(404).json({ success: false, message: `${what} not found.` });
 
 const { METRIC_TYPES, ROLE_PRESETS, METRIC_DEFS } = require('../models/KPITarget');
 const { getBand } = require('../models/PerformanceReview');
@@ -44,7 +59,7 @@ async function recomputeRanks(cycleId) {
 // ════════════════════════════════════════════════════════════════
 
 // GET /api/performance/cycles — list all cycles
-router.get('/cycles', requirePermission('performance.manage'), async (req, res) => {
+scoped.get('/cycles', perf('view'), async (req, res) => {
   try {
     const cycles = await PerformanceCycle.find({})
       .populate('createdBy', 'firstName lastName email')
@@ -120,7 +135,7 @@ router.put('/cycles/:id', requirePermission('performance.manage'), async (req, r
 // ════════════════════════════════════════════════════════════════
 
 // GET /api/performance/presets — return role presets + metric types
-router.get('/presets', requirePermission('performance.manage'), (req, res) => {
+scoped.get('/presets', perf('view'), (req, res) => {
   res.json({ success: true, presets: ROLE_PRESETS, metricTypes: METRIC_TYPES, metricDefs: METRIC_DEFS });
 });
 
@@ -129,9 +144,10 @@ router.get('/presets', requirePermission('performance.manage'), (req, res) => {
 // ════════════════════════════════════════════════════════════════
 
 // POST /api/performance/targets — assign KPI targets (bulk for one employee)
-router.post('/targets', requirePermission('performance.manage'), async (req, res) => {
+scoped.post('/targets', perf('edit'), async (req, res) => {
   try {
     const { cycleId, employeeId, kpis } = req.body;
+    if (employeeId && !employeeInScope(await scopedEmployeeIds(req), employeeId)) return notFound(res, 'Employee');
     // kpis = [{ metricType, targetValue, weightage, unit }]
 
     if (!cycleId || !employeeId || !Array.isArray(kpis) || kpis.length === 0) {
@@ -190,9 +206,10 @@ router.post('/targets', requirePermission('performance.manage'), async (req, res
 });
 
 // GET /api/performance/targets/:cycleId — get all KPI targets for a cycle
-router.get('/targets/:cycleId', requirePermission('performance.manage'), async (req, res) => {
+scoped.get('/targets/:cycleId', perf('view'), async (req, res) => {
   try {
-    const targets = await KPITarget.find({ cycleId: req.params.cycleId })
+    const ids = await scopedEmployeeIds(req);
+    const targets = await KPITarget.find({ cycleId: req.params.cycleId, ...(ids && { employeeId: { $in: ids } }) })
       .populate('employeeId', 'firstName lastName employeeId roleDept');
     res.json({ success: true, targets });
   } catch (err) {
@@ -202,7 +219,7 @@ router.get('/targets/:cycleId', requirePermission('performance.manage'), async (
 });
 
 // GET /api/performance/targets/employee/:employeeId/:cycleId — get KPIs for one employee
-router.get('/targets/employee/:employeeId/:cycleId', async (req, res) => {
+scoped.get('/targets/employee/:employeeId/:cycleId', async (req, res) => {
   try {
     const { employeeId, cycleId } = req.params;
 
@@ -211,9 +228,11 @@ router.get('/targets/employee/:employeeId/:cycleId', async (req, res) => {
     if (!emp) return res.status(404).json({ success: false, message: 'Employee not found.' });
 
     const isOwnProfile = emp.adminId?.toString() === req.user._id.toString();
-    const isAdmin = req.user?.permissions?.some(p => p === 'team.manage' || p === '*');
+    // performance.manage or a Performance grant covering this employee
+    const scope = pageScope(req.user, 'performance', 'view');
+    const canView = scope !== false && employeeInScope(await scopedEmployeeIds(req, scope), emp._id);
 
-    if (!isOwnProfile && !isAdmin) {
+    if (!isOwnProfile && !canView) {
       return res.status(403).json({ success: false, message: 'Access denied.' });
     }
 
@@ -226,7 +245,7 @@ router.get('/targets/employee/:employeeId/:cycleId', async (req, res) => {
 });
 
 // PUT /api/performance/targets/:id/manual-actual — Manager manually sets actualValue (for ROAS, FollowUpQuality)
-router.put('/targets/:id/manual-actual', requirePermission('performance.manage'), async (req, res) => {
+scoped.put('/targets/:id/manual-actual', perf('edit'), async (req, res) => {
   try {
     const { actualValue } = req.body;
     if (actualValue === undefined || actualValue === null) {
@@ -237,8 +256,8 @@ router.put('/targets/:id/manual-actual', requirePermission('performance.manage')
     if (!Number.isFinite(value) || value < 0) {
       return res.status(400).json({ success: false, message: 'actualValue must be a number of 0 or more.' });
     }
-    const target = await KPITarget.findById(req.params.id);
-    if (!target) return res.status(404).json({ success: false, message: 'KPI target not found.' });
+    const target = mongoose.Types.ObjectId.isValid(req.params.id) ? await KPITarget.findById(req.params.id) : null;
+    if (!target || !employeeInScope(await scopedEmployeeIds(req), target.employeeId)) return res.status(404).json({ success: false, message: 'KPI target not found.' });
     if (METRIC_DEFS[target.metricType]?.auto) {
       return res.status(400).json({ success: false, message: `${target.metricType} is synced automatically — use "Sync actuals" instead.` });
     }
@@ -423,7 +442,7 @@ router.post('/review/self', async (req, res) => {
 });
 
 // POST /api/performance/review/manager/:reviewId — Manager submits review
-router.post('/review/manager/:reviewId', requirePermission('performance.manage'), async (req, res) => {
+scoped.post('/review/manager/:reviewId', perf('edit'), async (req, res) => {
   try {
     const { managerRating, managerFeedback } = req.body;
 
@@ -434,8 +453,8 @@ router.post('/review/manager/:reviewId', requirePermission('performance.manage')
       return res.status(400).json({ success: false, message: 'Manager feedback is required.' });
     }
 
-    const review = await PerformanceReview.findById(req.params.reviewId);
-    if (!review) return res.status(404).json({ success: false, message: 'Review not found.' });
+    const review = mongoose.Types.ObjectId.isValid(req.params.reviewId) ? await PerformanceReview.findById(req.params.reviewId) : null;
+    if (!review || !employeeInScope(await scopedEmployeeIds(req), review.employeeId)) return res.status(404).json({ success: false, message: 'Review not found.' });
 
     review.managerReview = {
       managerRating:   Number(managerRating),
@@ -464,9 +483,10 @@ router.post('/review/manager/:reviewId', requirePermission('performance.manage')
 // ════════════════════════════════════════════════════════════════
 
 // GET /api/performance/company-matrix/:cycleId — Admin: full ranked company table
-router.get('/company-matrix/:cycleId', requirePermission('performance.manage'), async (req, res) => {
+scoped.get('/company-matrix/:cycleId', perf('view'), async (req, res) => {
   try {
-    const reviews = await PerformanceReview.find({ cycleId: req.params.cycleId })
+    const ids = await scopedEmployeeIds(req);
+    const reviews = await PerformanceReview.find({ cycleId: req.params.cycleId, ...(ids && { employeeId: { $in: ids } }) })
       .populate('employeeId', 'firstName lastName employeeId roleDept')
       .populate('managerReview.reviewedBy', 'firstName lastName')
       .sort({ companyRank: 1 });
@@ -534,4 +554,9 @@ router.get('/active-cycle', async (req, res) => {
   }
 });
 
+// Admin panel: the page routes above, for Admin panel logins only (portal
+// logins reach them through the Employee Portal mount)
+router.use(authMiddleware.adminPanelOnly, scoped);
+
 module.exports = router;
+module.exports.scopedPerformanceRouter = scoped;

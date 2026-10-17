@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   UserPlus, Activity, TrendingUp, IndianRupee, Clock, Briefcase, AlertTriangle,
-  Wallet, UserX, Gauge
+  Wallet, UserX, Gauge, Download
 } from 'lucide-react';
 import { ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, Tooltip, XAxis, YAxis } from 'recharts';
 import analyticsService from '../../services/analyticsService';
@@ -31,10 +31,33 @@ const STATUS_BADGE_CLASSES = {
 
 const PIE_COLORS = ['#FF6B00', '#60a5fa', '#34d399', '#f87171', '#fbbf24', '#a78bfa', '#94a3b8'];
 
+const CHART_TOOLTIP_PROPS = {
+  contentStyle: {
+    backgroundColor: '#1E1E24',
+    border: '1px solid #374151',
+    borderRadius: '8px',
+    boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5)',
+    padding: '8px 12px',
+    fontSize: '12px',
+    color: '#F9FAFB'
+  },
+  labelStyle: {
+    color: '#F9FAFB',
+    fontWeight: '600',
+    marginBottom: '4px'
+  },
+  itemStyle: {
+    color: '#E5E7EB',
+    padding: 0
+  }
+};
+
 const Dashboard = () => {
   const navigate = useNavigate();
   const { can } = usePermissions();
   const canSeeCompliance = can('leads.assign');
+  // Company revenue — same permission as GET /admin/analytics/earnings
+  const canSeeFinance = can('finance.view');
   const isSuperAdmin = can('*');
 
   const [financialData, setFinancialData] = useState(null);
@@ -50,6 +73,10 @@ const Dashboard = () => {
   const [leadsLoading, setLeadsLoading] = useState(true);
 
   useEffect(() => {
+    if (!canSeeFinance) {
+      setLoading(false);
+      return;
+    }
     const fetchAnalytics = async () => {
       try {
         const res = await analyticsService.getEarningsOverview();
@@ -63,7 +90,7 @@ const Dashboard = () => {
       }
     };
     fetchAnalytics();
-  }, []);
+  }, [canSeeFinance]);
 
   useEffect(() => {
     if (!canSeeCompliance) {
@@ -124,6 +151,7 @@ const Dashboard = () => {
       {!isSuperAdmin && <HrQuickAccess />}
 
       {/* Financial Overview */}
+      {canSeeFinance && (
       <section>
         <h2 className="text-xl font-bold text-white mb-4">Financial Overview</h2>
         {loading ? (
@@ -167,6 +195,7 @@ const Dashboard = () => {
           </div>
         )}
       </section>
+      )}
 
       {/* Follow-up Compliance — Manager/CEO view, gated to those who can assign leads */}
       {canSeeCompliance && (
@@ -358,7 +387,7 @@ const Dashboard = () => {
                         <LineChart data={volume.trend}>
                           <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#9CA3AF' }} />
                           <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#9CA3AF' }} />
-                          <Tooltip contentStyle={{ background: '#16161A', border: '1px solid #2D2D33', fontSize: 12 }} />
+                          <Tooltip {...CHART_TOOLTIP_PROPS} />
                           <Line
                             type="monotone"
                             dataKey="count"
@@ -398,7 +427,7 @@ const Dashboard = () => {
                                 <Cell key={entry.service} fill={PIE_COLORS[i % PIE_COLORS.length]} />
                               ))}
                             </Pie>
-                            <Tooltip contentStyle={{ background: '#16161A', border: '1px solid #2D2D33', fontSize: 12 }} />
+                            <Tooltip {...CHART_TOOLTIP_PROPS} />
                           </PieChart>
                         </ResponsiveContainer>
                       </div>
@@ -429,7 +458,11 @@ const Dashboard = () => {
                 <div className="p-6 border-b border-outline-variant flex flex-wrap gap-2 justify-between items-center">
                   <h3 className="text-xl font-semibold text-on-surface">Recent Leads</h3>
                   <div className="flex flex-wrap items-center gap-3">
-                    <button onClick={handleExportRecent} className="bg-[#121215] border border-[#2D2D33] px-4 py-2 rounded-lg text-xs font-medium hover:border-secondary transition-all text-on-surface">
+                    <button
+                      onClick={handleExportRecent}
+                      className="flex items-center gap-1.5 bg-app-card hover:bg-app-border/40 border border-app-border px-3.5 py-1.5 rounded-lg text-xs font-semibold text-app-text transition-colors cursor-pointer shadow-xs"
+                    >
+                      <Download size={14} className="text-app-text-muted" />
                       Export CSV
                     </button>
                     <Link to="/admin/leads/all" className="text-xs font-semibold text-secondary hover:opacity-80">View All →</Link>

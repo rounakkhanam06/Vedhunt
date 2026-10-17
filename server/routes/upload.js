@@ -1,7 +1,8 @@
 const express = require('express');
-const { upload, deleteFromCloudinary } = require('../utils/cloudinary');
+const { upload, publicImageUpload, deleteFromCloudinary } = require('../utils/cloudinary');
+const { publicUploadLimiter } = require('../middleware/rateLimiter');
 const authMiddleware = require('../middleware/authMiddleware');
-const roleMiddleware = require('../middleware/roleMiddleware');
+const requirePermission = require('../middleware/requirePermission');
 const logger = require('../utils/logger');
 
 const router = express.Router();
@@ -9,7 +10,7 @@ const router = express.Router();
 // @route   POST /api/upload
 // @desc    Upload an image to Cloudinary
 // @access  Private (Admin)
-router.post('/', authMiddleware, roleMiddleware('SUPER_ADMIN', 'EDITOR'), upload.single('image'), (req, res) => {
+router.post('/', authMiddleware, requirePermission(['cms.manage', 'services.manage', 'portfolio.manage', 'careers.manage', 'pricing.manage', 'settings.manage']), upload.single('image'), (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ success: false, message: 'No image provided' });
@@ -28,8 +29,8 @@ router.post('/', authMiddleware, roleMiddleware('SUPER_ADMIN', 'EDITOR'), upload
 
 // @route   POST /api/upload/public
 // @desc    Upload an image to Cloudinary (Public - for testimonials)
-// @access  Public
-router.post('/public', upload.single('image'), (req, res) => {
+// @access  Public — rate limited, raster images only (no SVG), 3MB
+router.post('/public', publicUploadLimiter, publicImageUpload.single('image'), (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ success: false, message: 'No image provided' });
@@ -49,7 +50,7 @@ router.post('/public', upload.single('image'), (req, res) => {
 // @route   DELETE /api/upload/:publicId
 // @desc    Delete an image from Cloudinary
 // @access  Private (SUPER_ADMIN)
-router.delete('/:publicId', authMiddleware, roleMiddleware('SUPER_ADMIN'), async (req, res) => {
+router.delete('/:publicId', authMiddleware, requirePermission('*'), async (req, res) => {
   try {
     const publicId = req.params.publicId;
     await deleteFromCloudinary(publicId);

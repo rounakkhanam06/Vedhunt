@@ -18,14 +18,28 @@ const { listTasks, createParallelTask, completeTask } = require('../services/fol
 const { derivePriority } = require('../utils/serviceQualification');
 const { getLeadScoringSettings, computeLeadScore } = require('../services/leadScoring');
 
-// A role can see every lead (not just ones assignedTo them) either by holding
-// the full '*' wildcard, or the narrower 'leads.viewAll' permission — added
-// so a Super Admin can grant "see all Raw + Working leads" without handing
-// out full admin access. Read-only: it does not bypass the ownership checks
-// on write actions (unlock, editing protected fields), which stay '*'-only.
-const canViewAllLeads = (user) => Boolean(
-  user?.permissions?.includes('*') || user?.permissions?.includes('leads.viewAll')
-);
+// Which leads a login may see and change comes from req.pageScope, set by
+// requirePageAccess on each route (routes/leadRoutes.js): every lead with
+// '*' / leads.viewAll (or an "all leads" grant), their own with leads.view,
+// or their reporting tree with a "team" grant. A lead outside the scope
+// answers "not found", so an ID can't be used to read or change it.
+// Assigners can also open and hand out unassigned leads (the pool).
+const { leadFilter, leadInScope, assigneeIds, canAssignLeads, oid } = require('../utils/leadScope');
+const { pageScope } = require('../config/pageAccess');
+
+const notFound = (res) => res.status(404).json({ success: false, message: 'Lead not found' });
+
+// Assigning: the lead must be in the person's assign scope (or unassigned), and
+// so must the BD it goes to. Returns an error message or null.
+async function assignError(req, leadId, targetId) {
+  const lead = await findLeadRaw(leadId, await leadFilter(req, req.pageScope, { unassigned: true }));
+  if (!lead) return { status: 404, message: 'Lead not found' };
+  if (targetId) {
+    const ids = await assigneeIds(req);
+    if (ids && !ids.includes(String(targetId))) return { status: 403, message: 'You can only assign leads to people in your scope.' };
+  }
+  return null;
+}
 
 // @desc    Submit a new lead from a landing page
 // @route   POST /api/leads
@@ -280,13 +294,19 @@ exports.getLeads = async (req, res, next) => {
       }
     }
 
-    // Visibility: BDs (anyone without '*' or 'leads.viewAll') only ever see
-    // leads assigned to them, however they filter. Full-visibility roles
-    // additionally get an "Assigned BD" filter (a specific BD, or 'Unassigned').
-    if (!canViewAllLeads(req.user)) {
-      query.assignedTo = req.user._id;
-    } else if (req.query.assignedTo && req.query.assignedTo !== 'All') {
-      query.assignedTo = req.query.assignedTo === 'Unassigned' ? null : req.query.assignedTo;
+    // Visibility: only leads inside the person's scope (all / team / own),
+    // however they filter. The "Assigned BD" filter can pick a person in the
+    // scope; 'Unassigned' shows the pool to anyone who can assign leads.
+    const visibleIds = await assigneeIds(req);
+    const wanted = req.query.assignedTo && req.query.assignedTo !== 'All' ? String(req.query.assignedTo) : null;
+    if (!visibleIds) {
+      if (wanted) query.assignedTo = wanted === 'Unassigned' ? null : wanted;
+    } else if (wanted === 'Unassigned') {
+      query.assignedTo = canAssignLeads(req.user) ? null : { $in: [] };
+    } else if (wanted) {
+      query.assignedTo = visibleIds.includes(wanted) ? wanted : { $in: [] };
+    } else {
+      query.assignedTo = { $in: visibleIds.map(oid) };
     }
 
     // Search by text (using $text index or regex if $text doesn't cover partial well)
@@ -345,8 +365,8 @@ exports.getLeads = async (req, res, next) => {
 exports.getLeadById = async (req, res, next) => {
   try {
     const lead = await findLeadRaw(req.params.id);
-    if (!lead || (!canViewAllLeads(req.user) && String(lead.assignedTo || '') !== String(req.user._id))) {
-      return res.status(404).json({ success: false, message: 'Lead not found' });
+    if (!lead || !(await leadInScope(req, lead, req.pageScope, { unassigned: canAssignLeads(req.user) }))) {
+      return notFound(res);
     }
 
     let assignedTo = null;
@@ -368,7 +388,8 @@ exports.getLeadById = async (req, res, next) => {
 exports.assignLead = async (req, res, next) => {
   try {
     const { assignedTo, reason } = req.body;
-
+    const denied = await assignError(req, req.params.id, assignedTo);
+    if (denied) return res.status(denied.status).json({ success: false, message: denied.message });
     if (assignedTo) {
       const targetAdmin = await Admin.findById(assignedTo);
       if (!targetAdmin) {
@@ -408,7 +429,17 @@ exports.bulkAssignLeads = async (req, res, next) => {
     }
 
     const isRoundRobin = assignedTo === 'round-robin' || mode === 'round-robin';
-
+    // Round robin spreads leads across every BD, so it needs company-wide assign access
+    if (isRoundRobin && req.pageScope) {
+      return res.status(403).json({ success: false, message: 'Round-robin assignment needs access to assign all leads.' });
+    }
+    if (!isRoundRobin) {
+      const target = assignedTo && assignedTo !== 'unassign' ? assignedTo : null;
+      for (const leadId of leadIds) {
+        const denied = await assignError(req, leadId, target);
+        if (denied) return res.status(denied.status).json({ success: false, message: denied.status === 404 ? 'One or more leads are outside your scope.' : denied.message });
+      }
+    }
     if (isRoundRobin) {
       let successCount = 0;
       let skippedCount = 0;
@@ -476,8 +507,8 @@ exports.bulkAssignLeads = async (req, res, next) => {
 exports.getAssignmentHistory = async (req, res, next) => {
   try {
     const lead = await findLeadRaw(req.params.id);
-    if (!lead || (!canViewAllLeads(req.user) && String(lead.assignedTo || '') !== String(req.user._id))) {
-      return res.status(404).json({ success: false, message: 'Lead not found' });
+    if (!lead || !(await leadInScope(req, lead, req.pageScope, { unassigned: canAssignLeads(req.user) }))) {
+      return notFound(res);
     }
 
     const history = await AssignmentLog.find({ lead: lead._id })
@@ -554,7 +585,7 @@ exports.getAllAssignmentLogs = async (req, res, next) => {
 // @access  Private
 exports.lockLead = async (req, res, next) => {
   try {
-    const lead = await findLeadRaw(req.params.id);
+    const lead = await findLeadRaw(req.params.id, await leadFilter(req));
     if (!lead) return res.status(404).json({ success: false, message: 'Lead not found' });
 
     const LOCK_TIMEOUT_MS = 5 * 60 * 1000;
@@ -640,7 +671,7 @@ exports.updateLead = async (req, res, next) => {
     if ('altPhone' in updates) updates.altPhoneNormalized = normalizePhone(updates.altPhone);
     if ('email' in updates) updates.emailNormalized = normalizeEmail(updates.email);
 
-    const result = await applyLeadUpdate(req.params.id, updates, { id: req.user?._id, isSuperAdmin });
+    const result = await applyLeadUpdate(req.params.id, updates, { id: req.user?._id, isSuperAdmin }, await leadFilter(req));
     if (!result.ok) {
       return res.status(result.status).json({ success: false, message: result.message });
     }
@@ -726,7 +757,7 @@ exports.uploadLeadDocument = async (req, res, next) => {
     if (!req.file) {
       return res.status(400).json({ success: false, message: 'No file uploaded' });
     }
-    const result = await addLeadDocument(req.params.id, req.file, req.body.docType, req.user._id);
+    const result = await addLeadDocument(req.params.id, req.file, req.body.docType, req.user._id, await leadFilter(req));
     if (!result.ok) {
       return res.status(result.status).json({ success: false, message: result.message });
     }
@@ -742,7 +773,7 @@ exports.uploadLeadDocument = async (req, res, next) => {
 // @access  Private (Admin)
 exports.deleteLeadDocument = async (req, res, next) => {
   try {
-    const result = await removeLeadDocument(req.params.id, req.params.docId);
+    const result = await removeLeadDocument(req.params.id, req.params.docId, await leadFilter(req));
     if (!result.ok) {
       return res.status(result.status).json({ success: false, message: result.message });
     }
@@ -758,6 +789,7 @@ exports.deleteLeadDocument = async (req, res, next) => {
 // @access  Private (Admin)
 exports.deleteLead = async (req, res, next) => {
   try {
+    if (req.pageScope && !(await findLeadRaw(req.params.id, await leadFilter(req)))) return notFound(res);
     const lead = await Lead.findByIdAndDelete(req.params.id);
 
     if (!lead) {
@@ -776,7 +808,7 @@ exports.deleteLead = async (req, res, next) => {
 // @access  Private (Admin)
 exports.getLeadTasks = async (req, res, next) => {
   try {
-    const result = await listTasks(req.params.id);
+    const result = await listTasks(req.params.id, await leadFilter(req));
     if (!result.ok) {
       return res.status(result.status).json({ success: false, message: result.message });
     }
@@ -795,6 +827,13 @@ exports.getLeadTasks = async (req, res, next) => {
 exports.createLeadTask = async (req, res, next) => {
   try {
     const { assignedTo, dueDate, note } = req.body;
+    if (req.pageScope) {
+      if (!(await findLeadRaw(req.params.id, await leadFilter(req)))) return notFound(res);
+      const ids = await assigneeIds(req);
+      if (assignedTo && ids && !ids.includes(String(assignedTo))) {
+        return res.status(403).json({ success: false, message: 'You can only give tasks to people in your scope.' });
+      }
+    }
     const result = await createParallelTask(req.params.id, { assignedTo, dueDate, note }, req.user._id);
     if (!result.ok) {
       return res.status(result.status).json({ success: false, message: result.message });
@@ -811,8 +850,9 @@ exports.createLeadTask = async (req, res, next) => {
 // @access  Private (Admin)
 exports.completeLeadTask = async (req, res, next) => {
   try {
-    const canManage = req.user?.permissions?.includes('leads.assign') || req.user?.permissions?.includes('*');
-    const result = await completeTask(req.params.id, req.params.taskId, req.body.result, req.user._id, { canManage });
+    // Completing someone else's task is follow-up management
+    const canManage = pageScope(req.user, 'followups', 'edit') !== false;
+    const result = await completeTask(req.params.id, req.params.taskId, req.body.result, req.user._id, { canManage }, await leadFilter(req));
     if (!result.ok) {
       return res.status(result.status).json({ success: false, message: result.message });
     }

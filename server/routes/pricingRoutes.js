@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../middleware/authMiddleware');
+const requirePermission = require('../middleware/requirePermission');
 const {
   getPricing,
   getPublicCategories,
@@ -20,20 +21,20 @@ router.get('/categories', getPublicCategories);
 
 // Admin Category routes
 router.route('/admin/categories')
-  .get(authMiddleware, getAdminCategories)
-  .post(authMiddleware, createCategory);
+  .get(authMiddleware, requirePermission('pricing.manage'), getAdminCategories)
+  .post(authMiddleware, requirePermission('pricing.manage'), createCategory);
 
 router.route('/admin/categories/:id')
-  .put(authMiddleware, updateCategory)
-  .delete(authMiddleware, deleteCategory);
+  .put(authMiddleware, requirePermission('pricing.manage'), updateCategory)
+  .delete(authMiddleware, requirePermission('pricing.manage'), deleteCategory);
 
 // Admin Plan routes
 router.route('/admin/plans')
-  .get(authMiddleware, getAdminPlans)
-  .post(authMiddleware, createPlan);
+  .get(authMiddleware, requirePermission('pricing.manage'), getAdminPlans)
+  .post(authMiddleware, requirePermission('pricing.manage'), createPlan);
 
 router.route('/admin/plans/:id')
-  .put(authMiddleware, updatePlan)
-  .delete(authMiddleware, deletePlan);
+  .put(authMiddleware, requirePermission('pricing.manage'), updatePlan)
+  .delete(authMiddleware, requirePermission('pricing.manage'), deletePlan);
 
 module.exports = router;

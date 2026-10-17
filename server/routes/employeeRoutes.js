@@ -1,6 +1,7 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const Employee = require('../models/Employee');
+const Client = require('../models/Client');
 const { TASK_STATUSES } = Employee;
 const { reviewLeaveRequest } = require('../services/leaveReview');
 const { sendResult } = require('../utils/apiResponse');
@@ -17,6 +18,12 @@ const Holiday = require('../models/Holiday');
 const authMiddleware = require('../middleware/authMiddleware');
 const requirePermission = require('../middleware/requirePermission');
 const { hasPermission } = require('../config/permissions');
+const { PAGE_CATALOG, SCOPE_MODES, grantsOf, normalizeGrants, grantablePages, grantableActions } = require('../config/pageAccess');
+const { departmentNames, scopedEmployeeIds, employeeInScope } = require('../utils/employeeScope');
+const { outranksActor } = require('../utils/accountRank');
+const { pageScope } = require('../config/pageAccess');
+const requirePageAccess = require('../middleware/requirePageAccess');
+const { isPortalOnly } = require('../config/permissions');
 const { grantError } = require('../utils/roleGrants');
 const { encrypt, decrypt } = require('../utils/encryption');
 const { sendEmail } = require('../utils/sendEmail');
@@ -29,6 +36,22 @@ const router = express.Router();
 
 // All HRMS / Employee routes require authentication
 router.use(authMiddleware);
+
+// HRMS pages that can be granted per person (config/pageAccess.js). No auth
+// here: used by the Admin panel below and mounted behind the Employee Portal
+// auth at /api/employee-portal/grants/employees. Each route checks page +
+// action, and only the employees in the person's scope are listed or changed
+// (utils/employeeScope.js — never their own record through a grant).
+const scoped = express.Router();
+router.use(scoped);
+
+const notFound = (res, what) => res.status(404).json({ success: false, message: `${what} not found` });
+// Employee ids a page/action covers for this person (null = everyone, [] = no one)
+const idsFor = async (req, page, action) => {
+  const scope = pageScope(req.user, page, action);
+  if (scope === false) return [];
+  return scopedEmployeeIds(req, scope);
+};
 
 /**
  * Optional corporate-profile fields (designation, reporting manager...) from
@@ -77,6 +100,10 @@ function viewEmployee(doc, perms = []) {
     delete obj.salaryCTC;
     delete obj.payslips;
   }
+  // The password vault holds admin-issued temporary passwords only. Shown to
+  // employees.manage while the login still has that temporary password —
+  // never to viewers, page grants, or once the person has chosen their own.
+  if (!hasPermission(perms, 'employees.manage') || !obj.adminId?.isTemporaryPassword) delete obj.tempPassword;
   return obj;
 }
 
@@ -109,12 +136,18 @@ router.get('/roles', requirePermission(['employees.view', 'employees.manage']), 
 });
 
 // Get all employees (Admin/HR only)
-router.get('/', requirePermission(['employees.view', 'employees.manage', 'tasks.manage', 'performance.manage']), async (req, res) => {
+// The Employees, Organization Tasks and Performance pages all read this list
+scoped.get('/', requirePageAccess([['employees', 'view'], ['tasks', 'view'], ['performance', 'view']]), async (req, res) => {
   try {
-    const employees = await Employee.find({})
-      .populate('adminId', 'isActive')
+    const ids = await scopedEmployeeIds(req);
+    const employees = await Employee.find(ids ? { _id: { $in: ids } } : {})
+      .populate('adminId', 'isActive isTemporaryPassword')
       .populate('tasks.assignedBy', 'firstName lastName email');
-    const decryptedEmployees = employees.map((emp) => viewEmployee(emp, req.user.permissions));
+    // PAN, Aadhaar, bank and salary in full only where Sensitive covers that employee
+    const sensitiveIds = await idsFor(req, 'employees', 'sensitive');
+    const permsFor = (emp) => (employeeInScope(sensitiveIds, emp._id) && !req.user.permissions.includes('employees.sensitive')
+      ? [...req.user.permissions, 'employees.sensitive'] : req.user.permissions);
+    const decryptedEmployees = employees.map((emp) => viewEmployee(emp, permsFor(emp)));
     res.json({ success: true, employees: decryptedEmployees });
   } catch (error) {
     logger.error('Error fetching employees:', error);
@@ -339,11 +372,96 @@ router.post('/', requirePermission('employees.manage'), async (req, res) => {
       logger.error('Welcome email failed, account still created:', mailError.message);
     }
 
-    logger.info(`EMPLOYEE CREATED: ${strEmail.trim().toLowerCase()} | ID: ${employeeId} | Temp PWD: ${tempPassword}`);
+    logger.info(`EMPLOYEE CREATED: ${strEmail.trim().toLowerCase()} | ID: ${employeeId}`);
 
     res.status(201).json({ success: true, employeeId, tempPassword, employee });
   } catch (error) {
     logger.error('Error creating employee:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// ── Person-wise page access (page + actions + data scope) ─────────────────────
+// A granter can only hand out pages they hold through their own role — the
+// same "can't grant what you don't have" rule as role assignment. Grants on
+// pages they don't hold are shown read-only and kept as they are on save.
+const loadGrantsFor = async (employeeId) => {
+  if (!mongoose.Types.ObjectId.isValid(employeeId)) return null;
+  const employee = await Employee.findById(employeeId, { adminId: 1, firstName: 1, lastName: 1 }).lean();
+  if (!employee?.adminId) return null;
+  const admin = await Admin.findById(employee.adminId, { accessGrants: 1, crmGrants: 1 }).lean();
+  if (!admin) return null;
+  // Client names for the editor's chips (ids stay the stored value)
+  const grants = grantsOf(admin);
+  const clientIds = [...new Set(grants.flatMap((g) => (g.scope?.clients || []).map(String)))];
+  const clients = clientIds.length
+    ? await Client.find({ _id: { $in: clientIds } }, 'businessName clientId').lean()
+    : [];
+  return { employee, admin, grants, clients };
+};
+
+const requireSomeGrantable = (req, res, next) => (grantablePages(req.user).length
+  ? next()
+  : res.status(403).json({ success: false, message: "You don't hold any page that can be granted to others." }));
+
+router.get('/:id/access-grants', requirePermission(['employees.view', 'employees.manage']), requireSomeGrantable, async (req, res) => {
+  try {
+    const found = await loadGrantsFor(req.params.id);
+    if (!found) return res.status(404).json({ success: false, message: 'Employee not found' });
+    const grantable = new Set(grantablePages(req.user).map((p) => p.key));
+    res.json({
+      success: true,
+      grants: found.grants,
+      clients: found.clients,
+      pages: PAGE_CATALOG.map(({ basePermission, roleScope, ...p }) => ({ ...p, grantable: grantable.has(p.key), grantableActions: grantableActions(req.user, p.key) })),
+      departments: await departmentNames(),
+      isSelf: String(found.employee.adminId) === String(req.user._id),
+      scopeModes: SCOPE_MODES,
+    });
+  } catch (error) {
+    logger.error('Error fetching access grants:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+router.put('/:id/access-grants', requirePermission('employees.manage'), requireSomeGrantable, async (req, res) => {
+  try {
+    const found = await loadGrantsFor(req.params.id);
+    if (!found) return res.status(404).json({ success: false, message: 'Employee not found' });
+    // Nobody changes their own access — another authorised admin has to
+    if (String(found.employee.adminId) === String(req.user._id)) {
+      return res.status(403).json({ success: false, message: "You can't change your own page access." });
+    }
+    const { value: submitted, error } = normalizeGrants(req.body.grants);
+    if (error) return res.status(400).json({ success: false, message: error });
+
+    // Pages the granter doesn't hold can't be changed by them: whatever was
+    // sent for those is ignored and the person keeps exactly what they had.
+    const grantable = new Set(grantablePages(req.user).map((p) => p.key));
+    const kept = found.grants.filter((g) => !grantable.has(g.page));
+    // On pages they hold, they can only hand out the actions they hold in full
+    // (e.g. Assign needs leads.assign); View is required for anything else.
+    const given = submitted
+      .filter((g) => grantable.has(g.page))
+      .map((g) => ({ ...g, actions: g.actions.filter((a) => grantableActions(req.user, g.page).includes(a)) }))
+      .filter((g) => g.actions.includes('view'));
+    const grants = [...given, ...kept];
+
+    // Writing accessGrants (even []) retires the legacy crmGrants for good
+    await Admin.updateOne({ _id: found.admin._id }, { $set: { accessGrants: grants }, $unset: { crmGrants: 1 } });
+    await AuditLog.create({
+      adminId: req.user._id,
+      action: 'ACCESS_GRANTS_UPDATE',
+      resource: 'Employee',
+      beforeSnapshot: { employeeId: found.employee._id, accessGrants: found.grants },
+      afterSnapshot: { employeeId: found.employee._id, name: `${found.employee.firstName} ${found.employee.lastName}`, accessGrants: grants },
+      ipAddress: req.ip,
+    });
+
+    const updated = await loadGrantsFor(req.params.id);
+    res.json({ success: true, message: 'Access updated', grants: updated.grants, clients: updated.clients });
+  } catch (error) {
+    logger.error('Error updating access grants:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
@@ -385,6 +503,11 @@ router.put('/:id/probation', requirePermission('employees.manage'), async (req, 
 
     const employee = await Employee.findById(req.params.id);
     if (!employee) return res.status(404).json({ success: false, message: 'Employee not found' });
+    // Terminating ends the account — same rule as other account changes
+    if (action === 'terminate') {
+      const rankError = await outranksActor(req.user, employee.adminId);
+      if (rankError) return res.status(403).json({ success: false, message: rankError });
+    }
     if (!employee.probation?.isApplicable) {
       return res.status(400).json({ success: false, message: 'Probation is not applicable for this employee.' });
     }
@@ -452,7 +575,7 @@ router.put('/:id/probation', requirePermission('employees.manage'), async (req, 
       }
     }
 
-    const updated = await Employee.findById(employee._id).populate('adminId', 'isActive');
+    const updated = await Employee.findById(employee._id).populate('adminId', 'isActive isTemporaryPassword');
     const decrypted = viewEmployee(updated, req.user.permissions);
 
     res.json({ success: true, message: `Employee probation ${action}ed successfully.`, employee: decrypted });
@@ -463,13 +586,28 @@ router.put('/:id/probation', requirePermission('employees.manage'), async (req, 
 });
 
 // Update Employee (Admin/HR only)
-router.put('/:id', requirePermission(['employees.manage', 'tasks.manage']), async (req, res) => {
+// Full edits need employees.manage. Everyone else can only reach the task
+// fields, through the Organization Tasks page: Create = assign a task,
+// Edit = change its status, for employees in their scope.
+const employeeEditGuard = (req, res, next) => (hasPermission(req.user.permissions, 'employees.manage')
+  ? next()
+  : requirePageAccess([['tasks', 'create'], ['tasks', 'edit']])(req, res, next));
+
+scoped.put('/:id', employeeEditGuard, async (req, res) => {
   try {
     const perms = req.user.permissions;
     if (!hasPermission(perms, 'employees.manage')) {
       const sent = Object.keys(req.body || {}).filter((k) => req.body[k] !== undefined);
       if (sent.some((k) => !TASK_FIELDS.includes(k))) {
         return res.status(403).json({ success: false, message: "Forbidden: editing an employee requires 'employees.manage' permission" });
+      }
+      for (const [field, action] of [['newTask', 'create'], ['taskStatusUpdate', 'edit']]) {
+        if (req.body[field] === undefined) continue;
+        if (!employeeInScope(await idsFor(req, 'tasks', action), req.params.id)) {
+          return pageScope(req.user, 'tasks', action) === false
+            ? res.status(403).json({ success: false, message: `You don't have ${action} access to tasks.` })
+            : notFound(res, 'Employee');
+        }
       }
     }
     if (!hasPermission(perms, 'employees.sensitive')) {
@@ -499,6 +637,23 @@ router.put('/:id', requirePermission(['employees.manage', 'tasks.manage']), asyn
     const employee = await Employee.findById(req.params.id);
     if (!employee) {
       return res.status(404).json({ success: false, message: 'Employee not found' });
+    }
+
+    // Password, email, login on/off and role are the account itself: only
+    // changeable by someone holding every bit of access the account has
+    // (utils/accountRank.js), and nobody switches off their own login.
+    if (hasPermission(perms, 'employees.manage')) {
+      const loginRoles = employee.adminId ? ((await Admin.findById(employee.adminId, { roles: 1 }).lean())?.roles || []) : [];
+      const roleChanging = roleId && !loginRoles.some((r) => String(r) === String(roleId));
+      const emailChanging = email && email.trim().toLowerCase() !== employee.email;
+      const accountChange = (password && password.trim()) || typeof isActive === 'boolean' || roleChanging || emailChanging;
+      if (accountChange) {
+        if (String(employee.adminId) === String(req.user._id) && isActive === false) {
+          return res.status(400).json({ success: false, message: "You can't deactivate your own login." });
+        }
+        const rankError = await outranksActor(req.user, employee.adminId);
+        if (rankError) return res.status(403).json({ success: false, message: rankError });
+      }
     }
 
     let newRole = null;
@@ -621,7 +776,7 @@ router.put('/:id', requirePermission(['employees.manage', 'tasks.manage']), asyn
 
     // Fetch and return updated employee with populated adminId
     const updatedEmployee = await Employee.findById(employee._id)
-      .populate('adminId', 'isActive')
+      .populate('adminId', 'isActive isTemporaryPassword')
       .populate('tasks.assignedBy', 'firstName lastName email');
     const decrypted = viewEmployee(updatedEmployee, req.user.permissions);
 
@@ -639,6 +794,11 @@ router.delete('/:id', requirePermission('employees.manage'), async (req, res) =>
     if (!employee) {
       return res.status(404).json({ success: false, message: 'Employee not found' });
     }
+    if (String(employee.adminId) === String(req.user._id)) {
+      return res.status(400).json({ success: false, message: "You can't delete your own account." });
+    }
+    const rankError = await outranksActor(req.user, employee.adminId);
+    if (rankError) return res.status(403).json({ success: false, message: rankError });
 
     // Delete linked admin login credentials (adminId may itself be a legacy
     // String, so match it the same String-or-ObjectId-safe way; a missing
@@ -663,6 +823,13 @@ router.delete('/:id', requirePermission('employees.manage'), async (req, res) =>
 // BANK CHANGE REQUESTS (HR approval)
 // ==========================================
 
+const maskedBankRequest = (r) => ({
+  ...bankRequestForHR({ ...r, previous: undefined, requested: undefined }),
+  previous: r.previous ? bank.masked(r.previous) : null,
+  requested: r.requested ? bank.masked(r.requested) : null,
+  masked: true,
+});
+
 const bankRequestForHR = (r) => ({
   _id: r._id,
   status: r.status,
@@ -680,9 +847,13 @@ const bankRequestForHR = (r) => ({
   createdAt: r.createdAt,
 });
 
-router.get('/admin/bank-change-requests', requirePermission('bankchanges.manage'), async (req, res) => {
+scoped.get('/admin/bank-change-requests', requirePageAccess('bank-changes', 'view'), async (req, res) => {
   try {
     const filter = {};
+    const ids = await scopedEmployeeIds(req);
+    if (ids) filter.employee = { $in: ids };
+    // Account details in full only with Sensitive; otherwise masked like everywhere else
+    const sensitive = pageScope(req.user, 'bank-changes', 'sensitive') !== false;
     if (['Pending', 'Approved', 'Rejected', 'Cancelled'].includes(req.query.status)) filter.status = req.query.status;
     const requests = await BankChangeRequest.find(filter)
       .populate('employee', 'employeeId firstName lastName email')
@@ -690,14 +861,14 @@ router.get('/admin/bank-change-requests', requirePermission('bankchanges.manage'
       .sort({ createdAt: -1 })
       .limit(200)
       .lean();
-    res.json({ success: true, requests: requests.map(bankRequestForHR) });
+    res.json({ success: true, requests: requests.map((r) => (sensitive ? bankRequestForHR(r) : maskedBankRequest(r))) });
   } catch (error) {
     logger.error('Error listing bank change requests:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
 
-router.put('/admin/bank-change-requests/:id/status', requirePermission('bankchanges.manage'), async (req, res) => {
+scoped.put('/admin/bank-change-requests/:id/status', requirePageAccess('bank-changes', 'edit'), async (req, res) => {
   try {
     const { status } = req.body;
     const comment = typeof req.body.comment === 'string' ? req.body.comment.trim().slice(0, 500) : '';
@@ -706,7 +877,7 @@ router.put('/admin/bank-change-requests/:id/status', requirePermission('bankchan
     if (status === 'Rejected' && !comment) return res.status(400).json({ success: false, message: 'Please give a reason for rejecting.' });
 
     const request = await BankChangeRequest.findById(req.params.id);
-    if (!request) return res.status(404).json({ success: false, message: 'Request not found' });
+    if (!request || !employeeInScope(await scopedEmployeeIds(req), request.employee)) return res.status(404).json({ success: false, message: 'Request not found' });
     if (request.status !== 'Pending') return res.status(400).json({ success: false, message: `This request is already ${request.status.toLowerCase()}.` });
 
     const employee = await Employee.findById(request.employee);
@@ -752,9 +923,10 @@ router.put('/admin/bank-change-requests/:id/status', requirePermission('bankchan
   }
 });
 
-router.get('/admin/leave-requests', requirePermission('leave.manage'), async (req, res) => {
+scoped.get('/admin/leave-requests', requirePageAccess('leave', 'view'), async (req, res) => {
   try {
-    const leaveRequests = await LeaveRequest.find({})
+    const ids = await scopedEmployeeIds(req);
+    const leaveRequests = await LeaveRequest.find(ids ? { employeeId: { $in: ids } } : {})
       .populate('employeeId', 'firstName lastName employeeId leaveBalances leavesUsed')
       .sort({ createdAt: -1 });
     res.json({ success: true, leaveRequests });
@@ -765,14 +937,18 @@ router.get('/admin/leave-requests', requirePermission('leave.manage'), async (re
 });
 
 // Update leave request status (Admin/HR only)
-router.put('/admin/leave-requests/:id/status', requirePermission('leave.manage'), async (req, res) => {
+scoped.put('/admin/leave-requests/:id/status', requirePageAccess('leave', 'edit'), async (req, res) => {
   const { status, adminComment } = req.body;
+  if (req.pageScope) {
+    const leave = mongoose.Types.ObjectId.isValid(req.params.id) ? await LeaveRequest.findById(req.params.id, { employeeId: 1 }).lean() : null;
+    if (!leave || !employeeInScope(await scopedEmployeeIds(req), leave.employeeId)) return notFound(res, 'Leave request');
+  }
   sendResult(res, await reviewLeaveRequest(req.params.id, status, adminComment, { reviewerLabel: 'HR', reviewerId: req.user._id }));
 });
 
 
 // Manager Dashboard: Get Employee Productivity
-router.get('/manager/productivity', authMiddleware, requirePermission('ess.manage'), async (req, res) => {
+scoped.get('/manager/productivity', requirePageAccess('productivity', 'view'), async (req, res) => {
   try {
     const { dateRange, department, employeeId } = req.query;
     
@@ -797,6 +973,8 @@ router.get('/manager/productivity', authMiddleware, requirePermission('ess.manag
     let empQuery = {};
     if (department) empQuery.roleDept = department;
     if (employeeId) empQuery._id = employeeId;
+    const scopeIds = await scopedEmployeeIds(req);
+    if (scopeIds) empQuery = { $and: [empQuery, { _id: { $in: scopeIds } }] };
 
     const employees = await Employee.find(empQuery).select('firstName lastName roleDept employmentType _id');
     const employeeIds = employees.map(emp => emp._id);
@@ -848,7 +1026,7 @@ router.get('/manager/productivity', authMiddleware, requirePermission('ess.manag
 });
 
 // Admin: Get Daily Attendance Roster
-router.get('/admin/attendance/daily', requirePermission('attendance.manage'), async (req, res) => {
+scoped.get('/admin/attendance/daily', requirePageAccess('attendance', 'view'), async (req, res) => {
   try {
     const targetDateStr = req.query.date || new Date().toISOString().split('T')[0];
     const targetDate = new Date(targetDateStr);
@@ -868,7 +1046,8 @@ router.get('/admin/attendance/daily', requirePermission('attendance.manage'), as
     
     const [halfDayHour, halfDayMin] = rules.halfDayCheckInLimit.split(':').map(Number);
     
-    const employees = await Employee.find({ 'adminId': { $exists: true } }).populate('adminId', 'isActive');
+    const scopeIds = await scopedEmployeeIds(req);
+    const employees = await Employee.find({ 'adminId': { $exists: true }, ...(scopeIds && { _id: { $in: scopeIds } }) }).populate('adminId', 'isActive isTemporaryPassword');
     
     const roster = await Promise.all(employees.map(async emp => {
       // Find today's worklogs
@@ -950,7 +1129,7 @@ router.get('/admin/attendance/daily', requirePermission('attendance.manage'), as
 });
 
 // Admin: Get Monthly Payroll Summary for an Employee
-router.get('/admin/attendance/monthly/:id', requirePermission('attendance.manage'), async (req, res) => {
+scoped.get('/admin/attendance/monthly/:id', requirePageAccess('attendance', 'view'), async (req, res) => {
   try {
     const { month, year } = req.query; // month Name (e.g. 'June') and year (e.g. 2026)
     if (!month || !year) return res.status(400).json({ success: false, message: 'Month and year required' });
@@ -963,7 +1142,7 @@ router.get('/admin/attendance/monthly/:id', requirePermission('attendance.manage
     endDate.setHours(23,59,59,999);
     
     const employee = await findEmployeeRaw(req.params.id);
-    if (!employee) return res.status(404).json({ success: false, message: 'Employee not found' });
+    if (!employee || !employeeInScope(await scopedEmployeeIds(req), employee._id)) return res.status(404).json({ success: false, message: 'Employee not found' });
 
     const settingDoc = await Settings.findOne({ key: 'attendance_rules' });
     const rules = settingDoc ? settingDoc.value : { halfDayCheckInLimit: '13:00', halfDayHoursThreshold: 4.5 };
@@ -1047,8 +1226,9 @@ router.get('/admin/attendance/monthly/:id', requirePermission('attendance.manage
 // 8. HOLIDAY MANAGEMENT (Admin)
 // ==========================================
 
-// Get all holidays
-router.get('/holidays', async (req, res) => {
+// Get all holidays — any Admin panel login (as before); in the Employee Portal, a Holiday Calendar grant
+const holidaysReadGuard = (req, res, next) => (isPortalOnly(req.user.roles) ? requirePageAccess('holidays', 'view')(req, res, next) : next());
+scoped.get('/holidays', holidaysReadGuard, async (req, res) => {
   try {
     const year = req.query.year || new Date().getFullYear();
     const startDate = new Date(year, 0, 1);
@@ -1066,7 +1246,7 @@ router.get('/holidays', async (req, res) => {
 });
 
 // Add a new holiday
-router.post('/holidays', requirePermission('holidays.manage'), async (req, res) => {
+scoped.post('/holidays', requirePageAccess('holidays', 'create'), async (req, res) => {
   try {
     const { name, date, type } = req.body;
     
@@ -1084,7 +1264,7 @@ router.post('/holidays', requirePermission('holidays.manage'), async (req, res) 
 });
 
 // Delete a holiday
-router.delete('/holidays/:id', requirePermission('holidays.manage'), async (req, res) => {
+scoped.delete('/holidays/:id', requirePageAccess('holidays', 'delete'), async (req, res) => {
   try {
     await Holiday.findByIdAndDelete(req.params.id);
     res.json({ success: true, message: 'Holiday removed' });
@@ -1095,3 +1275,4 @@ router.delete('/holidays/:id', requirePermission('holidays.manage'), async (req,
 });
 
 module.exports = router;
+module.exports.scopedEmployeeRouter = scoped;

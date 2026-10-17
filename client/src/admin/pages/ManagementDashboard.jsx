@@ -18,6 +18,27 @@ const PIPELINE_STAGE_ORDER = ['New', 'Contacted', 'Qualified', 'Proposal Sent', 
 const PRIORITY_COLORS = { Hot: '#f87171', Warm: '#fbbf24', Normal: '#60a5fa', Low: '#94a3b8' };
 const CHART_COLOR = '#FF6B00';
 
+const CHART_TOOLTIP_PROPS = {
+  contentStyle: {
+    backgroundColor: '#1E1E24',
+    border: '1px solid #374151',
+    borderRadius: '8px',
+    boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5)',
+    padding: '8px 12px',
+    fontSize: '12px',
+    color: '#F9FAFB'
+  },
+  labelStyle: {
+    color: '#F9FAFB',
+    fontWeight: '600',
+    marginBottom: '4px'
+  },
+  itemStyle: {
+    color: '#E5E7EB',
+    padding: 0
+  }
+};
+
 // firstName/lastName aren't guaranteed on every Admin account — fall back
 // gracefully instead of rendering "undefined undefined".
 function displayName(person) {
@@ -176,7 +197,7 @@ export default function ManagementDashboard() {
                 <CartesianGrid strokeDasharray="3 3" stroke="#2D2D33" />
                 <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#9CA3AF' }} />
                 <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#9CA3AF' }} />
-                <Tooltip contentStyle={{ background: '#16161A', border: '1px solid #2D2D33', fontSize: 12 }} />
+                <Tooltip {...CHART_TOOLTIP_PROPS} />
                 <Line
                   type="monotone"
                   dataKey="count"
@@ -211,7 +232,7 @@ export default function ManagementDashboard() {
                       return val.length > 14 ? `${val.slice(0, 12)}…` : val;
                     }}
                   />
-                  <Tooltip contentStyle={{ background: '#16161A', border: '1px solid #2D2D33', fontSize: 12 }} />
+                  <Tooltip {...CHART_TOOLTIP_PROPS} cursor={{ fill: 'rgba(255, 255, 255, 0.06)' }} />
                   <Bar
                     dataKey="count"
                     fill={CHART_COLOR}
@@ -241,7 +262,8 @@ export default function ManagementDashboard() {
                     }}
                   />
                   <Tooltip
-                    contentStyle={{ background: '#16161A', border: '1px solid #2D2D33', fontSize: 12 }}
+                    {...CHART_TOOLTIP_PROPS}
+                    cursor={{ fill: 'rgba(255, 255, 255, 0.06)' }}
                     formatter={(value, _name, item) => [value, item?.payload?.service || 'Leads']}
                   />
                   <Bar
@@ -370,7 +392,7 @@ export default function ManagementDashboard() {
               <CartesianGrid strokeDasharray="3 3" stroke="#2D2D33" vertical={false} />
               <XAxis dataKey="status" tick={{ fontSize: 10, fill: '#9CA3AF' }} interval={0} angle={-20} textAnchor="end" height={60} />
               <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#9CA3AF' }} />
-              <Tooltip contentStyle={{ background: '#16161A', border: '1px solid #2D2D33', fontSize: 12 }} />
+              <Tooltip {...CHART_TOOLTIP_PROPS} cursor={{ fill: 'rgba(255, 255, 255, 0.06)' }} />
               <Bar dataKey="count" radius={[4, 4, 0, 0]} style={{ cursor: 'pointer' }} onClick={(data) => goToLeads({ status: data.status, dateFrom, dateTo })}>
                 {funnelData.map((entry) => (
                   <Cell key={entry.status} fill={['Won'].includes(entry.status) ? '#34d399' : ['Lost', 'Dropped'].includes(entry.status) ? '#f87171' : CHART_COLOR} />

@@ -7,6 +7,9 @@ const AuditLog = require('../models/AuditLog');
 const Employee = require('../models/Employee');
 const authMiddleware = require('../middleware/authMiddleware');
 const requirePermission = require('../middleware/requirePermission');
+const requirePageAccess = require('../middleware/requirePageAccess');
+const { pageScope } = require('../config/pageAccess');
+const { scopedEmployeeIds, employeeInScope, isValidId } = require('../utils/employeeScope');
 const logger = require('../utils/logger');
 const {
   addSalaryRevision,
@@ -18,18 +21,80 @@ const {
 const { finalizeAndSendPayslip, resendPayslip } = require('../services/payslipGenerator');
 const { notifyStaff } = require('../services/staffNotify');
 
+// No auth here — mounted twice at the bottom of this file: behind the Admin
+// auth at /api/payroll, and behind the Employee Portal auth for person-wise
+// grants. Role holders (payroll.manage) keep full access, as before. A grant
+// has three separate actions (config/pageAccess.js):
+//   view      — the payroll screen, every amount removed by the server
+//   sensitive — salary figures, salary history, payslip PDFs
+//   process   — generate, adjust, approve, hold, resend, mark paid, revise salary
+// and every record is limited to the grant's employees (utils/employeeScope.js).
 const router = express.Router();
+const pay = (action) => requirePageAccess('payroll', action);
 
-router.use(authMiddleware);
-router.use(requirePermission('payroll.manage'));
+// ── Scope + masking helpers ───────────────────────────────────────────────────
+const notFound = (res, what) => res.status(404).json({ success: false, message: `${what} not found` });
+const canSeeAmounts = (req) => pageScope(req.user, 'payroll', 'sensitive') !== false;
+
+// Everything that reveals pay: amounts, salary segments, remarks, the PDF and the bank transfer reference
+const RUN_SENSITIVE = ['earnings', 'deductions', 'grossEarnings', 'totalDeductions', 'netPay', 'salaryBreakup', 'remarks'];
+const SLIP_SENSITIVE = ['earnings', 'deductions', 'grossEarnings', 'totalDeductions', 'netPay', 'pdfUrl', 'paymentReference'];
+
+const strip = (doc, fields) => {
+  const out = typeof doc?.toObject === 'function' ? doc.toObject() : { ...doc };
+  for (const f of fields) delete out[f];
+  return out;
+};
+const maskRun = (run) => {
+  const out = strip(run, RUN_SENSITIVE);
+  if (out.payslipId && typeof out.payslipId === 'object') out.payslipId = strip(out.payslipId, SLIP_SENSITIVE);
+  out.masked = true;
+  return out;
+};
+const maskSlip = (slip) => ({ ...strip(slip, SLIP_SENSITIVE), masked: true });
+const forViewer = (req, mask) => (doc) => (canSeeAmounts(req) ? doc : mask(doc));
+
+// The employee query filter for a list: the requested employee if in scope, else the whole scope
+async function employeeFilter(req, requested) {
+  const ids = await scopedEmployeeIds(req);
+  const wanted = requested && requested !== 'All' && isValidId(requested) ? String(requested) : null;
+  if (!ids) return wanted ? { employeeId: wanted } : {};
+  if (wanted) return { employeeId: employeeInScope(ids, wanted) ? wanted : { $in: [] } };
+  return { employeeId: { $in: ids } };
+}
+
+// Loads a run (or payslip) and confirms its employee is in scope; null answers "not found"
+async function inScopeDoc(req, Model, id, populate) {
+  if (!isValidId(id)) return null;
+  let q = Model.findById(id);
+  if (populate) for (const p of populate) q = q.populate(...p);
+  const doc = await q;
+  if (!doc) return null;
+  const ids = await scopedEmployeeIds(req);
+  return employeeInScope(ids, doc.employeeId) ? doc : null;
+}
+
+// ── Employees in scope (the portal's picker) ─────────────────────────────────
+router.get('/employees', pay('view'), async (req, res) => {
+  try {
+    const ids = await scopedEmployeeIds(req);
+    const employees = await Employee.find(ids ? { _id: { $in: ids } } : {}, 'firstName lastName employeeId roleDept department')
+      .sort({ firstName: 1 }).lean();
+    res.json({ success: true, employees });
+  } catch (error) {
+    logger.error('Error fetching payroll employees:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
 
 // ── Salary Revisions ─────────────────────────────────────────────────────────────────
-router.post('/salary-revisions', async (req, res) => {
+router.post('/salary-revisions', pay('process'), async (req, res) => {
   try {
     const { employeeId, ctc, components, effectiveFrom, reason } = req.body;
     if (!employeeId || !ctc || !effectiveFrom || !reason?.trim()) {
       return res.status(400).json({ success: false, message: 'employeeId, ctc, effectiveFrom, and reason are required.' });
     }
+    if (!employeeInScope(await scopedEmployeeIds(req), employeeId)) return notFound(res, 'Employee');
 
     // ── Probation Guard ─────────────────────────────────────────────────────────────
     // Employees on probation are not eligible for salary revisions or appraisals.
@@ -57,8 +122,9 @@ router.post('/salary-revisions', async (req, res) => {
   }
 });
 
-router.get('/salary-revisions/:employeeId', async (req, res) => {
+router.get('/salary-revisions/:employeeId', pay('sensitive'), async (req, res) => {
   try {
+    if (!employeeInScope(await scopedEmployeeIds(req), req.params.employeeId)) return notFound(res, 'Employee');
     const revisions = await getSalaryRevisionHistory(req.params.employeeId);
     res.json({ success: true, revisions });
   } catch (error) {
@@ -68,44 +134,54 @@ router.get('/salary-revisions/:employeeId', async (req, res) => {
 });
 
 // ── Payroll Runs ──────────────────────────────────────────────────────────
-router.get('/runs', async (req, res) => {
+router.get('/runs', pay('view'), async (req, res) => {
   try {
     const { month, year, status, employeeId } = req.query;
-    const query = {};
+    const query = await employeeFilter(req, employeeId);
     if (month) query.month = Number(month);
     if (year) query.year = Number(year);
     if (status && status !== 'All') query.status = status;
-    if (employeeId && employeeId !== 'All') query.employeeId = employeeId;
 
     const runs = await PayrollRun.find(query)
       .populate('employeeId', 'firstName lastName employeeId roleDept email')
       .populate('payslipId', 'pdfUrl emailStatus sentAt paidAt paymentReference')
       .sort({ createdAt: -1 });
-    res.json({ success: true, runs });
+    res.json({ success: true, runs: runs.map(forViewer(req, maskRun)) });
   } catch (error) {
     logger.error('Error fetching payroll runs:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
 
-router.get('/runs/:id', async (req, res) => {
+router.get('/runs/:id', pay('view'), async (req, res) => {
   try {
-    const run = await PayrollRun.findById(req.params.id)
-      .populate('employeeId', 'firstName lastName employeeId roleDept email')
-      .populate('salaryBreakup.revisionId', 'ctc reason effectiveFrom');
-    if (!run) return res.status(404).json({ success: false, message: 'Payroll run not found' });
-    res.json({ success: true, run });
+    const run = await inScopeDoc(req, PayrollRun, req.params.id, [
+      ['employeeId', 'firstName lastName employeeId roleDept email'],
+      ['salaryBreakup.revisionId', 'ctc reason effectiveFrom'],
+    ]);
+    if (!run) return notFound(res, 'Payroll run');
+    res.json({ success: true, run: forViewer(req, maskRun)(run) });
   } catch (error) {
     logger.error('Error fetching payroll run:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
 
-router.post('/runs/generate', async (req, res) => {
+router.post('/runs/generate', pay('process'), async (req, res) => {
   try {
     const { month, year, employeeIds } = req.body;
     if (!month || !year) return res.status(400).json({ success: false, message: 'month and year are required.' });
-    const results = await generateDraftRunsForMonth(Number(month), Number(year), employeeIds || null);
+    // A grant generates only for its own employees
+    const ids = await scopedEmployeeIds(req);
+    let target = employeeIds || null;
+    if (ids) {
+      if (target && !target.every((id) => employeeInScope(ids, id))) {
+        return res.status(403).json({ success: false, message: 'You can only run payroll for employees in your scope.' });
+      }
+      target = target || ids.map(String);
+      if (!target.length) return res.json({ success: true, results: [] });
+    }
+    const results = await generateDraftRunsForMonth(Number(month), Number(year), target);
     res.json({ success: true, results });
   } catch (error) {
     logger.error('Error generating payroll runs:', error);
@@ -113,10 +189,10 @@ router.post('/runs/generate', async (req, res) => {
   }
 });
 
-router.put('/runs/:id', async (req, res) => {
+router.put('/runs/:id', pay('process'), async (req, res) => {
   try {
-    const run = await PayrollRun.findById(req.params.id);
-    if (!run) return res.status(404).json({ success: false, message: 'Payroll run not found' });
+    const run = await inScopeDoc(req, PayrollRun, req.params.id);
+    if (!run) return notFound(res, 'Payroll run');
     if (!['Draft', 'UnderReview', 'OnHold'].includes(run.status)) {
       return res.status(400).json({ success: false, message: `Cannot edit a run that is already ${run.status}.` });
     }
@@ -144,10 +220,10 @@ router.put('/runs/:id', async (req, res) => {
   }
 });
 
-router.post('/runs/:id/approve', async (req, res) => {
+router.post('/runs/:id/approve', pay('process'), async (req, res) => {
   try {
-    const run = await PayrollRun.findById(req.params.id);
-    if (!run) return res.status(404).json({ success: false, message: 'Payroll run not found' });
+    const run = await inScopeDoc(req, PayrollRun, req.params.id);
+    if (!run) return notFound(res, 'Payroll run');
     if (!['Draft', 'UnderReview', 'OnHold'].includes(run.status)) {
       return res.status(400).json({ success: false, message: `This run is already ${run.status}.` });
     }
@@ -164,20 +240,22 @@ router.post('/runs/:id/approve', async (req, res) => {
   }
 });
 
-router.post('/runs/:id/hold', async (req, res) => {
+router.post('/runs/:id/hold', pay('process'), async (req, res) => {
   try {
-    const run = await PayrollRun.findByIdAndUpdate(req.params.id, { status: 'OnHold' }, { new: true });
-    if (!run) return res.status(404).json({ success: false, message: 'Payroll run not found' });
+    const run = await inScopeDoc(req, PayrollRun, req.params.id);
+    if (!run) return notFound(res, 'Payroll run');
+    run.status = 'OnHold';
+    await run.save();
     res.json({ success: true, run });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
 
-router.post('/runs/:id/resume', async (req, res) => {
+router.post('/runs/:id/resume', pay('process'), async (req, res) => {
   try {
-    const run = await PayrollRun.findById(req.params.id);
-    if (!run) return res.status(404).json({ success: false, message: 'Payroll run not found' });
+    const run = await inScopeDoc(req, PayrollRun, req.params.id);
+    if (!run) return notFound(res, 'Payroll run');
     if (run.status !== 'OnHold') return res.status(400).json({ success: false, message: 'Run is not on hold.' });
     run.status = 'Draft';
     await run.save();
@@ -187,10 +265,11 @@ router.post('/runs/:id/resume', async (req, res) => {
   }
 });
 
-router.post('/runs/:id/resend', async (req, res) => {
+router.post('/runs/:id/resend', pay('process'), async (req, res) => {
   try {
-    const run = await PayrollRun.findById(req.params.id);
-    if (!run || !run.payslipId) return res.status(400).json({ success: false, message: 'No payslip has been generated for this run yet.' });
+    const run = await inScopeDoc(req, PayrollRun, req.params.id);
+    if (!run) return notFound(res, 'Payroll run');
+    if (!run.payslipId) return res.status(400).json({ success: false, message: 'No payslip has been generated for this run yet.' });
     const payslip = await resendPayslip(run.payslipId);
     res.json({ success: true, payslip });
   } catch (error) {
@@ -200,32 +279,32 @@ router.post('/runs/:id/resend', async (req, res) => {
 });
 
 // ── Payslips ──────────────────────────────────────────────────────────────
-router.get('/payslips', async (req, res) => {
+router.get('/payslips', pay('view'), async (req, res) => {
   try {
     const { employeeId, year } = req.query;
-    const query = { status: 'Active' };
-    if (employeeId) query.employeeId = employeeId;
+    const query = { status: 'Active', ...(await employeeFilter(req, employeeId)) };
     if (year) query.year = Number(year);
     const payslips = await Payslip.find(query).populate('employeeId', 'firstName lastName employeeId').sort({ year: -1, month: -1 });
-    res.json({ success: true, payslips });
+    res.json({ success: true, payslips: payslips.map(forViewer(req, maskSlip)) });
   } catch (error) {
     logger.error('Error fetching payslips:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
 
-router.get('/payslips/:id', async (req, res) => {
+router.get('/payslips/:id', pay('view'), async (req, res) => {
   try {
-    const payslip = await Payslip.findById(req.params.id).populate('employeeId', 'firstName lastName employeeId email');
-    if (!payslip) return res.status(404).json({ success: false, message: 'Payslip not found' });
-    res.json({ success: true, payslip });
+    const payslip = await inScopeDoc(req, Payslip, req.params.id, [['employeeId', 'firstName lastName employeeId email']]);
+    if (!payslip) return notFound(res, 'Payslip');
+    res.json({ success: true, payslip: forViewer(req, maskSlip)(payslip) });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
 
 // Mark a payslip's salary as credited — drives the "Paid" status employees see.
-router.post('/payslips/:id/mark-paid', async (req, res) => {
+router.post('/payslips/:id/mark-paid', pay('process'), async (req, res) => {
+  if (!(await inScopeDoc(req, Payslip, req.params.id))) return notFound(res, 'Payslip');
   const paymentReference = String(req.body.paymentReference || '').trim().slice(0, 100);
   const paidAt = req.body.paidAt ? new Date(req.body.paidAt) : new Date();
   if (Number.isNaN(paidAt.getTime()) || paidAt > new Date()) {
@@ -255,7 +334,8 @@ router.post('/payslips/:id/mark-paid', async (req, res) => {
 });
 
 // ── Payroll Settings — this is where the admin-configurable generation day lives ──
-router.get('/settings', async (req, res) => {
+// Reading them shows the schedule on the payroll screen; changing them stays with the role.
+router.get('/settings', pay('view'), async (req, res) => {
   try {
     const settings = await getPayrollSettings();
     res.json({ success: true, settings });
@@ -264,7 +344,7 @@ router.get('/settings', async (req, res) => {
   }
 });
 
-router.put('/settings', async (req, res) => {
+router.put('/settings', requirePermission('payroll.manage'), async (req, res) => {
   try {
     const { generationDay, autoApproveOnGenerationDay, pf, professionalTax } = req.body;
     if (generationDay !== undefined && (generationDay < 1 || generationDay > 28)) {
@@ -286,4 +366,10 @@ router.put('/settings', async (req, res) => {
   }
 });
 
-module.exports = router;
+// Admin panel: /api/payroll/* behind the Admin auth, as before
+const adminRouter = express.Router();
+adminRouter.use(authMiddleware, router);
+
+module.exports = adminRouter;
+// Auth-less payroll router — the Employee Portal mounts it behind its own auth
+module.exports.scopedPayrollRouter = router;

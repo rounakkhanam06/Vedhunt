@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import api from '../../services/api';
+import { useCrm } from '../../shared/crmAccess';
 import toast from 'react-hot-toast';
 import {
   Settings as SettingsIcon, PlayCircle, ChevronDown, ChevronUp, X, Send, PauseCircle,
@@ -24,6 +24,10 @@ const fieldLabelClass = 'block text-[10px] font-semibold text-app-text-muted upp
 const inputClass = 'w-full text-sm rounded-lg border border-app-border bg-form-input-bg px-3 py-2 text-app-text focus:outline-none focus:ring-1 focus:ring-primary';
 
 export default function PayrollManager() {
+  // Admin panel (payroll.manage: everything) or Employee Portal (person-wise grant).
+  // In the portal the server removes amounts unless Sensitive was granted (run.masked).
+  const { http, root, can, full } = useCrm();
+  const canProcess = can('payroll', 'process');
   const now = new Date();
   const [month, setMonth] = useState(now.getMonth() === 0 ? 12 : now.getMonth()); // previous month, 1-12
   const [year, setYear] = useState(now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear());
@@ -44,20 +48,23 @@ export default function PayrollManager() {
   const fetchRuns = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await api.get('/payroll/runs', { params: { month, year, status: statusFilter, employeeId: employeeFilter } });
+      const res = await http.get(`${root}/payroll/runs`, { params: { month, year, status: statusFilter, employeeId: employeeFilter } });
       if (res.data.success) setRuns(res.data.runs);
     } catch {
       toast.error('Failed to load payroll runs');
     } finally {
       setLoading(false);
     }
-  }, [month, year, statusFilter, employeeFilter]);
+  }, [http, root, month, year, statusFilter, employeeFilter]);
 
   useEffect(() => { fetchRuns(); }, [fetchRuns]);
 
   useEffect(() => {
-    api.get('/payroll/settings').then((res) => { if (res.data.success) setSettings(res.data.settings); }).catch(() => {});
-  }, []);
+    http.get(`${root}/payroll/settings`).then((res) => { if (res.data.success) setSettings(res.data.settings); }).catch(() => {});
+  }, [http, root]);
+
+  // Any run without amounts means this viewer has no Sensitive access
+  const amountsHidden = runs.some((r) => r.masked);
 
   const employeeOptions = useMemo(() => {
     const map = new Map();
@@ -86,7 +93,7 @@ export default function PayrollManager() {
   const handleGeneratePayroll = async () => {
     setIsGenerating(true);
     try {
-      const res = await api.post('/payroll/runs/generate', { month, year });
+      const res = await http.post(`${root}/payroll/runs/generate`, { month, year });
       if (res.data.success) {
         toast.success('Payroll calculated for all employees.');
         fetchRuns();
@@ -102,7 +109,7 @@ export default function PayrollManager() {
     const draft = getDraft(run);
     setBusyRunId(run._id);
     try {
-      const res = await api.put(`/payroll/runs/${run._id}`, draft);
+      const res = await http.put(`${root}/payroll/runs/${run._id}`, draft);
       if (res.data.success) {
         toast.success('Saved');
         fetchRuns();
@@ -118,7 +125,7 @@ export default function PayrollManager() {
     if (!window.confirm(`Approve and send ${run.employeeId?.firstName}'s payslip for ${MONTH_NAMES[run.month - 1]} ${run.year}? Net pay: ${inr(run.netPay)}`)) return;
     setBusyRunId(run._id);
     try {
-      const res = await api.post(`/payroll/runs/${run._id}/approve`);
+      const res = await http.post(`${root}/payroll/runs/${run._id}/approve`);
       if (res.data.success) {
         toast.success('Approved and payslip sent!');
         fetchRuns();
@@ -133,7 +140,7 @@ export default function PayrollManager() {
   const handleHold = async (run) => {
     setBusyRunId(run._id);
     try {
-      await api.post(`/payroll/runs/${run._id}/hold`);
+      await http.post(`${root}/payroll/runs/${run._id}/hold`);
       toast.success('Put on hold — excluded from auto-approval.');
       fetchRuns();
     } catch {
@@ -146,7 +153,7 @@ export default function PayrollManager() {
   const handleResume = async (run) => {
     setBusyRunId(run._id);
     try {
-      await api.post(`/payroll/runs/${run._id}/resume`);
+      await http.post(`${root}/payroll/runs/${run._id}/resume`);
       toast.success('Resumed.');
       fetchRuns();
     } catch {
@@ -159,7 +166,7 @@ export default function PayrollManager() {
   const handleResend = async (run) => {
     setBusyRunId(run._id);
     try {
-      await api.post(`/payroll/runs/${run._id}/resend`);
+      await http.post(`${root}/payroll/runs/${run._id}/resend`);
       toast.success('Payslip re-sent.');
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to resend.');
@@ -174,7 +181,7 @@ export default function PayrollManager() {
     if (paymentReference === null) return;
     setBusyRunId(run._id);
     try {
-      await api.post(`/payroll/payslips/${run.payslipId._id}/mark-paid`, { paymentReference });
+      await http.post(`${root}/payroll/payslips/${run.payslipId._id}/mark-paid`, { paymentReference });
       toast.success('Marked as paid.');
       fetchRuns();
     } catch (err) {
@@ -187,7 +194,7 @@ export default function PayrollManager() {
   const handleSaveSettings = async () => {
     setSavingSettings(true);
     try {
-      const res = await api.put('/payroll/settings', settings);
+      const res = await http.put(`${root}/payroll/settings`, settings);
       if (res.data.success) {
         toast.success('Payroll settings updated.');
         setSettings(res.data.settings);
@@ -213,12 +220,15 @@ export default function PayrollManager() {
           </p>
         </div>
         <div className="flex gap-2">
+          {full && (
           <button
             onClick={() => setShowSettings(true)}
             className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-app-card border border-app-border hover:bg-surface-variant text-app-text font-medium transition-all cursor-pointer text-sm"
           >
             <SettingsIcon size={16} /> Settings
           </button>
+          )}
+          {canProcess && (
           <button
             onClick={handleGeneratePayroll}
             disabled={isGenerating}
@@ -226,6 +236,7 @@ export default function PayrollManager() {
           >
             <PlayCircle size={18} /> {isGenerating ? 'Running...' : 'Run Payroll'}
           </button>
+          )}
         </div>
       </div>
 
@@ -248,6 +259,11 @@ export default function PayrollManager() {
       </div>
 
       {/* Summary */}
+      {amountsHidden ? (
+        <div className="bg-app-card p-4 rounded-xl border border-app-border text-sm text-app-text-muted">
+          Salary amounts are hidden. Your access covers payroll status only.
+        </div>
+      ) : (
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-app-card p-4 rounded-xl border border-app-border">
           <p className="text-xs font-semibold text-app-text-muted uppercase tracking-wider">Gross Earnings</p>
@@ -262,6 +278,7 @@ export default function PayrollManager() {
           <p className="text-2xl font-bold mt-1 text-primary">{inr(totals.net)}</p>
         </div>
       </div>
+      )}
 
       {/* Table */}
       <div className="bg-app-card rounded-xl border border-app-border overflow-hidden">
@@ -273,7 +290,7 @@ export default function PayrollManager() {
           <div className="text-center py-20">
             <IndianRupee className="mx-auto text-app-text-muted mb-3" size={32} />
             <p className="text-app-text-muted">No payroll runs for {MONTH_NAMES[month - 1]} {year} yet.</p>
-            <p className="text-app-text-muted text-xs mt-1">Click "Run Payroll" to calculate it now.</p>
+            {canProcess && <p className="text-app-text-muted text-xs mt-1">Click "Run Payroll" to calculate it now.</p>}
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -291,7 +308,7 @@ export default function PayrollManager() {
               <tbody className="divide-y divide-app-border text-sm">
                 {runs.filter(r => r.employeeId).map((run) => {
                   const isExpanded = expandedRunId === run._id;
-                  const isEditable = ['Draft', 'UnderReview', 'OnHold'].includes(run.status);
+                  const isEditable = canProcess && !run.masked && ['Draft', 'UnderReview', 'OnHold'].includes(run.status);
                   const draft = getDraft(run);
                   const isBusy = busyRunId === run._id;
                   return (
@@ -301,9 +318,9 @@ export default function PayrollManager() {
                           <div className="font-bold text-app-text">{run.employeeId?.firstName} {run.employeeId?.lastName}</div>
                           <div className="text-xs text-app-text-muted">{run.employeeId?.roleDept}</div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-app-text">{inr(run.grossEarnings)}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-app-text">{inr(run.totalDeductions)}</td>
-                        <td className="px-6 py-4 whitespace-nowrap font-bold text-app-text">{inr(run.netPay)}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-app-text">{run.masked ? <span className="text-app-text-muted">Hidden</span> : inr(run.grossEarnings)}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-app-text">{run.masked ? <span className="text-app-text-muted">Hidden</span> : inr(run.totalDeductions)}</td>
+                        <td className="px-6 py-4 whitespace-nowrap font-bold text-app-text">{run.masked ? <span className="text-app-text-muted">Hidden</span> : inr(run.netPay)}</td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`px-2.5 py-1 rounded-full text-xs font-bold border ${STATUS_CLASS[run.status]}`}>{run.status}</span>
                           {run.payslipId?.paidAt && (
@@ -327,19 +344,19 @@ export default function PayrollManager() {
                                 <PauseCircle size={16} />
                               </button>
                             )}
-                            {run.status === 'OnHold' && (
+                            {canProcess && run.status === 'OnHold' && (
                               <button disabled={isBusy} onClick={() => handleResume(run)} title="Resume"
                                 className="p-1.5 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 transition-colors cursor-pointer disabled:opacity-50">
                                 <PlayCircle size={16} />
                               </button>
                             )}
-                            {['Generated', 'Sent'].includes(run.status) && (
+                            {canProcess && ['Generated', 'Sent'].includes(run.status) && (
                               <button disabled={isBusy} onClick={() => handleResend(run)} title="Resend payslip email"
                                 className="p-1.5 rounded-lg bg-surface-variant hover:bg-app-border text-app-text-muted hover:text-app-text transition-colors cursor-pointer disabled:opacity-50">
                                 <Send size={16} />
                               </button>
                             )}
-                            {run.payslipId?._id && !run.payslipId.paidAt && (
+                            {canProcess && run.payslipId?._id && !run.payslipId.paidAt && (
                               <button disabled={isBusy} onClick={() => handleMarkPaid(run)} title="Mark salary as paid"
                                 className="p-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 transition-colors cursor-pointer disabled:opacity-50">
                                 <Banknote size={16} />
@@ -366,6 +383,7 @@ export default function PayrollManager() {
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                               {/* Breakdown */}
                               <div className="space-y-4">
+                                {!run.masked && (<>
                                 <div>
                                   <div className="text-xs font-bold text-app-text-muted uppercase tracking-wider mb-2">Earnings</div>
                                   <div className="text-xs space-y-1">
@@ -388,6 +406,7 @@ export default function PayrollManager() {
                                     ))}
                                   </div>
                                 </div>
+                                </>)}
                                 <div>
                                   <div className="text-xs font-bold text-app-text-muted uppercase tracking-wider mb-2">Attendance</div>
                                   <div className="text-xs text-app-text-muted">
@@ -409,10 +428,11 @@ export default function PayrollManager() {
                                 )}
                               </div>
 
-                              {/* Editable fields */}
+                              {/* Editable fields — salary figures, so only with amounts visible */}
+                              {!run.masked && (
                               <div className="space-y-3">
                                 <div className="text-xs font-bold text-app-text-muted uppercase tracking-wider">
-                                  {isEditable ? 'Adjustments' : 'Adjustments (locked — already ' + run.status + ')'}
+                                  {isEditable ? 'Adjustments' : canProcess ? 'Adjustments (locked — already ' + run.status + ')' : 'Adjustments (view only)'}
                                 </div>
                                 <div className="grid grid-cols-2 gap-3">
                                   <div>
@@ -468,6 +488,7 @@ export default function PayrollManager() {
                                   </button>
                                 )}
                               </div>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -482,7 +503,7 @@ export default function PayrollManager() {
       </div>
 
       {/* Payroll Settings Modal */}
-      {showSettings && settings && (
+      {full && showSettings && settings && (
         <div className="fixed inset-0 overflow-y-auto z-[100] flex items-center-safe justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={(e) => { if (e.target === e.currentTarget) setShowSettings(false); }}>
           <div className="bg-app-card border border-app-border rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
             <div className="flex justify-between items-center p-5 border-b border-app-border bg-app-bg">

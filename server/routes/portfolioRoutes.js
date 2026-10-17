@@ -18,11 +18,12 @@ const {
   updatePortfolioHero
 } = require('../controllers/portfolioController');
 const protect = require('../middleware/authMiddleware');
+const requirePermission = require('../middleware/requirePermission');
 
 // Public Portfolio routes
 router.route('/')
   .get(getPortfolioItems)
-  .post(protect, createPortfolioItem);
+  .post(protect, requirePermission('portfolio.manage'), createPortfolioItem);
 
 // Public Metrics routes
 router.route('/metrics')
@@ -38,29 +39,29 @@ router.route('/hero')
 
 // Protected Admin Portfolio routes
 router.route('/admin')
-  .get(protect, getAllAdminPortfolioItems);
+  .get(protect, requirePermission('portfolio.manage'), getAllAdminPortfolioItems);
 
 // Protected Admin Metrics routes
 router.route('/admin/metrics')
-  .get(protect, getAdminPortfolioMetrics)
-  .post(protect, createPortfolioMetric);
+  .get(protect, requirePermission('portfolio.manage'), getAdminPortfolioMetrics)
+  .post(protect, requirePermission('portfolio.manage'), createPortfolioMetric);
 
 router.route('/admin/metrics/:id')
-  .put(protect, updatePortfolioMetric)
-  .delete(protect, deletePortfolioMetric);
+  .put(protect, requirePermission('portfolio.manage'), updatePortfolioMetric)
+  .delete(protect, requirePermission('portfolio.manage'), deletePortfolioMetric);
 
 // Protected Admin CTA routes
 router.route('/admin/cta')
-  .put(protect, updatePortfolioCTA);
+  .put(protect, requirePermission('portfolio.manage'), updatePortfolioCTA);
 
 // Protected Admin Hero routes
 router.route('/admin/hero')
-  .put(protect, updatePortfolioHero);
+  .put(protect, requirePermission('portfolio.manage'), updatePortfolioHero);
 
 // Detail Portfolio routes
 router.route('/:id')
   .get(getPortfolioItem)
-  .put(protect, updatePortfolioItem)
-  .delete(protect, deletePortfolioItem);
+  .put(protect, requirePermission('portfolio.manage'), updatePortfolioItem)
+  .delete(protect, requirePermission('portfolio.manage'), deletePortfolioItem);
 
 module.exports = router;

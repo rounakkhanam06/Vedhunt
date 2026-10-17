@@ -1,11 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
-import api from '../../services/api';
+import { usePageAccess } from '../../shared/crmAccess';
 import toast from 'react-hot-toast';
 import { Target, Plus, Trash2, AlertCircle, CheckCircle, Info } from 'lucide-react';
 
 const emptyKPI = () => ({ metricType: 'Revenue', targetValue: '', weightage: '' });
 
 const PerformanceGoalAssigner = () => {
+  // Admin panel (role) or Employee Portal (person-wise grant) — shared/crmAccess.js
+  const { http, root, allowed } = usePageAccess();
   const [cycles, setCycles] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [presets, setPresets] = useState({});
@@ -27,9 +29,9 @@ const PerformanceGoalAssigner = () => {
       setIsLoading(true);
       try {
         const [cycleRes, empRes, presetRes] = await Promise.all([
-          api.get('/performance/cycles'),
-          api.get('/employees'),
-          api.get('/performance/presets')
+          http.get(`${root}/performance/cycles`),
+          http.get(`${root}/employees`),
+          http.get(`${root}/performance/presets`)
         ]);
         const activeCycles = cycleRes.data.cycles?.filter(c => c.status === 'Active' || c.status === 'Draft') || [];
         setCycles(activeCycles);
@@ -57,7 +59,7 @@ const PerformanceGoalAssigner = () => {
       setKpis([emptyKPI()]);
       return;
     }
-    api.get(`/performance/targets/employee/${selectedEmployee}/${selectedCycle}`)
+    http.get(`${root}/performance/targets/employee/${selectedEmployee}/${selectedCycle}`)
       .then(res => {
         if (res.data.success && res.data.targets.length > 0) {
           setExistingTargets(res.data.targets);
@@ -128,7 +130,7 @@ const PerformanceGoalAssigner = () => {
           unit: metricDefs[k.metricType]?.unit || ''
         }))
       };
-      const res = await api.post('/performance/targets', payload);
+      const res = await http.post(`${root}/performance/targets`, payload);
       if (res.data.success) {
         toast.success(`KPI targets assigned successfully! (${kpis.length} KPIs)`);
         setExistingTargets(res.data.targets);
@@ -329,13 +331,13 @@ const PerformanceGoalAssigner = () => {
           </div>
 
           {/* Submit */}
-          <button
+          {allowed('performance.manage', 'performance', 'edit') && (<button
             onClick={handleSubmit}
             disabled={isSaving || !weightOk || !selectedCycle || !selectedEmployee}
             className="w-full py-3 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-bold transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-lg hover:shadow-orange-500/20 text-sm"
           >
             {isSaving ? 'Saving KPI Targets...' : `Save ${kpis.length} KPI Target${kpis.length > 1 ? 's' : ''}`}
-          </button>
+          </button>)}
 
           {!weightOk && (
             <p className="text-xs text-orange-400 text-center">

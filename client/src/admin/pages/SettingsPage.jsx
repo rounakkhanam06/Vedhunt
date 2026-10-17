@@ -359,7 +359,8 @@ const SettingsPage = () => {
       setUploadingQr(true);
       const formData = new FormData();
       formData.append('image', file);
-      const res = await api.post('/upload/public', formData, {
+      // Admin upload (not the rate-limited public one used by clients and visitors)
+      const res = await api.post('/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       if (res.data.success) {

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { Edit3, CheckCircle, Clock, Save, X, Eye } from 'lucide-react';
-import api from '../../services/api';
+import { useCrm } from '../../shared/crmAccess';
 import AgreementTemplate from '../../client/components/AgreementTemplate';
 
 // Signed AND up to date — an admin edit after signing bumps agreementVersion
@@ -11,6 +11,8 @@ const hasAcceptedCurrent = (client) =>
   (client.acceptedAgreementVersion || 0) >= (client.agreementVersion || 0);
 
 export default function ManageAgreement() {
+  // Admin panel (full access) or Employee Portal (person-wise grants) — shared/crmAccess.js
+  const { http, base, can: canCrm } = useCrm();
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedClient, setSelectedClient] = useState(null);
@@ -25,7 +27,7 @@ export default function ManageAgreement() {
   const fetchClients = async () => {
     try {
       setLoading(true);
-      const { data } = await api.get('/admin/clients?limit=100');
+      const { data } = await http.get(`${base}/agreements`);
       if (data && data.data) {
         setClients(data.data);
       }
@@ -69,7 +71,7 @@ export default function ManageAgreement() {
           exclusions: editData.exclusions.split('\n').filter(p => p.trim()),
         }
       };
-      const { data } = await api.put(`/admin/clients/${selectedClient._id}`, payload);
+      const { data } = await http.put(`${base}/agreements/${selectedClient._id}`, payload);
       toast.success(
         data?.agreementResignRequired
           ? 'Agreement details updated. The client will be asked to review and accept the agreement.'
@@ -292,13 +294,13 @@ export default function ManageAgreement() {
                         >
                           <Eye size={18} />
                         </button>
-                        <button
+                        {canCrm('agreements', 'edit') && (<button
                           onClick={() => handleEditClick(client)}
                           className="p-2 text-on-surface-variant hover:text-secondary hover:bg-secondary/10 rounded-lg transition-colors"
                           title="Edit Agreement Details"
                         >
                           <Edit3 size={18} />
-                        </button>
+                        </button>)}
                       </td>
                     </tr>
                   );

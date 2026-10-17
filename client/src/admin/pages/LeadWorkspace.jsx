@@ -1,10 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import api from '../../services/api';
+import { useLeadAccess } from '../../shared/crmAccess';
 import { Mail, Phone, Clock, FileText, Play, Square, MessageCircle, Trash2, Upload, PhoneCall, CalendarClock, ListChecks, FileSignature } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { usePermissions } from '../hooks/usePermissions';
-import { useAdminStore } from '../../store/useAdminStore';
 import StageDataModal from '../components/StageDataModal';
 import FollowUpTasksPanel from '../components/FollowUpTasksPanel';
 import ProposalWorkflow from '../../employee/components/ProposalWorkflow';
@@ -118,8 +116,8 @@ const fieldLabelClass = 'text-xs text-app-text-muted font-medium';
 export default function LeadWorkspace() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { can } = usePermissions();
-  const { admin } = useAdminStore();
+  // Admin panel (role) or Employee Portal (person-wise grant) — shared/crmAccess.js
+  const { http, root, can, me, leadsHome } = useLeadAccess();
   const isSuperAdmin = can('*');
   const canAssign = can('leads.assign');
 
@@ -158,11 +156,11 @@ export default function LeadWorkspace() {
   const fetchLead = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await api.get(`/leads/${id}`);
+      const res = await http.get(`${root}/leads/${id}`);
       if (res.data?.success) setLead(res.data.data);
     } catch {
       toast.error('That lead could not be found');
-      navigate('/admin/leads');
+      navigate(leadsHome);
     } finally {
       setLoading(false);
     }
@@ -171,7 +169,7 @@ export default function LeadWorkspace() {
   // Refresh without the full-page loader, so an open dialog (Proposal) stays mounted.
   const reloadLead = useCallback(async () => {
     try {
-      const res = await api.get(`/leads/${id}`);
+      const res = await http.get(`${root}/leads/${id}`);
       if (res.data?.success) setLead(res.data.data);
     } catch {
       // keep showing the current copy
@@ -183,7 +181,7 @@ export default function LeadWorkspace() {
   }, [fetchLead]);
 
   useEffect(() => {
-    api.get(`/leads/${id}/assignment-history`)
+    http.get(`${root}/leads/${id}/assignment-history`)
       .then((res) => setAssignmentHistory(res.data?.data || []))
       .catch(() => setAssignmentHistory([]));
   }, [id]);
@@ -192,20 +190,20 @@ export default function LeadWorkspace() {
   // actually assign (BDs get a 403, harmlessly skipped).
   useEffect(() => {
     if (!canAssign) return;
-    api.get('/admin/assignment/bds')
+    http.get(`${root}/admin/assignment/bds`)
       .then((res) => setBds(res.data?.data || []))
       .catch(() => { /* control just stays empty */ });
   }, [canAssign]);
 
   // Lock this lead for active handling while its workspace is open.
   useEffect(() => {
-    api.post(`/leads/${id}/lock`).catch((err) => {
+    http.post(`${root}/leads/${id}/lock`).catch((err) => {
       if (err.response?.status === 409) {
         toast.error(err.response.data.message || 'Lead is locked by another user');
       }
     });
     return () => {
-      api.post(`/leads/${id}/unlock`).catch(console.error);
+      http.post(`${root}/leads/${id}/unlock`).catch(console.error);
     };
   }, [id]);
 
@@ -216,7 +214,7 @@ export default function LeadWorkspace() {
   // update, not a sequence of partial ones.
   const handleFieldsChange = async (fields) => {
     try {
-      const res = await api.put(`/leads/${id}`, fields);
+      const res = await http.put(`${root}/leads/${id}`, fields);
       // Use the server's response, not a local merge of just what was sent —
       // leadPriority/leadScore/touchNumber/leadAgeAtCall and pipelineHistory
       // are all computed server-side (leadLifecycle.js) as part of this same
@@ -233,7 +231,7 @@ export default function LeadWorkspace() {
 
   const handleAssign = async (assignedTo, reason = '') => {
     try {
-      const response = await api.post(`/leads/${id}/assign`, { assignedTo: assignedTo || null, reason });
+      const response = await http.post(`${root}/leads/${id}/assign`, { assignedTo: assignedTo || null, reason });
       setLead(response.data.data);
       setAssignReason('');
       toast.success(assignedTo ? 'Lead assigned' : 'Lead unassigned');
@@ -245,9 +243,9 @@ export default function LeadWorkspace() {
   const handleDelete = async () => {
     if (!window.confirm('Are you sure you want to delete this lead?')) return;
     try {
-      await api.post(`/leads/${id}/delete`);
+      await http.post(`${root}/leads/${id}/delete`);
       toast.success('Lead deleted successfully');
-      navigate('/admin/leads');
+      navigate(leadsHome);
     } catch (error) {
       toast.error(`Failed to delete lead: ${error.response?.data?.message || error.message}`);
     }
@@ -258,7 +256,7 @@ export default function LeadWorkspace() {
     setCallBusy('start');
     try {
       const now = new Date();
-      const res = await api.put(`/leads/${id}`, { callStartTime: now, callDate: now });
+      const res = await http.put(`${root}/leads/${id}`, { callStartTime: now, callDate: now });
       setLead(res.data.data);
       toast.success('Call started — log the outcome below when you finish', { position: 'bottom-right' });
     } catch (err) {
@@ -279,7 +277,7 @@ export default function LeadWorkspace() {
       const now = new Date();
       const diffMs = now.getTime() - new Date(lead.callStartTime).getTime();
       const durationMin = Math.max(1, Math.round(diffMs / 60000));
-      const res = await api.put(`/leads/${id}`, { callEndTime: now, callDuration: durationMin });
+      const res = await http.put(`${root}/leads/${id}`, { callEndTime: now, callDuration: durationMin });
       setLead(res.data.data);
       toast.success(`Call ended (${durationMin} min)`, { position: 'bottom-right' });
     } catch (err) {
@@ -358,7 +356,7 @@ export default function LeadWorkspace() {
       const formData = new FormData();
       formData.append('file', file);
       formData.append('docType', docType);
-      const res = await api.post(`/leads/${id}/documents`, formData, {
+      const res = await http.post(`${root}/leads/${id}/documents`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       if (res.data.success) {
@@ -376,7 +374,7 @@ export default function LeadWorkspace() {
   const handleDeleteDocument = async (docId) => {
     if (!window.confirm('Remove this document?')) return;
     try {
-      const res = await api.delete(`/leads/${id}/documents/${docId}`);
+      const res = await http.delete(`${root}/leads/${id}/documents/${docId}`);
       if (res.data.success) {
         toast.success('Document removed');
         setLead(res.data.data);
@@ -609,7 +607,7 @@ export default function LeadWorkspace() {
                       handleStageChange({ status: newStatus }).catch(() => {});
                     }
                   }}
-                  disabled={(!isSuperAdmin && ['Won', 'Lost', 'Dropped'].includes(lead.status)) || isLockedByOther(lead, admin?._id)}
+                  disabled={(!isSuperAdmin && ['Won', 'Lost', 'Dropped'].includes(lead.status)) || isLockedByOther(lead, me?._id)}
                   className={`${selectClass} font-medium`}
                 >
                   <option className="bg-app-bg text-app-text" value="New">New</option>
@@ -726,7 +724,7 @@ export default function LeadWorkspace() {
             />
           </div>
 
-          <FollowUpTasksPanel leadId={lead._id} canManage={canAssign} bds={bds} myAdminId={admin?._id} />
+          <FollowUpTasksPanel leadId={lead._id} canManage={canAssign} bds={bds} myAdminId={me?._id} />
 
           {/* Remark */}
           <div className={sectionClass}>

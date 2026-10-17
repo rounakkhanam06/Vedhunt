@@ -109,6 +109,7 @@ const EmployeeForgotPassword = lazy(() => import('../employee/pages/EmployeeForg
 const EmployeeResetPasswordLink = lazy(() => import('../employee/pages/EmployeeResetPasswordLink'));
 const EmployeeDashboard = lazy(() => import('../employee/pages/EmployeeDashboard'));
 const EmployeeLeadWorkspace = lazy(() => import('../employee/pages/LeadWorkspace'));
+const GrantedLeadWorkspace = lazy(() => import('../employee/pages/GrantedLeadWorkspace'));
 
 // Client Portal
 const ClientThemeGuard = lazy(() => import('../client/ClientThemeGuard'));
@@ -370,7 +371,8 @@ export const router = createBrowserRouter([
             element: withPermission(TeamManagement, 'team.manage')
           },
           {
-            path: 'employees',
+            // List, and one employee's profile page at /admin/employees/:id
+            path: 'employees/:id?',
             element: withPermission(EmployeeManager, 'employees.view')
           },
           {
@@ -583,7 +585,7 @@ export const router = createBrowserRouter([
           },
           {
             path: 'subscribers',
-            element: withPermission(SubscriberManager, 'leads.view')
+            element: withPermission(SubscriberManager, 'cms.manage')
           },
           {
             path: '',
@@ -638,6 +640,11 @@ export const router = createBrowserRouter([
               {
                 path: 'leads/:id',
                 element: withSuspenseKeyedById(EmployeeLeadWorkspace)
+              },
+              {
+                // A lead opened from a granted lead page (own / team / all scope)
+                path: 'team-leads/:id',
+                element: withSuspenseKeyedById(GrantedLeadWorkspace)
               },
               {
                 path: '',

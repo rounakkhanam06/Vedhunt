@@ -9,7 +9,8 @@
     "server": "nodemon server/server.js",
     "client": "npm run dev --prefix client",
     "dev": "concurrently \"npm run server\" \"npm run client\"",
-    "test": "node --test \"server/tests/**/*.test.js\""
+    "test": "node --test \"server/tests/**/*.test.js\"",
+    "test:e2e": "node --test --test-timeout=600000 \"server/tests/e2e/*.e2e.js\""
   },
   "repository": {
     "type": "git",
@@ -50,6 +51,7 @@
   },
   "devDependencies": {
     "concurrently": "^10.0.5",
+    "mongodb-memory-server": "^10.4.3",
     "nodemon": "^3.1.14"
   }
 }

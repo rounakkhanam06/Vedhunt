@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import api from '../../services/api';
+import { usePageAccess } from '../../shared/crmAccess';
 import toast from 'react-hot-toast';
 import { Calendar, UserCheck, UserX, Clock, AlertTriangle, AlertCircle, FileText, List, Settings2 } from 'lucide-react';
 import LeaveRequestsManager from './LeaveRequestsManager';
@@ -7,6 +7,8 @@ import ActivityMasterSettings from '../components/ActivityMasterSettings';
 import { formatDuration } from '../../utils/formatDuration';
 
 export default function AttendanceManager() {
+  // Admin panel (role) or Employee Portal (person-wise grant) — shared/crmAccess.js
+  const { http, root } = usePageAccess();
   const [activeTab, setActiveTab] = useState('roster');
   const [date, setDate] = useState(null); // initialized to today
   const [loading, setLoading] = useState(true);
@@ -25,7 +27,7 @@ export default function AttendanceManager() {
   const fetchRoster = async (selectedDate) => {
     try {
       setLoading(true);
-      const res = await api.get(`/employees/admin/attendance/daily?date=${selectedDate}`);
+      const res = await http.get(`${root}/employees/admin/attendance/daily?date=${selectedDate}`);
       if (res.data.success) {
         setRoster(res.data.roster);
         

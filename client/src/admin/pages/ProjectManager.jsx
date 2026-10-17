@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import api from '../../services/api';
+import { useCrm } from '../../shared/crmAccess';
 import toast from 'react-hot-toast';
 import {
   FolderOpen, Plus, Search, X, Save,
@@ -22,6 +22,8 @@ const STATUS_COLORS = {
 };
 
 export default function ProjectManager() {
+  // Admin panel (full access) or Employee Portal (person-wise grants) — shared/crmAccess.js
+  const { http, base, can: canCrm } = useCrm();
   const [projects, setProjects] = useState([]);
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -36,14 +38,14 @@ export default function ProjectManager() {
   const [escalations, setEscalations] = useState([]); // of the project being edited
 
   useEffect(() => {
-    api.get('/admin/clients', { params: { limit: 200 } })
+    http.get(`${base}/client-options`, { params: { page: 'projects' } })
       .then(r => setClients(r.data.data || []));
-    api.get('/admin/projects-staff').then(r => setStaff(r.data.data || [])).catch(() => {});
-  }, []);
+    http.get(`${base}/projects-staff`).then(r => setStaff(r.data.data || [])).catch(() => {});
+  }, [http, base]);
 
   const staffName = (e) => (e ? `${e.firstName} ${e.lastName}` : '');
   const refreshEscalations = async (id) => {
-    const r = await api.get(`/admin/projects/${id}`);
+    const r = await http.get(`${base}/projects/${id}`);
     setEscalations(r.data.data?.escalations || []);
     fetchProjects();
   };
@@ -53,12 +55,12 @@ export default function ProjectManager() {
     try {
       const params = { page, limit: 15 };
       if (statusFilter) params.status = statusFilter;
-      const r = await api.get('/admin/projects', { params });
+      const r = await http.get(`${base}/projects`, { params });
       setProjects(r.data.data || []);
       setPagination(r.data.pagination || {});
     } catch { toast.error('Failed to load projects'); }
     finally { setLoading(false); }
-  }, [page, statusFilter]);
+  }, [http, base, page, statusFilter]);
 
   useEffect(() => { fetchProjects(); }, [fetchProjects]);
 
@@ -110,10 +112,10 @@ export default function ProjectManager() {
     try {
       const payload = { ...form };
       if (editTarget) {
-        await api.put(`/admin/projects/${editTarget._id}`, payload);
+        await http.put(`${base}/projects/${editTarget._id}`, payload);
         toast.success('Project updated');
       } else {
-        await api.post('/admin/projects', payload);
+        await http.post(`${base}/projects`, payload);
         toast.success('Project created');
       }
       setShowModal(false);
@@ -126,7 +128,7 @@ export default function ProjectManager() {
   const deleteProject = async (id) => {
     if (!window.confirm('Delete this project?')) return;
     try {
-      await api.delete(`/admin/projects/${id}`);
+      await http.delete(`${base}/projects/${id}`);
       toast.success('Project deleted');
       fetchProjects();
     } catch { toast.error('Failed to delete'); }
@@ -158,10 +160,10 @@ export default function ProjectManager() {
           <div className="bg-secondary/10 text-secondary px-4 py-2 rounded-lg font-bold text-sm">
             {pagination.total} Projects
           </div>
-          <button onClick={openCreate}
+          {canCrm('projects', 'create') && (<button onClick={openCreate}
             className="flex items-center gap-2 px-4 py-2 bg-secondary text-white rounded-lg text-sm font-medium hover:bg-secondary/90 cursor-pointer">
             <Plus size={15} /> New Project
-          </button>
+          </button>)}
         </div>
       </div>
 
@@ -241,14 +243,14 @@ export default function ProjectManager() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-center gap-2">
-                        <button onClick={() => openEdit(prj)} title="Edit"
+                        {canCrm('projects', 'edit') && (<button onClick={() => openEdit(prj)} title="Edit"
                           className="p-1.5 text-secondary hover:bg-secondary/10 rounded-lg cursor-pointer">
                           <Edit2 size={14} />
-                        </button>
-                        <button onClick={() => deleteProject(prj._id)} title="Delete"
+                        </button>)}
+                        {canCrm('projects', 'delete') && (<button onClick={() => deleteProject(prj._id)} title="Delete"
                           className="p-1.5 text-red-400 hover:bg-red-500/10 rounded-lg cursor-pointer">
                           <Trash2 size={14} />
-                        </button>
+                        </button>)}
                       </div>
                     </td>
                   </tr>
@@ -362,8 +364,8 @@ export default function ProjectManager() {
                     escalations={escalations}
                     canRaise
                     canResolve
-                    onRaise={(body) => api.post(`/admin/projects/${editTarget._id}/escalations`, body).then(() => refreshEscalations(editTarget._id))}
-                    onResolve={(id, resolution) => api.put(`/admin/projects/${editTarget._id}/escalations/${id}/resolve`, { resolution }).then(() => refreshEscalations(editTarget._id))}
+                    onRaise={(body) => http.post(`${base}/projects/${editTarget._id}/escalations`, body).then(() => refreshEscalations(editTarget._id))}
+                    onResolve={(id, resolution) => http.put(`${base}/projects/${editTarget._id}/escalations/${id}/resolve`, { resolution }).then(() => refreshEscalations(editTarget._id))}
                   />
                 </div>
               )}

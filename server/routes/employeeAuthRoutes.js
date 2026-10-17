@@ -11,6 +11,7 @@ const logger = require('../utils/logger');
 const crypto = require('crypto');
 const { sendEmail } = require('../utils/sendEmail');
 const { resolveSegment, resolvePortalModules } = require('../utils/employeeSegments');
+const { grantSummary } = require('../config/pageAccess');
 
 const router = express.Router();
 
@@ -179,6 +180,7 @@ router.post('/login', ...loginMiddleware, async (req, res) => {
           permissions: Array.from(permissionsSet),
           segment: resolveSegment(admin.roles),
           portalModules: resolvePortalModules(admin.roles),
+          access: grantSummary({ permissions: Array.from(permissionsSet), accessGrants: admin.accessGrants, crmGrants: admin.crmGrants }),
           ...(await portalFlags(admin._id))
         }
       });
@@ -217,6 +219,7 @@ router.get('/me', employeeAuthMiddleware, async (req, res) => {
       permissions: req.user.permissions,
       segment: req.user.segment,
       portalModules: req.user.portalModules,
+      access: grantSummary(req.user),
       ...flags
     }
   });

@@ -7,22 +7,29 @@ const {
 } = require('../controllers/activityController');
 const authMiddleware = require('../middleware/authMiddleware');
 const requirePermission = require('../middleware/requirePermission');
+const requirePageAccess = require('../middleware/requirePageAccess');
 
-// Lead Activity / Follow-ups reports need leads.assign; the reports the
-// Management Dashboard reads are also open to dashboard.management.
-const LEAD_REPORTS = 'leads.assign';
-const DASHBOARD_REPORTS = ['leads.assign', 'dashboard.management'];
+// Lead reports, limited to the person's lead scope (controllers/activityController.js).
+// The follow-ups list belongs to the Follow-ups page (role: leads.assign). The
+// other reports are shared by Follow-ups and Lead Activity (role: leads.assign,
+// or dashboard.management, which the Management Dashboard reads with).
+// No auth here: mounted behind the Admin auth below and behind the Employee
+// Portal auth for person-wise grants.
+const scoped = express.Router();
+const REPORTS = requirePageAccess([['followups', 'view'], ['lead-activity', 'view']]);
+
+scoped.get('/calls', REPORTS, getCallActivity);
+scoped.get('/followups', requirePageAccess('followups', 'view'), getFollowUpsList);
+scoped.get('/followup-compliance', REPORTS, getFollowUpCompliance);
+scoped.get('/action-missing', REPORTS, getActionMissingQueue);
+scoped.get('/pipeline-summary', REPORTS, getPipelineSummary);
+scoped.get('/bd-accountability', REPORTS, getBDAccountability);
 
 router.use(authMiddleware);
-
-router.get('/calls', requirePermission(DASHBOARD_REPORTS), getCallActivity);
-router.get('/followups', requirePermission(LEAD_REPORTS), getFollowUpsList);
-router.get('/followup-compliance', requirePermission(DASHBOARD_REPORTS), getFollowUpCompliance);
-router.get('/action-missing', requirePermission(DASHBOARD_REPORTS), getActionMissingQueue);
-router.get('/pipeline-summary', requirePermission(DASHBOARD_REPORTS), getPipelineSummary);
-router.get('/bd-accountability', requirePermission(DASHBOARD_REPORTS), getBDAccountability);
+router.use(scoped);
 router.get('/lead-volume', requirePermission('dashboard.management'), getLeadVolumeBreakdown);
 // BDE Team Performance — every BDE (managers use the Employee Portal tab).
 router.use('/team-performance', requirePermission('team.performance'), require('./teamPerformanceRoutes'));
 
 module.exports = router;
+module.exports.scopedActivityRouter = scoped;

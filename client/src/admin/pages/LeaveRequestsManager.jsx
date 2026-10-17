@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import api from '../../services/api';
+import { usePageAccess } from '../../shared/crmAccess';
 import toast from 'react-hot-toast';
 
 const LeaveRequestsManager = ({ embedded = false }) => {
+  // Admin panel (role) or Employee Portal (person-wise grant) — shared/crmAccess.js
+  const { http, root, allowed } = usePageAccess();
   const [requests, setRequests] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [actionModal, setActionModal] = useState({ isOpen: false, reqId: null, status: null });
@@ -11,7 +13,7 @@ const LeaveRequestsManager = ({ embedded = false }) => {
   const fetchRequests = async () => {
     setIsLoading(true);
     try {
-      const res = await api.get('/employees/admin/leave-requests');
+      const res = await http.get(`${root}/employees/admin/leave-requests`);
       if (res.data.success) {
         setRequests(res.data.leaveRequests);
       }
@@ -36,7 +38,7 @@ const LeaveRequestsManager = ({ embedded = false }) => {
     const { reqId, status } = actionModal;
     
     try {
-      const res = await api.put(`/employees/admin/leave-requests/${reqId}/status`, {
+      const res = await http.put(`${root}/employees/admin/leave-requests/${reqId}/status`, {
         status,
         adminComment
       });
@@ -114,18 +116,18 @@ const LeaveRequestsManager = ({ embedded = false }) => {
                   <td className="py-3 px-4 text-right">
                     {req.status === 'Pending' ? (
                       <div className="flex justify-end gap-2">
-                        <button
+                        {allowed('leave.manage', 'leave', 'edit') && (<button
                           onClick={() => openActionModal(req._id, 'Approved')}
                           className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded cursor-pointer transition-colors"
                         >
                           Approve
-                        </button>
-                        <button
+                        </button>)}
+                        {allowed('leave.manage', 'leave', 'edit') && (<button
                           onClick={() => openActionModal(req._id, 'Rejected')}
                           className="px-3 py-1 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded cursor-pointer transition-colors"
                         >
                           Reject
-                        </button>
+                        </button>)}
                       </div>
                     ) : (
                       <span className="text-xs text-app-text-muted italic">Processed</span>

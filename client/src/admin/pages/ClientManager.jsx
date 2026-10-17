@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import api from '../../services/api';
+import { useCrm } from '../../shared/crmAccess';
 import toast from 'react-hot-toast';
 import {
   Users, Plus, Search, Eye, X, Edit2,
@@ -31,6 +31,8 @@ const EMPTY_FORM = {
 };
 
 export default function ClientManager() {
+  // Admin panel (full access) or Employee Portal (person-wise grants) — shared/crmAccess.js
+  const { http, base, can: canCrm, full } = useCrm();
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
@@ -52,7 +54,7 @@ export default function ClientManager() {
   const [linked, setLinked] = useState(null);
   const [acting, setActing] = useState(false);
   const { can } = usePermissions();
-  const isSuperAdmin = can('*');
+  const isSuperAdmin = full && can('*');
 
   // Debounce search
   useEffect(() => {
@@ -63,13 +65,13 @@ export default function ClientManager() {
   const fetchClients = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await api.get('/admin/clients', { params: { page, limit: 15, search: dSearch, ...(statusFilter && { status: statusFilter }) } });
+      const res = await http.get(`${base}/clients`, { params: { page, limit: 15, search: dSearch, ...(statusFilter && { status: statusFilter }) } });
       setClients(res.data.data || []);
       setTotal(res.data.pagination?.total || 0);
       setTotalPages(res.data.pagination?.totalPages || 1);
     } catch { toast.error('Failed to load clients'); }
     finally { setLoading(false); }
-  }, [page, dSearch, statusFilter]);
+  }, [http, base, page, dSearch, statusFilter]);
 
   useEffect(() => { fetchClients(); }, [fetchClients]);
 
@@ -110,7 +112,7 @@ export default function ClientManager() {
   const openPreview = async (client) => {
     setPreviewClient(client);
     try {
-      const res = await api.get(`/admin/clients/${client._id}`);
+      const res = await http.get(`${base}/clients/${client._id}`);
       if (res.data.success) setPreviewClient(res.data.data);
     } catch {
       // Preview still shows the row's own fields even if the detail fetch fails.
@@ -149,11 +151,11 @@ export default function ClientManager() {
         if (!payload.password) delete payload.password;
         else payload.newPassword = payload.password;
         delete payload.password;
-        await api.put(`/admin/clients/${selectedClient._id}`, payload);
+        await http.put(`${base}/clients/${selectedClient._id}`, payload);
         toast.success('Client updated');
       } else {
         if (!form.password) return toast.error('Password is required for new clients');
-        await api.post('/admin/clients', form);
+        await http.post(`${base}/clients`, form);
         toast.success('Client account created & welcome email sent');
       }
       setShowModal(false);
@@ -170,7 +172,7 @@ export default function ClientManager() {
     setLinked(null);
     if (type === 'archive' || type === 'permanent') {
       try {
-        const res = await api.get(`/admin/clients/${client._id}/linked-records`);
+        const res = await http.get(`${base}/clients/${client._id}/linked-records`);
         setLinked(res.data.data);
       } catch { setLinked({ error: true }); }
     }
@@ -182,9 +184,9 @@ export default function ClientManager() {
     setActing(true);
     try {
       let res;
-      if (type === 'suspend') res = await api.post(`/admin/clients/${client._id}/suspend`, { reason: actionReason });
-      if (type === 'archive') res = await api.delete(`/admin/clients/${client._id}`, { data: { reason: actionReason } });
-      if (type === 'permanent') res = await api.delete(`/admin/clients/${client._id}/permanent`, { data: { confirm: confirmText.trim() } });
+      if (type === 'suspend') res = await http.post(`${base}/clients/${client._id}/suspend`, { reason: actionReason });
+      if (type === 'archive') res = await http.delete(`${base}/clients/${client._id}`, { data: { reason: actionReason } });
+      if (type === 'permanent') res = await http.delete(`${base}/clients/${client._id}/permanent`, { data: { confirm: confirmText.trim() } });
       toast.success(res.data.message);
       setAction(null);
       setPreviewClient(null);
@@ -199,7 +201,7 @@ export default function ClientManager() {
   // One-click, non-destructive actions
   const quickAction = async (path, client) => {
     try {
-      const res = await api.post(`/admin/clients/${client._id}/${path}`);
+      const res = await http.post(`${base}/clients/${client._id}/${path}`);
       toast.success(res.data.message);
       setPreviewClient(null);
       fetchClients();
@@ -233,12 +235,12 @@ export default function ClientManager() {
           <div className="bg-secondary/10 text-secondary px-4 py-2 rounded-lg font-bold text-sm">
             Total: {total}
           </div>
-          <button
+          {canCrm('clients', 'create') && (<button
             onClick={openCreate}
             className="flex items-center gap-2 px-4 py-2 bg-secondary text-white rounded-lg text-sm font-medium hover:bg-secondary/90 transition-colors cursor-pointer"
           >
             <Plus size={16} /> New Client
-          </button>
+          </button>)}
         </div>
       </div>
 
@@ -330,20 +332,20 @@ export default function ClientManager() {
                         >
                           <Eye size={15} />
                         </button>
-                        <button
+                        {canCrm('clients', 'edit') && (<button
                           onClick={() => openEdit(c)}
                           className="p-1.5 text-secondary hover:bg-secondary/10 rounded-lg transition-colors cursor-pointer"
                           title="Edit"
                         >
                           <Edit2 size={15} />
-                        </button>
-                        {clientStatus(c) === 'active' && (
+                        </button>)}
+                        {full && clientStatus(c) === 'active' && (
                           <button onClick={() => openAction('suspend', c)} title="Suspend account"
                             className="p-1.5 text-amber-400 hover:bg-amber-500/10 rounded-lg transition-colors cursor-pointer">
                             <Ban size={15} />
                           </button>
                         )}
-                        {clientStatus(c) === 'suspended' && (
+                        {full && clientStatus(c) === 'suspended' && (
                           <button onClick={() => quickAction('reactivate', c)} title="Reactivate account"
                             className="p-1.5 text-green-400 hover:bg-green-500/10 rounded-lg transition-colors cursor-pointer">
                             <RotateCcw size={15} />
@@ -432,6 +434,8 @@ export default function ClientManager() {
                 ))}
               </div>
 
+              {/* Portal passwords stay with full CRM access (the API ignores them otherwise) */}
+              {(full || !selectedClient) && (
               <div>
                 <label className="block text-on-surface-variant text-xs font-medium mb-1.5">
                   {selectedClient ? 'New Password (leave blank to keep current)' : 'Temporary Password *'}
@@ -445,6 +449,7 @@ export default function ClientManager() {
                   className="w-full px-4 py-2.5 bg-admin-bg border border-outline-variant rounded-xl text-on-surface text-sm focus:outline-none focus:border-secondary transition-colors"
                 />
               </div>
+              )}
 
               <div>
                 <label className="block text-on-surface-variant text-xs font-medium mb-1.5">Lead Reference (optional)</label>

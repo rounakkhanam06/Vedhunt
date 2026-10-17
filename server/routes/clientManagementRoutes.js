@@ -25,10 +25,21 @@ const {
   notifyInvoiceCreated, notifyAgreementUpdated, notifyTicketReply, notifyTicketStatus,
 } = require('../services/clientNotify');
 
-const router = express.Router();
+const { PAGE_CATALOG, pageScope, hasBaseAccess } = require('../config/pageAccess');
+const requirePageAccess = require('../middleware/requirePageAccess');
+const { isScoped, clientAllowed, scopedClientRef, outOfScope } = require('../utils/clientScope');
+const paymentController = require('../controllers/paymentController');
+const Admin = require('../models/Admin');
 
-// All routes require admin auth
-router.use(authMiddleware);
+// No auth here — mounted twice at the bottom of this file: behind the Admin
+// auth at /api/admin, and behind the Employee Portal auth for person-wise
+// grants. Every route checks page + action through requirePageAccess, which
+// gives cms.manage / '*' full access and limits a grant to its clients.
+const router = express.Router();
+const crm = requirePageAccess;
+
+// Client fields never sent; the temporary portal password is for full CRM access only
+const clientSelect = (req) => `+notes ${hasBaseAccess(req.user, 'clients') ? '+temporaryPasswordText ' : ''}-password -refreshToken -resetPasswordToken -resetPasswordExpire`;
 
 // ─── Utility ─────────────────────────────────────────────────────────────────
 const parsePagination = (query) => {
@@ -89,10 +100,11 @@ const validateClientInput = (data) => {
  * @route  GET /api/admin/clients
  * @desc   List all clients (paginated, searchable)
  */
-router.get('/clients', async (req, res) => {
+router.get('/clients', crm('clients', 'view'), async (req, res) => {
   try {
     const { page, limit, skip } = parsePagination(req.query);
     const filter = {};
+    if (isScoped(req)) filter._id = { $in: req.pageScope.clients };
 
     // Text search across business name, contact name, email
     if (req.query.search) {
@@ -113,7 +125,7 @@ router.get('/clients', async (req, res) => {
 
     const [clients, total] = await Promise.all([
       Client.find(filter)
-        .select('+notes +temporaryPasswordText -password -refreshToken -resetPasswordToken -resetPasswordExpire')
+        .select(clientSelect(req))
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
@@ -129,17 +141,40 @@ router.get('/clients', async (req, res) => {
 });
 
 /**
+ * @route  GET /api/admin/client-options?page=invoices&action=create
+ * @desc   Client picker for a CRM page — only the clients the person may use
+ *         there (every non-archived client for full CRM access).
+ */
+router.get('/client-options', async (req, res) => {
+  try {
+    const page = PAGE_CATALOG.some((p) => p.key === req.query.page && p.scope === 'client') ? req.query.page : 'clients';
+    const action = req.query.action === 'create' ? 'create' : 'view';
+    const scope = pageScope(req.user, page, action);
+    if (scope === false) return res.json({ success: true, data: [] });
+    const filter = { deletedAt: null };
+    if (scope?.mode === 'clients') filter._id = { $in: scope.clients };
+    const data = await Client.find(filter, 'businessName contactName email clientId isActive')
+      .sort({ businessName: 1 }).limit(1000).lean();
+    res.json({ success: true, data });
+  } catch (error) {
+    logger.error('Admin client options error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+/**
  * @route  GET /api/admin/clients/:id
  * @desc   Get single client with all linked data summary
  */
-router.get('/clients/:id', async (req, res) => {
+router.get('/clients/:id', crm('clients', 'view'), async (req, res) => {
   try {
     if (!isValidId(req.params.id)) {
       return res.status(400).json({ success: false, message: 'Invalid client ID' });
     }
+    if (!clientAllowed(req, req.params.id)) return outOfScope(res, 'Client');
 
     const client = await Client.findById(req.params.id)
-      .select('+notes +temporaryPasswordText -password -refreshToken -resetPasswordToken -resetPasswordExpire')
+      .select(clientSelect(req))
       .populate('leadRef', 'fullName phone email status pipelineHistory callLogs dealValue dealCloseValue createdAt')
       .lean();
 
@@ -190,8 +225,12 @@ router.get('/clients/:id', async (req, res) => {
  * @route  POST /api/admin/clients
  * @desc   Create a new client account (with optional lead link)
  */
-router.post('/clients', async (req, res) => {
+router.post('/clients', crm('clients', 'create'), async (req, res) => {
   try {
+    // A brand-new client can't be inside a fixed client list
+    if (isScoped(req)) {
+      return res.status(403).json({ success: false, message: 'Creating clients needs access to all clients.' });
+    }
     const { businessName, contactName, email, phone, password, notes, leadRef } = req.body;
 
     if (!businessName || !contactName || !email || !password) {
@@ -256,13 +295,16 @@ router.post('/clients', async (req, res) => {
  * @route  PUT /api/admin/clients/:id
  * @desc   Update client info / reset password / toggle active
  */
-router.put('/clients/:id', async (req, res) => {
+router.put('/clients/:id', crm('clients', 'edit'), async (req, res) => {
   try {
     if (!isValidId(req.params.id)) {
       return res.status(400).json({ success: false, message: 'Invalid client ID' });
     }
+    if (!clientAllowed(req, req.params.id)) return outOfScope(res, 'Client');
 
-    const { businessName, contactName, email, phone, notes, isActive, newPassword, agreementDetails } = req.body;
+    const { businessName, contactName, email, phone, notes, agreementDetails } = req.body;
+    // Portal status and passwords stay with full CRM access; a grant edits details only
+    const { isActive, newPassword } = hasBaseAccess(req.user, 'clients') ? req.body : {};
 
     const validationErrors = validateClientInput(req.body);
     if (validationErrors.length > 0) {
@@ -533,14 +575,13 @@ router.delete('/clients/:id/permanent', requirePermission('*'), async (req, res)
 // INVOICES
 // ══════════════════════════════════════════════════════════════════════════════
 
-router.get('/invoices', async (req, res) => {
+router.get('/invoices', crm('invoices', 'view'), async (req, res) => {
   try {
     const { page, limit, skip } = parsePagination(req.query);
     const filter = {};
 
-    if (req.query.client_ref && isValidId(req.query.client_ref)) {
-      filter.client_ref = req.query.client_ref;
-    }
+    const clientRef = scopedClientRef(req, req.query.client_ref);
+    if (clientRef) filter.client_ref = clientRef;
     if (req.query.status) filter.paymentStatus = req.query.status;
 
     const [invoices, total] = await Promise.all([
@@ -560,7 +601,7 @@ router.get('/invoices', async (req, res) => {
   }
 });
 
-router.get('/invoices/:id', async (req, res) => {
+router.get('/invoices/:id', crm('invoices', 'view'), async (req, res) => {
   try {
     if (!isValidId(req.params.id)) {
       return res.status(400).json({ success: false, message: 'Invalid invoice ID' });
@@ -568,7 +609,7 @@ router.get('/invoices/:id', async (req, res) => {
     const invoice = await Invoice.findById(req.params.id)
       .populate('client_ref', 'businessName contactName email clientId')
       .lean();
-    if (!invoice) return res.status(404).json({ success: false, message: 'Invoice not found' });
+    if (!invoice || !clientAllowed(req, invoice.client_ref)) return outOfScope(res, 'Invoice');
     res.json({ success: true, data: invoice });
   } catch (error) {
     logger.error('Admin get invoice error:', error);
@@ -576,13 +617,14 @@ router.get('/invoices/:id', async (req, res) => {
   }
 });
 
-router.post('/invoices', async (req, res) => {
+router.post('/invoices', crm('invoices', 'create'), async (req, res) => {
   try {
     const { client_ref, issueDate, dueDate, lineItems, subtotal, taxPercent, taxAmount, totalAmount, notes } = req.body;
 
     if (!client_ref || !dueDate || !lineItems || !totalAmount) {
       return res.status(400).json({ success: false, message: 'client_ref, dueDate, lineItems and totalAmount are required' });
     }
+    if (!clientAllowed(req, client_ref)) return res.status(403).json({ success: false, message: "You can't create invoices for this client." });
 
     const invoice = await Invoice.create({
       client_ref, issueDate, dueDate, lineItems,
@@ -604,11 +646,13 @@ router.post('/invoices', async (req, res) => {
   }
 });
 
-router.put('/invoices/:id', async (req, res) => {
+router.put('/invoices/:id', crm('invoices', 'edit'), async (req, res) => {
   try {
     if (!isValidId(req.params.id)) {
       return res.status(400).json({ success: false, message: 'Invalid invoice ID' });
     }
+    const existing = await Invoice.findById(req.params.id, { client_ref: 1 }).lean();
+    if (!existing || !clientAllowed(req, existing.client_ref)) return outOfScope(res, 'Invoice');
     const update = { ...req.body };
     delete update._id; delete update.invoiceId; delete update.client_ref;
 
@@ -639,11 +683,13 @@ router.put('/invoices/:id', async (req, res) => {
   }
 });
 
-router.delete('/invoices/:id', async (req, res) => {
+router.delete('/invoices/:id', crm('invoices', 'delete'), async (req, res) => {
   try {
     if (!isValidId(req.params.id)) {
       return res.status(400).json({ success: false, message: 'Invalid invoice ID' });
     }
+    const existing = await Invoice.findById(req.params.id, { client_ref: 1 }).lean();
+    if (!existing || !clientAllowed(req, existing.client_ref)) return outOfScope(res, 'Invoice');
     await Invoice.findByIdAndDelete(req.params.id);
     res.json({ success: true, message: 'Invoice deleted' });
   } catch (error) {
@@ -656,21 +702,20 @@ router.delete('/invoices/:id', async (req, res) => {
 // PROJECTS
 // ══════════════════════════════════════════════════════════════════════════════
 
-// Same permission the Admin panel's Projects page requires.
-const canManageProjects = requirePermission('cms.manage');
 const PEOPLE = 'firstName lastName designation roleDept';
 
 // Employees for the Project Manager / team pickers
-router.get('/projects-staff', canManageProjects, async (req, res) => {
+router.get('/projects-staff', crm('projects', 'view'), async (req, res) => {
   const staff = await Employee.find({}, PEOPLE + ' employeeId').sort({ firstName: 1 }).lean();
   res.json({ success: true, data: staff });
 });
 
-router.get('/projects', canManageProjects, async (req, res) => {
+router.get('/projects', crm('projects', 'view'), async (req, res) => {
   try {
     const { page, limit, skip } = parsePagination(req.query);
     const filter = {};
-    if (req.query.client_ref && isValidId(req.query.client_ref)) filter.client_ref = req.query.client_ref;
+    const clientRef = scopedClientRef(req, req.query.client_ref);
+    if (clientRef) filter.client_ref = clientRef;
     if (req.query.status) filter.status = req.query.status;
 
     const [projects, total] = await Promise.all([
@@ -693,7 +738,7 @@ router.get('/projects', canManageProjects, async (req, res) => {
   }
 });
 
-router.get('/projects/:id', canManageProjects, async (req, res) => {
+router.get('/projects/:id', crm('projects', 'view'), async (req, res) => {
   try {
     if (!isValidId(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid project ID' });
     const project = await Project.findById(req.params.id)
@@ -701,7 +746,7 @@ router.get('/projects/:id', canManageProjects, async (req, res) => {
       .populate('client_ref', 'businessName contactName email clientId')
       .populate('projectManager', PEOPLE)
       .populate('teamMembers', PEOPLE);
-    if (!project) return res.status(404).json({ success: false, message: 'Project not found' });
+    if (!project || !clientAllowed(req, project.client_ref)) return outOfScope(res, 'Project');
     res.json({ success: true, data: project });
   } catch (error) {
     logger.error('Admin get project error:', error);
@@ -709,12 +754,13 @@ router.get('/projects/:id', canManageProjects, async (req, res) => {
   }
 });
 
-router.post('/projects', canManageProjects, async (req, res) => {
+router.post('/projects', crm('projects', 'create'), async (req, res) => {
   try {
     const { client_ref, projectName, internalNotes, startDate, expectedEndDate, status, milestones } = req.body;
     if (!client_ref || !projectName) {
       return res.status(400).json({ success: false, message: 'client_ref and projectName are required' });
     }
+    if (!clientAllowed(req, client_ref)) return res.status(403).json({ success: false, message: "You can't create projects for this client." });
     const { value: assignment, error } = await delivery.cleanAssignment(req.body);
     if (error) return res.status(400).json({ success: false, message: error });
     const project = await Project.create({ client_ref, projectName, internalNotes, startDate, expectedEndDate, status, milestones, ...assignment });
@@ -727,7 +773,7 @@ router.post('/projects', canManageProjects, async (req, res) => {
   }
 });
 
-router.put('/projects/:id', canManageProjects, async (req, res) => {
+router.put('/projects/:id', crm('projects', 'edit'), async (req, res) => {
   try {
     if (!isValidId(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid project ID' });
     const update = { ...req.body };
@@ -737,7 +783,7 @@ router.put('/projects/:id', canManageProjects, async (req, res) => {
     if (error) return res.status(400).json({ success: false, message: error });
 
     const project = await Project.findById(req.params.id);
-    if (!project) return res.status(404).json({ success: false, message: 'Project not found' });
+    if (!project || !clientAllowed(req, project.client_ref)) return outOfScope(res, 'Project');
     const before = { projectManager: project.projectManager, teamMembers: [...(project.teamMembers || [])] };
 
     Object.assign(project, update, assignment);
@@ -752,9 +798,11 @@ router.put('/projects/:id', canManageProjects, async (req, res) => {
   }
 });
 
-router.delete('/projects/:id', canManageProjects, async (req, res) => {
+router.delete('/projects/:id', crm('projects', 'delete'), async (req, res) => {
   try {
     if (!isValidId(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid project ID' });
+    const existing = await Project.findById(req.params.id, { client_ref: 1 }).lean();
+    if (!existing || !clientAllowed(req, existing.client_ref)) return outOfScope(res, 'Project');
     await Project.findByIdAndDelete(req.params.id);
     res.json({ success: true, message: 'Project deleted' });
   } catch (error) {
@@ -764,17 +812,17 @@ router.delete('/projects/:id', canManageProjects, async (req, res) => {
 });
 
 // Escalations — logged/resolved by admin here, or by the PM in the Employee Portal
-router.post('/projects/:id/escalations', canManageProjects, async (req, res) => {
+router.post('/projects/:id/escalations', crm('projects', 'edit'), async (req, res) => {
   if (!isValidId(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid project ID' });
   const project = await Project.findById(req.params.id).select('+escalations');
-  if (!project) return res.status(404).json({ success: false, message: 'Project not found' });
+  if (!project || !clientAllowed(req, project.client_ref)) return outOfScope(res, 'Project');
   sendResult(res, await delivery.addEscalation(project, req.user, req.body), 201);
 });
 
-router.put('/projects/:id/escalations/:escalationId/resolve', canManageProjects, async (req, res) => {
+router.put('/projects/:id/escalations/:escalationId/resolve', crm('projects', 'edit'), async (req, res) => {
   if (!isValidId(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid project ID' });
   const project = await Project.findById(req.params.id).select('+escalations');
-  if (!project) return res.status(404).json({ success: false, message: 'Project not found' });
+  if (!project || !clientAllowed(req, project.client_ref)) return outOfScope(res, 'Project');
   sendResult(res, await delivery.resolveEscalation(project, req.user, req.params.escalationId, req.body.resolution));
 });
 
@@ -782,11 +830,12 @@ router.put('/projects/:id/escalations/:escalationId/resolve', canManageProjects,
 // RETAINERS
 // ══════════════════════════════════════════════════════════════════════════════
 
-router.get('/retainers', async (req, res) => {
+router.get('/retainers', crm('retainers', 'view'), async (req, res) => {
   try {
     const { page, limit, skip } = parsePagination(req.query);
     const filter = {};
-    if (req.query.client_ref && isValidId(req.query.client_ref)) filter.client_ref = req.query.client_ref;
+    const clientRef = scopedClientRef(req, req.query.client_ref);
+    if (clientRef) filter.client_ref = clientRef;
     if (req.query.status) filter.status = req.query.status;
 
     const [retainers, total] = await Promise.all([
@@ -806,12 +855,12 @@ router.get('/retainers', async (req, res) => {
   }
 });
 
-router.get('/retainers/:id', async (req, res) => {
+router.get('/retainers/:id', crm('retainers', 'view'), async (req, res) => {
   try {
     if (!isValidId(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid retainer ID' });
     const retainer = await Retainer.findById(req.params.id)
       .populate('client_ref', 'businessName contactName email clientId');
-    if (!retainer) return res.status(404).json({ success: false, message: 'Retainer not found' });
+    if (!retainer || !clientAllowed(req, retainer.client_ref)) return outOfScope(res, 'Retainer');
     res.json({ success: true, data: retainer.toObject({ virtuals: true }) });
   } catch (error) {
     logger.error('Admin get retainer error:', error);
@@ -819,12 +868,13 @@ router.get('/retainers/:id', async (req, res) => {
   }
 });
 
-router.post('/retainers', async (req, res) => {
+router.post('/retainers', crm('retainers', 'create'), async (req, res) => {
   try {
     const { client_ref, packageName, monthlyAmount, billingCycle, supportHoursPerMonth, contractStartDate, contractEndDate, status, autoRenew, renewalNotes } = req.body;
     if (!client_ref || !packageName || !monthlyAmount || !supportHoursPerMonth || !contractStartDate || !contractEndDate) {
       return res.status(400).json({ success: false, message: 'client_ref, packageName, monthlyAmount, supportHoursPerMonth, contractStartDate and contractEndDate are required' });
     }
+    if (!clientAllowed(req, client_ref)) return res.status(403).json({ success: false, message: "You can't create retainers for this client." });
     const retainer = await Retainer.create({ client_ref, packageName, monthlyAmount, billingCycle, supportHoursPerMonth, contractStartDate, contractEndDate, status, autoRenew, renewalNotes });
     res.status(201).json({ success: true, message: 'Retainer created', data: { retainerId: retainer.retainerId, _id: retainer._id } });
   } catch (error) {
@@ -834,9 +884,11 @@ router.post('/retainers', async (req, res) => {
   }
 });
 
-router.put('/retainers/:id', async (req, res) => {
+router.put('/retainers/:id', crm('retainers', 'edit'), async (req, res) => {
   try {
     if (!isValidId(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid retainer ID' });
+    const existing = await Retainer.findById(req.params.id, { client_ref: 1 }).lean();
+    if (!existing || !clientAllowed(req, existing.client_ref)) return outOfScope(res, 'Retainer');
     const update = { ...req.body };
     delete update._id; delete update.retainerId; delete update.client_ref;
 
@@ -849,9 +901,11 @@ router.put('/retainers/:id', async (req, res) => {
   }
 });
 
-router.delete('/retainers/:id', async (req, res) => {
+router.delete('/retainers/:id', crm('retainers', 'delete'), async (req, res) => {
   try {
     if (!isValidId(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid retainer ID' });
+    const existing = await Retainer.findById(req.params.id, { client_ref: 1 }).lean();
+    if (!existing || !clientAllowed(req, existing.client_ref)) return outOfScope(res, 'Retainer');
     await Retainer.findByIdAndUpdate(req.params.id, { status: 'Cancelled' });
     res.json({ success: true, message: 'Retainer cancelled' });
   } catch (error) {
@@ -864,11 +918,24 @@ router.delete('/retainers/:id', async (req, res) => {
 // SUPPORT TICKETS
 // ══════════════════════════════════════════════════════════════════════════════
 
-router.get('/tickets', async (req, res) => {
+// Staff a ticket can be assigned to (the Team Management list, names only)
+router.get('/tickets-staff', crm('tickets', 'view'), async (req, res) => {
+  try {
+    const admins = await Admin.find({ isActive: true }, 'firstName lastName email roles')
+      .populate('roles', 'name').sort({ firstName: 1 }).lean();
+    res.json({ success: true, admins });
+  } catch (error) {
+    logger.error('Admin tickets staff error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+router.get('/tickets', crm('tickets', 'view'), async (req, res) => {
   try {
     const { page, limit, skip } = parsePagination(req.query);
     const filter = {};
-    if (req.query.client_ref && isValidId(req.query.client_ref)) filter.client_ref = req.query.client_ref;
+    const clientRef = scopedClientRef(req, req.query.client_ref);
+    if (clientRef) filter.client_ref = clientRef;
     if (req.query.status) filter.status = req.query.status;
     if (req.query.priority) filter.priority = req.query.priority;
 
@@ -895,7 +962,7 @@ router.get('/tickets', async (req, res) => {
   }
 });
 
-router.get('/tickets/:id', async (req, res) => {
+router.get('/tickets/:id', crm('tickets', 'view'), async (req, res) => {
   try {
     if (!isValidId(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid ticket ID' });
     const ticket = await SupportTicket.findById(req.params.id)
@@ -906,7 +973,7 @@ router.get('/tickets/:id', async (req, res) => {
         populate: { path: 'roles', select: 'name' }
       })
       .select('+resolution');
-    if (!ticket) return res.status(404).json({ success: false, message: 'Ticket not found' });
+    if (!ticket || !clientAllowed(req, ticket.client_ref)) return outOfScope(res, 'Ticket');
     res.json({ success: true, data: ticket.toObject({ virtuals: true }) });
   } catch (error) {
     logger.error('Admin get ticket error:', error);
@@ -914,7 +981,7 @@ router.get('/tickets/:id', async (req, res) => {
   }
 });
 
-router.put('/tickets/:id', async (req, res) => {
+router.put('/tickets/:id', crm('tickets', 'edit'), async (req, res) => {
   try {
     if (!isValidId(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid ticket ID' });
     const { status, priority, resolution, assignedTo } = req.body;
@@ -930,7 +997,7 @@ router.put('/tickets/:id', async (req, res) => {
     // load + save (not findByIdAndUpdate) so the model's pre-save hook stamps
     // resolvedAt / closedAt when the status changes
     const ticket = await SupportTicket.findById(req.params.id);
-    if (!ticket) return res.status(404).json({ success: false, message: 'Ticket not found' });
+    if (!ticket || !clientAllowed(req, ticket.client_ref)) return outOfScope(res, 'Ticket');
     const previousStatus = ticket.status;
     const previousAssignee = ticket.assignedTo ? String(ticket.assignedTo) : null;
     ticket.set(update);
@@ -948,7 +1015,7 @@ router.put('/tickets/:id', async (req, res) => {
   }
 });
 
-router.post('/tickets', async (req, res) => {
+router.post('/tickets', crm('tickets', 'create'), async (req, res) => {
   try {
     const { client_ref, subject, description, category, priority, status, resolution, assignedTo } = req.body;
     if (!client_ref || !subject || !description || !category) {
@@ -957,6 +1024,7 @@ router.post('/tickets', async (req, res) => {
     if (!isValidId(client_ref) || (assignedTo && !isValidId(assignedTo))) {
       return res.status(400).json({ success: false, message: 'Invalid client or assignee' });
     }
+    if (!clientAllowed(req, client_ref)) return res.status(403).json({ success: false, message: "You can't create tickets for this client." });
     const ticket = new SupportTicket({
       client_ref,
       subject,
@@ -976,14 +1044,14 @@ router.post('/tickets', async (req, res) => {
   }
 });
 
-router.post('/tickets/:id/messages', async (req, res) => {
+router.post('/tickets/:id/messages', crm('tickets', 'edit'), async (req, res) => {
   try {
     if (!isValidId(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid ticket ID' });
     const { text } = req.body;
     if (!text) return res.status(400).json({ success: false, message: 'Message text is required' });
     
     const ticket = await SupportTicket.findById(req.params.id);
-    if (!ticket) return res.status(404).json({ success: false, message: 'Ticket not found' });
+    if (!ticket || !clientAllowed(req, ticket.client_ref)) return outOfScope(res, 'Ticket');
     
     const senderName = req.user.firstName ? `${req.user.firstName} ${req.user.lastName || ''}`.trim() : 'Admin';
     
@@ -1003,11 +1071,12 @@ router.post('/tickets/:id/messages', async (req, res) => {
   }
 });
 
-router.delete('/tickets/:id', async (req, res) => {
+router.delete('/tickets/:id', crm('tickets', 'delete'), async (req, res) => {
   try {
     if (!isValidId(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid ticket ID' });
-    const ticket = await SupportTicket.findByIdAndDelete(req.params.id);
-    if (!ticket) return res.status(404).json({ success: false, message: 'Ticket not found' });
+    const existing = await SupportTicket.findById(req.params.id, { client_ref: 1 }).lean();
+    if (!existing || !clientAllowed(req, existing.client_ref)) return outOfScope(res, 'Ticket');
+    await SupportTicket.findByIdAndDelete(req.params.id);
     res.json({ success: true, message: 'Ticket deleted' });
   } catch (error) {
     logger.error('Admin delete ticket error:', error);
@@ -1019,7 +1088,66 @@ router.delete('/tickets/:id', async (req, res) => {
 // AGREEMENT
 // ══════════════════════════════════════════════════════════════════════════════
 
-router.get('/agreement', getAgreement);
-router.put('/agreement', updateAgreement);
+// ══════════════════════════════════════════════════════════════════════════════
+// PAYMENT VERIFICATION (moved here from paymentRoutes.js — same URLs)
+// ══════════════════════════════════════════════════════════════════════════════
 
-module.exports = router;
+router.get('/payments', crm('payments', 'view'), paymentController.getAllPayments);
+router.put('/payments/:id/approve', crm('payments', 'edit'), paymentController.approvePayment);
+router.put('/payments/:id/reject', crm('payments', 'edit'), paymentController.rejectPayment);
+
+// ══════════════════════════════════════════════════════════════════════════════
+// CLIENT AGREEMENTS — per-client agreement details (own page, own grant)
+// ══════════════════════════════════════════════════════════════════════════════
+
+const AGREEMENT_FIELDS = 'clientId businessName contactName email phone agreementDetails agreementVersion acceptedAgreementVersion agreementAcceptedAt';
+
+router.get('/agreements', crm('agreements', 'view'), async (req, res) => {
+  try {
+    const filter = { deletedAt: null };
+    if (isScoped(req)) filter._id = { $in: req.pageScope.clients };
+    const data = await Client.find(filter, AGREEMENT_FIELDS).sort({ businessName: 1 }).limit(500).lean();
+    res.json({ success: true, data });
+  } catch (error) {
+    logger.error('Admin list agreements error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+router.put('/agreements/:id', crm('agreements', 'edit'), async (req, res) => {
+  try {
+    if (!isValidId(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid client ID' });
+    if (!clientAllowed(req, req.params.id)) return outOfScope(res, 'Client');
+    const { agreementDetails } = req.body;
+    if (!agreementDetails || typeof agreementDetails !== 'object') {
+      return res.status(400).json({ success: false, message: 'agreementDetails is required' });
+    }
+    const client = await Client.findOne({ _id: req.params.id, deletedAt: null });
+    if (!client) return outOfScope(res, 'Client');
+
+    const before = client.toObject().agreementDetails;
+    client.agreementDetails = { ...client.agreementDetails, ...agreementDetails };
+    // New/changed terms → the client must review and sign the agreement again
+    const agreementResignRequired = agreementDetailsChanged(before, client.toObject().agreementDetails);
+    if (agreementResignRequired) client.agreementVersion = nextAgreementVersion(client);
+    await client.save();
+    if (agreementResignRequired) await notifyAgreementUpdated(client._id);
+    res.json({ success: true, message: 'Agreement details updated', agreementResignRequired });
+  } catch (error) {
+    logger.error('Admin update agreement error:', error);
+    if (error.name === 'ValidationError') return res.status(400).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// The global agreement template isn't client data — full CRM access only
+router.get('/agreement', requirePermission('cms.manage'), getAgreement);
+router.put('/agreement', requirePermission('cms.manage'), updateAgreement);
+
+// Admin panel: /api/admin/* behind the Admin auth, as before
+const adminRouter = express.Router();
+adminRouter.use(authMiddleware, router);
+
+module.exports = adminRouter;
+// Auth-less CRM router — the Employee Portal mounts it behind its own auth
+module.exports.crmRouter = router;

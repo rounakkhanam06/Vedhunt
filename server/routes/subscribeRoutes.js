@@ -10,15 +10,15 @@ const {
 } = require('../controllers/subscribeController');
 
 const protect = require('../middleware/authMiddleware');
-const authorize = require('../middleware/roleMiddleware');
+const requirePermission = require('../middleware/requirePermission');
 
 // Public routes
 router.post('/', subscribeLimiter, subscribe);
 router.get('/unsubscribe/:token', unsubscribe);
 
 // Admin protected routes
-router.get('/admin/list', protect, authorize('SUPER_ADMIN', 'EDITOR'), getSubscribers);
-router.get('/admin/export', protect, authorize('SUPER_ADMIN', 'EDITOR'), exportSubscribers);
-router.post('/admin/broadcast', protect, authorize('SUPER_ADMIN'), broadcastNewsletter);
+router.get('/admin/list', protect, requirePermission('cms.manage'), getSubscribers);
+router.get('/admin/export', protect, requirePermission('cms.manage'), exportSubscribers);
+router.post('/admin/broadcast', protect, requirePermission('*'), broadcastNewsletter);
 
 module.exports = router;

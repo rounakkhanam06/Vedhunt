@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import api from '../../services/api';
+import { useCrm } from '../../shared/crmAccess';
 import toast from 'react-hot-toast';
 import {
   FileText, Plus, Search, X, Save, IndianRupee,
@@ -19,6 +19,8 @@ const emptyForm = () => ({
 });
 
 export default function InvoiceManager() {
+  // Admin panel (full access) or Employee Portal (person-wise grants) — shared/crmAccess.js
+  const { http, base, can: canCrm } = useCrm();
   const [invoices, setInvoices] = useState([]);
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -32,21 +34,21 @@ export default function InvoiceManager() {
 
   // Fetch clients for dropdown
   useEffect(() => {
-    api.get('/admin/clients', { params: { limit: 200 } })
+    http.get(`${base}/client-options`, { params: { page: 'invoices' } })
       .then(r => setClients(r.data.data || []));
-  }, []);
+  }, [http, base]);
 
   const fetchInvoices = useCallback(async () => {
     setLoading(true);
     try {
       const params = { page, limit: 15 };
       if (statusFilter) params.status = statusFilter;
-      const r = await api.get('/admin/invoices', { params });
+      const r = await http.get(`${base}/invoices`, { params });
       setInvoices(r.data.data || []);
       setPagination(r.data.pagination || {});
     } catch { toast.error('Failed to load invoices'); }
     finally { setLoading(false); }
-  }, [page, statusFilter]);
+  }, [http, base, page, statusFilter]);
 
   useEffect(() => { fetchInvoices(); }, [fetchInvoices]);
 
@@ -97,10 +99,10 @@ export default function InvoiceManager() {
 
       const payload = { ...form, lineItems: mappedLineItems, subtotal, taxAmount, totalAmount };
       if (editTarget) {
-        await api.put(`/admin/invoices/${editTarget._id}`, payload);
+        await http.put(`${base}/invoices/${editTarget._id}`, payload);
         toast.success('Invoice updated');
       } else {
-        await api.post('/admin/invoices', payload);
+        await http.post(`${base}/invoices`, payload);
         toast.success('Invoice created');
       }
       setShowModal(false);
@@ -113,7 +115,7 @@ export default function InvoiceManager() {
   const deleteInvoice = async (id) => {
     if (!window.confirm('Delete this invoice?')) return;
     try {
-      await api.delete(`/admin/invoices/${id}`);
+      await http.delete(`${base}/invoices/${id}`);
       toast.success('Invoice deleted');
       fetchInvoices();
     } catch { toast.error('Failed to delete'); }
@@ -148,10 +150,10 @@ export default function InvoiceManager() {
           <div className="bg-secondary/10 text-secondary px-4 py-2 rounded-lg font-bold text-sm">
             {pagination.total} Invoices
           </div>
-          <button onClick={openCreate}
+          {canCrm('invoices', 'create') && (<button onClick={openCreate}
             className="flex items-center gap-2 px-4 py-2 bg-secondary text-white rounded-lg text-sm font-medium hover:bg-secondary/90 cursor-pointer">
             <Plus size={15} /> New Invoice
-          </button>
+          </button>)}
         </div>
       </div>
 
@@ -219,14 +221,14 @@ export default function InvoiceManager() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-center gap-2">
-                        <button onClick={() => openEdit(inv)} title="Edit"
+                        {canCrm('invoices', 'edit') && (<button onClick={() => openEdit(inv)} title="Edit"
                           className="p-1.5 text-secondary hover:bg-secondary/10 rounded-lg cursor-pointer">
                           <Edit2 size={14} />
-                        </button>
-                        <button onClick={() => deleteInvoice(inv._id)} title="Delete"
+                        </button>)}
+                        {canCrm('invoices', 'delete') && (<button onClick={() => deleteInvoice(inv._id)} title="Delete"
                           className="p-1.5 text-red-400 hover:bg-red-500/10 rounded-lg cursor-pointer">
                           <Trash2 size={14} />
-                        </button>
+                        </button>)}
                       </div>
                     </td>
                   </tr>

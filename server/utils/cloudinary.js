@@ -32,6 +32,31 @@ const upload = multer({
   },
 });
 
+// Uploads anyone can make without logging in (review photos, payment
+// screenshots): raster images only — no SVG, which can carry script — 3MB,
+// one file, kept in their own folder.
+const publicStorage = new CloudinaryStorage({
+  cloudinary,
+  params: {
+    folder: 'vedhunt-public',
+    allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
+    transformation: [{ quality: 'auto', fetch_format: 'auto' }],
+  },
+});
+
+const publicImageUpload = multer({
+  storage: publicStorage,
+  limits: { fileSize: 3 * 1024 * 1024, files: 1 },
+  fileFilter: (_req, file, cb) => {
+    const allowed = ['image/jpeg', 'image/png', 'image/webp'];
+    if (allowed.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only jpg, png or webp images are allowed'), false);
+    }
+  },
+});
+
 /** Uploads an in-memory buffer (e.g. a generated PDF) without going through multer/disk. */
 const uploadBuffer = (buffer, { folder, public_id, resource_type = 'raw' }) =>
   new Promise((resolve, reject) => {
@@ -148,4 +173,4 @@ const uploadTicketAttachment = multer({
   },
 });
 
-module.exports = { cloudinary, upload, uploadResume, uploadLeadDocument, uploadTicketAttachment, uploadBuffer, deleteFromCloudinary };
+module.exports = { cloudinary, upload, publicImageUpload, uploadResume, uploadLeadDocument, uploadTicketAttachment, uploadBuffer, deleteFromCloudinary };

@@ -1,6 +1,7 @@
 const PaymentProof = require('../models/PaymentProof');
 const Invoice = require('../models/Invoice');
 const Client = require('../models/Client');
+const { isScoped, clientAllowed } = require('../utils/clientScope');
 const { notifyPaymentApproved, notifyPaymentRejected } = require('../services/clientNotify');
 
 /**
@@ -85,6 +86,8 @@ exports.getAllPayments = async (req, res) => {
     const { status } = req.query;
     const filter = {};
     if (status) filter.status = status;
+    // A person-wise grant sees only its clients (utils/clientScope.js)
+    if (isScoped(req)) filter.client_ref = { $in: req.pageScope.clients };
 
     const payments = await PaymentProof.find(filter)
       .populate('client_ref', 'contactName businessName')
@@ -108,7 +111,7 @@ exports.approvePayment = async (req, res) => {
     const { id } = req.params;
     const payment = await PaymentProof.findById(id).populate('invoice_ref');
 
-    if (!payment) {
+    if (!payment || !clientAllowed(req, payment.client_ref)) {
       return res.status(404).json({ message: 'Payment proof not found' });
     }
 
@@ -158,7 +161,7 @@ exports.rejectPayment = async (req, res) => {
 
     const payment = await PaymentProof.findById(id);
 
-    if (!payment) {
+    if (!payment || !clientAllowed(req, payment.client_ref)) {
       return res.status(404).json({ message: 'Payment proof not found' });
     }
 

@@ -10,13 +10,15 @@ const {
   deleteTestimonial,
 } = require('../controllers/testimonialController');
 const authMiddleware = require('../middleware/authMiddleware');
+const requirePermission = require('../middleware/requirePermission');
 
 // Public routes
 router.post('/', createTestimonial);
 router.get('/approved', getApprovedTestimonials);
 
 // Admin routes
-router.use(authMiddleware); // All routes below require admin authentication
+// All routes below are the Testimonials page in the Admin panel
+router.use(authMiddleware, requirePermission('cms.manage'));
 router.get('/', getAllTestimonials);
 router.post('/admin', createAdminTestimonial);
 router.put('/:id', updateTestimonial);

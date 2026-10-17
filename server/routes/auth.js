@@ -1,5 +1,5 @@
 const express = require('express');
-const { permissionsOf, grantsAdminPanel } = require('../config/permissions');
+const { isPortalOnly } = require('../config/permissions');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
@@ -45,9 +45,7 @@ router.post('/login', ...loginMiddleware, async (req, res) => {
       // Portal. An employee role that also grants an Admin-panel permission
       // (e.g. an HR role with employees.view / leave.manage) is let in, and
       // only sees the pages those permissions open.
-      const hasPortalOnlyRole = admin.roles?.some(role => role.isEmployeeRole);
-      const hasAdminRole = admin.roles?.some(role => !role.isEmployeeRole);
-      if (hasPortalOnlyRole && !hasAdminRole && !grantsAdminPanel(permissionsOf(admin.roles))) {
+      if (isPortalOnly(admin.roles)) {
         return res.status(403).json({ success: false, message: 'Access Denied: Please use the Employee Portal.' });
       }
 
@@ -255,11 +253,9 @@ router.put('/resetpassword/:resettoken', async (req, res) => {
     admin.resetPasswordExpire = undefined;
     await admin.save();
 
-    // Update Employee document to reflect the new password for admin visibility
-    await Employee.findOneAndUpdate(
-      { adminId: admin._id },
-      { tempPassword: req.body.password }
-    );
+    // A password the person chose themselves must never sit readable in the
+    // HR vault (that field is only for admin-issued temporary passwords)
+    await Employee.updateOne({ adminId: admin._id }, { $unset: { tempPassword: 1 } });
 
     res.status(200).json({
       success: true,
@@ -396,11 +392,8 @@ router.put('/password', authMiddleware, async (req, res) => {
     admin.isTemporaryPassword = false;
     await admin.save();
 
-    // Update Employee document to reflect the new password for vault visibility
-    await Employee.findOneAndUpdate(
-      { adminId: req.user._id },
-      { tempPassword: newPassword }
-    );
+    // Chosen by the person themselves — clear the HR vault instead of filling it
+    await Employee.updateOne({ adminId: req.user._id }, { $unset: { tempPassword: 1 } });
 
     res.json({ success: true, message: 'Password changed successfully.' });
   } catch (error) {
@@ -434,11 +427,8 @@ router.post('/reset-temp-password', authMiddleware, async (req, res) => {
     admin.isTemporaryPassword = false;
     await admin.save();
 
-    // Keep the Employee vault in sync, same as PUT /password
-    await Employee.findOneAndUpdate(
-      { adminId: req.user._id },
-      { tempPassword: newPassword }
-    );
+    // Chosen by the person themselves — clear the HR vault, same as PUT /password
+    await Employee.updateOne({ adminId: req.user._id }, { $unset: { tempPassword: 1 } });
 
     res.json({ success: true, message: 'Password reset successfully.' });
   } catch (error) {

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import api from '../../services/api';
+import { usePageAccess } from '../../shared/crmAccess';
 import toast from 'react-hot-toast';
 import { Search, Filter, Calendar, CheckCircle, Clock, AlertCircle, AlertTriangle, PlayCircle, Plus, X, ChevronDown, ChevronUp, User } from 'lucide-react';
 import { TASK_STATUSES, TASK_PRIORITIES, taskStatusLabel, taskCode, TASK_PRIORITY_CLASSES } from '../../shared/taskConstants';
@@ -9,6 +9,8 @@ const inputClass = 'w-full text-sm rounded-lg border border-app-border bg-form-i
 const fmtWhen = (d) => new Date(d).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
 
 export default function AdminTasks() {
+  // Admin panel (role) or Employee Portal (person-wise grant) — shared/crmAccess.js
+  const { http, root, allowed } = usePageAccess();
   const [employees, setEmployees] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [expandedTaskId, setExpandedTaskId] = useState(null);
@@ -31,7 +33,7 @@ export default function AdminTasks() {
   const fetchData = async () => {
     try {
       setIsLoading(true);
-      const res = await api.get('/employees');
+      const res = await http.get(`${root}/employees`);
       if (res.data.success) {
         setEmployees(res.data.employees);
       }
@@ -121,7 +123,7 @@ export default function AdminTasks() {
 
     setIsAssigning(true);
     try {
-      const res = await api.put(`/employees/${assignForm.employeeId}`, {
+      const res = await http.put(`${root}/employees/${assignForm.employeeId}`, {
         newTask: {
           title: assignForm.title.trim(),
           description: assignForm.description.trim(),
@@ -149,7 +151,7 @@ export default function AdminTasks() {
   const handleStatusChange = async (task, newStatus) => {
     setUpdatingTaskId(task._id);
     try {
-      const res = await api.put(`/employees/${task.employeeId}`, {
+      const res = await http.put(`${root}/employees/${task.employeeId}`, {
         taskStatusUpdate: { taskId: task._id, status: newStatus }
       });
       if (res.data.success) {
@@ -171,12 +173,12 @@ export default function AdminTasks() {
           <h1 className="text-3xl font-extrabold tracking-tight">Organization Tasks</h1>
           <p className="text-app-text-muted text-sm mt-1">Assign, track, and monitor tasks across employees.</p>
         </div>
-        <button
+        {allowed('tasks.manage', 'tasks', 'create') && (<button
           onClick={openAssignModal}
           className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary hover:bg-primary-hover text-white font-medium transition-all shadow-lg hover:shadow-primary/20 active:scale-[0.98] cursor-pointer"
         >
           <Plus size={18} /> Assign Task
-        </button>
+        </button>)}
       </div>
 
       {/* Filters */}
@@ -315,7 +317,7 @@ export default function AdminTasks() {
                           <select
                             value={task.status}
                             onChange={(e) => handleStatusChange(task, e.target.value)}
-                            disabled={updatingTaskId === task._id}
+                            disabled={updatingTaskId === task._id || !allowed('tasks.manage', 'tasks', 'edit')}
                             className={`px-2.5 py-1 rounded border text-xs font-semibold focus:outline-none cursor-pointer disabled:opacity-50 ${statusSelectClass(task.status)}`}
                           >
                             {TASK_STATUSES.map(s => <option key={s} value={s} className="bg-app-card text-app-text">{taskStatusLabel(s)}</option>)}

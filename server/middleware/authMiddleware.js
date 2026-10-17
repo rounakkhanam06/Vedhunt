@@ -1,11 +1,12 @@
 const jwt = require('jsonwebtoken');
 const logger = require('../utils/logger');
 const Admin = require('../models/Admin');
+const { isPortalOnly } = require('../config/permissions');
 const { mustResetPassword, PASSWORD_RESET_REQUIRED } = require('../utils/tempPasswordGate');
 
 const TEMP_PASSWORD_ALLOWED = ['/api/auth/me', '/api/auth/reset-temp-password', '/api/auth/logout'];
 
-const authMiddleware = async (req, res, next) => {
+const buildAuth = ({ allowPortal = false } = {}) => async (req, res, next) => {
   try {
     let token = req.cookies.adminToken;
 
@@ -38,6 +39,12 @@ const authMiddleware = async (req, res, next) => {
     }
     req.user.permissions = Array.from(permissionsSet);
 
+    // Employee Portal tokens are signed with the same secret, so refuse
+    // portal-only logins here exactly as the Admin login does.
+    if (!allowPortal && isPortalOnly(req.user.roles)) {
+      return res.status(403).json({ success: false, message: 'Access Denied: Please use the Employee Portal.' });
+    }
+
     if (mustResetPassword(req, req.user.isTemporaryPassword, TEMP_PASSWORD_ALLOWED)) {
       return res.status(403).json(PASSWORD_RESET_REQUIRED);
     }
@@ -48,5 +55,14 @@ const authMiddleware = async (req, res, next) => {
     res.status(401).json({ success: false, message: 'Not authorized, token failed' });
   }
 };
+
+const authMiddleware = buildAuth();
+// For routers whose unguarded routes are self-service and also serve the
+// Employee Portal (e.g. My Performance) — everything else stays permission-gated.
+authMiddleware.allowPortal = buildAuth({ allowPortal: true });
+// After allowPortal: keeps the routes behind it for Admin panel logins only
+authMiddleware.adminPanelOnly = (req, res, next) => (isPortalOnly(req.user?.roles)
+  ? res.status(403).json({ success: false, message: 'Access Denied: Please use the Employee Portal.' })
+  : next());
 
 module.exports = authMiddleware;

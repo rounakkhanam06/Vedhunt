@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import api from '../../services/api';
+import { useCrm } from '../../shared/crmAccess';
 import { attachmentName } from '../../utils/attachments';
 import { settingsService } from '../../services/settingsService';
 import toast from 'react-hot-toast';
@@ -29,6 +29,8 @@ const PRIORITY_COLORS = {
 };
 
 export default function SupportDeskManager() {
+  // Admin panel (full access) or Employee Portal (person-wise grants) — shared/crmAccess.js
+  const { http, base, can: canCrm, full } = useCrm();
   const [tickets, setTickets] = useState([]);
   const [clients, setClients] = useState([]);
   const [teamMembers, setTeamMembers] = useState([]);
@@ -49,15 +51,16 @@ export default function SupportDeskManager() {
   const [savingCategories, setSavingCategories] = useState(false);
 
   useEffect(() => {
-    api.get('/admin/clients', { params: { limit: 200 } })
+    http.get(`${base}/client-options`, { params: { page: 'tickets' } })
       .then(r => setClients(r.data.data || []));
       
-    api.get('/team')
+    // Assignable staff (same list as Team Management, without needing team.manage)
+    http.get(`${base}/tickets-staff`)
       .then(r => setTeamMembers(r.data.admins || []))
       .catch(err => console.error('Failed to fetch team members', err));
       
     fetchSupportCategories();
-  }, []);
+  }, [http, base]);
 
   const fetchSupportCategories = async () => {
     try {
@@ -87,12 +90,12 @@ export default function SupportDeskManager() {
     try {
       const params = { page, limit: 15 };
       if (statusFilter) params.status = statusFilter;
-      const r = await api.get('/admin/tickets', { params });
+      const r = await http.get(`${base}/tickets`, { params });
       setTickets(r.data.data || []);
       setPagination(r.data.pagination || {});
     } catch { toast.error('Failed to load tickets'); }
     finally { setLoading(false); }
-  }, [page, statusFilter]);
+  }, [http, base, page, statusFilter]);
 
   useEffect(() => { fetchTickets(); }, [fetchTickets]);
 
@@ -131,7 +134,7 @@ export default function SupportDeskManager() {
     if (!newMessage.trim() || !editTarget) return;
     setSendingMsg(true);
     try {
-      const res = await api.post(`/admin/tickets/${editTarget._id}/messages`, { text: newMessage });
+      const res = await http.post(`${base}/tickets/${editTarget._id}/messages`, { text: newMessage });
       if (res.data.success) {
         setNewMessage('');
         toast.success('Message sent');
@@ -151,10 +154,10 @@ export default function SupportDeskManager() {
     try {
       const payload = { ...form };
       if (editTarget) {
-        await api.put(`/admin/tickets/${editTarget._id}`, payload);
+        await http.put(`${base}/tickets/${editTarget._id}`, payload);
         toast.success('Ticket updated');
       } else {
-        await api.post('/admin/tickets', payload);
+        await http.post(`${base}/tickets`, payload);
         toast.success('Ticket created');
       }
       setShowModal(false);
@@ -167,7 +170,7 @@ export default function SupportDeskManager() {
   const deleteTicket = async (id) => {
     if (!window.confirm('Delete this support ticket?')) return;
     try {
-      await api.delete(`/admin/tickets/${id}`);
+      await http.delete(`${base}/tickets/${id}`);
       toast.success('Ticket deleted');
       fetchTickets();
     } catch { toast.error('Failed to delete'); }
@@ -186,10 +189,10 @@ export default function SupportDeskManager() {
               {pagination.total} Tickets
             </div>
           )}
-          <button onClick={openCreate}
+          {canCrm('tickets', 'create') && (<button onClick={openCreate}
             className="flex items-center gap-2 px-4 py-2 bg-secondary text-white rounded-lg text-sm font-medium hover:bg-secondary/90 cursor-pointer">
             <Plus size={15} /> Open Ticket
-          </button>
+          </button>)}
         </div>
       </div>
 
@@ -202,14 +205,15 @@ export default function SupportDeskManager() {
         >
           Tickets
         </button>
-        <button
+        {/* Ticket categories are a company-wide setting — full CRM access only */}
+        {full && <button
           onClick={() => setActiveTab('categories')}
           className={`pb-3 font-semibold text-sm border-b-2 transition-all ${
             activeTab === 'categories' ? 'border-secondary text-secondary' : 'border-transparent text-on-surface-variant hover:text-on-surface'
           }`}
         >
           Categories
-        </button>
+        </button>}
       </div>
 
       {activeTab === 'tickets' && (
@@ -297,14 +301,14 @@ export default function SupportDeskManager() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-center gap-2">
-                        <button onClick={() => openEdit(t)} title="Edit"
+                        {canCrm('tickets', 'edit') && (<button onClick={() => openEdit(t)} title="Edit"
                           className="p-1.5 text-secondary hover:bg-secondary/10 rounded-lg cursor-pointer">
                           <Edit2 size={14} />
-                        </button>
-                        <button onClick={() => deleteTicket(t._id)} title="Delete"
+                        </button>)}
+                        {canCrm('tickets', 'delete') && (<button onClick={() => deleteTicket(t._id)} title="Delete"
                           className="p-1.5 text-red-400 hover:bg-red-500/10 rounded-lg cursor-pointer">
                           <Trash2 size={14} />
-                        </button>
+                        </button>)}
                       </div>
                     </td>
                   </tr>

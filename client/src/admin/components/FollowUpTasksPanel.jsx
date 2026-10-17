@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Plus, CheckCircle2, Clock, X } from 'lucide-react';
 import toast from 'react-hot-toast';
-import api from '../../services/api';
+import { useLeadAccess } from '../../shared/crmAccess';
 
 const TYPE_BADGE = {
   Primary: 'bg-primary/10 text-primary border-primary/20',
@@ -21,6 +21,8 @@ const STATUS_BADGE = {
  * requiring a result — server/services/followUpTasks.js enforces this).
  */
 export default function FollowUpTasksPanel({ leadId, canManage, bds, myAdminId }) {
+  // Admin panel (role) or Employee Portal (person-wise grant) — shared/crmAccess.js
+  const { http, root } = useLeadAccess();
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [completingId, setCompletingId] = useState(null);
@@ -32,7 +34,7 @@ export default function FollowUpTasksPanel({ leadId, canManage, bds, myAdminId }
   const fetchTasks = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await api.get(`/leads/${leadId}/tasks`);
+      const res = await http.get(`${root}/leads/${leadId}/tasks`);
       if (res.data?.success) setTasks(res.data.tasks || []);
     } catch {
       // panel just stays empty — not worth a toast on every lead load
@@ -49,7 +51,7 @@ export default function FollowUpTasksPanel({ leadId, canManage, bds, myAdminId }
       return;
     }
     try {
-      await api.put(`/leads/${leadId}/tasks/${taskId}/complete`, { result: resultText.trim() });
+      await http.put(`${root}/leads/${leadId}/tasks/${taskId}/complete`, { result: resultText.trim() });
       toast.success('Task completed');
       setCompletingId(null);
       setResultText('');
@@ -66,7 +68,7 @@ export default function FollowUpTasksPanel({ leadId, canManage, bds, myAdminId }
     }
     setSubmitting(true);
     try {
-      await api.post(`/leads/${leadId}/tasks`, {
+      await http.post(`${root}/leads/${leadId}/tasks`, {
         assignedTo: newTask.assignedTo,
         dueDate: new Date(newTask.dueDate).toISOString(),
         note: newTask.note.trim()

@@ -68,7 +68,8 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
         { name: 'Lead Activity', path: '/admin/lead-activity', requiredPermission: 'leads.assign' },
         { name: 'BDE Team Performance', path: '/admin/team-performance', requiredPermission: 'team.performance' },
         { name: 'Follow-ups', path: '/admin/follow-ups', requiredPermission: 'leads.assign' },
-        { name: 'Subscribers', path: '/admin/subscribers' }
+        // Newsletter list — same permission as its API (subscribeRoutes.js)
+        { name: 'Subscribers', path: '/admin/subscribers', requiredPermission: 'cms.manage' }
       ]
     },
     {

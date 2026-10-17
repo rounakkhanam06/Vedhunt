@@ -1,15 +1,15 @@
 const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../middleware/authMiddleware');
-const roleMiddleware = require('../middleware/roleMiddleware');
+const requirePermission = require('../middleware/requirePermission');
 const { getLeadForms, updateLeadForm } = require('../controllers/leadFormController');
 
-router.get('/', authMiddleware, getLeadForms);
+router.get('/', authMiddleware, requirePermission(['leads.view', 'settings.manage']), getLeadForms);
 
 router.put(
   '/:id',
   authMiddleware,
-  roleMiddleware('SUPER_ADMIN', 'EDITOR'),
+  requirePermission('settings.manage'),
   updateLeadForm
 );
 

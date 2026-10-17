@@ -77,6 +77,18 @@ router.use('/ess/team-performance', require('./teamPerformanceRoutes'));
 router.use('/ess/my-calls', requirePermission('leads.view'), require('./myCallsRoutes'));
 router.use('/ess/team', essTeamRoutes);
 router.use('/ess/projects', essProjectRoutes);
+// Person-wise page grants for the client CRM pages, scoped per page, client
+// and action — see config/pageAccess.js
+router.use('/crm', require('./clientManagementRoutes').crmRouter);
+// Person-wise lead page grants (Leads, Follow-ups, Lead Activity), scoped to
+// own / team / all leads — see routes/leadGrantRoutes.js
+// Payroll granted per person: View / Sensitive / Process, scoped to employees — routes/payrollRoutes.js
+router.use('/grants/payroll', require('./payrollRoutes').scopedPayrollRouter);
+// HRMS pages granted per person (Phase 4), scoped to employees — same paths as the Admin panel
+router.use('/grants/employees', require('./employeeRoutes').scopedEmployeeRouter);
+router.use('/grants/corrections', require('./correctionAdminRoutes').scopedCorrectionRouter);
+router.use('/grants/performance', require('./performanceRoutes').scopedPerformanceRouter);
+router.use('/grants', require('./leadGrantRoutes'));
 
 // ==========================================
 // EMPLOYEE SELF-SERVICE (ESS) ROUTES

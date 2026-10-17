@@ -7,8 +7,9 @@ const logger = require('../utils/logger');
 // @access  Private
 exports.getMyNotifications = async (req, res, next) => {
   try {
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 100);
     const [notifications, unreadCount] = await Promise.all([
-      Notification.find({ recipient: req.user._id }).sort({ createdAt: -1 }).limit(20),
+      Notification.find({ recipient: req.user._id }).sort({ createdAt: -1 }).limit(limit),
       Notification.countDocuments({ recipient: req.user._id, read: false })
     ]);
     res.status(200).json({ success: true, notifications, unreadCount });

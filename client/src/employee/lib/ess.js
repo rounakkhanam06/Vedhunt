@@ -49,6 +49,7 @@ export function useAccess() {
     portalModules: employee?.portalModules ?? null, // null → portal defaults
     hasTeam: Boolean(employee?.hasTeam),
     hasProjects: Boolean(employee?.hasProjects),
+    access: employee?.access || {}, // person-wise page grants ({ page: { actions, mode } })
     authEmployee: employee,
   };
 }

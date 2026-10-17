@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import api from '../../services/api';
+import { useCrm } from '../../shared/crmAccess';
 import toast from 'react-hot-toast';
 import {
   FolderOpen, Plus, Search, X, Save,
@@ -21,6 +21,8 @@ const STATUS_COLORS = {
 };
 
 export default function RetainerManager() {
+  // Admin panel (full access) or Employee Portal (person-wise grants) — shared/crmAccess.js
+  const { http, base, can: canCrm } = useCrm();
   const [retainers, setRetainers] = useState([]);
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -33,21 +35,21 @@ export default function RetainerManager() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    api.get('/admin/clients', { params: { limit: 200 } })
+    http.get(`${base}/client-options`, { params: { page: 'retainers' } })
       .then(r => setClients(r.data.data || []));
-  }, []);
+  }, [http, base]);
 
   const fetchRetainers = useCallback(async () => {
     setLoading(true);
     try {
       const params = { page, limit: 15 };
       if (statusFilter) params.status = statusFilter;
-      const r = await api.get('/admin/retainers', { params });
+      const r = await http.get(`${base}/retainers`, { params });
       setRetainers(r.data.data || []);
       setPagination(r.data.pagination || {});
     } catch { toast.error('Failed to load retainers'); }
     finally { setLoading(false); }
-  }, [page, statusFilter]);
+  }, [http, base, page, statusFilter]);
 
   useEffect(() => { fetchRetainers(); }, [fetchRetainers]);
 
@@ -96,10 +98,10 @@ export default function RetainerManager() {
     try {
       const payload = { ...form };
       if (editTarget) {
-        await api.put(`/admin/retainers/${editTarget._id}`, payload);
+        await http.put(`${base}/retainers/${editTarget._id}`, payload);
         toast.success('Retainer updated');
       } else {
-        await api.post('/admin/retainers', payload);
+        await http.post(`${base}/retainers`, payload);
         toast.success('Retainer created');
       }
       setShowModal(false);
@@ -112,7 +114,7 @@ export default function RetainerManager() {
   const deleteRetainer = async (id) => {
     if (!window.confirm('Delete this retainer contract?')) return;
     try {
-      await api.delete(`/admin/retainers/${id}`);
+      await http.delete(`${base}/retainers/${id}`);
       toast.success('Retainer deleted');
       fetchRetainers();
     } catch { toast.error('Failed to delete'); }
@@ -137,10 +139,10 @@ export default function RetainerManager() {
           <div className="bg-secondary/10 text-secondary px-4 py-2 rounded-lg font-bold text-sm">
             {pagination.total} Contracts
           </div>
-          <button onClick={openCreate}
+          {canCrm('retainers', 'create') && (<button onClick={openCreate}
             className="flex items-center gap-2 px-4 py-2 bg-secondary text-white rounded-lg text-sm font-medium hover:bg-secondary/90 cursor-pointer">
             <Plus size={15} /> New Retainer
-          </button>
+          </button>)}
         </div>
       </div>
 
@@ -215,14 +217,14 @@ export default function RetainerManager() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-center gap-2">
-                        <button onClick={() => openEdit(ret)} title="Edit"
+                        {canCrm('retainers', 'edit') && (<button onClick={() => openEdit(ret)} title="Edit"
                           className="p-1.5 text-secondary hover:bg-secondary/10 rounded-lg cursor-pointer">
                           <Edit2 size={14} />
-                        </button>
-                        <button onClick={() => deleteRetainer(ret._id)} title="Delete"
+                        </button>)}
+                        {canCrm('retainers', 'delete') && (<button onClick={() => deleteRetainer(ret._id)} title="Delete"
                           className="p-1.5 text-red-400 hover:bg-red-500/10 rounded-lg cursor-pointer">
                           <Trash2 size={14} />
-                        </button>
+                        </button>)}
                       </div>
                     </td>
                   </tr>

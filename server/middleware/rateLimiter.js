@@ -23,4 +23,14 @@ const authLimiter = rateLimit({
   message: { success: false, message: 'Too many login attempts, please try again after 15 minutes' },
 });
 
-module.exports = { globalLimiter, authLimiter };
+// Anonymous image uploads (POST /api/upload/public): enough for a person
+// submitting a review or a payment proof, too few to use as free storage.
+const publicUploadLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: process.env.NODE_ENV === 'development' ? 200 : 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'Too many uploads from this connection. Please try again in an hour.' },
+});
+
+module.exports = { globalLimiter, authLimiter, publicUploadLimiter };

@@ -1,10 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import api from '../../services/api';
+import { useLeadAccess } from '../../shared/crmAccess';
 import { motion } from 'framer-motion';
 import { Search, ChevronDown, ChevronLeft, ChevronRight, Eye, Download, LayoutGrid, Table, UserCheck, FileText, Upload as UploadIcon } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { usePermissions } from '../hooks/usePermissions';
 import LeadsPipelineView from '../components/LeadsPipelineView';
 import { downloadLeadsCsv } from '../utils/leadExport';
 import ImportLeadsModal from '../components/ImportLeadsModal';
@@ -54,7 +53,8 @@ const DATE_FIELD_LABELS = { received: 'Received', assigned: 'Assigned', lastCall
 const fmtShortDate = (d) => (d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' }) : '—');
 
 export default function LeadsManager({ stageGroup }) {
-  const { can } = usePermissions();
+  // Admin panel (role) or Employee Portal (person-wise grant) — shared/crmAccess.js
+  const { http, root, can, leadPath } = useLeadAccess();
   const isSuperAdmin = can('*');
   const canAssign = can('leads.assign');
   const [searchParams] = useSearchParams();
@@ -125,7 +125,7 @@ export default function LeadsManager({ stageGroup }) {
   const fetchLeads = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await api.get('/leads', {
+      const response = await http.get(`${root}/leads`, {
         params: {
           page: currentPage,
           limit: 10, // Items per page
@@ -176,7 +176,7 @@ export default function LeadsManager({ stageGroup }) {
     if (stageGroup !== 'raw' || formFilter === 'All') return;
     let cancelled = false;
     const useDates = dateField === 'received';
-    const countFor = (group) => api.get('/leads', {
+    const countFor = (group) => http.get(`${root}/leads`, {
       params: {
         stageGroup: group,
         fbFormId: formFilter,
@@ -200,7 +200,7 @@ export default function LeadsManager({ stageGroup }) {
   // Populate the form filter dropdown. Forms register themselves as leads
   // arrive, so this list grows on its own.
   useEffect(() => {
-    api.get('/admin/lead-forms')
+    http.get(`${root}/admin/lead-forms`)
       .then((res) => setLeadForms(res.data?.data || []))
       .catch(() => { /* filter just stays empty — not worth a toast */ });
   }, []);
@@ -209,7 +209,7 @@ export default function LeadsManager({ stageGroup }) {
   // fetchable by users who can actually assign (BDs get a 403, harmlessly skipped).
   useEffect(() => {
     if (!canAssign) return;
-    api.get('/admin/assignment/bds')
+    http.get(`${root}/admin/assignment/bds`)
       .then((res) => setBds(res.data?.data || []))
       .catch(() => { /* filter/assign control just stays empty */ });
   }, [canAssign]);
@@ -219,14 +219,14 @@ export default function LeadsManager({ stageGroup }) {
   useEffect(() => {
     const leadId = searchParams.get('leadId');
     if (!leadId) return;
-    navigate(`/admin/leads/${leadId}`, { replace: true });
+    navigate(leadPath(leadId), { replace: true });
     // Only run once on mount — the leadId param is consumed above.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleAssign = async (leadId, assignedTo, reason = '') => {
     try {
-      const response = await api.post(`/leads/${leadId}/assign`, { assignedTo: assignedTo || null, reason });
+      const response = await http.post(`${root}/leads/${leadId}/assign`, { assignedTo: assignedTo || null, reason });
       const updated = response.data.data;
       setLeads(leads.map(l => l._id === leadId ? updated : l));
       toast.success(assignedTo ? 'Lead assigned' : 'Lead unassigned');
@@ -238,7 +238,7 @@ export default function LeadsManager({ stageGroup }) {
   const deleteLead = async (id) => {
     if (window.confirm('Are you sure you want to delete this lead?')) {
       try {
-        await api.post(`/leads/${id}/delete`);
+        await http.post(`${root}/leads/${id}/delete`);
         toast.success('Lead deleted successfully');
         fetchLeads();
       } catch (error) {
@@ -254,7 +254,7 @@ export default function LeadsManager({ stageGroup }) {
   // update, not a sequence of partial ones.
   const handleFieldsChange = async (id, fields) => {
     try {
-      const res = await api.put(`/leads/${id}`, fields);
+      const res = await http.put(`${root}/leads/${id}`, fields);
       setLeads(leads.map(l => l._id === id ? { ...l, ...fields } : l));
       toast.success('Saved', { duration: 1000, position: 'bottom-right' });
       return res.data;
@@ -271,7 +271,7 @@ export default function LeadsManager({ stageGroup }) {
   const startCall = async (id) => {
     try {
       const now = new Date();
-      await api.put(`/leads/${id}`, { callStartTime: now, callDate: now });
+      await http.put(`${root}/leads/${id}`, { callStartTime: now, callDate: now });
       setLeads(leads.map(l => l._id === id ? { ...l, callStartTime: now, callDate: now } : l));
       toast.success('Call started', { position: 'bottom-right' });
     } catch {
@@ -288,7 +288,7 @@ export default function LeadsManager({ stageGroup }) {
       const now = new Date();
       const diffMs = now.getTime() - new Date(lead.callStartTime).getTime();
       const durationMin = Math.max(1, Math.round(diffMs / 60000));
-      await api.put(`/leads/${lead._id}`, { callEndTime: now, callDuration: durationMin });
+      await http.put(`${root}/leads/${lead._id}`, { callEndTime: now, callDuration: durationMin });
       setLeads(leads.map(l => l._id === lead._id ? { ...l, callEndTime: now, callDuration: durationMin } : l));
       toast.success(`Call ended (${durationMin} min)`, { position: 'bottom-right' });
     } catch {
@@ -299,7 +299,7 @@ export default function LeadsManager({ stageGroup }) {
   const handleExport = async (format) => {
     try {
       toast.loading('Preparing export...', { id: 'export-toast' });
-      const response = await api.get('/leads', {
+      const response = await http.get(`${root}/leads`, {
         params: {
           export: true,
           status: statusFilter,
@@ -696,7 +696,7 @@ export default function LeadsManager({ stageGroup }) {
           handleFieldsChange={handleFieldsChange}
           startCall={startCall}
           endCall={endCall}
-          onOpenLead={(lead) => navigate(`/admin/leads/${lead._id}`)}
+          onOpenLead={(lead) => navigate(leadPath(lead._id))}
           handleAssign={handleAssign}
           bds={bds}
           canAssign={canAssign}
@@ -940,7 +940,7 @@ export default function LeadsManager({ stageGroup }) {
                         </td>
                         <td className={`px-3 py-2 align-middle text-right whitespace-nowrap sticky right-0 ${rowStripeClass} group-hover:bg-surface-variant border-l border-app-border z-10 flex items-center justify-end gap-2`}>
                           <button
-                            onClick={() => navigate(`/admin/leads/${lead._id}`)}
+                            onClick={() => navigate(leadPath(lead._id))}
                             className="p-1.5 text-primary hover:bg-primary/10 rounded transition-colors cursor-pointer"
                             title="Open Lead Workspace"
                           >

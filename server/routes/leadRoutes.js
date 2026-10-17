@@ -9,6 +9,7 @@ const {
 } = require('../controllers/leadController');
 const authMiddleware = require('../middleware/authMiddleware');
 const requirePermission = require('../middleware/requirePermission');
+const requirePageAccess = require('../middleware/requirePageAccess');
 const { uploadLeadDocument: uploadLeadDocumentMiddleware } = require('../utils/cloudinary');
 
 // In-memory only — the uploaded spreadsheet is parsed and discarded, never
@@ -27,30 +28,41 @@ const uploadLeadFile = multer({
   }
 });
 
+// Authenticated lead routes. No auth here: mounted behind the Admin auth below
+// (/api/leads) and behind the Employee Portal auth for person-wise grants
+// (/api/employee-portal/grants/leads). Each route checks page + action through
+// requirePageAccess (role access exactly as before, plus any grant), and the
+// controller limits the data to req.pageScope (utils/leadScope.js).
+const scoped = express.Router();
+const leads = (action) => requirePageAccess('leads', action);
+// Follow-up tasks are shared by the Leads and Follow-ups pages
+const tasks = (action) => requirePageAccess([['leads', action], ['followups', action]]);
+
+scoped.get('/', leads('view'), getLeads);
+scoped.get('/import/:jobId', requirePermission('leads.import'), getImportStatus);
+scoped.get('/assignments/all', requirePermission('audit.view'), getAllAssignmentLogs);
+scoped.get('/:id', leads('view'), getLeadById);
+scoped.get('/:id/assignment-history', leads('view'), getAssignmentHistory);
+scoped.post('/bulk-assign', leads('assign'), bulkAssignLeads);
+scoped.post('/:id/assign', leads('assign'), assignLead);
+scoped.post('/:id/lock', leads('edit'), lockLead);
+scoped.post('/:id/unlock', leads('view'), unlockLead);
+scoped.put('/:id', leads('edit'), updateLead);
+scoped.post('/import/preview', requirePermission('leads.import'), uploadLeadFile.single('file'), previewImportLeads);
+scoped.post('/import', requirePermission('leads.import'), uploadLeadFile.single('file'), importLeads);
+scoped.post('/:id/documents', leads('edit'), uploadLeadDocumentMiddleware.single('file'), uploadLeadDocument);
+scoped.delete('/:id/documents/:docId', leads('edit'), deleteLeadDocument);
+scoped.get('/:id/tasks', tasks('view'), getLeadTasks);
+scoped.post('/:id/tasks', requirePageAccess('followups', 'edit'), createLeadTask);
+scoped.put('/:id/tasks/:taskId/complete', tasks('edit'), completeLeadTask);
+scoped.delete('/:id', leads('delete'), deleteLead);
+// Fallback for strict firewalls that block DELETE requests
+scoped.post('/:id/delete', leads('delete'), deleteLead);
+
 // Public route to submit lead
 router.post('/', createLead);
-
-// Admin routes
-router.get('/', authMiddleware, requirePermission('leads.view'), getLeads);
-router.get('/import/:jobId', authMiddleware, requirePermission('leads.import'), getImportStatus);
-router.get('/assignments/all', authMiddleware, requirePermission('audit.view'), getAllAssignmentLogs);
-router.get('/:id', authMiddleware, requirePermission('leads.view'), getLeadById);
-router.get('/:id/assignment-history', authMiddleware, requirePermission('leads.view'), getAssignmentHistory);
-router.post('/bulk-assign', authMiddleware, requirePermission('leads.assign'), bulkAssignLeads);
-router.post('/:id/assign', authMiddleware, requirePermission('leads.assign'), assignLead);
-router.post('/:id/lock', authMiddleware, requirePermission('leads.view'), lockLead);
-router.post('/:id/unlock', authMiddleware, requirePermission('leads.view'), unlockLead);
-router.put('/:id', authMiddleware, requirePermission('leads.view'), updateLead);
-router.post('/import/preview', authMiddleware, requirePermission('leads.import'), uploadLeadFile.single('file'), previewImportLeads);
-router.post('/import', authMiddleware, requirePermission('leads.import'), uploadLeadFile.single('file'), importLeads);
-router.post('/:id/documents', authMiddleware, requirePermission('leads.view'), uploadLeadDocumentMiddleware.single('file'), uploadLeadDocument);
-router.delete('/:id/documents/:docId', authMiddleware, requirePermission('leads.view'), deleteLeadDocument);
-router.get('/:id/tasks', authMiddleware, requirePermission('leads.view'), getLeadTasks);
-router.post('/:id/tasks', authMiddleware, requirePermission('leads.assign'), createLeadTask);
-router.put('/:id/tasks/:taskId/complete', authMiddleware, requirePermission('leads.view'), completeLeadTask);
-router.delete('/:id', authMiddleware, requirePermission('leads.delete'), deleteLead);
-// Fallback for strict firewalls that block DELETE requests
-router.post('/:id/delete', authMiddleware, requirePermission('leads.delete'), deleteLead);
-
+// Admin panel
+router.use(authMiddleware, scoped);
 
 module.exports = router;
+module.exports.scopedLeadRouter = scoped;

@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { IndianRupee, FileText, CheckCircle, XCircle, Search, Clock, ExternalLink } from 'lucide-react';
 import toast from 'react-hot-toast';
-import api from '../../services/api';
+import { useCrm } from '../../shared/crmAccess';
 
 const PaymentVerificationManager = () => {
+  // Admin panel (full access) or Employee Portal (person-wise grants) — shared/crmAccess.js
+  const { http, base, can: canCrm } = useCrm();
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -15,7 +17,7 @@ const PaymentVerificationManager = () => {
   const fetchPayments = async () => {
     try {
       setLoading(true);
-      const res = await api.get('/admin/payments');
+      const res = await http.get(`${base}/payments`);
       if (res.data.success) {
         setPayments(res.data.data);
       }
@@ -34,7 +36,7 @@ const PaymentVerificationManager = () => {
   const handleApprove = async (id) => {
     try {
       setActionLoading(true);
-      const res = await api.put(`/admin/payments/${id}/approve`);
+      const res = await http.put(`${base}/payments/${id}/approve`);
       if (res.data.success) {
         toast.success('Payment approved and invoice updated.');
         fetchPayments();
@@ -53,7 +55,7 @@ const PaymentVerificationManager = () => {
     }
     try {
       setActionLoading(true);
-      const res = await api.put(`/admin/payments/${id}/reject`, { rejectionReason });
+      const res = await http.put(`${base}/payments/${id}/reject`, { rejectionReason });
       if (res.data.success) {
         toast.success('Payment rejected.');
         fetchPayments();
@@ -297,7 +299,7 @@ const PaymentVerificationManager = () => {
 
             {/* Actions */}
             <div className="p-6 border-t border-outline-variant bg-admin-bg/50">
-              {selectedPayment.status === 'Pending' ? (
+              {selectedPayment.status === 'Pending' && canCrm('payments', 'edit') ? (
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-start gap-4">
                   <div className="flex-1">
                     <input
@@ -329,7 +331,7 @@ const PaymentVerificationManager = () => {
                 </div>
               ) : (
                 <div className="text-center text-on-surface-variant text-sm">
-                  This payment was <strong className={selectedPayment.status === 'Approved' ? 'text-green-500' : 'text-red-500'}>{selectedPayment.status}</strong> on {selectedPayment.verifiedAt ? new Date(selectedPayment.verifiedAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A'}.
+                  {selectedPayment.status === 'Pending' ? 'This payment is awaiting verification.' : <>This payment was <strong className={selectedPayment.status === 'Approved' ? 'text-green-500' : 'text-red-500'}>{selectedPayment.status}</strong> on {selectedPayment.verifiedAt ? new Date(selectedPayment.verifiedAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A'}.</>}
                 </div>
               )}
             </div>

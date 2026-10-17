@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import api from '../../services/api';
+import { usePageAccess } from '../../shared/crmAccess';
 import toast from 'react-hot-toast';
 import { BarChart2, RefreshCw, Star, Trophy, ChevronDown, ChevronUp, Download, X } from 'lucide-react';
 
@@ -35,6 +35,8 @@ const StarRating = ({ value }) => (
 );
 
 const CompanyPerformanceMatrix = () => {
+  // Admin panel (role) or Employee Portal (person-wise grant) — shared/crmAccess.js
+  const { http, root, allowed, inPortal } = usePageAccess();
   const [cycles, setCycles] = useState([]);
   const [selectedCycle, setSelectedCycle] = useState('');
   const [matrix, setMatrix] = useState([]);
@@ -53,7 +55,7 @@ const CompanyPerformanceMatrix = () => {
   const [savingTargetId, setSavingTargetId] = useState(null);
 
   useEffect(() => {
-    api.get('/performance/presets').then(res => setMetricDefs(res.data.metricDefs || {})).catch(() => {});
+    http.get(`${root}/performance/presets`).then(res => setMetricDefs(res.data.metricDefs || {})).catch(() => {});
   }, []);
 
   const saveManualActual = async (target) => {
@@ -61,7 +63,7 @@ const CompanyPerformanceMatrix = () => {
     if (value === undefined || value === '' || Number(value) < 0) { toast.error('Enter a valid value.'); return; }
     setSavingTargetId(target._id);
     try {
-      await api.put(`/performance/targets/${target._id}/manual-actual`, { actualValue: Number(value) });
+      await http.put(`${root}/performance/targets/${target._id}/manual-actual`, { actualValue: Number(value) });
       toast.success('Actual saved — score recalculated.');
       setManualDrafts((d) => { const next = { ...d }; delete next[target._id]; return next; });
       fetchMatrix();
@@ -73,7 +75,7 @@ const CompanyPerformanceMatrix = () => {
   };
 
   useEffect(() => {
-    api.get('/performance/cycles').then(res => {
+    http.get(`${root}/performance/cycles`).then(res => {
       if (res.data.success) {
         setCycles(res.data.cycles);
         const active = res.data.cycles.find(c => c.status === 'Active');
@@ -90,7 +92,7 @@ const CompanyPerformanceMatrix = () => {
   const fetchMatrix = async () => {
     setIsLoading(true);
     try {
-      const res = await api.get(`/performance/company-matrix/${selectedCycle}`);
+      const res = await http.get(`${root}/performance/company-matrix/${selectedCycle}`);
       if (res.data.success) setMatrix(res.data.matrix);
     } catch {
       toast.error('Failed to load performance matrix.');
@@ -103,7 +105,7 @@ const CompanyPerformanceMatrix = () => {
     if (!window.confirm('This will auto-pull actual performance data from CRM, WorkLog and Attendance for all employees. Continue?')) return;
     setIsSyncing(true);
     try {
-      const res = await api.post(`/performance/sync-actual/${selectedCycle}`);
+      const res = await http.post(`${root}/performance/sync-actual/${selectedCycle}`);
       if (res.data.success) {
         toast.success(res.data.message);
         fetchMatrix();
@@ -120,7 +122,7 @@ const CompanyPerformanceMatrix = () => {
     if (!reviewForm.managerFeedback.trim()) { toast.error('Feedback is required.'); return; }
     setIsSubmittingReview(true);
     try {
-      const res = await api.post(`/performance/review/manager/${reviewModal.reviewId}`, reviewForm);
+      const res = await http.post(`${root}/performance/review/manager/${reviewModal.reviewId}`, reviewForm);
       if (res.data.success) {
         toast.success('Manager review submitted!');
         setReviewModal(null);
@@ -179,14 +181,14 @@ const CompanyPerformanceMatrix = () => {
           </p>
         </div>
         <div className="flex gap-2">
-          <button
+          {!inPortal && (<button
             onClick={handleSyncActuals}
             disabled={!selectedCycle || isSyncing}
             className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 border border-blue-500/20 font-medium transition-all cursor-pointer disabled:opacity-40 text-sm"
           >
             <RefreshCw size={16} className={isSyncing ? 'animate-spin' : ''} />
             {isSyncing ? 'Syncing...' : 'Sync Actuals'}
-          </button>
+          </button>)}
           <button
             onClick={handleExportCSV}
             disabled={!matrix.length}
@@ -355,7 +357,7 @@ const CompanyPerformanceMatrix = () => {
                         {/* Actions */}
                         <td className="py-4 px-5 text-right">
                           <div className="flex gap-2 justify-end">
-                            {!review.managerReview?.isSubmitted && (
+                            {!review.managerReview?.isSubmitted && allowed('performance.manage', 'performance', 'edit') && (
                               <button
                                 onClick={() => setReviewModal({ reviewId: review._id, empName: `${emp?.firstName} ${emp?.lastName}` })}
                                 className="px-3 py-1.5 rounded-lg bg-orange-600/10 text-orange-400 hover:bg-orange-600 hover:text-white border border-orange-500/20 text-xs font-bold transition-all cursor-pointer"
@@ -412,10 +414,10 @@ const CompanyPerformanceMatrix = () => {
                                         className="flex-1 min-w-0 text-xs rounded-md border border-app-border bg-form-input-bg px-2 py-1 text-app-text"
                                         aria-label={`Actual for ${t.metricType}`}
                                       />
-                                      <button type="button" onClick={() => saveManualActual(t)} disabled={savingTargetId === t._id}
+                                      {allowed('performance.manage', 'performance', 'edit') && (<button type="button" onClick={() => saveManualActual(t)} disabled={savingTargetId === t._id}
                                         className="px-2 py-1 rounded-md bg-primary text-white text-[11px] font-bold disabled:opacity-50 cursor-pointer">
                                         {savingTargetId === t._id ? '…' : 'Save'}
-                                      </button>
+                                      </button>)}
                                     </div>
                                   )}
                                 </div>

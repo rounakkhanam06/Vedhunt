@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import toast from 'react-hot-toast';
 import { Landmark, Check, X, RefreshCw } from 'lucide-react';
-import api from '../../services/api';
+import { usePageAccess } from '../../shared/crmAccess';
 
 // HR approval queue for employees' salary-account changes. Nothing changes on
 // the employee record until a request is approved here.
@@ -38,6 +38,8 @@ const Details = ({ d, compareTo }) => (
 );
 
 export default function BankChangeRequestsManager() {
+  // Admin panel (role) or Employee Portal (person-wise grant) — shared/crmAccess.js
+  const { http, root, allowed } = usePageAccess();
   const [tab, setTab] = useState('Pending');
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -48,7 +50,7 @@ export default function BankChangeRequestsManager() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await api.get('/employees/admin/bank-change-requests', { params: { status: tab } });
+      const res = await http.get(`${root}/employees/admin/bank-change-requests`, { params: { status: tab } });
       setRequests(res.data.requests || []);
     } catch {
       toast.error('Failed to load bank change requests');
@@ -63,7 +65,7 @@ export default function BankChangeRequestsManager() {
     if (review.status === 'Rejected' && !comment.trim()) return toast.error('Please give a reason for rejecting.');
     setSaving(true);
     try {
-      const res = await api.put(`/employees/admin/bank-change-requests/${review.request._id}/status`, { status: review.status, comment: comment.trim() });
+      const res = await http.put(`${root}/employees/admin/bank-change-requests/${review.request._id}/status`, { status: review.status, comment: comment.trim() });
       toast.success(res.data.message);
       setReview(null);
       setComment('');
@@ -131,14 +133,14 @@ export default function BankChangeRequestsManager() {
                     <td className="px-4 py-3 text-right whitespace-nowrap">
                       {r.status === 'Pending' && (
                         <div className="flex justify-end gap-2">
-                          <button onClick={() => { setReview({ request: r, status: 'Approved' }); setComment(''); }}
+                          {allowed('bankchanges.manage', 'bank-changes', 'edit') && (<button onClick={() => { setReview({ request: r, status: 'Approved' }); setComment(''); }}
                             className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 cursor-pointer">
                             <Check size={13} /> Approve
-                          </button>
-                          <button onClick={() => { setReview({ request: r, status: 'Rejected' }); setComment(''); }}
+                          </button>)}
+                          {allowed('bankchanges.manage', 'bank-changes', 'edit') && (<button onClick={() => { setReview({ request: r, status: 'Rejected' }); setComment(''); }}
                             className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-rose-600 text-white text-xs font-semibold hover:bg-rose-700 cursor-pointer">
                             <X size={13} /> Reject
-                          </button>
+                          </button>)}
                         </div>
                       )}
                     </td>

@@ -3,7 +3,7 @@ const crypto = require('crypto');
 const cookieParser = require('cookie-parser');
 const router = express.Router();
 const authMiddleware = require('../middleware/authMiddleware');
-const roleMiddleware = require('../middleware/roleMiddleware');
+const requirePermission = require('../middleware/requirePermission');
 const { verifyFacebookWebhook, receiveFacebookLead, receiveGoogleLead } = require('../controllers/webhookController');
 
 // Google Ads Webhook (Uses standard JSON)
@@ -22,7 +22,7 @@ router.post('/facebook', express.raw({ type: 'application/json' }), receiveFaceb
 // Publicly readable config disclosure, so it is admin-only. This router is
 // mounted before the global cookieParser(), so it needs its own to let
 // authMiddleware read the adminToken cookie.
-router.get('/debug', cookieParser(), authMiddleware, roleMiddleware('SUPER_ADMIN'), async (req, res) => {
+router.get('/debug', cookieParser(), authMiddleware, requirePermission('*'), async (req, res) => {
   const token = process.env.FB_PAGE_ACCESS_TOKEN;
 
   // Knowing the variable is *set* proved useless in practice — an expired

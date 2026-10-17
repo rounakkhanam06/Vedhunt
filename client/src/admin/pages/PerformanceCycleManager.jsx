@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import api from '../../services/api';
+import { usePageAccess } from '../../shared/crmAccess';
 import toast from 'react-hot-toast';
 import { Plus, Play, Lock, Calendar, ChevronRight, BarChart2, X } from 'lucide-react';
 
@@ -14,6 +14,8 @@ const BAND_COLORS = {
 };
 
 const PerformanceCycleManager = () => {
+  // Admin panel (role) or Employee Portal (person-wise grant) — shared/crmAccess.js
+  const { http, root, inPortal } = usePageAccess();
   const [cycles, setCycles] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -33,7 +35,7 @@ const PerformanceCycleManager = () => {
   const fetchCycles = async () => {
     setIsLoading(true);
     try {
-      const res = await api.get('/performance/cycles');
+      const res = await http.get(`${root}/performance/cycles`);
       if (res.data.success) setCycles(res.data.cycles);
     } catch {
       toast.error('Failed to load performance cycles.');
@@ -51,7 +53,7 @@ const PerformanceCycleManager = () => {
     setIsSaving(true);
     try {
       const title = `${form.quarter} ${form.year} — Performance Cycle`;
-      const res = await api.post('/performance/cycles', { ...form, title, year: Number(form.year) });
+      const res = await http.post(`${root}/performance/cycles`, { ...form, title, year: Number(form.year) });
       if (res.data.success) {
         toast.success('Cycle created successfully!');
         setShowModal(false);
@@ -69,7 +71,7 @@ const PerformanceCycleManager = () => {
     const label = newStatus === 'Active' ? 'activate' : 'close';
     if (!window.confirm(`Are you sure you want to ${label} this cycle? ${newStatus === 'Active' ? 'All other active cycles will be closed.' : ''}`)) return;
     try {
-      const res = await api.put(`/performance/cycles/${cycleId}`, { status: newStatus });
+      const res = await http.put(`${root}/performance/cycles/${cycleId}`, { status: newStatus });
       if (res.data.success) {
         toast.success(`Cycle ${label}d successfully!`);
         fetchCycles();
@@ -90,12 +92,12 @@ const PerformanceCycleManager = () => {
           </h1>
           <p className="text-app-text-muted text-sm mt-1">Create and manage quarterly performance review cycles.</p>
         </div>
-        <button
+        {!inPortal && (<button
           onClick={() => setShowModal(true)}
           className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-orange-600 hover:bg-orange-700 text-white font-medium transition-all shadow-lg hover:shadow-orange-500/20 active:scale-[0.98] cursor-pointer"
         >
           <Plus size={18} /> New Cycle
-        </button>
+        </button>)}
       </div>
 
       {/* Info Banner */}
@@ -141,7 +143,7 @@ const PerformanceCycleManager = () => {
                 Created by: <span className="text-app-text-muted">{cycle.createdBy?.email || 'Admin'}</span>
               </div>
 
-              <div className="flex flex-wrap gap-2 pt-1 border-t border-app-border">
+              {!inPortal && (<div className="flex flex-wrap gap-2 pt-1 border-t border-app-border">
                 {cycle.status === 'Draft' && (
                   <button
                     onClick={() => handleStatusChange(cycle._id, 'Active')}
@@ -169,7 +171,7 @@ const PerformanceCycleManager = () => {
                 {cycle.status === 'Closed' && (
                   <div className="flex-1 text-center py-2 text-xs text-app-text-muted font-medium">Cycle Closed</div>
                 )}
-              </div>
+              </div>)}
             </div>
           ))}
         </div>

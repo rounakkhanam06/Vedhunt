@@ -33,13 +33,30 @@ const CALL_AT = { $ifNull: ['$callLogs.loggedAt', '$callLogs.callDate'] };
 //          (ignoring ?by) so the page can show "who made how many".
 // @route   GET /api/admin/activity/calls
 // @access  Private (leads.assign or dashboard.management)
+// Every report is limited to the BDs in the person's lead scope
+// (req.pageScope from requirePageAccess; null = every BD). Returns the
+// Admin ids as ObjectIds, or null for no limit.
+const { assigneeIds, oid } = require('../utils/leadScope');
+const scopeIds = async (req) => {
+  const ids = await assigneeIds(req);
+  return ids && ids.map(oid);
+};
+// The ?by= "one BD" filter, kept inside the scope
+const bdFilter = (req, ids) => {
+  const by = req.query.by && req.query.by !== 'All' && mongoose.Types.ObjectId.isValid(req.query.by) ? String(req.query.by) : null;
+  if (!ids) return by ? oid(by) : null;
+  if (by) return ids.some((i) => String(i) === by) ? oid(by) : { $in: [] };
+  return { $in: ids };
+};
+
 exports.getCallActivity = async (req, res, next) => {
   try {
     const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
     const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 20, 1), 100);
     const skip = (page - 1) * limit;
 
-    const base = { 'callLogs.calledBy': { $ne: null } };
+    const ids = await scopeIds(req);
+    const base = { 'callLogs.calledBy': ids ? { $in: ids } : { $ne: null } };
     if (req.query.result === 'Connected') base['callLogs.connected'] = 'Yes';
     else if (req.query.result === 'Not Connected') base['callLogs.connected'] = { $ne: 'Yes' };
     const period = dateRangeFromQuery(req.query);
@@ -48,8 +65,7 @@ exports.getCallActivity = async (req, res, next) => {
       ...(period.$lte ? [{ $lte: [CALL_AT, period.$lte] }] : []),
     ] } } }] : [];
 
-    const byId = req.query.by && req.query.by !== 'All' && mongoose.Types.ObjectId.isValid(req.query.by)
-      ? new mongoose.Types.ObjectId(req.query.by) : null;
+    const byId = bdFilter(req, ids);
     const onlyBd = byId ? [{ $match: { 'callLogs.calledBy': byId } }] : [];
 
     const [result] = await Lead.aggregate([
@@ -136,8 +152,9 @@ exports.getFollowUpCompliance = async (req, res, next) => {
     const todayEnd = new Date(now);
     todayEnd.setHours(23, 59, 59, 999);
 
+    const ids = await scopeIds(req);
     const leads = await Lead.find({
-      assignedTo: { $ne: null },
+      assignedTo: ids ? { $in: ids } : { $ne: null },
       nextFollowUpDate: { $ne: null },
       status: { $nin: NON_ACTIVE_STATUSES }
     })
@@ -209,14 +226,14 @@ exports.getFollowUpsList = async (req, res, next) => {
     const todayEnd = new Date(now);
     todayEnd.setHours(23, 59, 59, 999);
 
+    const ids = await scopeIds(req);
     const query = {
-      assignedTo: { $ne: null },
+      assignedTo: ids ? { $in: ids } : { $ne: null },
       nextFollowUpDate: { $ne: null },
       status: { $nin: NON_ACTIVE_STATUSES }
     };
-    if (req.query.by && req.query.by !== 'All') {
-      query.assignedTo = new mongoose.Types.ObjectId(req.query.by);
-    }
+    const by = bdFilter(req, ids);
+    if (by) query.assignedTo = by;
 
     // Bucketed in JS, not via Mongo $gt/$lt — some legacy leads have
     // nextFollowUpDate stored as a plain string (raw-driver writes bypass
@@ -289,9 +306,9 @@ exports.getActionMissingQueue = async (req, res, next) => {
       status: { $nin: NON_ACTIVE_STATUSES },
       $or: [{ nextFollowUpDate: null }, { nextFollowUpDate: { $exists: false } }, { nextFollowUpDate: '' }]
     };
-    if (req.query.by && req.query.by !== 'All') {
-      query.assignedTo = new mongoose.Types.ObjectId(req.query.by);
-    }
+    const ids = await scopeIds(req);
+    const by = bdFilter(req, ids);
+    if (by) query.assignedTo = by;
 
     // Category counts are computed over the full matching set (unpaginated,
     // filter-by-BD respected) so the dashboard's chip counts stay accurate
@@ -344,8 +361,9 @@ exports.getPipelineSummary = async (req, res, next) => {
   try {
     // Optional ?dateFrom/dateTo: only leads received in that period.
     const period = dateRangeFromQuery(req.query);
+    const ids = await scopeIds(req);
     const rows = await Lead.aggregate([
-      { $match: { leadType: { $in: ['Sales', null] }, ...(period && { createdAt: period }) } },
+      { $match: { leadType: { $in: ['Sales', null] }, ...(period && { createdAt: period }), ...(ids && { assignedTo: { $in: ids } }) } },
       {
         $group: {
           _id: '$status',
@@ -397,9 +415,10 @@ exports.getBDAccountability = async (req, res, next) => {
       ...(period.$lte ? [{ $lte: [CALL_AT, period.$lte] }] : []),
     ] } } }] : [];
 
+    const ids = await scopeIds(req);
     const [leadRows, callRows, noOutcomeRows] = await Promise.all([
       Lead.aggregate([
-        { $match: { assignedTo: { $ne: null }, ...(period && { assignedAt: period }) } },
+        { $match: { assignedTo: ids ? { $in: ids } : { $ne: null }, ...(period && { assignedAt: period }) } },
         {
           $group: {
             _id: '$assignedTo',
@@ -424,7 +443,7 @@ exports.getBDAccountability = async (req, res, next) => {
       // earlier calls with the BD who made them.
       Lead.aggregate([
         { $unwind: '$callLogs' },
-        { $match: { 'callLogs.calledBy': { $ne: null } } },
+        { $match: { 'callLogs.calledBy': ids ? { $in: ids } : { $ne: null } } },
         ...callPeriod,
         { $group: { _id: '$callLogs.calledBy', callsMade: { $sum: 1 } } }
       ]),
@@ -437,7 +456,7 @@ exports.getBDAccountability = async (req, res, next) => {
           by: { $ifNull: ['$callStartedBy', '$assignedTo'] },
           logged: { $in: ['$callStartTime', { $ifNull: ['$callLogs.callStartTime', []] }] }
         } },
-        { $match: { logged: false, by: { $ne: null } } },
+        { $match: { logged: false, by: ids ? { $in: ids } : { $ne: null } } },
         { $group: { _id: '$by', noOutcomeCount: { $sum: 1 } } }
       ])
     ]);

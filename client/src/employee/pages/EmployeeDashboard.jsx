@@ -20,6 +20,7 @@ import TeamApprovalsTab from '../tabs/TeamApprovalsTab';
 import TeamPerformanceTab from '../tabs/TeamPerformanceTab';
 import MyCallLogTab from '../tabs/MyCallLogTab';
 import ProjectsTab from '../tabs/ProjectsTab';
+import CrmTab from '../tabs/CrmTab';
 
 const TABS = {
   dashboard: HomeTab,
@@ -37,6 +38,26 @@ const TABS = {
   team: TeamApprovalsTab,
   'team-performance': TeamPerformanceTab,
   projects: ProjectsTab,
+  'crm-clients': () => <CrmTab page="clients" />,
+  'crm-invoices': () => <CrmTab page="invoices" />,
+  'crm-projects': () => <CrmTab page="projects" />,
+  'crm-retainers': () => <CrmTab page="retainers" />,
+  'crm-tickets': () => <CrmTab page="tickets" />,
+  'crm-payments': () => <CrmTab page="payments" />,
+  'crm-agreements': () => <CrmTab page="agreements" />,
+  'grant-leads': () => <CrmTab page="leads" />,
+  'grant-followups': () => <CrmTab page="followups" />,
+  'grant-lead-activity': () => <CrmTab page="lead-activity" />,
+  'grant-payroll': () => <CrmTab page="payroll" />,
+  'grant-employees': () => <CrmTab page="employees" />,
+  'grant-leave': () => <CrmTab page="leave" />,
+  'grant-attendance': () => <CrmTab page="attendance" />,
+  'grant-corrections': () => <CrmTab page="corrections" />,
+  'grant-bank-changes': () => <CrmTab page="bank-changes" />,
+  'grant-holidays': () => <CrmTab page="holidays" />,
+  'grant-tasks': () => <CrmTab page="tasks" />,
+  'grant-productivity': () => <CrmTab page="productivity" />,
+  'grant-performance': () => <CrmTab page="performance" />,
 };
 
 function WelcomeBanner({ employee }) {
