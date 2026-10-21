@@ -27,6 +27,10 @@ describe('lead reassignment', () => {
 
   async function setup() {
     const db = mongoose.connection.db;
+    await db.collection('admins').deleteMany({});
+    await db.collection('leads').deleteMany({});
+    await db.collection('followuptasks').deleteMany({});
+    await db.collection('assignmentlogs').deleteMany({});
     const [oldBd, newBd, boss, otherBd] = [oid(), oid(), oid(), oid()];
     await db.collection('admins').insertMany(
       [oldBd, newBd, otherBd].map((_id, i) => ({ _id, firstName: `BD${i}`, lastName: 'T', email: `bd${i}@x.com`, isActive: true }))
