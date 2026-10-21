@@ -408,7 +408,7 @@ const CreateEditBlog = () => {
             
             <div className="mb-2">
               <label className="block text-sm font-medium text-app-text">Thumbnail (Cover Image)</label>
-              <p className="text-xs text-app-text-muted mb-2">This is the main cover image. It appears on the blog cards and at the very top of the article.</p>
+              <p className="text-xs text-app-text-muted mb-2">This is the main cover image. It appears on the blog cards and at the very top of the article. Best size: 1600 × 800 px (2:1), with text kept away from the edges.</p>
               <div className="flex gap-2 mb-2">
                 <input 
                   type="text" 
@@ -434,7 +434,7 @@ const CreateEditBlog = () => {
                 </label>
               </div>
               {formData.thumbnail && (
-                <img src={formData.thumbnail} alt="Thumbnail Preview" className="w-full h-32 object-cover rounded-lg mt-3 border border-app-border" />
+                <img src={formData.thumbnail} alt="Thumbnail Preview" className="w-full aspect-[2/1] object-cover rounded-lg mt-3 border border-app-border" />
               )}
             </div>
           </div>
