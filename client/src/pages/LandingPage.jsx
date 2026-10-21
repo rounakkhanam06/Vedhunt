@@ -150,7 +150,7 @@ export default function LandingPage() {
           animate={{ opacity: 1, y: 0 }}
           className="space-y-6"
         >
-          <div className="inline-block px-4 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-bold tracking-widest uppercase mb-4">
+          <div className="inline-block px-4 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-bold tracking-widest mb-4">
             Special Offer Limited Time
           </div>
           <h1 className="text-4xl md:text-6xl font-black font-heading leading-tight text-app-text">
@@ -162,11 +162,11 @@ export default function LandingPage() {
           <div className="pt-8">
             <button 
               onClick={() => document.getElementById('lp-form').scrollIntoView({ behavior: 'smooth' })}
-              className="px-8 py-4 bg-primary hover:bg-primary-hover text-black font-extrabold text-sm uppercase tracking-widest rounded-full transition-all shadow-xl hover:-translate-y-1 flex items-center gap-2 mx-auto"
+              className="px-8 py-4 bg-primary hover:bg-primary-hover text-black font-extrabold text-sm tracking-widest rounded-full transition-all shadow-xl hover:-translate-y-1 flex items-center gap-2 mx-auto"
             >
               {pageData.primaryCta} <ArrowRight className="w-5 h-5" />
             </button>
-            <p className="text-[10px] text-app-text-muted mt-3 uppercase tracking-widest">No Credit Card Required</p>
+            <p className="text-[10px] text-app-text-muted mt-3 tracking-widest">No Credit Card Required</p>
           </div>
         </motion.div>
       </section>
@@ -257,7 +257,7 @@ export default function LandingPage() {
               return (
                 <div key={tierKey} className={`p-8 rounded-2xl border flex flex-col ${isPopular ? 'border-primary bg-primary/5 relative' : 'border-app-border bg-app-card'}`}>
                   {isPopular && (
-                    <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-primary text-black text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full">
+                    <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-primary text-black text-[10px] font-black tracking-widest px-3 py-1 rounded-full">
                       Most Popular
                     </div>
                   )}
@@ -278,7 +278,7 @@ export default function LandingPage() {
 
                   <button 
                     onClick={() => document.getElementById('lp-form').scrollIntoView({ behavior: 'smooth' })}
-                    className={`w-full py-3 rounded-full text-xs font-bold uppercase tracking-widest transition-colors ${isPopular ? 'bg-primary text-black hover:bg-primary-hover shadow-lg shadow-primary/20' : 'bg-app-bg text-app-text border border-app-border hover:border-primary/50'}`}
+                    className={`w-full py-3 rounded-full text-xs font-bold tracking-widest transition-colors ${isPopular ? 'bg-primary text-black hover:bg-primary-hover shadow-lg shadow-primary/20' : 'bg-app-bg text-app-text border border-app-border hover:border-primary/50'}`}
                   >
                     Get Quote
                   </button>
@@ -294,7 +294,7 @@ export default function LandingPage() {
             {['Starter', 'Growth', 'Enterprise'].map((tier, idx) => (
               <div key={idx} className={`p-8 rounded-2xl border ${idx === 1 ? 'border-primary bg-primary/5 relative' : 'border-app-border bg-app-card'}`}>
                 {idx === 1 && (
-                  <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-primary text-black text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full">
+                  <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-primary text-black text-[10px] font-black tracking-widest px-3 py-1 rounded-full">
                     Most Popular
                   </div>
                 )}
@@ -302,7 +302,7 @@ export default function LandingPage() {
                 <p className="text-xs text-app-text-muted mb-6">Perfect for scaling businesses.</p>
                 <button 
                   onClick={() => document.getElementById('lp-form').scrollIntoView({ behavior: 'smooth' })}
-                  className={`w-full py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-colors ${idx === 1 ? 'bg-primary text-black hover:bg-primary-hover' : 'bg-app-bg text-app-text border border-app-border hover:border-primary/50'}`}
+                  className={`w-full py-2 rounded-full text-xs font-bold tracking-widest transition-colors ${idx === 1 ? 'bg-primary text-black hover:bg-primary-hover' : 'bg-app-bg text-app-text border border-app-border hover:border-primary/50'}`}
                 >
                   Get Quote
                 </button>
@@ -336,7 +336,7 @@ export default function LandingPage() {
                     )}
                     <div>
                       <h5 className="text-sm font-bold text-app-text">{t.author}</h5>
-                      <p className="text-[10px] text-app-text-muted uppercase tracking-wider">{t.role}</p>
+                      <p className="text-[10px] text-app-text-muted tracking-wider">{t.role}</p>
                     </div>
                   </div>
                 </div>
@@ -369,7 +369,7 @@ export default function LandingPage() {
             <form onSubmit={handleSubmit(onSubmitForm)} className="space-y-6 text-left">
               <div className="grid md:grid-cols-2 gap-6">
                 <div className="space-y-1.5 relative group">
-                  <label className="text-[10px] font-extrabold text-app-text-muted uppercase tracking-widest block">
+                  <label className="text-[10px] font-extrabold text-app-text-muted tracking-widest block">
                     Full Name <span className="text-primary">*</span>
                   </label>
                   <div className="relative">
@@ -383,7 +383,7 @@ export default function LandingPage() {
                   </div>
                 </div>
                 <div className="space-y-1.5 relative group">
-                  <label className="text-[10px] font-extrabold text-app-text-muted uppercase tracking-widest block">
+                  <label className="text-[10px] font-extrabold text-app-text-muted tracking-widest block">
                     Phone Number <span className="text-primary">*</span>
                   </label>
                   <div className="relative flex items-center border-b-2 border-app-border focus-within:border-primary transition-colors">
@@ -404,7 +404,7 @@ export default function LandingPage() {
               
               <div className="grid md:grid-cols-2 gap-6">
                 <div className="space-y-1.5 relative group">
-                  <label className="text-[10px] font-extrabold text-app-text-muted uppercase tracking-widest block">
+                  <label className="text-[10px] font-extrabold text-app-text-muted tracking-widest block">
                     Email Address <span className="text-primary">*</span>
                   </label>
                   <div className="relative">
@@ -419,7 +419,7 @@ export default function LandingPage() {
                 </div>
 
                 <div className="space-y-1.5 relative group">
-                  <label className="text-[10px] font-extrabold text-app-text-muted uppercase tracking-widest block">
+                  <label className="text-[10px] font-extrabold text-app-text-muted tracking-widest block">
                     Business Name (Optional)
                   </label>
                   <div className="relative">
@@ -435,7 +435,7 @@ export default function LandingPage() {
               </div>
 
               <div className="space-y-1.5 relative group">
-                <label className="text-[10px] font-extrabold text-app-text-muted uppercase tracking-widest block">
+                <label className="text-[10px] font-extrabold text-app-text-muted tracking-widest block">
                   Service Needed
                 </label>
                 <div className="relative">
@@ -450,7 +450,7 @@ export default function LandingPage() {
               </div>
 
               <div className="space-y-1.5 relative group">
-                <label className="text-[10px] font-extrabold text-app-text-muted uppercase tracking-widest block">
+                <label className="text-[10px] font-extrabold text-app-text-muted tracking-widest block">
                   Message (Optional)
                 </label>
                 <div className="relative">
@@ -480,7 +480,7 @@ export default function LandingPage() {
               <button 
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full py-3 bg-primary hover:bg-primary-hover text-black font-extrabold text-xs uppercase tracking-widest rounded-full transition-all duration-300 shadow-[0_10px_25px_rgba(232,71,10,0.22)] hover:shadow-[0_12px_35px_rgba(232,71,10,0.45)] hover:-translate-y-0.5 mt-8 flex items-center justify-center gap-2 disabled:opacity-70 disabled:hover:-translate-y-0"
+                className="w-full py-3 bg-primary hover:bg-primary-hover text-black font-extrabold text-xs tracking-widest rounded-full transition-all duration-300 shadow-[0_10px_25px_rgba(232,71,10,0.22)] hover:shadow-[0_12px_35px_rgba(232,71,10,0.45)] hover:-translate-y-0.5 mt-8 flex items-center justify-center gap-2 disabled:opacity-70 disabled:hover:-translate-y-0"
               >
                 <span>{isSubmitting ? 'Submitting...' : pageData.primaryCta}</span>
                 {!isSubmitting && <ArrowRight className="w-4 h-4" />}

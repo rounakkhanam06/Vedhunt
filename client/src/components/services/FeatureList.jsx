@@ -16,7 +16,7 @@ export default function FeatureList({ features }) {
           <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
             <CheckCircle2 className="w-5 h-5" />
           </div>
-          <span className="text-white/60 text-xs font-bold uppercase tracking-tight group-hover:text-white transition-colors">
+          <span className="text-white/60 text-xs font-bold tracking-tight group-hover:text-white transition-colors">
             {feature}
           </span>
         </motion.div>

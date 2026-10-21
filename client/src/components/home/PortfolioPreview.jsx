@@ -1,4 +1,5 @@
 import React from 'react';
+import { getClientUrl, getClientDomain } from '../../utils/clientUrl';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { Laptop, Database, Share2, ExternalLink, ChevronRight, Sparkles, Loader } from 'lucide-react';
@@ -38,7 +39,7 @@ export default function PortfolioPreview() {
             className="flex items-center justify-center gap-3"
           >
             <span className="w-6 h-[2px] bg-primary" />
-            <span className="text-[10px] font-black text-primary uppercase tracking-[0.3em]">
+            <span className="text-[10px] font-black text-primary tracking-[0.3em]">
               Latest Work
             </span>
             <span className="w-6 h-[2px] bg-primary" />
@@ -112,9 +113,9 @@ export default function PortfolioPreview() {
                               <div className="w-1.5 h-1.5 rounded-full bg-yellow-500/80" />
                               <div className="w-1.5 h-1.5 rounded-full bg-green-500/80" />
                             </div>
-                            <div className="text-[9px] font-mono font-bold tracking-wider text-slate-500 dark:text-white/30 uppercase flex items-center gap-1 max-w-[160px] xs:max-w-none min-w-0">
+                            <div className="text-[9px] font-mono font-bold tracking-wider text-slate-500 dark:text-white/30 flex items-center gap-1 max-w-[160px] xs:max-w-none min-w-0">
                               <ClientIcon className="w-2.5 h-2.5 text-primary shrink-0" />
-                              <span className="truncate">{project.clientUrl?.replace('https://', '').replace('www.', '').replace(/\/$/, '')}</span>
+                              <span className="truncate">{getClientDomain(project.clientUrl)}</span>
                             </div>
                             <div className="w-6" />
                           </div>
@@ -131,12 +132,12 @@ export default function PortfolioPreview() {
                             )}
                             <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent pointer-events-none" />
                             
-                            <div className="absolute top-2 left-2 bg-slate-950/90 border border-primary/40 rounded px-2 py-0.5 text-[8px] font-extrabold text-primary uppercase tracking-wider">
+                            <div className="absolute top-2 left-2 bg-slate-950/90 border border-primary/40 rounded px-2 py-0.5 text-[8px] font-extrabold text-primary tracking-wider">
                               {project.category === 'development' ? 'Engineering' : project.category === 'automation' ? 'Finance & Tech' : 'Marketing'}
                             </div>
 
                             <div className="absolute bottom-2 left-2 bg-black/95 border border-white/10 rounded px-2 py-1 flex items-center gap-1 text-[10px] font-bold text-white shadow-sm">
-                              <span className="text-primary uppercase tracking-wider text-[8px]">{project.statLabel}:</span>
+                              <span className="text-primary tracking-wider text-[8px]">{project.statLabel}:</span>
                               <span className="text-white font-extrabold">{project.statValue}</span>
                             </div>
                           </div>
@@ -160,14 +161,23 @@ export default function PortfolioPreview() {
                         <div className="space-y-3 relative z-10">
                           <div className="space-y-1">
                             <div className="flex items-center justify-between">
-                              <span className="text-[8px] font-extrabold text-primary uppercase tracking-widest bg-primary/10 px-2 py-0.5 rounded border border-primary/20">
+                              <span className="text-[8px] font-extrabold text-primary tracking-widest bg-primary/10 px-2 py-0.5 rounded border border-primary/20">
                                 {project.category === 'development' ? 'Engineering' : project.category === 'automation' ? 'Finance & Tech' : 'Marketing'}
                               </span>
                               <ClientIcon className="w-3.5 h-3.5 text-primary" />
                             </div>
                             
                             <h3 className="text-sm font-black font-heading text-app-text tracking-tight mt-1 truncate">
-                              {project.title}
+                              {getClientUrl(project.clientUrl) ? (
+                                <a
+                                  href={getClientUrl(project.clientUrl)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="hover:text-primary transition-colors"
+                                >
+                                  {project.title}
+                                </a>
+                              ) : project.title}
                             </h3>
                             <p className="text-[9px] font-bold text-primary/75 italic truncate">
                               {project.tagline}
@@ -180,7 +190,7 @@ export default function PortfolioPreview() {
 
                           {project.tags && (
                             <div className="space-y-1 pt-1">
-                              <span className="text-[8px] font-normal uppercase tracking-widest text-black dark:text-white/70 block">Tech Stack</span>
+                              <span className="text-[8px] font-normal tracking-widest text-black dark:text-white/70 block">Tech Stack</span>
                               <div className="flex flex-wrap gap-1">
                                 {project.tags.slice(0, 3).map(tag => (
                                   <span 
@@ -196,15 +206,18 @@ export default function PortfolioPreview() {
                         </div>
 
                         <div className="border-t border-app-border/30 pt-3 mt-1 flex items-center justify-between relative z-10">
-                          <a
-                            href={project.clientUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="relative inline-flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wider text-primary hover:text-primary-hover group/link cursor-pointer"
-                          >
-                            <span>Live Site</span>
-                            <ExternalLink className="w-3 h-3 text-primary transition-transform duration-300 group-hover/link:translate-x-0.5 group-hover/link:-translate-y-0.5" />
-                          </a>
+                          {getClientUrl(project.clientUrl) && (
+                            <a
+                              href={getClientUrl(project.clientUrl)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              aria-label={`Visit ${project.title} website (opens in a new tab)`}
+                              className="relative inline-flex items-center gap-1 text-[10px] font-extrabold tracking-wider text-primary hover:text-primary-hover group/link cursor-pointer"
+                            >
+                              <span>Live Site</span>
+                              <ExternalLink className="w-3 h-3 text-primary transition-transform duration-300 group-hover/link:translate-x-0.5 group-hover/link:-translate-y-0.5" />
+                            </a>
+                          )}
                         </div>
 
                       </div>
@@ -227,7 +240,7 @@ export default function PortfolioPreview() {
         >
           <Link
             to="/portfolio"
-            className="inline-flex items-center gap-2 px-6 py-3 bg-primary hover:bg-primary/90 text-black font-black text-xs uppercase tracking-widest rounded-xl transition-all shadow-[0_0_20px_rgba(255,107,0,0.2)] hover:shadow-[0_0_30px_rgba(255,107,0,0.4)]"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-primary hover:bg-primary/90 text-black font-black text-xs tracking-widest rounded-xl transition-all shadow-[0_0_20px_rgba(255,107,0,0.2)] hover:shadow-[0_0_30px_rgba(255,107,0,0.4)]"
           >
             View All Projects
           </Link>

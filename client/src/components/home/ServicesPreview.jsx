@@ -68,7 +68,7 @@ export default function ServicesPreview() {
         >
           <motion.div variants={scrollFadeUp} className="flex items-center justify-center gap-3">
             <span className="w-8 h-[2px] bg-primary" />
-            <span className="text-xs font-black text-primary uppercase tracking-[0.3em]">
+            <span className="text-xs font-black text-primary tracking-[0.3em]">
               {headerData.tagline}
             </span>
             <span className="w-8 h-[2px] bg-primary" />
@@ -115,7 +115,7 @@ export default function ServicesPreview() {
         >
           <Link
             to="/services"
-            className="inline-flex items-center gap-2 px-5 py-2.5 sm:px-8 sm:py-4 bg-white/5 hover:bg-white/10 text-app-text font-black text-xs sm:text-sm uppercase tracking-widest rounded-xl border border-white/10 transition-all duration-300 group"
+            className="inline-flex items-center gap-2 px-5 py-2.5 sm:px-8 sm:py-4 bg-white/5 hover:bg-white/10 text-app-text font-black text-xs sm:text-sm tracking-widest rounded-xl border border-white/10 transition-all duration-300 group"
           >
             <span>Explore All Services</span>
             <span className="w-5 h-5 rounded-full bg-primary flex items-center justify-center group-hover:scale-110 transition-transform">

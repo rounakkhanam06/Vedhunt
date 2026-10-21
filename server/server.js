@@ -250,6 +250,49 @@ if (process.env.NODE_ENV === 'production') {
     }
   });
 
+  // Open Graph tags for shared job links (/career/:jobId)
+  const Job = require('./models/Job');
+  const escapeHtml = (s = '') =>
+    String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+  app.get('/career/:jobId', async (req, res, next) => {
+    const { jobId } = req.params;
+    if (jobId === 'success') return next();
+    try {
+      let htmlData = fs.readFileSync(path.resolve(clientBuildPath, 'index.html'), 'utf8');
+      const job = mongoose.isValidObjectId(jobId)
+        ? await Job.findOne({ _id: jobId, status: 'Published' }).lean()
+        : null;
+
+      if (job) {
+        const ogTitle = escapeHtml(`${job.title} – Careers at Vedhunt Infotech`);
+        const summary = (job.description || '').replace(/\s+/g, ' ').trim().slice(0, 160);
+        const ogDesc = escapeHtml(`${job.type} · ${job.location} · ${job.experience}. ${summary}`);
+        const canonicalUrl = `https://vedhunt.in/career/${job._id}`;
+        const metaTags = `
+          <title>${ogTitle}</title>
+          <meta name="description" content="${ogDesc}" />
+          <meta property="og:site_name" content="Vedhunt Infotech" />
+          <meta property="og:type" content="website" />
+          <meta property="og:title" content="${ogTitle}" />
+          <meta property="og:description" content="${ogDesc}" />
+          <meta property="og:url" content="${canonicalUrl}" />
+          <meta property="og:image" content="https://vedhunt.in/og-banner.jpg" />
+          <meta name="twitter:card" content="summary_large_image" />
+          <meta name="twitter:title" content="${ogTitle}" />
+          <meta name="twitter:description" content="${ogDesc}" />
+          <meta name="twitter:image" content="https://vedhunt.in/og-banner.jpg" />
+        `;
+        htmlData = htmlData.replace('</head>', `${metaTags}</head>`);
+      }
+
+      res.status(job ? 200 : 404).send(htmlData);
+    } catch (error) {
+      console.error('Error serving job OG tags:', error);
+      res.sendFile(path.resolve(clientBuildPath, 'index.html'));
+    }
+  });
+
   // ── 404 handling ───────────────────────────────────────────────────────────
   // Serving index.html with a 200 for every unmatched path made every URL look
   // like a real page to search engines. Google indexed paths that have never

@@ -242,6 +242,10 @@ export const router = createBrowserRouter([
         element: withSuspense(CareerSuccess)
       },
       {
+        path: 'career/:jobId',
+        element: withSuspense(Career)
+      },
+      {
         path: 'blog',
         element: withSuspense(Blog)
       },

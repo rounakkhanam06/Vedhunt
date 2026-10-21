@@ -103,7 +103,7 @@ export default function StatsCounter() {
                   <div className="text-lg sm:text-2xl md:text-3xl font-bold font-heading text-primary transition-colors flex items-center justify-center sm:justify-start tracking-tight">
                     <Counter value={stat.value} suffix={stat.suffix} />
                   </div>
-                  <div className="text-slate-800 dark:text-app-text text-[9px] sm:text-[11px] font-semibold uppercase tracking-[0.05em] sm:tracking-[0.15em] leading-tight px-1 sm:px-0">
+                  <div className="text-slate-800 dark:text-app-text text-[9px] sm:text-[11px] font-semibold tracking-[0.05em] sm:tracking-[0.15em] leading-tight px-1 sm:px-0">
                     {stat.label}
                   </div>
                 </div>

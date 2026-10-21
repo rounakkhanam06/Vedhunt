@@ -112,7 +112,7 @@ export default function Services() {
             className="flex-1 text-center md:text-left z-10"
           >
             <div className="mb-4 sm:mb-6">
-              <motion.span variants={scrollFadeUp} className="inline-block text-primary text-[10px] sm:text-xs font-semibold uppercase tracking-[0.2em] bg-primary/10 border border-primary/20 px-4 py-1.5 rounded-full">
+              <motion.span variants={scrollFadeUp} className="inline-block text-primary text-[10px] sm:text-xs font-semibold tracking-[0.2em] bg-primary/10 border border-primary/20 px-4 py-1.5 rounded-full">
                 {heroData?.badgeText || 'Our Capabilities'}
               </motion.span>
             </div>
@@ -206,7 +206,7 @@ export default function Services() {
             <div className="pt-2">
               <Link
                 to="/get-quote"
-                className="px-6 py-2.5 bg-primary hover:bg-primary-hover text-black font-bold text-xs uppercase tracking-wider rounded-xl hover:shadow-[0_0_30px_rgba(255,107,0,0.5)] transition-all duration-300 inline-block cursor-pointer transform hover:-translate-y-1"
+                className="px-6 py-2.5 bg-primary hover:bg-primary-hover text-black font-bold text-xs tracking-wider rounded-xl hover:shadow-[0_0_30px_rgba(255,107,0,0.5)] transition-all duration-300 inline-block cursor-pointer transform hover:-translate-y-1"
               >
                 Connect with our Engineers
               </Link>

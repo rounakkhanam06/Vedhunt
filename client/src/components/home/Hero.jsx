@@ -200,7 +200,7 @@ export default function Hero() {
             transition={{ duration: 0.8, ease: "easeOut" }}
             className="space-y-1"
           >
-            <span className="text-[9.5px] sm:text-xs font-bold text-white/60 sm:text-app-text/50 tracking-[0.25em] sm:tracking-[0.4em] uppercase block mb-2 sm:mb-1">
+            <span className="text-[9.5px] sm:text-xs font-bold text-white/60 sm:text-app-text/50 tracking-[0.25em] sm:tracking-[0.4em] block mb-2 sm:mb-1">
               {heroData?.tagline || "REAL VALUE. REAL CONTENT. REAL GROWTH"}
             </span>
           </motion.div>

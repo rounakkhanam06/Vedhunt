@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useLeadAccess } from '../../shared/crmAccess';
 import { motion } from 'framer-motion';
@@ -122,11 +122,14 @@ export default function LeadsManager({ stageGroup }) {
   };
 
   // Fetch leads when dependencies change
+  // Last filter set sent to the server: "select all matching" reuses it so the
+  // bulk selection is exactly the list the admin is looking at.
+  const lastFilterParams = useRef({});
+
   const fetchLeads = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await http.get(`${root}/leads`, {
-        params: {
+      const params = {
           page: currentPage,
           limit: 10, // Items per page
           status: statusFilter,
@@ -147,8 +150,9 @@ export default function LeadsManager({ stageGroup }) {
           search: debouncedSearchTerm,
           sortBy,
           sortOrder
-        }
-      });
+      };
+      lastFilterParams.current = params;
+      const response = await http.get(`${root}/leads`, { params });
       if (response.data.success) {
         setLeads(response.data.data);
         setTotalPages(response.data.totalPages);
@@ -223,6 +227,77 @@ export default function LeadsManager({ stageGroup }) {
     // Only run once on mount — the leadId param is consumed above.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // -- Bulk reassignment ----------------------------------------------------
+  const [selectedIds, setSelectedIds] = useState(() => new Set());
+  const [bulkTarget, setBulkTarget] = useState('');
+  const [bulkBusy, setBulkBusy] = useState(false);
+
+  // A selection made under one filter must not silently carry over to another.
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [statusFilter, platformFilter, sourceFilter, leadTypeFilter, formFilter, assignedBdFilter, serviceFilter, priorityFilter, breachedOnly, dateFrom, dateTo, dateField, debouncedSearchTerm, stageGroup]);
+
+  const pageIds = leads.map((l) => l._id);
+  const allPageSelected = pageIds.length > 0 && pageIds.every((id) => selectedIds.has(id));
+
+  const toggleLead = (id) => setSelectedIds((prev) => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
+
+  const togglePage = () => setSelectedIds((prev) => {
+    const next = new Set(prev);
+    if (allPageSelected) pageIds.forEach((id) => next.delete(id)); else pageIds.forEach((id) => next.add(id));
+    return next;
+  });
+
+  const selectAllMatching = async () => {
+    try {
+      const { page, limit, ...filters } = lastFilterParams.current;
+      const res = await http.get(`${root}/leads`, { params: { ...filters, idsOnly: true } });
+      if (res.data?.success) setSelectedIds(new Set(res.data.ids));
+    } catch (error) {
+      toast.error('Could not select all matching leads');
+    }
+  };
+
+  const bdLabel = (id) => {
+    const bd = bds.find((b) => b._id === id);
+    return bd ? displayName(bd) : 'the selected BD';
+  };
+
+  const handleBulkReassign = async () => {
+    if (!bulkTarget || selectedIds.size === 0) return;
+    const count = selectedIds.size;
+    const target = bulkTarget === 'unassign' ? 'Unassigned' : bdLabel(bulkTarget);
+    const ok = window.confirm(
+      `Reassign ${count} lead${count === 1 ? '' : 's'} to ${target}?\n\n` +
+      'Each lead keeps its status, notes, call logs and history. Pending follow-ups move to the new owner, and the change is recorded in the assignment history.'
+    );
+    if (!ok) return;
+
+    setBulkBusy(true);
+    try {
+      const res = await http.post(`${root}/leads/bulk-assign`, {
+        leadIds: [...selectedIds],
+        assignedTo: bulkTarget,
+        reason: 'Bulk Reassignment'
+      });
+      const { failed = 0, message } = res.data;
+      if (failed > 0) toast.error(message); else toast.success(message);
+      setSelectedIds(new Set());
+      setBulkTarget('');
+      fetchLeads();
+      // Workload counts in the BD dropdown are now stale.
+      http.get(`${root}/admin/assignment/bds`).then((r) => setBds(r.data?.data || [])).catch(() => {});
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Bulk reassignment failed');
+    } finally {
+      setBulkBusy(false);
+    }
+  };
 
   const handleAssign = async (leadId, assignedTo, reason = '') => {
     try {
@@ -704,6 +779,43 @@ export default function LeadsManager({ stageGroup }) {
       ) : (
         <>
           <div className="w-full">
+            {canAssign && selectedIds.size > 0 && (
+              <div className="mb-3 flex flex-wrap items-center gap-3 bg-primary/10 border border-primary/30 rounded-xl px-4 py-3 text-sm">
+                <span className="font-semibold text-app-text">{selectedIds.size} selected</span>
+                {selectedIds.size < totalLeads && (
+                  <button onClick={selectAllMatching} className="text-primary font-semibold hover:underline">
+                    Select all {totalLeads} matching these filters
+                  </button>
+                )}
+                <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
+                  <select
+                    value={bulkTarget}
+                    onChange={(e) => setBulkTarget(e.target.value)}
+                    className="bg-app-bg border border-app-border rounded-lg px-3 py-2 text-sm text-app-text focus:outline-none focus:border-primary"
+                    aria-label="Reassign selected leads to"
+                  >
+                    <option value="">Reassign to...</option>
+                    {bds.map((bd) => (
+                      <option key={bd._id} value={bd._id}>{displayName(bd)} ({bd.activeLeadCount} active)</option>
+                    ))}
+                    <option value="unassign">Unassign</option>
+                  </select>
+                  <button
+                    onClick={handleBulkReassign}
+                    disabled={!bulkTarget || bulkBusy}
+                    className="px-4 py-2 rounded-lg bg-primary text-black font-bold text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {bulkBusy ? 'Reassigning...' : 'Reassign'}
+                  </button>
+                  <button
+                    onClick={() => setSelectedIds(new Set())}
+                    className="px-3 py-2 text-app-text-muted hover:text-app-text text-sm"
+                  >
+                    Clear
+                  </button>
+                </div>
+              </div>
+            )}
             {leads.length === 0 ? (
               <div className="text-center py-12 bg-app-card border border-app-border rounded-xl">
                 <p className="text-app-text-muted">No leads found matching your filters.</p>
@@ -715,6 +827,17 @@ export default function LeadsManager({ stageGroup }) {
                     <tr>
                       <th onClick={() => handleSort('leadId')} className="px-3 py-3 font-semibold sticky left-0 bg-app-bg z-30 border-r border-app-border cursor-pointer select-none hover:text-primary transition-colors">
                         <div className="flex items-center gap-1">
+                          {canAssign && (
+                            <input
+                              type="checkbox"
+                              checked={allPageSelected}
+                              onChange={togglePage}
+                              onClick={(e) => e.stopPropagation()}
+                              aria-label="Select all leads on this page"
+                              title="Select all on this page"
+                              className="mr-1 w-4 h-4 accent-[#FF6B00] cursor-pointer"
+                            />
+                          )}
                           <span>Lead ID</span>
                           <span className="text-[9px] opacity-70">{sortBy === 'leadId' ? (sortOrder === 'asc' ? '▲' : '▼') : '↕'}</span>
                         </div>
@@ -788,6 +911,15 @@ export default function LeadsManager({ stageGroup }) {
                       >
                         <td className={`px-3 py-2 align-middle font-mono font-semibold text-primary sticky left-0 ${rowStripeClass} group-hover:bg-surface-variant border-r border-app-border z-10`}>
                           <div className="flex items-center gap-2">
+                            {canAssign && (
+                              <input
+                                type="checkbox"
+                                checked={selectedIds.has(lead._id)}
+                                onChange={() => toggleLead(lead._id)}
+                                aria-label={`Select ${lead.fullName || lead.leadId}`}
+                                className="w-4 h-4 accent-[#FF6B00] cursor-pointer"
+                              />
+                            )}
                             <span>
                               {lead.leadId || '-'}
                               {lead.fbLeadId && <span className="block text-[10px] font-normal text-app-text-muted" title="Meta Lead ID">{lead.fbLeadId}</span>}

@@ -335,6 +335,17 @@ exports.getLeads = async (req, res, next) => {
       sort = { [req.query.sortBy]: order };
     }
 
+    // Bulk-select support: every id matching the current filters (not just this
+    // page), so "select all N matching" can reassign beyond one page.
+    if (req.query.idsOnly === 'true') {
+      const idDocs = await Lead.find(query).sort(sort).select('_id').lean();
+      return res.status(200).json({
+        success: true,
+        totalLeads: idDocs.length,
+        ids: idDocs.map((d) => String(d._id))
+      });
+    }
+
     const totalLeads = await Lead.countDocuments(query);
 
     let leadsQuery = Lead.find(query).sort(sort).populate('assignedTo', 'firstName lastName email');
@@ -474,26 +485,49 @@ exports.bulkAssignLeads = async (req, res, next) => {
     const targetBdId = (assignedTo === 'unassign' || !assignedTo) ? null : assignedTo;
     let successCount = 0;
     let failCount = 0;
+    let alreadyCount = 0;
+    const failures = [];
 
+    // One bad lead (locked by someone mid-call, deleted meanwhile) must not
+    // abort the rest of the batch, so failures are collected per lead.
     for (const leadId of leadIds) {
-      const lead = await manualAssign({
-        leadId,
-        toAdmin: targetBdId,
-        assignedBy: req.user._id,
-        reason: reason || (targetBdId ? 'Bulk Assignment' : 'Bulk Unassigned')
-      });
-      if (lead) {
-        successCount++;
-      } else {
+      try {
+        const current = await findLeadRaw(leadId);
+        if (current && String(current.assignedTo || '') === String(targetBdId || '')) {
+          alreadyCount++;
+          continue;
+        }
+        const lead = await manualAssign({
+          leadId,
+          toAdmin: targetBdId,
+          assignedBy: req.user._id,
+          reason: reason || (targetBdId ? 'Bulk Reassignment' : 'Bulk Unassigned')
+        });
+        if (lead) {
+          successCount++;
+        } else {
+          failCount++;
+          failures.push({ leadId, message: 'Lead not found' });
+        }
+      } catch (err) {
         failCount++;
+        failures.push({ leadId, message: err.message });
       }
     }
 
-    res.status(200).json({ 
-      success: true, 
-      message: targetBdId
-        ? `Successfully assigned ${successCount} leads.${failCount > 0 ? ` (Failed: ${failCount})` : ''}`
-        : `Successfully unassigned ${successCount} leads.`
+    const parts = [targetBdId
+      ? `Reassigned ${successCount} lead${successCount === 1 ? '' : 's'}.`
+      : `Unassigned ${successCount} lead${successCount === 1 ? '' : 's'}.`];
+    if (alreadyCount) parts.push(`${alreadyCount} already with that owner.`);
+    if (failCount) parts.push(`${failCount} failed.`);
+
+    res.status(200).json({
+      success: true,
+      message: parts.join(' '),
+      assigned: successCount,
+      skipped: alreadyCount,
+      failed: failCount,
+      failures
     });
   } catch (error) {
     logger.error('Error in bulk assigning leads:', error);

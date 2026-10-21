@@ -114,7 +114,7 @@ export default function ComparisonTable() {
               {/* Table Header */}
               <thead>
                 <tr className="bg-slate-50 dark:bg-app-bg border-b border-slate-200 dark:border-app-border">
-                  <th className="pl-10 pr-4 py-3 text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-app-text-muted border-r border-slate-200 dark:border-app-border w-1/3">
+                  <th className="pl-10 pr-4 py-3 text-[10px] font-black tracking-widest text-slate-500 dark:text-app-text-muted border-r border-slate-200 dark:border-app-border w-1/3">
                     Feature
                   </th>
                   <th className="px-4 py-3 text-xs font-black text-primary bg-primary/10 border-r border-primary/20 w-1/3 text-center">
@@ -164,7 +164,7 @@ export default function ComparisonTable() {
             whileInView={{ opacity: 1 }}
             viewport={{ once: true }}
             transition={{ delay: 0.4 }}
-            className="mt-5 text-center text-[9px] font-black uppercase tracking-[0.2em] text-app-text-muted/60"
+            className="mt-5 text-center text-[9px] font-black tracking-[0.2em] text-app-text-muted/60"
           >
             {header.bottomNote}
           </motion.p>

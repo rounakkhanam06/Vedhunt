@@ -1,5 +1,6 @@
 const Service = require('../models/Service');
 const Blog = require('../models/Blog');
+const Job = require('../models/Job');
 
 const BASE_URL = 'https://vedhunt.in';
 
@@ -32,9 +33,10 @@ exports.generateSitemap = async (req, res, next) => {
 
     // 2. Fetch Active Dynamic Content
     // We only need slug and updatedAt for the sitemap
-    const [services, blogs] = await Promise.all([
+    const [services, blogs, jobs] = await Promise.all([
       Service.find({ isActive: true }).select('slug updatedAt').lean(),
-      Blog.find({ isPublished: true }).select('slug updatedAt').lean()
+      Blog.find({ isPublished: true }).select('slug updatedAt').lean(),
+      Job.find({ status: 'Published' }).select('updatedAt').lean()
     ]);
 
     // 3. Build XML String
@@ -77,6 +79,11 @@ exports.generateSitemap = async (req, res, next) => {
     // Append Blog pages
     blogs.forEach(blog => {
       xml += generateUrlNode(`/blog/${blog.slug}`, blog.updatedAt, 'monthly', 0.8);
+    });
+
+    // Append Career pages (one per published job)
+    jobs.forEach(job => {
+      xml += generateUrlNode(`/career/${job._id}`, job.updatedAt, 'monthly', 0.7);
     });
 
     xml += '</urlset>';

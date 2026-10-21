@@ -20,16 +20,16 @@ export default function ComparisonTable() {
         className="text-center mb-10 space-y-2"
       >
         <h2 className="text-2xl md:text-3xl font-bold font-heading tracking-tight">Why Choose <span className="text-primary">Vedhunt</span>?</h2>
-        <p className="text-white/30 text-[10px] tracking-[0.2em] font-bold uppercase">Vedhunt vs Typical Agency</p>
+        <p className="text-white/30 text-[10px] tracking-[0.2em] font-bold">Vedhunt vs Typical Agency</p>
       </motion.div>
 
       <div className="max-w-4xl mx-auto overflow-x-auto pb-4">
         <table className="w-full text-left border-collapse min-w-[600px]">
           <thead>
             <tr className="border-b border-white/10">
-              <th className="py-4 px-6 text-white/50 text-[10px] font-bold tracking-widest uppercase w-1/3">Feature</th>
+              <th className="py-4 px-6 text-white/50 text-[10px] font-bold tracking-widest w-1/3">Feature</th>
               <th className="py-4 px-6 bg-primary/5 text-primary text-sm font-bold tracking-wide rounded-t-xl border-x border-t border-primary/20 text-center w-1/3">Vedhunt</th>
-              <th className="py-4 px-6 text-white/50 text-[10px] font-bold tracking-widest uppercase text-center w-1/3">Typical Agency</th>
+              <th className="py-4 px-6 text-white/50 text-[10px] font-bold tracking-widest text-center w-1/3">Typical Agency</th>
             </tr>
           </thead>
           <tbody>

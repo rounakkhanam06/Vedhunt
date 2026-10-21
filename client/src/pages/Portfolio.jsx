@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { getClientUrl, getClientDomain } from '../utils/clientUrl';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence, useInView } from 'framer-motion';
 import { 
@@ -233,7 +234,7 @@ export default function Portfolio() {
           className="text-center max-w-2xl mx-auto mb-14 space-y-4"
         >
           {/* Subtitle Accent */}
-          <motion.div variants={scrollFadeUp} className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-primary/10 border border-primary/20 text-primary text-[10px] font-extrabold uppercase tracking-widest rounded-md">
+          <motion.div variants={scrollFadeUp} className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-primary/10 border border-primary/20 text-primary text-[10px] font-extrabold tracking-widest rounded-md">
             <Sparkles className="w-3 h-3" />
             <span>{heroData.subtitle}</span>
           </motion.div>
@@ -279,7 +280,7 @@ export default function Portfolio() {
             <button
               key={btn.id}
               onClick={() => handleFilterChange(btn.id)}
-              className={`relative px-4.5 py-2.5 rounded-xl text-xs font-semibold tracking-wide uppercase cursor-pointer transition-all duration-300 border ${
+              className={`relative px-4.5 py-2.5 rounded-xl text-xs font-semibold tracking-wide cursor-pointer transition-all duration-300 border ${
                 activeFilter === btn.id
                   ? 'text-primary border-primary/30 z-10'
                   : 'text-app-text hover:text-primary bg-app-card/25 border-app-border/40 hover:border-app-border/80'
@@ -346,9 +347,9 @@ export default function Portfolio() {
                             <div className="w-2 h-2 rounded-full bg-yellow-500/80" />
                             <div className="w-2 h-2 rounded-full bg-green-500/80" />
                           </div>
-                          <div className="text-[10px] font-mono font-bold tracking-wider text-slate-500 dark:text-white/30 uppercase flex items-center gap-1 truncate max-w-[150px] sm:max-w-none">
+                          <div className="text-[10px] font-mono font-bold tracking-wider text-slate-500 dark:text-white/30 flex items-center gap-1 truncate max-w-[150px] sm:max-w-none">
                             <ClientIcon className="w-2.5 h-2.5 text-primary" />
-                            <span>{project.title.toLowerCase().replace(/\s/g, '')}.in</span>
+                            <span>{getClientDomain(project.clientUrl) || project.title}</span>
                           </div>
                           <div className="w-8" />
                         </div>
@@ -365,13 +366,13 @@ export default function Portfolio() {
                           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
                           
                           {/* Floating Category Tag */}
-                          <div className="absolute top-3.5 left-3.5 bg-slate-950/90 border border-primary/40 rounded px-2.5 py-0.5 text-[9px] font-extrabold text-primary uppercase tracking-wider">
+                          <div className="absolute top-3.5 left-3.5 bg-slate-950/90 border border-primary/40 rounded px-2.5 py-0.5 text-[9px] font-extrabold text-primary tracking-wider">
                             {project.category === 'development' ? 'Engineering' : project.category === 'automation' ? 'Finance & Tech' : 'Marketing & SEO'}
                           </div>
 
                           {/* Stat Badge */}
                           <div className="absolute bottom-3.5 left-3.5 bg-black/95 border border-white/10 rounded-lg px-3 py-1.5 flex items-center gap-1.5 text-xs font-bold text-white shadow-sm">
-                            <span className="text-primary uppercase tracking-wider text-[9px]">{project.statLabel}:</span>
+                            <span className="text-primary tracking-wider text-[9px]">{project.statLabel}:</span>
                             <span className="text-white font-extrabold">{project.statValue}</span>
                           </div>
                         </div>
@@ -400,14 +401,23 @@ export default function Portfolio() {
                         {/* Header Details */}
                         <div className="space-y-1">
                           <div className="flex items-center justify-between">
-                            <span className="text-[9px] font-extrabold text-primary uppercase tracking-widest bg-primary/10 px-2.5 py-0.5 rounded border border-primary/20">
+                            <span className="text-[9px] font-extrabold text-primary tracking-widest bg-primary/10 px-2.5 py-0.5 rounded border border-primary/20">
                               {project.category === 'development' ? 'Engineering' : project.category === 'automation' ? 'Finance & Tech' : 'Marketing & SEO'}
                             </span>
                             <ClientIcon className="w-4.5 h-4.5 text-primary" />
                           </div>
                           
                           <h3 className="text-lg sm:text-xl font-black font-heading text-slate-900 dark:text-white tracking-tight mt-1">
-                            {project.title}
+                            {getClientUrl(project.clientUrl) ? (
+                              <a
+                                href={getClientUrl(project.clientUrl)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="hover:text-primary transition-colors"
+                              >
+                                {project.title}
+                              </a>
+                            ) : project.title}
                           </h3>
                           <p className="text-[10px] sm:text-xs font-black text-primary/90 italic">
                             {project.tagline}
@@ -421,7 +431,7 @@ export default function Portfolio() {
 
                         {/* Coding Engineering tags */}
                         <div className="space-y-1.5 pt-1">
-                          <span className="text-[9px] font-black uppercase tracking-widest text-slate-600 dark:text-white/50 block">Engineering Stack</span>
+                          <span className="text-[9px] font-black tracking-widest text-slate-600 dark:text-white/50 block">Engineering Stack</span>
                           <div className="flex flex-wrap gap-1">
                             {project.tags.map(tag => (
                               <span 
@@ -437,15 +447,18 @@ export default function Portfolio() {
 
                       {/* Launch website CTA link & arrow */}
                       <div className="border-t border-app-border/30 pt-4 mt-2 flex items-center justify-between relative z-10">
-                        <a
-                          href={project.clientUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="relative inline-flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wider text-primary hover:text-primary-hover group/link cursor-pointer"
-                        >
-                          <span>Launch Live Website</span>
-                          <ExternalLink className="w-3.5 h-3.5 text-primary transition-transform duration-300 group-hover/link:translate-x-0.5 group-hover/link:-translate-y-0.5" />
-                        </a>
+                        {getClientUrl(project.clientUrl) && (
+                          <a
+                            href={getClientUrl(project.clientUrl)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            aria-label={`Visit ${project.title} website (opens in a new tab)`}
+                            className="relative inline-flex items-center gap-1.5 text-xs font-extrabold tracking-wider text-primary hover:text-primary-hover group/link cursor-pointer"
+                          >
+                            <span>Launch Live Website</span>
+                            <ExternalLink className="w-3.5 h-3.5 text-primary transition-transform duration-300 group-hover/link:translate-x-0.5 group-hover/link:-translate-y-0.5" />
+                          </a>
+                        )}
 
                         <Link
                           to="/get-quote"
@@ -497,7 +510,7 @@ export default function Portfolio() {
             transition={{ duration: 0.5 }}
             className="max-w-lg"
           >
-            <span className="text-[9px] font-extrabold text-primary uppercase tracking-widest bg-primary/10 px-2 py-0.5 rounded">
+            <span className="text-[9px] font-extrabold text-primary tracking-widest bg-primary/10 px-2 py-0.5 rounded">
               Demonstrated Proof
             </span>
             <h2 className="text-xl sm:text-2xl font-black font-heading text-app-text leading-tight mt-2.5">
@@ -562,7 +575,7 @@ export default function Portfolio() {
               
               <div className="flex-1 space-y-4 text-left">
                 <div className="flex">
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-primary/10 border border-primary/20 text-primary text-[10px] font-extrabold uppercase tracking-widest rounded-md">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-primary/10 border border-primary/20 text-primary text-[10px] font-extrabold tracking-widest rounded-md">
                     {(() => {
                       const TagIcon = PORTFOLIO_ICON_MAP[ctaData.tagIcon] || Sparkles;
                       return <TagIcon className="w-3 h-3" />;
@@ -597,7 +610,7 @@ export default function Portfolio() {
               <div className="shrink-0 flex justify-center lg:justify-end">
                 <Link
                   to={ctaData.buttonLink}
-                  className="relative inline-flex items-center gap-2 px-7 py-3.5 bg-primary hover:bg-primary-hover text-black font-extrabold text-[10px] uppercase tracking-wider rounded-xl transition-all duration-300 hover:shadow-[0_0_25px_rgba(255,107,0,0.4)] group cursor-pointer overflow-hidden"
+                  className="relative inline-flex items-center gap-2 px-7 py-3.5 bg-primary hover:bg-primary-hover text-black font-extrabold text-[10px] tracking-wider rounded-xl transition-all duration-300 hover:shadow-[0_0_25px_rgba(255,107,0,0.4)] group cursor-pointer overflow-hidden"
                 >
                   <span className="absolute inset-0 bg-white/10 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-out" />
                   <span>{ctaData.buttonText}</span>

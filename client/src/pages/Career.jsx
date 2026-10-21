@@ -11,15 +11,18 @@ import {
   CheckCircle2, 
   FileText,
   Search,
-  ChevronDown
+  ChevronDown,
+  Link2,
+  Share2
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import careerHeroImg from '../assets/services/career-new-hero.png';
 
 export default function Career() {
   const navigate = useNavigate();
+  const { jobId } = useParams();
   const [jobs, setJobs] = useState([]);
   const [isLoadingJobs, setIsLoadingJobs] = useState(true);
   const [heroData, setHeroData] = useState(null);
@@ -113,6 +116,43 @@ export default function Career() {
 
   const selectedPosition = watch('position');
   const selectedJob = selectedPosition === 'general' ? null : selectedPosition;
+
+  const jobUrl = (id) => `${window.location.origin}/career/${id}`;
+
+  // Keep the address bar on the selected job's link without remounting the page
+  const selectJob = (id) => {
+    setValue('position', id);
+    window.history.replaceState(null, '', `/career/${id}`);
+  };
+
+  const shareJob = async (e, job) => {
+    e.stopPropagation();
+    const url = jobUrl(job._id);
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: `${job.title} – Vedhunt Infotech`, url });
+        return;
+      } catch (err) {
+        if (err?.name === 'AbortError') return;
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success('Job link copied');
+    } catch {
+      toast.error('Could not copy the link');
+    }
+  };
+
+  // Open the position named in the URL once the listings have loaded
+  useEffect(() => {
+    if (!jobId || isLoadingJobs) return;
+    if (!jobs.some((j) => j._id === jobId)) return;
+    setValue('position', jobId);
+    setTimeout(() => {
+      document.getElementById(`job-${jobId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 100);
+  }, [jobId, isLoadingJobs, jobs]);
 
   const onSubmitForm = async (data) => {
     const jobInfo = selectedJob ? jobs.find(p => p._id === selectedJob) : null;
@@ -259,7 +299,7 @@ export default function Career() {
                     window.scrollTo({top: y, behavior: 'smooth'});
                   }
                 }}
-                className="px-6 py-2.5 bg-primary hover:bg-primary-hover text-black font-bold text-xs uppercase tracking-wider rounded-lg shadow-[0_0_15px_rgba(255,107,0,0.3)] hover:-translate-y-0.5 transition-all cursor-pointer"
+                className="px-6 py-2.5 bg-primary hover:bg-primary-hover text-black font-bold text-xs tracking-wider rounded-lg shadow-[0_0_15px_rgba(255,107,0,0.3)] hover:-translate-y-0.5 transition-all cursor-pointer"
               >
                 View Open Positions
               </button>
@@ -271,7 +311,7 @@ export default function Career() {
               transition={{ delay: 0.4 }}
               className="pt-4 border-t border-app-border/30 max-w-lg mx-auto lg:mx-0 text-left mt-2"
             >
-              <h3 className="text-[11px] uppercase tracking-wider font-semibold text-app-text-muted mb-2.5">Why Work With Us</h3>
+              <h3 className="text-[11px] tracking-wider font-semibold text-app-text-muted mb-2.5">Why Work With Us</h3>
               <div className="flex flex-wrap gap-2 justify-center lg:justify-start">
                 {(heroData?.benefits?.length > 0 ? heroData.benefits : ['Growth Opportunities', 'Flexible Work', 'Learning Culture', 'Competitive Pay', 'Team Culture']).map((benefit, i) => (
                   <span key={i} className="px-2 py-1 bg-app-card hover:bg-primary/10 border border-app-border/50 hover:border-primary/30 rounded text-[10px] font-medium text-app-text-muted hover:text-app-text transition-colors cursor-default flex items-center gap-1.5">
@@ -327,9 +367,10 @@ export default function Career() {
                 jobs.map((job) => (
                 <motion.div
                   key={job._id}
+                  id={`job-${job._id}`}
                   whileHover={{ scale: 1.01 }}
                   onClick={() => {
-                    setValue('position', job._id);
+                    selectJob(job._id);
                     setTimeout(() => {
                       const formEl = document.getElementById('application-form');
                       if (formEl) {
@@ -350,15 +391,26 @@ export default function Career() {
                   <div className="space-y-4 flex-1">
                     <div className="flex flex-wrap items-start justify-between gap-2">
                       <div>
-                        <span className="text-[10px] font-extrabold uppercase tracking-widest text-primary bg-primary/10 px-2.5 py-0.5 rounded border border-primary/20">
+                        <span className="text-[10px] font-extrabold tracking-widest text-primary bg-primary/10 px-2.5 py-0.5 rounded border border-primary/20">
                           {job.department}
                         </span>
                         <h3 className="text-lg font-bold font-heading text-app-text mt-1.5">{job.title}</h3>
                       </div>
-                      <span className="text-xs font-bold text-slate-600 dark:text-app-text-muted bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-app-border px-3 py-1 rounded-full flex items-center gap-1.5">
-                        <Briefcase className="w-3.5 h-3.5 text-primary" />
-                        <span>{job.type}</span>
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-slate-600 dark:text-app-text-muted bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-app-border px-3 py-1 rounded-full flex items-center gap-1.5">
+                          <Briefcase className="w-3.5 h-3.5 text-primary" />
+                          <span>{job.type}</span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={(e) => shareJob(e, job)}
+                          title="Copy or share link to this job"
+                          aria-label={`Share link to ${job.title}`}
+                          className="w-8 h-8 rounded-full flex items-center justify-center border border-slate-100 dark:border-app-border text-primary hover:bg-primary/10 transition-colors"
+                        >
+                          {typeof navigator !== 'undefined' && navigator.share ? <Share2 className="w-3.5 h-3.5" /> : <Link2 className="w-3.5 h-3.5" />}
+                        </button>
+                      </div>
                     </div>
 
                     {cleanDescription(job) && (
@@ -392,7 +444,7 @@ export default function Career() {
                     </div>
                   </div>
 
-                  <button className="mt-6 w-full py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 rounded text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-colors">
+                  <button className="mt-6 w-full py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 rounded text-xs font-bold tracking-wider flex items-center justify-center gap-2 transition-colors">
                     Apply Now <ArrowRight className="w-3.5 h-3.5" />
                   </button>
                 </motion.div>
@@ -413,7 +465,7 @@ export default function Career() {
               
               <div className="space-y-2 border-b border-app-border pb-4 flex flex-col">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-primary block">Instant Application</span>
+                  <span className="text-[10px] font-black tracking-widest text-primary block">Instant Application</span>
                   {selectedJob && (
                     <button 
                       type="button"
@@ -438,7 +490,7 @@ export default function Career() {
                   >
                     {/* Position Applying For */}
                     <div className="space-y-1.5 text-left relative group">
-                      <label className="text-[10px] font-bold text-black dark:text-white uppercase tracking-widest block">
+                      <label className="text-[10px] font-bold text-black dark:text-white tracking-widest block">
                         Position Applying For <span className="text-primary">*</span>
                       </label>
                       <div className="relative">
@@ -461,7 +513,7 @@ export default function Career() {
                     </div>
                     {/* Full Name */}
                     <div className="space-y-1.5 text-left relative group">
-                      <label className="text-[10px] font-bold text-black dark:text-white uppercase tracking-widest block">
+                      <label className="text-[10px] font-bold text-black dark:text-white tracking-widest block">
                         Full Name <span className="text-primary">*</span>
                       </label>
                       <input
@@ -484,7 +536,7 @@ export default function Career() {
 
                     {/* Email Address */}
                     <div className="space-y-1.5 text-left relative group">
-                      <label className="text-[10px] font-bold text-black dark:text-white uppercase tracking-widest block">
+                      <label className="text-[10px] font-bold text-black dark:text-white tracking-widest block">
                         Email Address <span className="text-primary">*</span>
                       </label>
                       <input
@@ -508,7 +560,7 @@ export default function Career() {
 
                     {/* Phone Number */}
                     <div className="space-y-1.5 text-left relative group">
-                      <label className="text-[10px] font-bold text-black dark:text-white uppercase tracking-widest block">
+                      <label className="text-[10px] font-bold text-black dark:text-white tracking-widest block">
                         Phone Number <span className="text-primary">*</span>
                       </label>
                       <input
@@ -532,7 +584,7 @@ export default function Career() {
 
                     {/* Years of Experience */}
                     <div className="space-y-1.5 text-left relative group">
-                      <label className="text-[10px] font-bold text-black dark:text-white uppercase tracking-widest block">
+                      <label className="text-[10px] font-bold text-black dark:text-white tracking-widest block">
                         Years of Experience <span className="text-primary">*</span>
                       </label>
                       <input
@@ -556,7 +608,7 @@ export default function Career() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       {/* Current CTC */}
                       <div className="space-y-1.5 text-left relative group">
-                        <label className="text-[10px] font-bold text-black dark:text-white uppercase tracking-widest block">
+                        <label className="text-[10px] font-bold text-black dark:text-white tracking-widest block">
                           Current / Last CTC (Optional)
                         </label>
                         <input
@@ -574,7 +626,7 @@ export default function Career() {
  
                       {/* Expected CTC */}
                       <div className="space-y-1.5 text-left relative group">
-                        <label className="text-[10px] font-bold text-black dark:text-white uppercase tracking-widest block">
+                        <label className="text-[10px] font-bold text-black dark:text-white tracking-widest block">
                           Expected CTC (Optional)
                         </label>
                         <input
@@ -593,7 +645,7 @@ export default function Career() {
 
                     {/* Notice Period */}
                     <div className="space-y-1.5 text-left relative group">
-                      <label className="text-[10px] font-bold text-black dark:text-white uppercase tracking-widest block">
+                      <label className="text-[10px] font-bold text-black dark:text-white tracking-widest block">
                         Notice Period / Availability (Optional)
                       </label>
                       <input
@@ -611,7 +663,7 @@ export default function Career() {
 
                     {/* LinkedIn URL */}
                     <div className="space-y-1.5 text-left relative group">
-                      <label className="text-[10px] font-bold text-black dark:text-white uppercase tracking-widest block">
+                      <label className="text-[10px] font-bold text-black dark:text-white tracking-widest block">
                         LinkedIn Profile URL (Optional)
                       </label>
                       <input
@@ -629,7 +681,7 @@ export default function Career() {
 
                     {/* Portfolio / Work Samples URL */}
                     <div className="space-y-1.5 text-left relative group">
-                      <label className="text-[10px] font-bold text-black dark:text-white uppercase tracking-widest block">
+                      <label className="text-[10px] font-bold text-black dark:text-white tracking-widest block">
                         Portfolio / Work Samples URL (Optional)
                       </label>
                       <input
@@ -647,7 +699,7 @@ export default function Career() {
 
                     {/* Drag & Drop Resume Upload Form */}
                     <div className="space-y-1.5 text-left">
-                      <label className="text-[10px] font-bold text-black dark:text-white uppercase tracking-widest block">
+                      <label className="text-[10px] font-bold text-black dark:text-white tracking-widest block">
                         Upload Resume (PDF/DOCX) <span className="text-primary">*</span>
                       </label>
                       
@@ -680,7 +732,7 @@ export default function Career() {
 
                     {/* Cover Letter / Message */}
                     <div className="space-y-1.5 text-left relative group">
-                      <label className="text-[10px] font-bold text-black dark:text-white uppercase tracking-widest block">
+                      <label className="text-[10px] font-bold text-black dark:text-white tracking-widest block">
                         Cover Letter / Notes
                       </label>
                       <textarea
@@ -700,7 +752,7 @@ export default function Career() {
                     <button
                       type="submit"
                       disabled={isSubmitting}
-                      className="w-full py-3 bg-primary hover:bg-primary-hover text-black font-extrabold text-xs uppercase tracking-widest rounded-full transition-all duration-300 shadow-[0_10px_25px_rgba(232,71,10,0.22)] hover:shadow-[0_12px_35px_rgba(232,71,10,0.45)] hover:-translate-y-0.5 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-70"
+                      className="w-full py-3 bg-primary hover:bg-primary-hover text-black font-extrabold text-xs tracking-widest rounded-full transition-all duration-300 shadow-[0_10px_25px_rgba(232,71,10,0.22)] hover:shadow-[0_12px_35px_rgba(232,71,10,0.45)] hover:-translate-y-0.5 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-70"
                     >
                       <span>{isSubmitting ? 'Submitting...' : 'Submit Application'}</span>
                       <ArrowRight className="w-4 h-4" />
@@ -755,7 +807,7 @@ export default function Career() {
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                   />
                   <div className="absolute bottom-6 left-6 z-20">
-                    <span className={`px-3 py-1 ${card.span === '2x' ? 'bg-primary text-black text-xs' : 'bg-white/90 text-black text-[10px]'} font-bold rounded uppercase tracking-wider mb-2 inline-block shadow-lg`}>
+                    <span className={`px-3 py-1 ${card.span === '2x' ? 'bg-primary text-black text-xs' : 'bg-white/90 text-black text-[10px]'} font-bold rounded tracking-wider mb-2 inline-block shadow-lg`}>
                       {card.tag}
                     </span>
                     <h3 className={`text-white ${card.span === '2x' ? 'text-2xl' : 'text-lg'} font-bold font-heading`}>

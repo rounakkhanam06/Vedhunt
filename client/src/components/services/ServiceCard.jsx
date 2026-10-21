@@ -66,7 +66,7 @@ export default function ServiceCard({ service, image }) {
         {/* CTA - Small & Bold */}
         <Link
           to={`/service/${slug}`}
-          className="inline-flex items-center gap-2 text-[11px] font-black text-primary uppercase tracking-wider group/link"
+          className="inline-flex items-center gap-2 text-[11px] font-black text-primary tracking-wider group/link"
         >
           <span className="relative">
             {cta || 'Learn More'}

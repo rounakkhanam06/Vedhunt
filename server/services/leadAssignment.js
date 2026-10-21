@@ -5,6 +5,7 @@ const Role = require('../models/Role');
 const Settings = require('../models/Settings');
 const AssignmentRule = require('../models/AssignmentRule');
 const AssignmentLog = require('../models/AssignmentLog');
+const FollowUpTask = require('../models/FollowUpTask');
 const Notification = require('../models/Notification');
 const logger = require('../utils/logger');
 const { findLeadRaw } = require('../utils/leadLookup');
@@ -87,6 +88,18 @@ async function applyAssignment(leadRef, { toAdmin, assignedBy = null, mode, reas
     { _id: leadPlain._id },
     { $set: updateFields }
   );
+
+  // The lead's status, call logs, notes and pipeline history live on the lead
+  // itself and are untouched by a reassignment. Pending follow-up tasks belong
+  // to the previous owner, so hand those to the new one — otherwise the old BD
+  // keeps getting reminders and the new BD never sees them. Completed and
+  // cancelled tasks stay as history.
+  if (toAdminObjectId && fromAdmin && mongoose.isValidObjectId(leadPlain._id)) {
+    await FollowUpTask.updateMany(
+      { lead: leadPlain._id, status: 'Pending', assignedTo: fromAdmin },
+      { $set: { assignedTo: toAdminObjectId } }
+    );
+  }
 
   await AssignmentLog.create({
     lead: leadPlain._id,

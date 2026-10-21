@@ -154,7 +154,7 @@ export default function WhyChooseUs() {
             initial={{ opacity: 0, y: 10 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="text-primary text-xs font-black uppercase tracking-[0.3em] bg-primary/10 px-4 py-1.5 rounded-full"
+            className="text-primary text-xs font-black tracking-[0.3em] bg-primary/10 px-4 py-1.5 rounded-full"
           >
             {header.tagline}
           </motion.span>

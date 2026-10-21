@@ -71,7 +71,7 @@ export default function CTABanner() {
               {/* Primary Call */}
               <Link
                 to="/get-quote"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-4 pl-6 pr-11 py-3 bg-[#0B0B14] hover:bg-black text-white font-black text-xs uppercase tracking-wider rounded-full transition-all duration-300 shadow-xl hover:shadow-black/25 hover:-translate-y-0.5 group cursor-pointer border border-white/5 relative h-11"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-4 pl-6 pr-11 py-3 bg-[#0B0B14] hover:bg-black text-white font-black text-xs tracking-wider rounded-full transition-all duration-300 shadow-xl hover:shadow-black/25 hover:-translate-y-0.5 group cursor-pointer border border-white/5 relative h-11"
               >
                 <span>Book a discovery call</span>
                 <div className="absolute right-1.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-gradient-to-b from-white to-neutral-200 shadow-[inset_0_-2px_4px_rgba(0,0,0,0.15),0_2px_4px_rgba(0,0,0,0.25)] flex items-center justify-center group-hover:scale-105 transition-transform">
@@ -82,7 +82,7 @@ export default function CTABanner() {
               {/* Secondary Call */}
               <Link
                 to="/services"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-4 pl-6 pr-11 py-3 bg-[#0B0B14] hover:bg-black text-white font-black text-xs uppercase tracking-wider rounded-full transition-all duration-300 shadow-xl hover:shadow-black/25 hover:-translate-y-0.5 group cursor-pointer border border-white/5 relative h-11"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-4 pl-6 pr-11 py-3 bg-[#0B0B14] hover:bg-black text-white font-black text-xs tracking-wider rounded-full transition-all duration-300 shadow-xl hover:shadow-black/25 hover:-translate-y-0.5 group cursor-pointer border border-white/5 relative h-11"
               >
                 <span>Explore Services</span>
                 <div className="absolute right-1.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-gradient-to-b from-white to-neutral-200 shadow-[inset_0_-2px_4px_rgba(0,0,0,0.15),0_2px_4px_rgba(0,0,0,0.25)] flex items-center justify-center group-hover:scale-105 transition-transform">

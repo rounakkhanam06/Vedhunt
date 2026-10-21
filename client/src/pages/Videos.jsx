@@ -95,7 +95,7 @@ const Videos = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
-            className="text-[#FF6B00] text-sm font-black tracking-widest uppercase mb-4 block"
+            className="text-[#FF6B00] text-sm font-black tracking-widest mb-4 block"
           >
             Video Showcase
           </motion.span>
@@ -209,7 +209,7 @@ const Videos = () => {
                 <button
                   key={category}
                   onClick={() => setSelectedCategory(category)}
-                  className={`px-5 py-2 text-xs font-black tracking-wider uppercase rounded-full transition-all duration-300 relative ${
+                  className={`px-5 py-2 text-xs font-black tracking-wider rounded-full transition-all duration-300 relative ${
                     selectedCategory === category 
                     ? 'text-white' 
                     : 'text-white/40 hover:text-white'
@@ -265,7 +265,7 @@ const Videos = () => {
                     </div>
 
                     {/* Category Badge */}
-                    <div className="absolute top-3 left-3 px-3 py-1 bg-[#0A0A0A]/80 backdrop-blur-sm rounded-full text-[10px] font-black uppercase tracking-wider border border-white/10 text-white/80">
+                    <div className="absolute top-3 left-3 px-3 py-1 bg-[#0A0A0A]/80 backdrop-blur-sm rounded-full text-[10px] font-black tracking-wider border border-white/10 text-white/80">
                       {video.category}
                     </div>
                   </div>
@@ -329,7 +329,7 @@ const Videos = () => {
                   <img src={video.thumbnail} alt={video.title} className="w-full h-full object-cover" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent" />
                   <div className="absolute bottom-4 left-4 right-4">
-                    <span className="text-[#FF6B00] text-xs font-bold uppercase mb-1 block">{video.category}</span>
+                    <span className="text-[#FF6B00] text-xs font-bold mb-1 block">{video.category}</span>
                     <h3 className="text-base font-bold text-white">{video.title}</h3>
                   </div>
                 </div>

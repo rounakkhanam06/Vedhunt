@@ -23,13 +23,13 @@ const MinimalComparisonTable = () => {
           <table className="w-full border-collapse min-w-[450px]">
             <thead>
               <tr className="border-b border-[#E8470A]">
-                <th className="py-2 px-3 text-left text-[10px] md:text-xs font-black text-white uppercase tracking-widest">
+                <th className="py-2 px-3 text-left text-[10px] md:text-xs font-black text-white tracking-widest">
                   Feature
                 </th>
-                <th className="py-2 px-3 text-center text-[10px] md:text-xs font-black text-[#E8470A] bg-[#1A1A2E] uppercase tracking-widest border-x border-[#E8470A]">
+                <th className="py-2 px-3 text-center text-[10px] md:text-xs font-black text-[#E8470A] bg-[#1A1A2E] tracking-widest border-x border-[#E8470A]">
                   Vedhunt
                 </th>
-                <th className="py-2 px-3 text-center text-[10px] md:text-xs font-black text-[#666666] uppercase tracking-widest">
+                <th className="py-2 px-3 text-center text-[10px] md:text-xs font-black text-[#666666] tracking-widest">
                   Typical Agency
                 </th>
               </tr>
@@ -57,7 +57,7 @@ const MinimalComparisonTable = () => {
             </tbody>
           </table>
         </div>
-        <p className="mt-4 text-[8px] md:text-[10px] text-center text-[#666666] uppercase tracking-[0.3em] font-bold">
+        <p className="mt-4 text-[8px] md:text-[10px] text-center text-[#666666] tracking-[0.3em] font-bold">
           High Performance Growth Matrix • 2026
         </p>
       </div>

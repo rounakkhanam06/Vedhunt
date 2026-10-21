@@ -180,7 +180,7 @@ export default function Footer() {
             {/* Column 2: Services Directory */}
             <div className="space-y-3 lg:pt-2">
               <div className="relative pb-1">
-                <h4 className="text-app-text font-bold text-sm uppercase tracking-wider">
+                <h4 className="text-app-text font-bold text-sm tracking-wider">
                   OUR SERVICES
                 </h4>
                 <div className="absolute bottom-0 left-0 w-8 h-0.5 bg-primary rounded-full"></div>
@@ -203,7 +203,7 @@ export default function Footer() {
             {/* Column 3: Quick Navigation */}
             <div className="space-y-3 lg:pt-2">
               <div className="relative pb-1">
-                <h4 className="text-app-text font-bold text-sm uppercase tracking-wider">
+                <h4 className="text-app-text font-bold text-sm tracking-wider">
                   COMPANY
                 </h4>
                 <div className="absolute bottom-0 left-0 w-8 h-0.5 bg-primary rounded-full"></div>
@@ -257,7 +257,7 @@ export default function Footer() {
             {/* Column 4: Legal & Compliance */}
             <div className="space-y-3 lg:pt-2">
               <div className="relative pb-1">
-                <h4 className="text-app-text font-bold text-sm uppercase tracking-wider">
+                <h4 className="text-app-text font-bold text-sm tracking-wider">
                   LEGAL & COMPLIANCE
                 </h4>
                 <div className="absolute bottom-0 left-0 w-8 h-0.5 bg-primary rounded-full"></div>
@@ -299,7 +299,7 @@ export default function Footer() {
             {/* Column 5: Contact Info & CTA */}
             <div className="space-y-4 lg:pt-2">
               <div className="relative pb-1">
-                <h4 className="text-app-text font-bold text-sm uppercase tracking-wider">
+                <h4 className="text-app-text font-bold text-sm tracking-wider">
                   CONTACT INFO
                 </h4>
                 <div className="absolute bottom-0 left-0 w-8 h-0.5 bg-primary rounded-full"></div>

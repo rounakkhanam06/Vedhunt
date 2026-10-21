@@ -42,7 +42,7 @@ const CreateEditBlog = () => {
 
   const fetchCategories = async () => {
     try {
-      const res = await api.get('/blog-categories?activeOnly=true');
+      const res = await api.get('/blog-categories');
       if (res.data?.success) {
         setCategories(res.data.data);
       }
@@ -111,7 +111,8 @@ const CreateEditBlog = () => {
   };
 
   const addBlock = (type) => {
-    const newBlock = { ...blockTemplates[type], id: Date.now().toString() };
+    const template = blockTemplates[type];
+    const newBlock = { ...template, data: { ...template.data }, id: Date.now().toString() };
     setFormData(prev => ({
       ...prev,
       contentBlocks: [...prev.contentBlocks, newBlock]
@@ -120,7 +121,7 @@ const CreateEditBlog = () => {
 
   const updateBlock = (index, field, value) => {
     const newBlocks = [...formData.contentBlocks];
-    newBlocks[index].data[field] = value;
+    newBlocks[index] = { ...newBlocks[index], data: { ...newBlocks[index].data, [field]: value } };
     setFormData({ ...formData, contentBlocks: newBlocks });
   };
 
@@ -350,7 +351,7 @@ const CreateEditBlog = () => {
               >
                 <option value="" disabled>Select a category</option>
                 {categories.map(cat => (
-                  <option key={cat._id} value={cat.name}>{cat.name}</option>
+                  <option key={cat._id} value={cat.name}>{cat.name}{cat.isActive === false ? ' (inactive)' : ''}</option>
                 ))}
               </select>
             </div>

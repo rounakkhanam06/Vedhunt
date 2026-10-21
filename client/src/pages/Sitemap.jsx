@@ -77,7 +77,7 @@ export default function Sitemap() {
             section.links.length > 0 && (
               <div key={section.title} className="space-y-4">
                 <div className="relative pb-1">
-                  <h2 className="text-app-text font-bold text-sm uppercase tracking-wider">
+                  <h2 className="text-app-text font-bold text-sm tracking-wider">
                     {section.title}
                   </h2>
                   <div className="absolute bottom-0 left-0 w-8 h-0.5 bg-primary rounded-full" />

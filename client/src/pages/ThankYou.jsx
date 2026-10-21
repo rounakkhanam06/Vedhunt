@@ -39,7 +39,7 @@ export default function ThankYou() {
 
         <Link 
           to="/"
-          className="inline-flex items-center justify-center gap-2 px-8 py-3 bg-app-bg border border-app-border hover:border-primary/50 text-app-text font-bold text-sm uppercase tracking-widest rounded-full transition-all duration-300"
+          className="inline-flex items-center justify-center gap-2 px-8 py-3 bg-app-bg border border-app-border hover:border-primary/50 text-app-text font-bold text-sm tracking-widest rounded-full transition-all duration-300"
         >
           <ArrowLeft className="w-4 h-4" />
           Back to Home

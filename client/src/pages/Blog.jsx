@@ -17,42 +17,42 @@ const Blog = () => {
   const [subSuccess, setSubSuccess] = useState(false);
   const [subError, setSubError] = useState('');
   const [subAlready, setSubAlready] = useState(false);
-  const [heroData, setHeroData] = useState({
+  const defaultHero = {
     title: 'The Blog',
     description: 'Stay up to date on tips, tricks, & trends for social media & digital marketing. Explore our latest articles and insights.',
     tags: ['New', 'Insights & Trends']
-  });
+  };
+  // null until the hero request settles, so the default never flashes before the saved heading
+  const [heroData, setHeroData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+
+  const fetchAllData = async () => {
+    setLoading(true);
+    setLoadError(false);
+    const [heroRes, blogsRes, catRes] = await Promise.allSettled([
+      api.get('/blogs/hero'),
+      api.get('/blogs'),
+      api.get('/blog-categories?activeOnly=true')
+    ]);
+
+    const heroResult = heroRes.status === 'fulfilled' ? heroRes.value.data : null;
+    setHeroData(heroResult?.success && heroResult.data?.value ? heroResult.data.value : defaultHero);
+
+    if (blogsRes.status === 'fulfilled' && blogsRes.value.data?.success) {
+      setAllBlogs(blogsRes.value.data.data);
+    } else {
+      console.error('Error fetching blogs:', blogsRes.reason);
+      setLoadError(true);
+    }
+
+    if (catRes.status === 'fulfilled' && catRes.value.data?.success) {
+      setCategories(catRes.value.data.data.map(c => c.name));
+    }
+    setLoading(false);
+  };
 
   useEffect(() => {
-    const fetchAllData = async () => {
-      try {
-        const [heroRes, blogsRes, catRes] = await Promise.all([
-          api.get('/blogs/hero'),
-          api.get('/blogs'),
-          api.get('/blog-categories?activeOnly=true')
-        ]);
-        
-        const heroResult = heroRes.data;
-        if (heroResult.success && heroResult.data && heroResult.data.value) {
-          setHeroData(heroResult.data.value);
-        }
-
-        const blogsResult = blogsRes.data;
-        if (blogsResult.success) {
-          setAllBlogs(blogsResult.data);
-        }
-
-        const catResult = catRes.data;
-        if (catResult?.success) {
-          setCategories(catResult.data.map(c => c.name));
-        }
-      } catch (error) {
-        console.error("Error fetching data:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchAllData();
   }, []);
 
@@ -119,22 +119,22 @@ const Blog = () => {
             className="text-center max-w-3xl mx-auto"
           >
             <div className="flex items-center justify-center gap-3 mb-4">
-              {heroData.tags && heroData.tags.map((tag, idx) => (
+              {heroData?.tags && heroData.tags.map((tag, idx) => (
                 <span key={idx} className={idx === 0 
-                  ? "px-3 py-1 bg-primary/10 border border-primary/20 text-primary text-[10px] font-black tracking-widest rounded-full uppercase"
-                  : "text-app-text-muted text-[10px] font-black tracking-widest uppercase"
+                  ? "px-3 py-1 bg-primary/10 border border-primary/20 text-primary text-[10px] font-black tracking-widest rounded-full"
+                  : "text-app-text-muted text-[10px] font-black tracking-widest"
                 }>
                   {tag}
                 </span>
               ))}
             </div>
             
-            <h1 className="text-4xl md:text-5xl font-heading font-black text-app-text mb-4 tracking-tighter leading-none uppercase">
-              {heroData.title}
+            <h1 className="text-4xl md:text-5xl font-heading font-black text-app-text mb-4 tracking-tighter leading-none">
+              {heroData?.title}
             </h1>
-            
+
             <p className="text-app-text-muted text-sm md:text-base mb-6 max-w-2xl mx-auto leading-relaxed">
-              {heroData.description}
+              {heroData?.description}
             </p>
           </motion.div>
         </div>
@@ -162,9 +162,9 @@ const Blog = () => {
               <button
                 key={category}
                 onClick={() => setActiveCategory(category)}
-                className={`text-[10px] font-black tracking-[0.2em] uppercase transition-all duration-300 whitespace-nowrap flex-shrink-0 ${
+                className={`text-xs font-bold tracking-wide px-3.5 py-1.5 rounded-full transition-all duration-300 whitespace-nowrap flex-shrink-0 ${
                   activeCategory === category 
-                  ? 'text-primary' 
+                  ? 'bg-primary text-black' 
                   : 'text-app-text hover:text-primary'
                 }`}
               >
@@ -179,6 +179,16 @@ const Blog = () => {
           {loading ? (
             <div className="py-20 text-center">
               <h3 className="text-2xl text-app-text-muted font-bold">Loading articles...</h3>
+            </div>
+          ) : loadError ? (
+            <div className="py-20 text-center">
+              <h3 className="text-2xl text-app-text-muted font-bold">We couldn't load the articles.</h3>
+              <button
+                onClick={fetchAllData}
+                className="mt-6 text-primary font-bold hover:underline"
+              >
+                Try again
+              </button>
             </div>
           ) : filteredPosts.length > 0 ? (
             <>
@@ -196,7 +206,7 @@ const Blog = () => {
                 <div className="mt-16 flex justify-center">
                   <button 
                     onClick={() => setVisibleCount(filteredPosts.length)}
-                    className="bg-transparent border border-primary text-primary font-bold px-8 py-3 rounded-full hover:bg-primary hover:text-black transition-all duration-300 uppercase text-xs tracking-widest"
+                    className="bg-transparent border border-primary text-primary font-bold px-8 py-3 rounded-full hover:bg-primary hover:text-black transition-all duration-300 text-xs tracking-widest"
                   >
                     Show More Blogs
                   </button>
@@ -243,7 +253,7 @@ const Blog = () => {
               <button 
                 type="submit" 
                 disabled={subLoading || subSuccess}
-                className="w-full md:w-auto bg-primary text-black font-black px-8 py-3.5 rounded-lg hover:bg-primary-hover hover:shadow-[0_0_25px_rgba(255,107,0,0.45)] transition-all duration-300 whitespace-nowrap uppercase text-[10px] tracking-widest disabled:opacity-70 flex items-center justify-center gap-2"
+                className="w-full md:w-auto bg-primary text-black font-black px-8 py-3.5 rounded-lg hover:bg-primary-hover hover:shadow-[0_0_25px_rgba(255,107,0,0.45)] transition-all duration-300 whitespace-nowrap text-[10px] tracking-widest disabled:opacity-70 flex items-center justify-center gap-2"
               >
                 {subLoading ? (
                   <>

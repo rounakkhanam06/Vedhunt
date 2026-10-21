@@ -3,6 +3,8 @@ import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Calendar, User, Tag } from 'lucide-react';
 import api from '../services/api';
+import BlogCard from '../components/ui/BlogCard';
+import { formatCategory } from '../utils/formatCategory';
 
 // Block Components
 const TextBlock = ({ text }) => (
@@ -50,14 +52,26 @@ const BlogDetail = () => {
   
   const [post, setPost] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [relatedPosts, setRelatedPosts] = useState([]);
 
   useEffect(() => {
     const fetchBlog = async () => {
+      setRelatedPosts([]);
       try {
         const response = await api.get(`/blogs/${slug}`);
         const result = response.data;
         if (result.success) {
           setPost(result.data);
+          try {
+            const relatedRes = await api.get('/blogs', { params: { category: result.data.category } });
+            if (relatedRes.data?.success) {
+              setRelatedPosts(
+                relatedRes.data.data.filter((p) => p.slug !== result.data.slug).slice(0, 3)
+              );
+            }
+          } catch (error) {
+            console.error("Error fetching related blogs:", error);
+          }
         }
       } catch (error) {
         console.error("Error fetching blog details:", error);
@@ -108,8 +122,8 @@ const BlogDetail = () => {
           transition={{ duration: 0.6 }}
         >
           <div className="flex items-center gap-3 mb-4">
-            <span className="px-3 py-1 bg-primary/10 border border-primary/20 text-primary text-[10px] font-black tracking-widest rounded-full uppercase">
-              {post.category}
+            <span className="px-3 py-1 bg-primary text-black text-xs font-bold tracking-wide rounded-full shadow-[0_4px_10px_rgba(255,107,0,0.3)]">
+              {formatCategory(post.category)}
             </span>
           </div>
 
@@ -129,7 +143,7 @@ const BlogDetail = () => {
             </div>
             <div className="flex items-center gap-2">
               <Tag size={14} className="text-primary" />
-              <span>{post.category}</span>
+              <span>{formatCategory(post.category)}</span>
             </div>
           </div>
         </motion.div>
@@ -168,6 +182,20 @@ const BlogDetail = () => {
             return <BlockComponent key={block.id || Math.random()} {...block.data} />;
           })}
         </motion.div>
+
+        {/* Related Posts */}
+        {relatedPosts.length > 0 && (
+          <section className="mt-20 pt-10 border-t border-app-border/40">
+            <h2 className="text-2xl font-heading font-bold text-app-text mb-8">
+              Related Articles in {formatCategory(post.category)}
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {relatedPosts.map((related) => (
+                <BlogCard key={related.slug} post={related} />
+              ))}
+            </div>
+          </section>
+        )}
       </div>
     </div>
   );

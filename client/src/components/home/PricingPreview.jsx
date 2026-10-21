@@ -119,7 +119,7 @@ export default function PricingPreview() {
                 />
 
                 {card.popular && (
-                  <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-primary text-black text-[9px] font-bold uppercase tracking-widest px-3 py-0.5 rounded-b-lg shadow-[0_4px_10px_rgba(255,107,0,0.3)] z-20">
+                  <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-primary text-black text-xs font-bold tracking-wide px-3.5 py-1 rounded-b-lg shadow-[0_4px_10px_rgba(255,107,0,0.3)] z-20">
                     Most Popular
                   </div>
                 )}
@@ -134,11 +134,11 @@ export default function PricingPreview() {
                       <IconComponent size={16} />
                     </div>
                     <div>
-                      <h3 className="text-base font-bold text-app-text tracking-tight leading-tight">{card.title}</h3>
+                      <h3 className="text-lg font-bold text-app-text tracking-tight leading-tight">{card.title}</h3>
                     </div>
                   </div>
 
-                  <p className="text-app-text-muted text-[11px] mb-3 leading-snug min-h-[30px]">
+                  <p className="text-app-text-muted text-sm mb-4 leading-relaxed">
                     {card.description}
                   </p>
 
@@ -148,7 +148,7 @@ export default function PricingPreview() {
                       <button
                         key={tabKey}
                         onClick={() => setActiveTabs(prev => ({ ...prev, [index]: tabKey }))}
-                        className={`flex-1 py-1 text-[9px] font-bold uppercase tracking-wider rounded-md transition-all duration-300 ${
+                        className={`flex-1 py-1.5 text-xs font-bold capitalize tracking-wide rounded-md transition-all duration-300 ${
                           activeTabs[index] === tabKey
                             ? card.popular 
                               ? 'bg-primary text-black shadow-md' 
@@ -173,7 +173,7 @@ export default function PricingPreview() {
                         className="flex items-baseline"
                       >
                         <span className="text-2xl md:text-3xl font-black text-app-text tracking-tight">{currentTier.price}</span>
-                        <span className="text-app-text-muted/60 text-[10px] font-medium ml-1">{currentTier.period}</span>
+                        <span className="text-app-text-muted text-xs font-medium ml-1.5">{currentTier.period}</span>
                       </motion.div>
                     </AnimatePresence>
                   </div>
@@ -182,13 +182,13 @@ export default function PricingPreview() {
                   <div className="w-full h-px bg-app-border mb-4" />
 
                   {/* Features List */}
-                  <ul className="space-y-2 mb-5 flex-grow">
+                  <ul className="space-y-3 mb-6 flex-grow">
                     {currentTier.features.map((feature, i) => (
                       <li key={i} className="flex items-start gap-2">
-                        <div className={`mt-0.5 rounded-full p-0.5 ${card.popular ? 'bg-primary/20 text-primary' : 'bg-app-bg border border-app-border text-app-text-muted'} shrink-0`}>
-                          <Check size={8} strokeWidth={3} />
+                        <div className={`mt-1 rounded-full p-0.5 ${card.popular ? 'bg-primary/20 text-primary' : 'bg-app-bg border border-app-border text-app-text-muted'} shrink-0`}>
+                          <Check size={10} strokeWidth={3} />
                         </div>
-                        <span className="text-[11px] font-medium text-app-text-muted leading-tight">
+                        <span className="text-sm font-medium text-app-text-muted leading-relaxed">
                           {feature}
                         </span>
                       </li>
@@ -198,7 +198,7 @@ export default function PricingPreview() {
                   {/* CTA Button */}
                   <Link 
                     to="/pricing"
-                    className={`w-full py-2.5 rounded-xl flex items-center justify-center gap-2 text-[11px] font-bold transition-all duration-300 ${
+                    className={`w-full py-3 rounded-xl flex items-center justify-center gap-2 text-sm font-bold transition-all duration-300 ${
                       card.popular 
                         ? 'bg-primary text-black hover:bg-app-text hover:text-app-bg shadow-[0_0_15px_rgba(255,107,0,0.3)]' 
                         : 'bg-app-bg text-app-text hover:border-primary border border-app-border'
@@ -228,7 +228,7 @@ export default function PricingPreview() {
               <div className="absolute inset-0 flex h-full w-full justify-center [transform:skew(-12deg)_translateX(-100%)] group-hover:duration-1000 group-hover:[transform:skew(-12deg)_translateX(100%)]">
                 <div className="relative h-full w-8 bg-app-border/40" />
               </div>
-              <span className="relative z-10 flex items-center gap-2 uppercase tracking-wider">
+              <span className="relative z-10 flex items-center gap-2 tracking-wider">
                 View All Pricing
                 <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
               </span>

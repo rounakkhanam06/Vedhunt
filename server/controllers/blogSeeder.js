@@ -64,7 +64,7 @@ exports.seedBlogsAndSettings = async () => {
         $setOnInsert: {
           key: 'blogHero',
           value: {
-            title: 'THE BLOG',
+            title: 'The Blog',
             description: 'Stay up to date on tips, tricks, & trends for social media & digital marketing. Explore our latest articles and insights.',
             tags: ['New', 'Insights & Trends']
           }

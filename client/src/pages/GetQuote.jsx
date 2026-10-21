@@ -476,7 +476,7 @@ export default function GetQuote() {
     return (
       <div className="space-y-4">
         <div className="mb-4">
-          <h3 className="text-xl font-black font-heading text-primary uppercase">
+          <h3 className="text-xl font-black font-heading text-primary">
             {servicesOptions.find(s => s.id === selectedService)?.label}
           </h3>
           <p className="text-sm text-app-text-muted mt-1">
@@ -489,7 +489,7 @@ export default function GetQuote() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {config.dropdowns.map((dd, idx) => (
               <div key={idx} className="space-y-1.5 text-left relative group">
-                <label className="text-[10px] font-extrabold text-app-text-muted/70 uppercase tracking-widest block">
+                <label className="text-[10px] font-extrabold text-app-text-muted/70 tracking-widest block">
                   {dd.label}
                 </label>
                 <div className="relative">
@@ -513,7 +513,7 @@ export default function GetQuote() {
         {/* Checkboxes */}
         {config.checkboxes && (
           <div className="space-y-3 text-left">
-            <label className="text-[10px] font-extrabold text-app-text-muted/70 uppercase tracking-widest block">
+            <label className="text-[10px] font-extrabold text-app-text-muted/70 tracking-widest block">
               {config.checkboxes.label}
             </label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -542,7 +542,7 @@ export default function GetQuote() {
           <div className="space-y-4">
             {config.radios.map((r, idx) => (
               <div key={idx} className="space-y-2 text-left">
-                <label className="text-[10px] font-extrabold text-app-text-muted/70 uppercase tracking-widest block">
+                <label className="text-[10px] font-extrabold text-app-text-muted/70 tracking-widest block">
                   {r.label}
                 </label>
                 <div className="flex flex-wrap gap-2.5">
@@ -574,7 +574,7 @@ export default function GetQuote() {
               if (inp.showIf && watch(inp.showIf.field) !== inp.showIf.value) return null;
               return (
                 <div key={idx} className="space-y-1 text-left relative group">
-                  <label className="text-[10px] font-extrabold text-app-text-muted/70 uppercase tracking-widest block">
+                  <label className="text-[10px] font-extrabold text-app-text-muted/70 tracking-widest block">
                     {inp.label}
                   </label>
                   <input
@@ -595,7 +595,7 @@ export default function GetQuote() {
         {/* Textarea */}
         {config.textarea && (
           <div className="space-y-1.5 text-left relative group">
-            <label className="text-[10px] font-extrabold text-app-text-muted/70 uppercase tracking-widest block transition-colors group-focus-within:text-primary">
+            <label className="text-[10px] font-extrabold text-app-text-muted/70 tracking-widest block transition-colors group-focus-within:text-primary">
               {config.textarea.label}
             </label>
             <textarea
@@ -661,7 +661,7 @@ export default function GetQuote() {
                         
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div className="space-y-1 text-left relative group">
-                            <label className="text-[10px] font-extrabold text-app-text-muted/70 uppercase tracking-widest block">
+                            <label className="text-[10px] font-extrabold text-app-text-muted/70 tracking-widest block">
                               First Name <span className="text-primary">*</span>
                             </label>
                             <input
@@ -680,7 +680,7 @@ export default function GetQuote() {
                           </div>
 
                           <div className="space-y-1 text-left relative group">
-                            <label className="text-[10px] font-extrabold text-app-text-muted/70 uppercase tracking-widest block">
+                            <label className="text-[10px] font-extrabold text-app-text-muted/70 tracking-widest block">
                               Last Name
                             </label>
                             <input
@@ -699,7 +699,7 @@ export default function GetQuote() {
                         </div>
 
                         <div className="space-y-1 text-left relative group">
-                          <label className="text-[10px] font-extrabold text-app-text-muted/70 uppercase tracking-widest block">
+                          <label className="text-[10px] font-extrabold text-app-text-muted/70 tracking-widest block">
                             Company Name
                           </label>
                           <input
@@ -712,7 +712,7 @@ export default function GetQuote() {
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div className="space-y-1 text-left relative group">
-                            <label className="text-[10px] font-extrabold text-app-text-muted/70 uppercase tracking-widest block">
+                            <label className="text-[10px] font-extrabold text-app-text-muted/70 tracking-widest block">
                               Email Address <span className="text-primary">*</span>
                             </label>
                             <input
@@ -731,7 +731,7 @@ export default function GetQuote() {
                           </div>
 
                           <div className="space-y-1 text-left relative group">
-                            <label className="text-[10px] font-extrabold text-app-text-muted/70 uppercase tracking-widest block">
+                            <label className="text-[10px] font-extrabold text-app-text-muted/70 tracking-widest block">
                               Phone Number <span className="text-primary">*</span>
                             </label>
                             <input
@@ -752,7 +752,7 @@ export default function GetQuote() {
                         
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div className="space-y-1 text-left relative group">
-                            <label className="text-[10px] font-extrabold text-app-text-muted/70 uppercase tracking-widest block">
+                            <label className="text-[10px] font-extrabold text-app-text-muted/70 tracking-widest block">
                               Country
                             </label>
                             <div className="relative">
@@ -774,7 +774,7 @@ export default function GetQuote() {
                           </div>
 
                           <div className="space-y-1 text-left relative group">
-                            <label className="text-[10px] font-extrabold text-app-text-muted/70 uppercase tracking-widest block">
+                            <label className="text-[10px] font-extrabold text-app-text-muted/70 tracking-widest block">
                               City
                             </label>
                             <input
@@ -787,7 +787,7 @@ export default function GetQuote() {
                         </div>
 
                         <div className="space-y-1 text-left relative group">
-                          <label className="text-[10px] font-extrabold text-app-text-muted/70 uppercase tracking-widest block">
+                          <label className="text-[10px] font-extrabold text-app-text-muted/70 tracking-widest block">
                             How did you find us?
                           </label>
                           <div className="relative">
@@ -848,7 +848,7 @@ export default function GetQuote() {
                         {errors.service && <span className="text-[10px] text-red-500 block">Please select a service</span>}
 
                         <div className="pt-4">
-                          <label className="text-[10px] font-extrabold text-app-text-muted/70 uppercase tracking-widest block mb-3">
+                          <label className="text-[10px] font-extrabold text-app-text-muted/70 tracking-widest block mb-3">
                             When do you want to start?
                           </label>
                           <div className="grid grid-cols-2 gap-3">
@@ -881,7 +881,7 @@ export default function GetQuote() {
                         
                         <div className="bg-app-bg border border-app-border/50 rounded-xl p-5 space-y-5 text-sm">
                           <div>
-                            <h4 className="text-[10px] font-extrabold text-primary uppercase tracking-widest mb-2">Contact Info</h4>
+                            <h4 className="text-[10px] font-extrabold text-primary tracking-widest mb-2">Contact Info</h4>
                             <div className="grid grid-cols-2 gap-2 text-app-text-muted">
                               <div><strong>Name:</strong> {getValues('firstName')} {getValues('lastName')}</div>
                               <div><strong>Email:</strong> {getValues('email')}</div>
@@ -895,7 +895,7 @@ export default function GetQuote() {
                           <div className="h-px w-full bg-app-border/50" />
 
                           <div>
-                            <h4 className="text-[10px] font-extrabold text-primary uppercase tracking-widest mb-2">Project Summary</h4>
+                            <h4 className="text-[10px] font-extrabold text-primary tracking-widest mb-2">Project Summary</h4>
                             <div className="grid grid-cols-2 gap-2 text-app-text-muted">
                               <div><strong>Service:</strong> {servicesOptions.find(s => s.id === selectedService)?.label}</div>
                               {getValues('timeline') && <div><strong>Timeline:</strong> {getValues('timeline')}</div>}
@@ -905,7 +905,7 @@ export default function GetQuote() {
                           <div className="h-px w-full bg-app-border/50" />
                           
                           <div>
-                            <h4 className="text-[10px] font-extrabold text-primary uppercase tracking-widest mb-2">Details</h4>
+                            <h4 className="text-[10px] font-extrabold text-primary tracking-widest mb-2">Details</h4>
                             {(() => {
                               const config = serviceFormConfig[selectedService];
                               if (!config) return null;
@@ -954,7 +954,7 @@ export default function GetQuote() {
                         <button
                           type="button"
                           onClick={prevStep}
-                          className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-widest text-app-text-muted hover:text-primary transition-colors"
+                          className="flex items-center gap-2 text-xs font-extrabold tracking-widest text-app-text-muted hover:text-primary transition-colors"
                         >
                           <ArrowLeft className="w-4 h-4" />
                           Back
@@ -967,7 +967,7 @@ export default function GetQuote() {
                         <button
                           type="button"
                           onClick={nextStep}
-                          className="relative inline-flex items-center justify-between pl-6 pr-1.5 py-1.5 bg-primary hover:bg-primary-hover text-black font-extrabold text-xs uppercase tracking-widest rounded-full transition-all duration-300 group shadow-[0_10px_25px_rgba(255,107,0,0.22)] hover:shadow-[0_12px_35px_rgba(255,107,0,0.45)] hover:-translate-y-0.5 w-32"
+                          className="relative inline-flex items-center justify-between pl-6 pr-1.5 py-1.5 bg-primary hover:bg-primary-hover text-black font-extrabold text-xs tracking-widest rounded-full transition-all duration-300 group shadow-[0_10px_25px_rgba(255,107,0,0.22)] hover:shadow-[0_12px_35px_rgba(255,107,0,0.45)] hover:-translate-y-0.5 w-32"
                         >
                           <span>Next</span>
                           <div className="w-7 h-7 rounded-full bg-black/10 flex items-center justify-center text-black group-hover:bg-black/20 transition-all duration-300">
@@ -977,7 +977,7 @@ export default function GetQuote() {
                       ) : (
                         <button
                           type="submit"
-                          className="relative inline-flex items-center justify-between pl-6 pr-1.5 py-1.5 bg-primary hover:bg-primary-hover text-black font-extrabold text-xs uppercase tracking-widest rounded-full transition-all duration-300 group shadow-[0_10px_25px_rgba(255,107,0,0.22)] hover:shadow-[0_12px_35px_rgba(255,107,0,0.45)] hover:-translate-y-0.5 w-36"
+                          className="relative inline-flex items-center justify-between pl-6 pr-1.5 py-1.5 bg-primary hover:bg-primary-hover text-black font-extrabold text-xs tracking-widest rounded-full transition-all duration-300 group shadow-[0_10px_25px_rgba(255,107,0,0.22)] hover:shadow-[0_12px_35px_rgba(255,107,0,0.45)] hover:-translate-y-0.5 w-36"
                         >
                           <span>Submit</span>
                           <div className="w-7 h-7 rounded-full bg-black/10 flex items-center justify-center text-black group-hover:bg-black/20 transition-all duration-300">
@@ -1010,7 +1010,7 @@ export default function GetQuote() {
 
                   <button
                     onClick={() => setIsSubmitSuccess(false)}
-                    className="px-6 py-2.5 bg-primary/10 hover:bg-primary/20 border border-primary/30 text-primary hover:text-white rounded-full text-xs font-extrabold uppercase tracking-widest transition-all flex items-center gap-1.5 cursor-pointer"
+                    className="px-6 py-2.5 bg-primary/10 hover:bg-primary/20 border border-primary/30 text-primary hover:text-white rounded-full text-xs font-extrabold tracking-widest transition-all flex items-center gap-1.5 cursor-pointer"
                   >
                     <span>Submit New Inquiry</span>
                     <ArrowRight className="w-3.5 h-3.5" />
@@ -1083,7 +1083,7 @@ export default function GetQuote() {
             >
               <div className="space-y-1 mb-8 text-left">
                 <div className="w-12 h-[3px] bg-primary rounded-full mb-3" />
-                <h3 className="text-3xl font-black font-heading tracking-wider uppercase text-zinc-950 dark:text-white leading-none">
+                <h3 className="text-3xl font-black font-heading tracking-wider text-zinc-950 dark:text-white leading-none">
                   VEDHUNT
                 </h3>
               </div>

@@ -74,7 +74,7 @@ export default function Pricing() {
             <motion.span 
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="inline-flex items-center text-primary text-[10px] font-black uppercase tracking-widest bg-primary/10 border border-primary/20 px-3 py-1 rounded-full"
+              className="inline-flex items-center text-primary text-[10px] font-black tracking-widest bg-primary/10 border border-primary/20 px-3 py-1 rounded-full"
             >
               Transparent & Economical
             </motion.span>
@@ -237,7 +237,7 @@ export default function Pricing() {
               <div className="pt-1">
                 <Link
                   to="/get-quote"
-                  className="inline-flex items-center gap-3 px-8 py-3.5 rounded-full bg-black dark:bg-[#E8470A] hover:bg-gray-800 dark:hover:bg-[#D63D08] text-white font-extrabold text-xs uppercase tracking-widest transition-all duration-300 shadow-[0_12px_30px_rgba(0,0,0,0.35)] dark:shadow-[0_12px_30px_rgba(232,71,10,0.35)] hover:-translate-y-1 active:translate-y-0"
+                  className="inline-flex items-center gap-3 px-8 py-3.5 rounded-full bg-black dark:bg-[#E8470A] hover:bg-gray-800 dark:hover:bg-[#D63D08] text-white font-extrabold text-xs tracking-widest transition-all duration-300 shadow-[0_12px_30px_rgba(0,0,0,0.35)] dark:shadow-[0_12px_30px_rgba(232,71,10,0.35)] hover:-translate-y-1 active:translate-y-0"
                 >
                   <span>Request Custom Estimate</span>
                   <svg className="w-4 h-4 stroke-[3]" fill="none" viewBox="0 0 24 24" stroke="currentColor">

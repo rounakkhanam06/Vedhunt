@@ -132,7 +132,7 @@ export default function About() {
             {/* Tagline / Subtitle */}
             <motion.div variants={scrollFadeUp} className="flex items-center gap-2">
               <span className="w-6 h-[2px] bg-primary" />
-              <span className="text-xs font-extrabold text-primary uppercase tracking-widest">
+              <span className="text-xs font-extrabold text-primary tracking-widest">
                 {heroData?.tagline || 'Who We Are'}
               </span>
             </motion.div>
@@ -194,7 +194,7 @@ export default function About() {
             >
               <Link
                 to={heroData?.ctaLink || "/get-quote"}
-                className="relative inline-flex items-center gap-2 px-8 py-4 bg-primary hover:bg-primary-hover text-black font-extrabold text-xs uppercase tracking-wider rounded-lg transition-all duration-300 hover:shadow-[0_0_25px_rgba(255,107,0,0.45)] group cursor-pointer overflow-hidden"
+                className="relative inline-flex items-center gap-2 px-8 py-4 bg-primary hover:bg-primary-hover text-black font-extrabold text-xs tracking-wider rounded-lg transition-all duration-300 hover:shadow-[0_0_25px_rgba(255,107,0,0.45)] group cursor-pointer overflow-hidden"
               >
                 {/* Gloss slide overlay on hover */}
                 <span className="absolute inset-0 bg-white/10 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-out" />
@@ -248,7 +248,7 @@ export default function About() {
                   {heroData?.stat1?.value || '99%'}
                 </div>
                 <div className="text-left">
-                  <p className="text-[9px] sm:text-[10px] font-extrabold text-primary uppercase tracking-wider">{heroData?.stat1?.labelTop || 'Client'}</p>
+                  <p className="text-[9px] sm:text-[10px] font-extrabold text-primary tracking-wider">{heroData?.stat1?.labelTop || 'Client'}</p>
                   <p className="text-[11px] sm:text-xs font-black text-app-text">{heroData?.stat1?.labelBottom || 'Retention'}</p>
                 </div>
               </motion.div>
@@ -265,7 +265,7 @@ export default function About() {
                   {heroData?.stat2?.value || '140+'}
                 </div>
                 <div className="text-left">
-                  <p className="text-[9px] sm:text-[10px] font-extrabold text-primary uppercase tracking-wider">{heroData?.stat2?.labelTop || 'Active'}</p>
+                  <p className="text-[9px] sm:text-[10px] font-extrabold text-primary tracking-wider">{heroData?.stat2?.labelTop || 'Active'}</p>
                   <p className="text-[11px] sm:text-xs font-black text-app-text">{heroData?.stat2?.labelBottom || 'Projects'}</p>
                 </div>
               </motion.div>
@@ -287,7 +287,7 @@ export default function About() {
           >
             {/* Tagline / Subtitle */}
             <motion.div variants={scrollFadeUp} className="flex items-center gap-2">
-              <span className="text-xs font-extrabold text-primary uppercase tracking-widest">
+              <span className="text-xs font-extrabold text-primary tracking-widest">
                 {companyData?.tagline || 'About Our Company'}
               </span>
               <span className="w-8 h-[2px] bg-primary" />
@@ -440,7 +440,7 @@ export default function About() {
                   className="glass-panel bg-app-card backdrop-blur-xl border border-app-border rounded-2xl p-6 shadow-[0_20px_50px_rgba(255,107,0,0.22)] flex flex-col items-center justify-center text-center w-36 h-36 orange-glow-sm hover:border-primary/50 transition-colors duration-300"
                 >
                   <div className="text-3xl md:text-4xl font-black text-primary font-heading leading-none">{companyData?.centralBadge?.value || '5+'}</div>
-                  <div className="text-[9px] font-extrabold text-app-text uppercase tracking-widest mt-1">{companyData?.centralBadge?.label1 || 'Years Of'}</div>
+                  <div className="text-[9px] font-extrabold text-app-text tracking-widest mt-1">{companyData?.centralBadge?.label1 || 'Years Of'}</div>
                   <div className="text-xs font-black text-app-text-muted">{companyData?.centralBadge?.label2 || 'Excellence'}</div>
                 </motion.div>
               </div>
@@ -542,7 +542,7 @@ export default function About() {
               {/* Left Column: Copy & Metadata */}
               <div className="lg:col-span-5 text-left space-y-6">
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-extrabold text-primary uppercase tracking-widest bg-primary/10 border border-primary/20 px-2.5 py-1 rounded-md flex items-center gap-1.5">
+                  <span className="text-[10px] font-extrabold text-primary tracking-widest bg-primary/10 border border-primary/20 px-2.5 py-1 rounded-md flex items-center gap-1.5">
                     <Tv className="w-3.5 h-3.5" />
                     <span>Video Presentation</span>
                   </span>
@@ -600,7 +600,7 @@ export default function About() {
                       <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/80" />
                       <div className="w-2.5 h-2.5 rounded-full bg-green-500/80" />
                     </div>
-                    <div className="text-[10px] text-white/40 font-mono tracking-widest uppercase flex items-center gap-1.5">
+                    <div className="text-[10px] text-white/40 font-mono tracking-widest flex items-center gap-1.5">
                       <span className="w-1.5 h-1.5 rounded-full bg-primary animate-ping" />
                       <span>Vedhunt Media player</span>
                     </div>
@@ -649,7 +649,7 @@ export default function About() {
             variants={scrollFadeUp}
             className="max-w-3xl space-y-4"
           >
-            <span className="text-[10px] font-extrabold text-primary uppercase tracking-widest bg-primary/10 px-2.5 py-1 rounded-md">
+            <span className="text-[10px] font-extrabold text-primary tracking-widest bg-primary/10 px-2.5 py-1 rounded-md">
               {whatWeDoData?.tagline || 'What We Do'}
             </span>
             <h2 className="text-3xl md:text-4xl font-black font-heading text-app-text leading-tight">
@@ -717,7 +717,7 @@ export default function About() {
             <div className="absolute -top-1.5 -right-1.5 w-8 h-8 md:w-12 md:h-12 border-t-[4px] border-r-[4px] border-primary rounded-tr-3xl pointer-events-none transition-transform duration-300 group-hover:translate-x-1 group-hover:-translate-y-1 group-hover:scale-105" />
             <div className="absolute -bottom-1.5 -left-1.5 w-8 h-8 md:w-12 md:h-12 border-b-[4px] border-l-[4px] border-primary rounded-bl-3xl pointer-events-none transition-transform duration-300 group-hover:-translate-x-1 group-hover:translate-y-1 group-hover:scale-105" />
 
-            <span className="text-[10px] font-extrabold text-primary uppercase tracking-widest bg-primary/10 px-2.5 py-1 rounded-md">
+            <span className="text-[10px] font-extrabold text-primary tracking-widest bg-primary/10 px-2.5 py-1 rounded-md">
               {visionMissionData?.visionTagline || 'Our Vision'}
             </span>
             <h3 className="text-2xl font-black font-heading text-app-text mt-4 mb-3 leading-snug">
@@ -745,7 +745,7 @@ export default function About() {
             <div className="absolute -top-1.5 -right-1.5 w-8 h-8 md:w-12 md:h-12 border-t-[4px] border-r-[4px] border-primary rounded-tr-3xl pointer-events-none transition-transform duration-300 group-hover:translate-x-1 group-hover:-translate-y-1 group-hover:scale-105" />
             <div className="absolute -bottom-1.5 -left-1.5 w-8 h-8 md:w-12 md:h-12 border-b-[4px] border-l-[4px] border-primary rounded-bl-3xl pointer-events-none transition-transform duration-300 group-hover:-translate-x-1 group-hover:translate-y-1 group-hover:scale-105" />
 
-            <span className="text-[10px] font-extrabold text-primary uppercase tracking-widest bg-primary/10 px-2.5 py-1 rounded-md">
+            <span className="text-[10px] font-extrabold text-primary tracking-widest bg-primary/10 px-2.5 py-1 rounded-md">
               {visionMissionData?.missionTagline || 'Our Mission'}
             </span>
             <h3 className="text-2xl font-black font-heading text-app-text mt-4 mb-3 leading-snug">
@@ -768,7 +768,7 @@ export default function About() {
             variants={scrollFadeLeft}
             className="lg:col-span-5 space-y-4"
           >
-            <span className="text-[10px] font-extrabold text-primary uppercase tracking-widest bg-primary/10 px-2.5 py-1 rounded-md">
+            <span className="text-[10px] font-extrabold text-primary tracking-widest bg-primary/10 px-2.5 py-1 rounded-md">
               {ourEdgeData?.tagline || 'Our Edge'}
             </span>
             <h2 className="text-2xl md:text-3xl font-black font-heading text-app-text leading-tight">

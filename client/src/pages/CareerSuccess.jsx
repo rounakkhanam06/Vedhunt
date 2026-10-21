@@ -40,14 +40,14 @@ export default function CareerSuccess() {
           <div className="pt-8 border-t border-app-border flex flex-col sm:flex-row gap-4 justify-center items-center">
             <button
               onClick={() => navigate('/career')}
-              className="px-8 py-3 bg-primary hover:bg-primary-hover text-black rounded-full text-xs font-extrabold uppercase tracking-widest transition-all shadow-[0_10px_25px_rgba(232,71,10,0.22)] hover:shadow-[0_12px_35px_rgba(232,71,10,0.45)] hover:-translate-y-0.5 flex items-center gap-2 cursor-pointer w-full sm:w-auto justify-center"
+              className="px-8 py-3 bg-primary hover:bg-primary-hover text-black rounded-full text-xs font-extrabold tracking-widest transition-all shadow-[0_10px_25px_rgba(232,71,10,0.22)] hover:shadow-[0_12px_35px_rgba(232,71,10,0.45)] hover:-translate-y-0.5 flex items-center gap-2 cursor-pointer w-full sm:w-auto justify-center"
             >
               <ArrowRight className="w-4 h-4 rotate-180" />
               <span>Back to Careers</span>
             </button>
             <button
               onClick={() => navigate('/')}
-              className="px-8 py-3 bg-app-bg border border-app-border hover:border-primary/50 text-app-text hover:text-primary rounded-full text-xs font-bold uppercase tracking-widest transition-all w-full sm:w-auto justify-center"
+              className="px-8 py-3 bg-app-bg border border-app-border hover:border-primary/50 text-app-text hover:text-primary rounded-full text-xs font-bold tracking-widest transition-all w-full sm:w-auto justify-center"
             >
               Return Home
             </button>

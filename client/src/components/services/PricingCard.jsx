@@ -73,7 +73,7 @@ export default function PricingCard({ plan, categoryIcon }) {
       {/* Floating best choice badge if highlighted */}
       {highlight && (
         <div className="absolute top-2.5 right-3.5 z-20">
-          <span className="px-3 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest bg-primary text-white dark:bg-white dark:text-black shadow-md">
+          <span className="px-3 py-0.5 rounded-full text-[8px] font-black tracking-widest bg-primary text-white dark:bg-white dark:text-black shadow-md">
             Best Choice
           </span>
         </div>
@@ -88,10 +88,10 @@ export default function PricingCard({ plan, categoryIcon }) {
             {getCategoryIcon(categoryIcon)}
           </div>
           <div className="space-y-0.5 pr-12"> {/* Right padding to avoid overlap with badge */}
-            <h3 className="text-base md:text-lg font-black font-heading text-black dark:text-white uppercase tracking-wide leading-tight transition-colors duration-300 group-hover:text-primary">
+            <h3 className="text-base md:text-lg font-black font-heading text-black dark:text-white tracking-wide leading-tight transition-colors duration-300 group-hover:text-primary">
               {title}
             </h3>
-            <p className="text-primary text-[9px] uppercase font-bold tracking-widest block">
+            <p className="text-primary text-[9px] font-bold tracking-widest block">
               {tech}
             </p>
           </div>
@@ -100,7 +100,7 @@ export default function PricingCard({ plan, categoryIcon }) {
         {/* Deliverables / Features Box */}
         <div className="px-6 pb-6 flex-grow flex flex-col">
           <div className="rounded-2xl bg-black/[0.01] dark:bg-white/[0.01] border border-black/5 dark:border-white/5 p-4.5 flex flex-col space-y-3 group-hover:bg-black/[0.02] group-hover:dark:bg-white/[0.02] transition-all duration-300 overflow-hidden">
-            <p className="text-[9px] font-black text-black/40 dark:text-white/40 tracking-[0.2em] uppercase shrink-0">
+            <p className="text-[9px] font-black text-black/40 dark:text-white/40 tracking-[0.2em] shrink-0">
               Included Deliverables
             </p>
             <motion.ul layout className="space-y-2.5 relative">
@@ -128,7 +128,7 @@ export default function PricingCard({ plan, categoryIcon }) {
               <motion.button 
                 layout
                 onClick={() => setIsExpanded(!isExpanded)}
-                className="mt-2 text-[10px] font-black uppercase tracking-widest text-primary hover:text-black dark:hover:text-white transition-colors flex items-center gap-1.5 self-start py-1"
+                className="mt-2 text-[10px] font-black tracking-widest text-primary hover:text-black dark:hover:text-white transition-colors flex items-center gap-1.5 self-start py-1"
               >
                 {isExpanded ? '- Show Less' : `+ ${safeFeatures.length - VISIBLE_COUNT} More`}
               </motion.button>
@@ -152,10 +152,10 @@ export default function PricingCard({ plan, categoryIcon }) {
                 </del>
               </div>
               <div className="flex items-center gap-2 mt-1.5">
-                <span className="text-[8px] font-black text-primary tracking-widest uppercase block">
+                <span className="text-[8px] font-black text-primary tracking-widest block">
                   {periodLabel}
                 </span>
-                <span className="px-1.5 py-0.5 rounded bg-green-500/15 text-green-600 dark:text-green-400 text-[8px] font-black uppercase tracking-widest leading-none">
+                <span className="px-1.5 py-0.5 rounded bg-green-500/15 text-green-600 dark:text-green-400 text-[8px] font-black tracking-widest leading-none">
                   Save {discountPercent}%
                 </span>
               </div>
@@ -165,7 +165,7 @@ export default function PricingCard({ plan, categoryIcon }) {
               <span className="text-xl md:text-2xl font-black text-black dark:text-white tracking-tight leading-none block">
                 {finalDisplayPrice}
               </span>
-              <span className="text-[8px] font-black text-primary tracking-widest uppercase block mt-1.5">
+              <span className="text-[8px] font-black text-primary tracking-widest block mt-1.5">
                 {periodLabel}
               </span>
             </>
@@ -174,7 +174,7 @@ export default function PricingCard({ plan, categoryIcon }) {
         
         <Link
           to="/get-quote"
-          className="px-5 py-3 rounded-xl flex items-center justify-center gap-2 font-black text-[10px] uppercase tracking-wider bg-primary text-black hover:bg-black hover:text-primary dark:hover:bg-white dark:hover:text-black transition-all duration-300 shadow-[0_4px_12px_rgba(232,71,10,0.15)] hover:shadow-[0_6px_20px_rgba(232,71,10,0.35)] hover:-translate-y-0.5 active:translate-y-0"
+          className="px-5 py-3 rounded-xl flex items-center justify-center gap-2 font-black text-[10px] tracking-wider bg-primary text-black hover:bg-black hover:text-primary dark:hover:bg-white dark:hover:text-black transition-all duration-300 shadow-[0_4px_12px_rgba(232,71,10,0.15)] hover:shadow-[0_6px_20px_rgba(232,71,10,0.35)] hover:-translate-y-0.5 active:translate-y-0"
         >
           <span>Get Started</span>
           <ArrowRight className="w-3 h-3 stroke-[3]" />
