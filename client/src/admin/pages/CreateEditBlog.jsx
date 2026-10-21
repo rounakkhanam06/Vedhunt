@@ -31,6 +31,7 @@ const CreateEditBlog = () => {
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
   const [uploadingThumbnail, setUploadingThumbnail] = useState(false);
+  const [uploadingBlockId, setUploadingBlockId] = useState(null);
   const [categories, setCategories] = useState([]);
 
   useEffect(() => {
@@ -83,6 +84,27 @@ const CreateEditBlog = () => {
       }
     } finally {
       setUploadingThumbnail(false);
+    }
+  };
+
+  const handleBlockImageUpload = async (e, index) => {
+    const file = e.target.files[0];
+    e.target.value = ''; // allow re-picking the same file
+    if (!file) return;
+    const blockId = formData.contentBlocks[index].id;
+    try {
+      setUploadingBlockId(blockId);
+      const response = await uploadService.uploadImage(file);
+      setFormData(prev => ({
+        ...prev,
+        contentBlocks: prev.contentBlocks.map(b =>
+          b.id === blockId ? { ...b, data: { ...b.data, url: response.url } } : b
+        )
+      }));
+    } catch (error) {
+      toast.error(error.message || 'Failed to upload image');
+    } finally {
+      setUploadingBlockId(null);
     }
   };
 
@@ -267,10 +289,28 @@ const CreateEditBlog = () => {
                         type="text" 
                         value={block.data.url} 
                         onChange={e => updateBlock(index, 'url', e.target.value)}
-                        placeholder="Image URL..."
+                        placeholder="Paste an image URL, or upload below..."
                         className="w-full bg-form-input-bg border border-app-border rounded px-4 py-2.5 text-app-text placeholder-app-text-muted focus:outline-none focus:border-[#FF6B00] transition-colors"
                       />
-                      <input 
+                      <label className="flex items-center justify-center gap-2 w-full py-3 border-2 border-app-border border-dashed rounded-lg cursor-pointer bg-form-input-bg hover:bg-surface-variant transition-colors text-sm text-app-text-muted">
+                        {uploadingBlockId === block.id ? (
+                          <Loader2 className="w-4 h-4 text-[#FF6B00] animate-spin" />
+                        ) : (
+                          <Upload className="w-4 h-4" />
+                        )}
+                        <span>
+                          <span className="font-semibold text-app-text">{uploadingBlockId === block.id ? 'Uploading...' : 'Upload from device'}</span>
+                          {uploadingBlockId === block.id ? '' : ' (choose from your gallery or files)'}
+                        </span>
+                        <input
+                          type="file"
+                          className="hidden"
+                          accept="image/*"
+                          onChange={e => handleBlockImageUpload(e, index)}
+                          disabled={uploadingBlockId === block.id}
+                        />
+                      </label>
+                      <input
                         type="text" 
                         value={block.data.caption} 
                         onChange={e => updateBlock(index, 'caption', e.target.value)}
