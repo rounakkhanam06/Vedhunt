@@ -497,8 +497,8 @@ export default function ClientManager() {
       {/* Preview Modal */}
       {previewClient && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-          <div className="w-full max-w-lg bg-surface border border-outline-variant rounded-2xl shadow-2xl overflow-hidden animate-fade-in-up">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-outline-variant">
+          <div className="w-full max-w-3xl max-h-[85vh] flex flex-col bg-surface border border-outline-variant rounded-2xl shadow-2xl overflow-hidden animate-fade-in-up">
+            <div className="shrink-0 flex items-center justify-between px-6 py-4 border-b border-outline-variant">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-secondary/15 flex items-center justify-center shrink-0">
                   <Building size={18} className="text-secondary" />
@@ -516,9 +516,9 @@ export default function ClientManager() {
               </button>
             </div>
 
-            <div className="p-6 space-y-6">
+            <div className="p-6 space-y-6 flex-1 min-h-0 overflow-y-auto overscroll-contain">
               {/* Detailed Grid */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 <div className="space-y-1">
                   <p className="text-on-surface-variant text-[10px] uppercase font-bold tracking-wider">Contact Person</p>
                   <p className="text-on-surface text-sm font-medium">{previewClient.contactName}</p>
@@ -592,7 +592,7 @@ export default function ClientManager() {
               {previewClient.preSaleTimeline && (
                 <div className="space-y-2 border-t border-outline-variant pt-4">
                   <p className="text-on-surface-variant text-[10px] uppercase font-bold tracking-wider">Pre-Sale Timeline</p>
-                  <div className="bg-admin-bg/60 border border-outline-variant rounded-xl p-3.5 max-h-64 overflow-y-auto space-y-3">
+                  <div className="bg-admin-bg/60 border border-outline-variant rounded-xl p-3.5 max-h-52 overflow-y-auto overscroll-contain space-y-3">
                     {[
                       ...(previewClient.preSaleTimeline.pipelineHistory || []).map((e) => ({ date: e.date, label: e.status, note: e.note })),
                       ...(previewClient.preSaleTimeline.callLogs || []).map((c) => ({ date: c.callDate, label: `Call #${c.touchNumber} — ${c.connected === 'Yes' ? `Connected (${c.interestLevel || '-'})` : `Not Connected (${c.notConnectedReason || '-'})`}`, note: c.remark })),
@@ -630,7 +630,7 @@ export default function ClientManager() {
               </div>
             </div>
 
-            <div className="px-6 py-3.5 bg-admin-bg/40 border-t border-outline-variant flex justify-end">
+            <div className="shrink-0 px-6 py-3.5 bg-admin-bg/40 border-t border-outline-variant flex justify-end">
               <button
                 onClick={() => setPreviewClient(null)}
                 className="px-5 py-2 bg-admin-bg border border-outline-variant text-on-surface-variant hover:text-on-surface rounded-xl text-sm cursor-pointer transition-colors"
