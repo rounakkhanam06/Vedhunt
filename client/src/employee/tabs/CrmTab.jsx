@@ -66,6 +66,7 @@ function GrantedLeads({ canAssign }) {
   const views = [
     { key: 'working', label: 'Working', render: () => <LeadsManager key="working" stageGroup="working" /> },
     { key: 'raw', label: 'Raw', render: () => <LeadsManager key="raw" stageGroup="raw" /> },
+    { key: 'dropped-hold', label: 'Dropped & Hold', render: () => <LeadsManager key="dropped-hold" stageGroup="dropped-hold" /> },
     { key: 'all', label: 'All stages', render: () => <LeadsManager key="all" /> },
     ...(canAssign ? [{ key: 'unassigned', label: 'Unassigned', render: () => <UnassignedLeadsManager /> }] : []),
   ];

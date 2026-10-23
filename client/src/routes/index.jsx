@@ -65,6 +65,7 @@ const RefundPolicyManager = lazy(() => import('../admin/pages/RefundPolicyManage
 const ServiceAgreementManager = lazy(() => import('../admin/pages/ManageAgreement'));
 const RawLeadsManager = lazy(() => import('../admin/pages/RawLeadsManager'));
 const WorkingLeadsManager = lazy(() => import('../admin/pages/WorkingLeadsManager'));
+const DroppedHoldLeadsManager = lazy(() => import('../admin/pages/DroppedHoldLeadsManager'));
 const LeadWorkspace = lazy(() => import('../admin/pages/LeadWorkspace'));
 const UnassignedLeadsManager = lazy(() => import('../admin/pages/UnassignedLeadsManager'));
 const AllLeadsManager = lazy(() => import('../admin/pages/AllLeadsManager'));
@@ -548,6 +549,10 @@ export const router = createBrowserRouter([
             element: withPermission(WorkingLeadsManager, 'leads.view')
           },
           {
+            path: 'leads/dropped-hold',
+            element: withPermission(DroppedHoldLeadsManager, 'leads.view')
+          },
+          {
             path: 'leads/unassigned',
             element: withPermission(UnassignedLeadsManager, 'leads.view')
           },
@@ -584,12 +589,16 @@ export const router = createBrowserRouter([
             element: withPermission(ManagementDashboard, 'dashboard.management')
           },
           {
+            path: 'leads-overview',
+            element: withPermission(ManagementDashboard, 'dashboard.management')
+          },
+          {
             path: 'facebook-integration',
             element: withPermission(FacebookIntegrationManager, 'settings.manage')
           },
           {
             path: 'subscribers',
-            element: withPermission(SubscriberManager, 'cms.manage')
+            element: withPermission(SubscriberManager, ['newsletter.manage', 'cms.manage'])
           },
           {
             path: '',

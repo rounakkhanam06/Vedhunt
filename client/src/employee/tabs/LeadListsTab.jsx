@@ -7,11 +7,12 @@ import LeadSearch from '../components/LeadSearch';
 import { Spinner, EmptyCard, TabHeader } from '../components/PortalUI';
 import { useEssLeads, essKeys } from '../lib/ess';
 import { fmtDateTime, toDateInput } from '../lib/datetime';
-import { followUpBucket, isCallPending, needsNextAction, isPaymentPending, isWonThisMonth, mergeLead } from '../lib/leads';
+import { followUpBucket, isCallPending, needsNextAction, isPaymentPending, isWonThisMonth, mergeLead, CLOSED_OR_HOLD, DROPPED_OR_HOLD } from '../lib/leads';
 import { INTEREST_LEVELS } from '../../shared/leadConstants';
 import { SERVICES_REQUIRED_OPTIONS, LEAD_PRIORITY_LEVELS } from '../../shared/serviceQualification';
 
-const WORKING_STATUSES = ['Contacted', 'Qualified', 'Proposal Sent', 'Negotiation', 'Hold', 'Won', 'Lost', 'Dropped'];
+// Statuses a Working lead can have; closed/hold ones are only reached through a dashboard drill-down
+const WORKING_STATUSES = ['New', 'Contacted', 'Qualified', 'Proposal Sent', 'Negotiation'];
 // Same option lists as the admin Raw/Working Leads filters (admin/pages/LeadsManager.jsx).
 const PLATFORMS = ['Website', 'Facebook', 'Google Ads', 'Instagram', 'Manual'];
 const SOURCES = ['Google', 'Facebook', 'Instagram', 'LinkedIn', 'YouTube', 'Referral', 'Direct'];
@@ -19,17 +20,19 @@ const NO_ATTR_FILTERS = { platform: 'All', source: 'All', form: 'All', service: 
 const selectClass = 'bg-app-card border border-app-border rounded-lg px-3 py-1.5 text-sm text-app-text focus:outline-none focus:border-primary/50 cursor-pointer';
 
 const VIEWS = {
-  raw: { title: 'Raw Leads', subtitle: 'Assigned to you, not yet worked — open one to log your first call' },
-  working: { title: 'Working Leads', subtitle: "Leads you've started calling or moved forward — ownership changes only happen from Admin" },
+  raw: { title: 'Raw Leads', subtitle: 'Assigned to you, not connected yet — unanswered calls stay here with every attempt logged' },
+  working: { title: 'Working Leads', subtitle: "Leads you've connected with and are still working — Won, Lost, Dropped and Hold leads leave this list" },
+  'dropped-hold': { title: 'Dropped & Hold', subtitle: 'Dropped and on-hold leads with their history — change the status to bring one back' },
   followups: { title: 'Follow-ups', subtitle: 'Every scheduled next action on your leads, with its type and exact due time' },
 };
 
 // Which lead date the From/To range applies to, and the list orderings.
-const DATE_FIELDS = { createdAt: 'Received', assignedAt: 'Assigned', lastCallAt: 'Last call' };
+const DATE_FIELDS = { createdAt: 'Received', assignedAt: 'Assigned', lastCallAt: 'Last call', lastActivityAt: 'Last activity' };
 const SORTS = {
   received: { label: 'Newest received', field: 'createdAt' },
   assigned: { label: 'Recently assigned', field: 'assignedAt' },
   called: { label: 'Recently called', field: 'lastCallAt' },
+  activity: { label: 'Latest activity', field: 'lastActivityAt' },
 };
 
 /** Lead date filtering + ordering shared by all three views — all client-side over the cached list. */
@@ -137,7 +140,7 @@ export default function LeadListsTab({ view }) {
     body = <Spinner />;
   } else if (view === 'raw') {
     const urgentOnly = searchParams.get('urgent') === '1';
-    let list = applyAttrFilters(applyDateFilters(leads.filter((l) => l.status === 'New'), dateFilters), attrs);
+    let list = applyAttrFilters(applyDateFilters(leads.filter((l) => l.isRaw), dateFilters), attrs);
     if (urgentOnly) list = list.filter(isCallPending).sort((a, b) => new Date(a.assignedAt) - new Date(b.assignedAt));
     body = (
       <>
@@ -145,13 +148,20 @@ export default function LeadListsTab({ view }) {
         {list.length ? cards(list) : <EmptyCard>{urgentOnly ? 'Nothing overdue for a first call right now.' : 'No raw leads right now — everything assigned to you has already been worked.'}</EmptyCard>}
       </>
     );
+  } else if (view === 'dropped-hold') {
+    const list = applyAttrFilters(applyDateFilters(leads, dateFilters), attrs)
+      .filter((l) => DROPPED_OR_HOLD.includes(l.status) && (statusFilter === 'All' || l.status === statusFilter));
+    body = list.length ? cards(list) : <EmptyCard>No dropped or on-hold leads.</EmptyCard>;
   } else if (view === 'working') {
     const scopeAll = searchParams.get('scope') === 'all';
     const noNext = searchParams.get('noNext') === '1';
     const payment = searchParams.get('payment');
     const thisMonth = searchParams.get('period') === 'thisMonth';
+    // Dashboard drill-downs (Won this month, payment pending, a closed status)
+    // look past the Working rule on purpose, and say so in the notice below
+    const closedDrill = CLOSED_OR_HOLD.includes(statusFilter) || Boolean(payment) || thisMonth;
     const list = applyAttrFilters(applyDateFilters(leads, dateFilters), attrs).filter((l) =>
-      (scopeAll || l.status !== 'New') &&
+      (scopeAll || closedDrill || (!l.isRaw && !CLOSED_OR_HOLD.includes(l.status))) &&
       (statusFilter === 'All' || l.status === statusFilter) &&
       (interestFilter === 'All' || l.interestLevel === interestFilter) &&
       (!noNext || needsNextAction(l)) &&
@@ -163,7 +173,8 @@ export default function LeadListsTab({ view }) {
     const notice = noNext ? 'Showing active leads with no next action scheduled'
       : payment === 'pending' ? 'Showing won deals with payment pending'
       : scopeAll ? 'Showing every lead assigned to you, including raw leads'
-      : thisMonth ? 'Showing deals won this month' : null;
+      : thisMonth ? 'Showing deals won this month'
+      : closedDrill ? `Showing ${statusFilter} leads (not part of Working Leads)` : null;
     body = (
       <>
         {notice && <FilterNotice onClear={() => clearTo('working-leads')}>{notice}</FilterNotice>}
@@ -195,9 +206,15 @@ export default function LeadListsTab({ view }) {
             </select>
             <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className={selectClass} aria-label="Status">
               <option value="All">All Statuses</option>
-              {WORKING_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+              {[...WORKING_STATUSES, ...(WORKING_STATUSES.includes(statusFilter) || statusFilter === 'All' ? [] : [statusFilter])].map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
           </>
+        )}
+        {view === 'dropped-hold' && (
+          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className={selectClass} aria-label="Status">
+            <option value="All">Dropped &amp; Hold</option>
+            {DROPPED_OR_HOLD.map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
         )}
         {view === 'followups' && (
           <div className="flex bg-app-card border border-app-border p-1 rounded-lg">

@@ -26,6 +26,7 @@ const TABS = {
   dashboard: HomeTab,
   'raw-leads': (props) => <LeadListsTab view="raw" {...props} />,
   'working-leads': (props) => <LeadListsTab view="working" {...props} />,
+  'dropped-hold-leads': (props) => <LeadListsTab view="dropped-hold" {...props} />,
   followups: (props) => <LeadListsTab view="followups" {...props} />,
   'my-calls': MyCallLogTab,
   tickets: TicketsTab,

@@ -41,8 +41,19 @@ describe('stage sequencing', () => {
   test('terminal statuses are dead ends', () => {
     for (const from of ['Won', 'Lost', 'Dropped']) {
       assert.deepEqual(ALLOWED_TRANSITIONS[from], [from]);
-      fails({ status: from }, { status: 'Contacted' }, /Only a Super Admin/);
     }
+    fails({ status: 'Won' }, { status: 'Contacted' }, /Only a Super Admin/);
+    fails({ status: 'Lost' }, { status: 'Contacted' }, /permission to reactivate/);
+    fails({ status: 'Dropped' }, { status: 'Contacted' }, /permission to reactivate/);
+  });
+
+  test('leads.reactivate reopens Lost / Dropped into the pipeline, never Won', () => {
+    const asReactivator = { canReactivate: true };
+    for (const from of ['Lost', 'Dropped']) {
+      assert.equal(validateLeadTransition({ status: from }, { status: 'Contacted' }, asReactivator), null);
+      assert.match(validateLeadTransition({ status: from }, { status: 'New' }, asReactivator), /can only be reopened to/);
+    }
+    assert.match(validateLeadTransition({ status: 'Won' }, { status: 'Contacted' }, asReactivator), /Only a Super Admin/);
   });
 
   test('Hold can return to any active stage', () => {

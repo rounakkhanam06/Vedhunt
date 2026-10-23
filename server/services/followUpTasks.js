@@ -1,3 +1,5 @@
+const mongoose = require('mongoose');
+const { actionStamp } = require('../utils/leadActivity');
 const { findLeadRaw } = require('../utils/leadLookup');
 const FollowUpTask = require('../models/FollowUpTask');
 
@@ -65,6 +67,8 @@ async function completeTask(leadId, taskId, resultText, actorId, { canManage = f
   task.completedAt = new Date();
   task.completedBy = actorId;
   await task.save();
+  // A completed follow-up/meeting is an action on the lead
+  await mongoose.connection.db.collection('leads').updateOne({ _id: lead._id }, { $set: actionStamp(lead, actorId, 'Follow-up completed') });
 
   return { ok: true, task };
 }

@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { actionStamp } = require('../utils/leadActivity');
 const { validateLeadTransition, normalizeDateFields, isSameInstant, TERMINAL_STATUSES } = require('../utils/leadStateMachine');
 const { findLeadRaw } = require('../utils/leadLookup');
 const { convertWonLeadToClient } = require('./clientProvisioning');
@@ -51,7 +52,7 @@ const NON_GATING_FIELDS = [
  *
  * @param {string} leadId
  * @param {object} updates          proposed field changes, already whitelisted by the caller
- * @param {object} actor            { id: ObjectId, isSuperAdmin?: boolean } — who is making this change
+ * @param {object} actor            { id: ObjectId, isSuperAdmin?: boolean, canReactivate?: boolean } — who is making this change
  * @param {object} [extraFilter]    e.g. { assignedTo: actor.id } to scope the Employee Portal to its own leads
  * @returns {{ ok: true, lead: object } | { ok: false, status: number, message: string }}
  */
@@ -79,9 +80,13 @@ async function applyLeadUpdate(leadId, updates, actor, extraFilter = {}) {
   }
 
   // 2. Closed State Read-Only Enforcement
+  // leads.reactivate may move a Lost/Dropped lead back into the pipeline (and
+  // nothing else); Won stays with the Super Admin.
   if (TERMINAL_STATUSES.includes(existingLead.status)) {
-    if (!actor.isSuperAdmin) {
-      return { ok: false, status: 403, message: 'Cannot update a closed lead. Contact a Super Admin for authorized corrections.' };
+    const reactivating = actor.canReactivate && existingLead.status !== 'Won'
+      && updates.status && !TERMINAL_STATUSES.includes(updates.status);
+    if (!actor.isSuperAdmin && !reactivating) {
+      return { ok: false, status: 403, message: 'Cannot update a closed lead. Ask someone allowed to reactivate leads, or a Super Admin.' };
     }
   }
 
@@ -95,7 +100,7 @@ async function applyLeadUpdate(leadId, updates, actor, extraFilter = {}) {
   // unrelated pre-existing gap (e.g. a legacy Warm lead with no follow-up).
   const touchesPipeline = Object.keys(updates).some((field) => !NON_GATING_FIELDS.includes(field));
   const error = touchesPipeline
-    ? validateLeadTransition(existingLead, updates, { isSuperAdmin: !!actor.isSuperAdmin })
+    ? validateLeadTransition(existingLead, updates, { isSuperAdmin: !!actor.isSuperAdmin, canReactivate: !!actor.canReactivate })
     : null;
   if (error) {
     return { ok: false, status: 400, message: error };
@@ -118,7 +123,8 @@ async function applyLeadUpdate(leadId, updates, actor, extraFilter = {}) {
     else if (updates.status === 'Lost' || updates.status === 'Dropped') note = `Reason: ${updates.notConvertedReason || existingLead.notConvertedReason || ''}`;
     else if (updates.status === 'Hold') note = `Reason: ${updates.holdReason || ''}`;
 
-    // Super Admin reopening a closed lead (validated in leadStateMachine.js).
+    // Reopening a closed lead (Super Admin, or leads.reactivate for Lost /
+    // Dropped — validated in leadStateMachine.js).
     // The old outcome's close date/reason no longer describe the lead —
     // they're kept in this history note instead. A Won lead's Client
     // account is left as-is; re-winning reuses it (convertWonLeadToClient
@@ -127,7 +133,7 @@ async function applyLeadUpdate(leadId, updates, actor, extraFilter = {}) {
       const was = existingLead.status === 'Won'
         ? `Won, ₹${existingLead.dealCloseValue ?? 0}`
         : `${existingLead.status}, reason: ${existingLead.notConvertedReason || '—'}`;
-      note = [`Reopened by Super Admin (was ${was})`, note].filter(Boolean).join(' · ');
+      note = [`Reactivated (was ${was})`, note].filter(Boolean).join(' · ');
       updates.closedDate = null;
       if (existingLead.status !== 'Won') updates.notConvertedReason = '';
     }
@@ -149,6 +155,12 @@ async function applyLeadUpdate(leadId, updates, actor, extraFilter = {}) {
 
   if (updates.interestLevel && updates.interestLevel !== existingLead.interestLevel) {
     pipelineEntries.push({ status: `Interest set: ${updates.interestLevel}`, date: now, updatedBy: actor.id, note: '' });
+  }
+
+  // A call outcome already keeps its remark in callLogs; a remark edited on
+  // its own would otherwise be overwritten with no trace of who changed it.
+  if ('remark' in updates && !updates.connected && (updates.remark || '') !== (existingLead.remark || '')) {
+    pipelineEntries.push({ status: 'Remark updated', date: now, updatedBy: actor.id, note: String(updates.remark || '').slice(0, 500) });
   }
 
   const reschedulingFollowUp =
@@ -281,6 +293,16 @@ async function applyLeadUpdate(leadId, updates, actor, extraFilter = {}) {
     logger.error(`Lead score computation failed for lead ${existingLead._id}:`, err);
   }
 
+  // A real interaction moves the lead out of Raw Leads (utils/leadActivity.js).
+  // Call-timer, qualification and contact-detail saves alone don't count.
+  const actionType =
+    updates.connected ? 'Call logged'
+      : updates.status && updates.status !== existingLead.status ? 'Stage changed'
+        : updates.interestLevel && updates.interestLevel !== existingLead.interestLevel ? 'Interest set'
+          : updates.remark && updates.remark !== (existingLead.remark || '') ? 'Remark'
+            : null;
+  if (actionType) Object.assign(updates, actionStamp(existingLead, actor.id, actionType, now));
+
   if (touchNumberUpdate) updates.touchNumber = touchNumberUpdate;
   updates.updatedAt = now;
 
@@ -395,7 +417,7 @@ async function appendLeadActivity(leadId, { status, note = '', actorId }, extraF
   const result = await mongoose.connection.db.collection('leads').findOneAndUpdate(
     { _id: existingLead._id },
     {
-      $set: { ...set, updatedAt: now },
+      $set: { ...set, ...actionStamp(existingLead, actorId, status, now), updatedAt: now },
       $push: { pipelineHistory: { status, date: now, updatedBy: actorId, note } }
     },
     { returnDocument: 'after' }

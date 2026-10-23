@@ -1,5 +1,6 @@
 // Lead-scope checks for routes behind requirePageAccess on a lead page.
-// A lead belongs to whoever it is assigned to (Lead.assignedTo → Admin), so a
+// A lead belongs to whoever it is assigned to (Lead.assignedTo → Admin) and is
+// also reachable by every BD it is cross-assigned to (Lead.sharedWith), so a
 // scope becomes a list of Admin ids:
 //   all  → no limit      own → just me
 //   team → me plus everyone below me in the reporting tree (Employee.reportingManager)
@@ -43,14 +44,30 @@ async function assigneeIds(req, scope = req.pageScope) {
 /**
  * Query filter for the leads a scope covers. Assigners may also reach the
  * unassigned pool (to pick up and hand out leads), but only where a route
- * asks for it with { unassigned: true }.
+ * asks for it with { unassigned: true }. Ownership actions (reassign, delete)
+ * pass { shared: false } so a cross-assigned BD can work a lead but not take
+ * it away from its owner.
  */
-async function leadFilter(req, scope = req.pageScope, { unassigned = false } = {}) {
+async function leadFilter(req, scope = req.pageScope, { unassigned = false, shared = true } = {}) {
   const ids = await assigneeIds(req, scope);
   if (!ids) return {};
-  const mine = { assignedTo: { $in: ids.map(oid) } };
-  return unassigned ? { $or: [mine, { assignedTo: null }] } : mine;
+  const inIds = { $in: ids.map(oid) };
+  const or = [{ assignedTo: inIds }];
+  if (shared) or.push({ 'sharedWith.admin': inIds });
+  if (unassigned) or.push({ assignedTo: null });
+  return { $or: or };
 }
+
+/** Query filter for the leads one person works: owned by them or shared with them. */
+const accessibleTo = (adminId) => ({ $or: [{ assignedTo: oid(adminId) }, { 'sharedWith.admin': oid(adminId) }] });
+
+/** Whether `adminId` owns `lead` or has it shared with them. */
+const hasLeadAccess = (lead, adminId) =>
+  String(lead.assignedTo?._id || lead.assignedTo || '') === String(adminId)
+  || (lead.sharedWith || []).some((s) => String(s.admin?._id || s.admin) === String(adminId));
+
+/** Admins with all-leads access see every note, private ones included. */
+const seesAllLeadNotes = (user) => pageScope(user, 'leads', 'view') === null;
 
 /** Whether this login can assign leads at all (role or grant). */
 const canAssignLeads = (user) => pageScope(user, 'leads', 'assign') !== false;
@@ -59,8 +76,8 @@ const canAssignLeads = (user) => pageScope(user, 'leads', 'assign') !== false;
 async function leadInScope(req, lead, scope = req.pageScope, { unassigned = false } = {}) {
   const ids = await assigneeIds(req, scope);
   if (!ids) return true;
-  if (!lead.assignedTo) return unassigned;
-  return ids.includes(String(lead.assignedTo?._id || lead.assignedTo));
+  if (ids.some((id) => hasLeadAccess(lead, id))) return true;
+  return !lead.assignedTo && unassigned;
 }
 
-module.exports = { teamAdminIds, assigneeIds, leadFilter, leadInScope, canAssignLeads, oid };
+module.exports = { teamAdminIds, assigneeIds, leadFilter, leadInScope, canAssignLeads, accessibleTo, hasLeadAccess, seesAllLeadNotes, oid };

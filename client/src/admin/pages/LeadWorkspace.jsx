@@ -5,6 +5,7 @@ import { Mail, Phone, Clock, FileText, Play, Square, MessageCircle, Trash2, Uplo
 import toast from 'react-hot-toast';
 import StageDataModal from '../components/StageDataModal';
 import FollowUpTasksPanel from '../components/FollowUpTasksPanel';
+import LeadCollaborationPanel from '../../shared/LeadCollaborationPanel';
 import ProposalWorkflow from '../../employee/components/ProposalWorkflow';
 import { isCallInProgress, lastCallLog, startedNewCall, isSameOutcome, fmtClock } from '../../shared/callHandling';
 import { NOT_CONNECTED_REASONS, INTEREST_LEVELS, LOST_DROPPED_REASONS, FOLLOWUP_TRIGGER_INTEREST_LEVELS, PAYMENT_STATUS_OPTIONS } from '../../shared/leadConstants';
@@ -69,6 +70,8 @@ function buildActivityTimeline(lead, assignmentHistory) {
   });
 
   (assignmentHistory || []).forEach((entry) => {
+    // Cross-assignments already appear via pipelineHistory
+    if (entry.mode?.startsWith('Cross-')) return;
     const toName = displayName(entry.toAdmin);
     events.push({
       key: entry._id,
@@ -607,7 +610,8 @@ export default function LeadWorkspace() {
                       handleStageChange({ status: newStatus }).catch(() => {});
                     }
                   }}
-                  disabled={(!isSuperAdmin && ['Won', 'Lost', 'Dropped'].includes(lead.status)) || isLockedByOther(lead, me?._id)}
+                  // Closed leads: Super Admin reopens any; leads.reactivate reopens Lost/Dropped
+                  disabled={(!isSuperAdmin && (lead.status === 'Won' || (['Lost', 'Dropped'].includes(lead.status) && !can('leads.reactivate')))) || isLockedByOther(lead, me?._id)}
                   className={`${selectClass} font-medium`}
                 >
                   <option className="bg-app-bg text-app-text" value="New">New</option>
@@ -725,6 +729,8 @@ export default function LeadWorkspace() {
           </div>
 
           <FollowUpTasksPanel leadId={lead._id} canManage={canAssign} bds={bds} myAdminId={me?._id} />
+
+          <LeadCollaborationPanel http={http} leadUrl={`${root}/leads/${id}`} lead={lead} canShare={canAssign} bds={bds} onChanged={reloadLead} />
 
           {/* Remark */}
           <div className={sectionClass}>

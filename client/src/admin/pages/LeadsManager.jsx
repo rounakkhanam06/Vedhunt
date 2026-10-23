@@ -7,6 +7,8 @@ import toast from 'react-hot-toast';
 import LeadsPipelineView from '../components/LeadsPipelineView';
 import { downloadLeadsCsv } from '../utils/leadExport';
 import ImportLeadsModal from '../components/ImportLeadsModal';
+import BulkReassignModal from '../components/BulkReassignModal';
+import { INTEREST_LEVELS } from '../../shared/leadConstants';
 import { SERVICES_REQUIRED_OPTIONS, LEAD_PRIORITY_LEVELS } from '../../shared/serviceQualification';
 
 // firstName/lastName aren't guaranteed on every Admin account (the original
@@ -48,7 +50,15 @@ const STATUS_BADGE_CLASSES = {
 };
 
 // The dates the date-range filter can apply to (server: leadController.getLeads's dateField).
-const DATE_FIELD_LABELS = { received: 'Received', assigned: 'Assigned', lastCall: 'Last call' };
+const DATE_FIELD_LABELS = { received: 'Received', assigned: 'Assigned', lastCall: 'Last call', lastActivity: 'Last activity' };
+
+const ALL_STATUSES = ['New', 'Contacted', 'Qualified', 'Proposal Sent', 'Negotiation', 'Hold', 'Won', 'Lost', 'Dropped'];
+// Statuses each page can contain (server/utils/leadActivity.js). Working keeps
+// New/Contacted leads that have connected but not moved stage yet.
+const STATUS_OPTIONS_BY_GROUP = {
+  working: ['New', 'Contacted', 'Qualified', 'Proposal Sent', 'Negotiation'],
+  'dropped-hold': ['Dropped', 'Hold'],
+};
 
 const fmtShortDate = (d) => (d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' }) : '—');
 
@@ -81,6 +91,9 @@ export default function LeadsManager({ stageGroup }) {
   const [serviceFilter, setServiceFilter] = useState(searchParams.get('service') || 'All');
   const [priorityFilter, setPriorityFilter] = useState(searchParams.get('leadPriority') || 'All');
   const [breachedOnly, setBreachedOnly] = useState(searchParams.get('followUpBreached') === 'true');
+  const [interestFilter, setInterestFilter] = useState(searchParams.get('interestLevel') || 'All');
+  const [followUpFrom, setFollowUpFrom] = useState(searchParams.get('followUpFrom') || '');
+  const [followUpTo, setFollowUpTo] = useState(searchParams.get('followUpTo') || '');
   const [stageFilter] = useState(searchParams.get('stage') || '');
   const [connectedFilter] = useState(searchParams.get('connected') || '');
   const [dateFrom, setDateFrom] = useState(searchParams.get('dateFrom') || '');
@@ -142,6 +155,9 @@ export default function LeadsManager({ stageGroup }) {
           service: serviceFilter,
           leadPriority: priorityFilter,
           followUpBreached: breachedOnly || undefined,
+          interestLevel: interestFilter,
+          followUpFrom: followUpFrom || undefined,
+          followUpTo: followUpTo || undefined,
           stage: stageFilter || undefined,
           connected: connectedFilter || undefined,
           dateFrom: dateFrom || undefined,
@@ -164,7 +180,7 @@ export default function LeadsManager({ stageGroup }) {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, statusFilter, stageGroup, platformFilter, sourceFilter, leadTypeFilter, formFilter, assignedBdFilter, serviceFilter, priorityFilter, breachedOnly, stageFilter, connectedFilter, dateFrom, dateTo, dateField, debouncedSearchTerm, sortBy, sortOrder]);
+  }, [currentPage, statusFilter, stageGroup, platformFilter, sourceFilter, leadTypeFilter, formFilter, assignedBdFilter, serviceFilter, priorityFilter, breachedOnly, interestFilter, followUpFrom, followUpTo, stageFilter, connectedFilter, dateFrom, dateTo, dateField, debouncedSearchTerm, sortBy, sortOrder]);
 
   useEffect(() => {
     fetchLeads();
@@ -230,74 +246,75 @@ export default function LeadsManager({ stageGroup }) {
 
   // -- Bulk reassignment ----------------------------------------------------
   const [selectedIds, setSelectedIds] = useState(() => new Set());
+  // 'all-matching' only while the selection is exactly "every lead matching
+  // the filters"; any hand edit turns it back into a manual selection.
+  const [selectionMode, setSelectionMode] = useState('manual');
   const [bulkTarget, setBulkTarget] = useState('');
-  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkReview, setBulkReview] = useState(null);
+
+  const clearSelection = () => { setSelectedIds(new Set()); setSelectionMode('manual'); };
 
   // A selection made under one filter must not silently carry over to another.
   useEffect(() => {
-    setSelectedIds(new Set());
-  }, [statusFilter, platformFilter, sourceFilter, leadTypeFilter, formFilter, assignedBdFilter, serviceFilter, priorityFilter, breachedOnly, dateFrom, dateTo, dateField, debouncedSearchTerm, stageGroup]);
+    clearSelection();
+  }, [statusFilter, platformFilter, sourceFilter, leadTypeFilter, formFilter, assignedBdFilter, serviceFilter, priorityFilter, breachedOnly, interestFilter, followUpFrom, followUpTo, dateFrom, dateTo, dateField, debouncedSearchTerm, stageGroup]);
 
   const pageIds = leads.map((l) => l._id);
   const allPageSelected = pageIds.length > 0 && pageIds.every((id) => selectedIds.has(id));
+  const selectedOnPage = pageIds.filter((id) => selectedIds.has(id)).length;
 
-  const toggleLead = (id) => setSelectedIds((prev) => {
-    const next = new Set(prev);
-    if (next.has(id)) next.delete(id); else next.add(id);
-    return next;
-  });
+  const toggleLead = (id) => {
+    setSelectionMode('manual');
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
 
-  const togglePage = () => setSelectedIds((prev) => {
-    const next = new Set(prev);
-    if (allPageSelected) pageIds.forEach((id) => next.delete(id)); else pageIds.forEach((id) => next.add(id));
-    return next;
-  });
+  const togglePage = () => {
+    setSelectionMode('manual');
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allPageSelected) pageIds.forEach((id) => next.delete(id)); else pageIds.forEach((id) => next.add(id));
+      return next;
+    });
+  };
 
   const selectAllMatching = async () => {
     try {
       const { page, limit, ...filters } = lastFilterParams.current;
       const res = await http.get(`${root}/leads`, { params: { ...filters, idsOnly: true } });
-      if (res.data?.success) setSelectedIds(new Set(res.data.ids));
+      if (res.data?.success) {
+        setSelectedIds(new Set(res.data.ids));
+        setSelectionMode('all-matching');
+      }
     } catch (error) {
       toast.error('Could not select all matching leads');
     }
   };
 
-  const bdLabel = (id) => {
-    const bd = bds.find((b) => b._id === id);
-    return bd ? displayName(bd) : 'the selected BD';
-  };
-
-  const handleBulkReassign = async () => {
+  // Preview → confirm → summary all happen in BulkReassignModal. When the list
+  // is filtered by one owner, the server refuses any lead no longer theirs.
+  const handleBulkReassign = () => {
     if (!bulkTarget || selectedIds.size === 0) return;
-    const count = selectedIds.size;
-    const target = bulkTarget === 'unassign' ? 'Unassigned' : bdLabel(bulkTarget);
-    const ok = window.confirm(
-      `Reassign ${count} lead${count === 1 ? '' : 's'} to ${target}?\n\n` +
-      'Each lead keeps its status, notes, call logs and history. Pending follow-ups move to the new owner, and the change is recorded in the assignment history.'
-    );
-    if (!ok) return;
-
-    setBulkBusy(true);
-    try {
-      const res = await http.post(`${root}/leads/bulk-assign`, {
-        leadIds: [...selectedIds],
-        assignedTo: bulkTarget,
-        reason: 'Bulk Reassignment'
-      });
-      const { failed = 0, message } = res.data;
-      if (failed > 0) toast.error(message); else toast.success(message);
-      setSelectedIds(new Set());
-      setBulkTarget('');
-      fetchLeads();
-      // Workload counts in the BD dropdown are now stale.
-      http.get(`${root}/admin/assignment/bds`).then((r) => setBds(r.data?.data || [])).catch(() => {});
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Bulk reassignment failed');
-    } finally {
-      setBulkBusy(false);
-    }
+    setBulkReview({
+      leadIds: [...selectedIds],
+      target: bulkTarget,
+      expectedOwner: assignedBdFilter !== 'All' && assignedBdFilter !== 'Unassigned' ? assignedBdFilter : null,
+      filterChips: activeFilterChips,
+      selection: selectionMode,
+    });
   };
+
+  const afterBulkReassign = () => {
+    clearSelection();
+    setBulkTarget('');
+    fetchLeads();
+    // Workload counts in the BD dropdown are now stale.
+    http.get(`${root}/admin/assignment/bds`).then((r) => setBds(r.data?.data || [])).catch(() => {});
+  };
+
 
   const handleAssign = async (leadId, assignedTo, reason = '') => {
     try {
@@ -387,6 +404,9 @@ export default function LeadsManager({ stageGroup }) {
           service: serviceFilter,
           leadPriority: priorityFilter,
           followUpBreached: breachedOnly || undefined,
+          interestLevel: interestFilter,
+          followUpFrom: followUpFrom || undefined,
+          followUpTo: followUpTo || undefined,
           stage: stageFilter || undefined,
           connected: connectedFilter || undefined,
           dateFrom: dateFrom || undefined,
@@ -430,6 +450,8 @@ export default function LeadsManager({ stageGroup }) {
     priorityFilter !== 'All' && `Priority: ${priorityFilter}`,
     assignedBdFilter !== 'All' && `BD: ${assignedBdFilter === 'Unassigned' ? 'Unassigned' : (bds.find((b) => b._id === assignedBdFilter) ? `${bds.find((b) => b._id === assignedBdFilter).firstName} ${bds.find((b) => b._id === assignedBdFilter).lastName}` : assignedBdFilter)}`,
     breachedOnly && 'Follow-up Breached only',
+    interestFilter !== 'All' && `Interest: ${interestFilter}`,
+    (followUpFrom || followUpTo) && `Follow-up due: ${followUpFrom || '…'} to ${followUpTo || '…'}`,
     stageFilter === 'open' && 'Open pipeline (not Won/Lost/Dropped/Hold)',
     connectedFilter && `Connected: ${connectedFilter}`,
     (dateFrom || dateTo) && `${DATE_FIELD_LABELS[dateField] || 'Received'}: ${dateFrom || '…'} to ${dateTo || '…'}`
@@ -438,14 +460,14 @@ export default function LeadsManager({ stageGroup }) {
   return (
     <div className="space-y-5">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+        <div className="min-w-0 flex-1">
           <h1 className="text-2xl font-bold text-app-text font-heading">
-            {stageGroup === 'raw' ? 'Raw Leads' : stageGroup === 'working' ? 'Working Leads' : 'Lead Manager'}
+            {stageGroup === 'raw' ? 'Raw Leads' : stageGroup === 'working' ? 'Working Leads' : stageGroup === 'dropped-hold' ? 'Dropped & Hold Leads' : 'Lead Manager'}
           </h1>
-          <p className="text-sm text-app-text-muted mt-1">
-            {stageGroup === 'raw' && 'Untouched leads — no calls made, no stage change yet. '}
-            {stageGroup === 'working' && 'Leads with calling/stage activity already started. '}
+          <p className="text-sm text-app-text-muted mt-1 max-w-3xl">
+            {stageGroup === 'raw' && 'Assigned to a BD, not connected with the prospect yet. Unanswered calls stay here with their attempts logged. Unassigned leads are on the Unassigned page. '}
+            {stageGroup === 'working' && 'Connected with the prospect and still open. Won, Lost, Dropped and Hold leads leave this list. '}{stageGroup === 'dropped-hold' && 'Dropped and on-hold leads with their owner and history. Reactivating one returns it to Raw or Working. '}
             {leadTypeFilter === 'All' ? 'Total' : leadTypeFilter} leads:{' '}
             <span className="font-semibold text-app-text">{totalLeads}</span>
           </p>
@@ -468,11 +490,11 @@ export default function LeadsManager({ stageGroup }) {
             </div>
           )}
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-2.5 shrink-0 self-start">
           {stageGroup === 'raw' && can('leads.import') && (
             <button
               onClick={() => setShowImportModal(true)}
-              className="flex items-center gap-2 bg-app-card border border-app-border hover:border-primary px-4 py-2 rounded-lg font-semibold text-sm text-app-text transition-colors"
+              className="inline-flex items-center gap-2 bg-primary hover:bg-primary-hover text-white px-3.5 py-2 rounded-lg font-semibold text-sm shadow-xs transition-all duration-150 active:scale-95 cursor-pointer whitespace-nowrap"
             >
               <UploadIcon className="w-4 h-4" />
               <span>Import Leads</span>
@@ -481,25 +503,25 @@ export default function LeadsManager({ stageGroup }) {
           <div className="relative">
             <button
               onClick={() => setShowExportDropdown(!showExportDropdown)}
-              className="flex items-center gap-2 bg-app-card border border-app-border hover:border-primary px-4 py-2 rounded-lg font-semibold text-sm text-app-text transition-colors"
+              className="inline-flex items-center gap-2 bg-app-card border border-app-border hover:border-primary/50 hover:bg-surface-variant/40 text-app-text px-3.5 py-2 rounded-lg font-semibold text-sm shadow-xs transition-all duration-150 active:scale-95 cursor-pointer whitespace-nowrap"
             >
-              <Download className="w-4 h-4" />
+              <Download className="w-4 h-4 text-app-text-muted" />
               <span>Export</span>
-              <ChevronDown className="w-4 h-4" />
+              <ChevronDown className={`w-3.5 h-3.5 text-app-text-muted transition-transform duration-200 ${showExportDropdown ? 'rotate-180 text-primary' : ''}`} />
             </button>
             {showExportDropdown && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setShowExportDropdown(false)} />
-                <div className="absolute right-0 mt-2 w-48 bg-app-card border border-app-border rounded-xl shadow-lg z-50 overflow-hidden">
+                <div className="absolute right-0 mt-2 w-48 bg-app-card border border-app-border rounded-xl shadow-xl z-50 overflow-hidden py-1 animate-in fade-in slide-in-from-top-2 duration-150">
                   <button
                     onClick={() => {
                       setShowExportDropdown(false);
                       handleExport('csv');
                     }}
-                    className="w-full text-left px-4 py-3 text-sm text-app-text hover:bg-surface-variant hover:text-primary transition-colors flex items-center gap-2"
+                    className="w-full text-left px-4 py-2.5 text-sm text-app-text hover:bg-surface-variant hover:text-primary transition-colors flex items-center gap-2 cursor-pointer"
                   >
-                    <FileText className="w-4 h-4" />
-                    Export as CSV
+                    <FileText className="w-4 h-4 text-primary" />
+                    <span>Export as CSV</span>
                   </button>
                 </div>
               </>
@@ -512,6 +534,17 @@ export default function LeadsManager({ stageGroup }) {
         <ImportLeadsModal
           onClose={() => setShowImportModal(false)}
           onImported={fetchLeads}
+        />
+      )}
+
+      {bulkReview && (
+        <BulkReassignModal
+          http={http}
+          root={root}
+          leadPath={leadPath}
+          {...bulkReview}
+          onClose={() => setBulkReview(null)}
+          onDone={afterBulkReassign}
         />
       )}
 
@@ -580,16 +613,10 @@ export default function LeadsManager({ stageGroup }) {
                 }}
                 className={compactSelectClass}
               >
-                <option className="bg-app-bg text-app-text" value="All">{stageGroup === 'working' ? 'All Working Statuses' : 'All Statuses'}</option>
-                {stageGroup !== 'working' && <option className="bg-app-bg text-app-text" value="New">New</option>}
-                <option className="bg-app-bg text-app-text" value="Contacted">Contacted</option>
-                <option className="bg-app-bg text-app-text" value="Qualified">Qualified</option>
-                <option className="bg-app-bg text-app-text" value="Proposal Sent">Proposal Sent</option>
-                <option className="bg-app-bg text-app-text" value="Negotiation">Negotiation</option>
-                <option className="bg-app-bg text-app-text" value="Hold">Hold</option>
-                <option className="bg-app-bg text-app-text" value="Won">Won</option>
-                <option className="bg-app-bg text-app-text" value="Lost">Lost</option>
-                <option className="bg-app-bg text-app-text" value="Dropped">Dropped</option>
+                <option className="bg-app-bg text-app-text" value="All">{stageGroup === 'working' ? 'All Working Statuses' : stageGroup === 'dropped-hold' ? 'Dropped & Hold' : 'All Statuses'}</option>
+                {(STATUS_OPTIONS_BY_GROUP[stageGroup] || ALL_STATUSES).map((st) => (
+                  <option key={st} className="bg-app-bg text-app-text" value={st}>{st}</option>
+                ))}
               </select>
               <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 text-app-text-muted w-3.5 h-3.5 pointer-events-none" />
             </div>
@@ -716,6 +743,50 @@ export default function LeadsManager({ stageGroup }) {
             Breached only
           </button>
 
+          <div className="relative min-w-0">
+            <select
+              value={interestFilter}
+              onChange={(e) => { setInterestFilter(e.target.value); setCurrentPage(1); }}
+              className={compactSelectClass}
+              aria-label="Interest level"
+            >
+              <option className="bg-app-bg text-app-text" value="All">All Interest Levels</option>
+              {INTEREST_LEVELS.map((l) => (
+                <option key={l} className="bg-app-bg text-app-text" value={l}>{l}</option>
+              ))}
+            </select>
+            <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 text-app-text-muted w-3.5 h-3.5 pointer-events-none" />
+          </div>
+
+          <div className="col-span-2 flex flex-wrap items-center gap-1.5">
+            <span className="text-app-text-muted text-xs">Follow-up due</span>
+            <input
+              type="date"
+              value={followUpFrom}
+              onChange={(e) => { setFollowUpFrom(e.target.value); setCurrentPage(1); }}
+              className={`${compactSelectClass} flex-1 min-w-[130px] sm:flex-none sm:w-auto`}
+              style={{ colorScheme: 'dark' }}
+              title="Follow-up due from"
+            />
+            <span className="text-app-text-muted text-xs">to</span>
+            <input
+              type="date"
+              value={followUpTo}
+              onChange={(e) => { setFollowUpTo(e.target.value); setCurrentPage(1); }}
+              className={`${compactSelectClass} flex-1 min-w-[130px] sm:flex-none sm:w-auto`}
+              style={{ colorScheme: 'dark' }}
+              title="Follow-up due to"
+            />
+            {(followUpFrom || followUpTo) && (
+              <button
+                onClick={() => { setFollowUpFrom(''); setFollowUpTo(''); setCurrentPage(1); }}
+                className="text-xs text-app-text-muted hover:text-primary underline"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+
           <div className="col-span-2 flex flex-wrap items-center gap-1.5">
             <div className="relative min-w-0 w-full sm:w-auto">
               <select
@@ -781,8 +852,12 @@ export default function LeadsManager({ stageGroup }) {
           <div className="w-full">
             {canAssign && selectedIds.size > 0 && (
               <div className="mb-3 flex flex-wrap items-center gap-3 bg-primary/10 border border-primary/30 rounded-xl px-4 py-3 text-sm">
-                <span className="font-semibold text-app-text">{selectedIds.size} selected</span>
-                {selectedIds.size < totalLeads && (
+                <span className="font-semibold text-app-text">
+                  {selectionMode === 'all-matching'
+                    ? `All ${selectedIds.size} leads matching the filters selected (every page)`
+                    : `${selectedIds.size} selected${selectedOnPage === selectedIds.size ? ' on this page' : ` (${selectedOnPage} on this page)`}`}
+                </span>
+                {selectionMode !== 'all-matching' && totalLeads > selectedIds.size && (
                   <button onClick={selectAllMatching} className="text-primary font-semibold hover:underline">
                     Select all {totalLeads} matching these filters
                   </button>
@@ -802,13 +877,13 @@ export default function LeadsManager({ stageGroup }) {
                   </select>
                   <button
                     onClick={handleBulkReassign}
-                    disabled={!bulkTarget || bulkBusy}
+                    disabled={!bulkTarget}
                     className="px-4 py-2 rounded-lg bg-primary text-black font-bold text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {bulkBusy ? 'Reassigning...' : 'Reassign'}
+                    Review reassignment
                   </button>
                   <button
-                    onClick={() => setSelectedIds(new Set())}
+                    onClick={clearSelection}
                     className="px-3 py-2 text-app-text-muted hover:text-app-text text-sm"
                   >
                     Clear
@@ -858,6 +933,12 @@ export default function LeadsManager({ stageGroup }) {
                         <div className="flex items-center gap-1">
                           <span>Last Call</span>
                           <span className="text-[9px] opacity-70">{sortBy === 'lastCallAt' ? (sortOrder === 'asc' ? '▲' : '▼') : '↕'}</span>
+                        </div>
+                      </th>
+                      <th onClick={() => handleSort('lastActivityAt')} className="px-3 py-3 font-semibold cursor-pointer select-none hover:text-primary transition-colors">
+                        <div className="flex items-center gap-1">
+                          <span>Last Activity</span>
+                          <span className="text-[9px] opacity-70">{sortBy === 'lastActivityAt' ? (sortOrder === 'asc' ? '▲' : '▼') : '↕'}</span>
                         </div>
                       </th>
                       <th onClick={() => handleSort('fullName')} className="px-3 py-3 font-semibold cursor-pointer select-none hover:text-primary transition-colors">
@@ -945,6 +1026,10 @@ export default function LeadsManager({ stageGroup }) {
                         <td className="px-3 py-2 align-middle text-app-text-muted whitespace-nowrap">{fmtShortDate(lead.assignedAt)}</td>
                         <td className="px-3 py-2 align-middle text-app-text-muted whitespace-nowrap">
                           {fmtShortDate(lead.lastCallAt || lead.callLogs?.reduce((max, c) => (c.callDate && (!max || new Date(c.callDate) > new Date(max)) ? c.callDate : max), null) || lead.callDate)}
+                        </td>
+                        <td className="px-3 py-2 align-middle text-app-text-muted whitespace-nowrap" title={lead.lastActivityType || ''}>
+                          {fmtShortDate(lead.lastActivityAt)}
+                          {lead.lastActivityType && <span className="block text-[10px] opacity-70">{lead.lastActivityType}</span>}
                         </td>
                         <td className="px-3 py-2 align-middle font-semibold text-app-text min-w-[150px]">
                           {isSuperAdmin ? (

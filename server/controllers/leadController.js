@@ -15,6 +15,10 @@ const { addLeadDocument, removeLeadDocument } = require('../services/leadDocumen
 const { prepareImport, previewImport } = require('../services/leadImport');
 const { startImportJob, getImportJob } = require('../services/importJobs');
 const { listTasks, createParallelTask, completeTask } = require('../services/followUpTasks');
+const collaboration = require('../services/leadCollaboration');
+const { rawLeadFilter, workingLeadFilter, droppedHoldLeadFilter, DROPPED_OR_HOLD } = require('../utils/leadActivity');
+const { parseLeadIds, previewBulkReassign, runBulkReassign, loadRun } = require('../services/bulkReassign');
+const BulkAssignmentRun = require('../models/BulkAssignmentRun');
 const { derivePriority } = require('../utils/serviceQualification');
 const { getLeadScoringSettings, computeLeadScore } = require('../services/leadScoring');
 
@@ -32,7 +36,7 @@ const notFound = (res) => res.status(404).json({ success: false, message: 'Lead 
 // Assigning: the lead must be in the person's assign scope (or unassigned), and
 // so must the BD it goes to. Returns an error message or null.
 async function assignError(req, leadId, targetId) {
-  const lead = await findLeadRaw(leadId, await leadFilter(req, req.pageScope, { unassigned: true }));
+  const lead = await findLeadRaw(leadId, await leadFilter(req, req.pageScope, { unassigned: true, shared: false }));
   if (!lead) return { status: 404, message: 'Lead not found' };
   if (targetId) {
     const ids = await assigneeIds(req);
@@ -190,16 +194,19 @@ exports.getLeads = async (req, res, next) => {
 
     const query = {};
 
-    // Raw (untouched, still "New") vs Working (calling/stage activity has
-    // started) — keeps the two admin lead pages from ever showing the same
-    // lead. stageGroup takes priority over a plain status filter so a
-    // Working-page request can't accidentally leak New leads back in.
+    // Raw (assigned, not connected yet) vs Working (connected) vs Dropped &
+    // Hold — defined in utils/leadActivity.js so the pages never show the
+    // same lead twice. Unassigned leads have their own page (assignedTo=Unassigned). stageGroup wins over
+    // a plain status filter so a page can't leak another page's leads.
+    query.$and = [];
     if (req.query.stageGroup === 'raw') {
-      query.status = 'New';
+      query.$and.push(rawLeadFilter());
     } else if (req.query.stageGroup === 'working') {
-      query.status = (req.query.status && req.query.status !== 'All')
-        ? req.query.status
-        : { $ne: 'New' };
+      query.$and.push(workingLeadFilter());
+      if (req.query.status && req.query.status !== 'All') query.status = req.query.status;
+    } else if (req.query.stageGroup === 'dropped-hold') {
+      query.$and.push(droppedHoldLeadFilter());
+      if (DROPPED_OR_HOLD.includes(req.query.status)) query.status = req.query.status;
     } else if (req.query.status && req.query.status !== 'All') {
       query.status = req.query.status;
     }
@@ -258,6 +265,24 @@ exports.getLeads = async (req, res, next) => {
       query.followUpBreached = true;
     }
 
+    // Interest level (latest call outcome)
+    if (req.query.interestLevel && req.query.interestLevel !== 'All') {
+      query.interestLevel = req.query.interestLevel;
+    }
+
+    // Follow-up due date — its own range so it combines with the
+    // received/assigned/last-call range below
+    if (req.query.followUpFrom || req.query.followUpTo) {
+      const due = {};
+      if (req.query.followUpFrom) due.$gte = new Date(req.query.followUpFrom);
+      if (req.query.followUpTo) {
+        const endOfDay = new Date(req.query.followUpTo);
+        endOfDay.setHours(23, 59, 59, 999);
+        due.$lte = endOfDay;
+      }
+      query.nextFollowUpDate = due;
+    }
+
     // "Open pipeline" shorthand — every non-terminal, non-Hold lead, same set
     // activityController.js's getPipelineSummary already uses for pipelineValue.
     // Only applies when no explicit status/stageGroup filter already set one.
@@ -280,6 +305,8 @@ exports.getLeads = async (req, res, next) => {
       }
       if (req.query.dateField === 'assigned') {
         query.assignedAt = range;
+      } else if (req.query.dateField === 'lastActivity') {
+        query.lastActivityAt = range;
       } else if (req.query.dateField === 'lastCall') {
         query.$and = query.$and || [];
         query.$and.push({
@@ -306,7 +333,10 @@ exports.getLeads = async (req, res, next) => {
     } else if (wanted) {
       query.assignedTo = visibleIds.includes(wanted) ? wanted : { $in: [] };
     } else {
-      query.assignedTo = { $in: visibleIds.map(oid) };
+      // Their own leads plus any cross-assigned to someone in the scope
+      const inIds = { $in: visibleIds.map(oid) };
+      query.$and = query.$and || [];
+      query.$and.push({ $or: [{ assignedTo: inIds }, { 'sharedWith.admin': inIds }] });
     }
 
     // Search by text (using $text index or regex if $text doesn't cover partial well)
@@ -334,6 +364,8 @@ exports.getLeads = async (req, res, next) => {
       const order = req.query.sortOrder === 'asc' ? 1 : -1;
       sort = { [req.query.sortBy]: order };
     }
+
+    if (!query.$and.length) delete query.$and; // MongoDB rejects an empty $and
 
     // Bulk-select support: every id matching the current filters (not just this
     // page), so "select all N matching" can reassign beyond one page.
@@ -386,7 +418,8 @@ exports.getLeadById = async (req, res, next) => {
       if (admin) assignedTo = { _id: admin._id, firstName: admin.firstName, lastName: admin.lastName, email: admin.email };
     }
 
-    res.status(200).json({ success: true, data: { ...lead, assignedTo } });
+    const sharedWith = await collaboration.sharedWithDetails(lead);
+    res.status(200).json({ success: true, data: { ...lead, assignedTo, sharedWith } });
   } catch (error) {
     logger.error('Error fetching lead:', error);
     next(error);
@@ -440,18 +473,11 @@ exports.bulkAssignLeads = async (req, res, next) => {
     }
 
     const isRoundRobin = assignedTo === 'round-robin' || mode === 'round-robin';
-    // Round robin spreads leads across every BD, so it needs company-wide assign access
-    if (isRoundRobin && req.pageScope) {
-      return res.status(403).json({ success: false, message: 'Round-robin assignment needs access to assign all leads.' });
-    }
-    if (!isRoundRobin) {
-      const target = assignedTo && assignedTo !== 'unassign' ? assignedTo : null;
-      for (const leadId of leadIds) {
-        const denied = await assignError(req, leadId, target);
-        if (denied) return res.status(denied.status).json({ success: false, message: denied.status === 404 ? 'One or more leads are outside your scope.' : denied.message });
-      }
-    }
     if (isRoundRobin) {
+      // Round robin spreads leads across every BD, so it needs company-wide assign access
+      if (req.pageScope) {
+        return res.status(403).json({ success: false, message: 'Round-robin assignment needs access to assign all leads.' });
+      }
       let successCount = 0;
       let skippedCount = 0;
 
@@ -475,62 +501,108 @@ exports.bulkAssignLeads = async (req, res, next) => {
       });
     }
 
-    if (assignedTo && assignedTo !== 'unassign') {
-      const targetAdmin = await Admin.findById(assignedTo);
-      if (!targetAdmin) {
-        return res.status(400).json({ success: false, message: 'That BD account does not exist' });
-      }
-    }
+    const opts = await bulkOptions(req);
+    if (opts.error) return res.status(opts.status).json({ success: false, message: opts.error });
 
-    const targetBdId = (assignedTo === 'unassign' || !assignedTo) ? null : assignedTo;
-    let successCount = 0;
-    let failCount = 0;
-    let alreadyCount = 0;
-    const failures = [];
+    const run = await runBulkReassign(opts, {
+      filters: req.body.filters && typeof req.body.filters === 'object' ? req.body.filters : {},
+      selection: req.body.selection,
+      reason: String(reason || '').slice(0, 500),
+    });
+    const assigned = run.succeeded.length;
+    const failed = run.failed.length;
+    const verb = opts.target ? 'Reassigned' : 'Unassigned';
+    const message = failed
+      ? `${verb} ${assigned} of ${run.requested} lead${run.requested === 1 ? '' : 's'}. ${failed} could not be ${verb.toLowerCase()}.`
+      : `${verb} all ${assigned} lead${assigned === 1 ? '' : 's'}.`;
 
-    // One bad lead (locked by someone mid-call, deleted meanwhile) must not
-    // abort the rest of the batch, so failures are collected per lead.
-    for (const leadId of leadIds) {
-      try {
-        const current = await findLeadRaw(leadId);
-        if (current && String(current.assignedTo || '') === String(targetBdId || '')) {
-          alreadyCount++;
-          continue;
-        }
-        const lead = await manualAssign({
-          leadId,
-          toAdmin: targetBdId,
-          assignedBy: req.user._id,
-          reason: reason || (targetBdId ? 'Bulk Reassignment' : 'Bulk Unassigned')
-        });
-        if (lead) {
-          successCount++;
-        } else {
-          failCount++;
-          failures.push({ leadId, message: 'Lead not found' });
-        }
-      } catch (err) {
-        failCount++;
-        failures.push({ leadId, message: err.message });
-      }
-    }
-
-    const parts = [targetBdId
-      ? `Reassigned ${successCount} lead${successCount === 1 ? '' : 's'}.`
-      : `Unassigned ${successCount} lead${successCount === 1 ? '' : 's'}.`];
-    if (alreadyCount) parts.push(`${alreadyCount} already with that owner.`);
-    if (failCount) parts.push(`${failCount} failed.`);
-
+    // success is true only when every selected lead moved
     res.status(200).json({
-      success: true,
-      message: parts.join(' '),
-      assigned: successCount,
-      skipped: alreadyCount,
-      failed: failCount,
-      failures
+      success: failed === 0,
+      partial: failed > 0 && assigned > 0,
+      message,
+      runId: run._id,
+      requested: run.requested,
+      assigned,
+      failed,
+      failures: run.failed
     });
   } catch (error) {
-    logger.error('Error in bulk assigning leads:', error);
+    logger.error('Error in bulk assign:', error);
+    next(error);
+  }
+};
+
+/**
+ * Shared input checks for preview and run: lead ids, destination (inside the
+ * person's scope, active), and the owner the selection was filtered by.
+ */
+async function bulkOptions(req) {
+  const { leadIds, assignedTo, expectedOwner } = req.body;
+  const parsed = parseLeadIds(leadIds);
+  if (parsed.error) return { status: 400, error: parsed.error };
+
+  const target = assignedTo && assignedTo !== 'unassign' ? String(assignedTo) : null;
+  if (!assignedTo) return { status: 400, error: 'Choose who to reassign the leads to.' };
+  if (target) {
+    if (!mongoose.isValidObjectId(target)) return { status: 400, error: 'That BD account does not exist' };
+    const targetAdmin = await Admin.findById(target).select('isActive').lean();
+    if (!targetAdmin || targetAdmin.isActive === false) return { status: 400, error: 'That BD account does not exist or is inactive' };
+    const ids = await assigneeIds(req);
+    if (ids && !ids.includes(target)) return { status: 403, error: 'You can only assign leads to people in your scope.' };
+  }
+  if (expectedOwner && !mongoose.isValidObjectId(expectedOwner)) return { status: 400, error: 'Invalid owner filter.' };
+
+  return {
+    ids: parsed.ids,
+    target,
+    expectedOwner: expectedOwner || null,
+    actorId: req.user._id,
+    scopeFilter: await leadFilter(req, req.pageScope, { unassigned: true, shared: false })
+  };
+}
+
+// @desc    Preview a bulk reassignment: counts by current owner, destination,
+//          and every selected lead that can't be moved, with the reason
+// @route   POST /api/leads/bulk-assign/preview
+// @access  Private (leads.assign)
+exports.previewBulkAssign = async (req, res, next) => {
+  try {
+    const opts = await bulkOptions(req);
+    if (opts.error) return res.status(opts.status).json({ success: false, message: opts.error });
+    res.status(200).json({ success: true, data: await previewBulkReassign(opts) });
+  } catch (error) {
+    logger.error('Error previewing bulk assign:', error);
+    next(error);
+  }
+};
+
+// @desc    Bulk reassignment runs (all for full-access admins, else your own)
+// @route   GET /api/leads/bulk-assign/runs[/:runId]
+// @access  Private (leads.assign)
+exports.getBulkAssignRuns = async (req, res, next) => {
+  try {
+    const own = req.pageScope ? { initiatedBy: req.user._id } : {};
+    if (req.params.runId) {
+      const run = await loadRun(req.params.runId, own);
+      if (!run) return res.status(404).json({ success: false, message: 'Run not found' });
+      return res.status(200).json({ success: true, data: run });
+    }
+    // Counts only — the full per-lead lists come with a single run
+    const runs = await BulkAssignmentRun.aggregate([
+      { $match: own },
+      { $sort: { createdAt: -1 } },
+      { $limit: 50 },
+      { $project: { initiatedBy: 1, toAdmin: 1, expectedOwner: 1, filters: 1, selection: 1, reason: 1, requested: 1, status: 1, createdAt: 1, finishedAt: 1, succeededCount: { $size: '$succeeded' }, failedCount: { $size: '$failed' } } }
+    ]);
+    await BulkAssignmentRun.populate(runs, [
+      { path: 'initiatedBy', select: 'firstName lastName email' },
+      { path: 'toAdmin', select: 'firstName lastName email' },
+      { path: 'expectedOwner', select: 'firstName lastName email' }
+    ]);
+    res.status(200).json({ success: true, data: runs });
+  } catch (error) {
+    logger.error('Error fetching bulk assign runs:', error);
     next(error);
   }
 };
@@ -705,7 +777,8 @@ exports.updateLead = async (req, res, next) => {
     if ('altPhone' in updates) updates.altPhoneNormalized = normalizePhone(updates.altPhone);
     if ('email' in updates) updates.emailNormalized = normalizeEmail(updates.email);
 
-    const result = await applyLeadUpdate(req.params.id, updates, { id: req.user?._id, isSuperAdmin }, await leadFilter(req));
+    const canReactivate = req.user?.permissions?.includes('leads.reactivate');
+    const result = await applyLeadUpdate(req.params.id, updates, { id: req.user?._id, isSuperAdmin, canReactivate }, await leadFilter(req));
     if (!result.ok) {
       return res.status(result.status).json({ success: false, message: result.message });
     }
@@ -823,7 +896,7 @@ exports.deleteLeadDocument = async (req, res, next) => {
 // @access  Private (Admin)
 exports.deleteLead = async (req, res, next) => {
   try {
-    if (req.pageScope && !(await findLeadRaw(req.params.id, await leadFilter(req)))) return notFound(res);
+    if (req.pageScope && !(await findLeadRaw(req.params.id, await leadFilter(req, req.pageScope, { shared: false })))) return notFound(res);
     const lead = await Lead.findByIdAndDelete(req.params.id);
 
     if (!lead) {
@@ -893,6 +966,71 @@ exports.completeLeadTask = async (req, res, next) => {
     res.status(200).json({ success: true, task: result.task });
   } catch (error) {
     logger.error('Error completing lead task:', error);
+    next(error);
+  }
+};
+
+const respondResult = (res, result, status = 200) => (result.ok
+  ? res.status(status).json({ success: true, ...(result.note && { data: result.note }) })
+  : res.status(result.status).json({ success: false, message: result.message }));
+
+// @desc    Notes on a lead the person may read (private ones: author + all-leads admins)
+// @route   GET /api/leads/:id/notes
+// @access  Private (leads view)
+exports.getLeadNotes = async (req, res, next) => {
+  try {
+    const lead = await findLeadRaw(req.params.id, await leadFilter(req));
+    if (!lead) return notFound(res);
+    res.status(200).json({ success: true, data: await collaboration.listNotes(lead._id, req.user) });
+  } catch (error) {
+    logger.error('Error fetching lead notes:', error);
+    next(error);
+  }
+};
+
+// @desc    Add a shared or private note
+// @route   POST /api/leads/:id/notes
+// @access  Private (leads view)
+exports.addLeadNote = async (req, res, next) => {
+  try {
+    const lead = await findLeadRaw(req.params.id, await leadFilter(req));
+    if (!lead) return notFound(res);
+    respondResult(res, await collaboration.addNote(lead, req.user, req.body), 201);
+  } catch (error) {
+    logger.error('Error adding lead note:', error);
+    next(error);
+  }
+};
+
+// @desc    Cross-assign: give another BD access while the owner keeps the lead
+// @route   POST /api/leads/:id/share
+// @access  Private (leads.assign)
+exports.shareLeadWith = async (req, res, next) => {
+  try {
+    const { adminId, reason } = req.body;
+    const lead = await findLeadRaw(req.params.id, await leadFilter(req, req.pageScope, { shared: false }));
+    if (!lead) return notFound(res);
+    const ids = await assigneeIds(req);
+    if (ids && !ids.includes(String(adminId))) {
+      return res.status(403).json({ success: false, message: 'You can only share leads with people in your scope.' });
+    }
+    respondResult(res, await collaboration.shareLead(lead, adminId, req.user._id, reason || ''), 201);
+  } catch (error) {
+    logger.error('Error sharing lead:', error);
+    next(error);
+  }
+};
+
+// @desc    Remove a cross-assignment
+// @route   DELETE /api/leads/:id/share/:adminId (POST .../remove fallback)
+// @access  Private (leads.assign)
+exports.unshareLeadWith = async (req, res, next) => {
+  try {
+    const lead = await findLeadRaw(req.params.id, await leadFilter(req, req.pageScope, { shared: false }));
+    if (!lead) return notFound(res);
+    respondResult(res, await collaboration.unshareLead(lead, req.params.adminId, req.user._id, req.body?.reason || ''));
+  } catch (error) {
+    logger.error('Error removing lead share:', error);
     next(error);
   }
 };

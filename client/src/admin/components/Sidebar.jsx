@@ -54,7 +54,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
 
   const navItems = [
     { name: 'Overview', path: '/admin/dashboard', icon: LayoutDashboard },
-    { name: 'Management Dashboard', path: '/admin/management-dashboard', icon: Gauge, requiredPermission: 'dashboard.management' },
+    { name: 'Leads Overview', path: '/admin/management-dashboard', icon: Gauge, requiredPermission: 'dashboard.management' },
     {
       name: 'Leads Management',
       icon: Users,
@@ -63,14 +63,19 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
       subItems: [
         { name: 'Raw Leads', path: '/admin/leads' },
         { name: 'Working Leads', path: '/admin/leads/working' },
+        { name: 'Dropped & Hold', path: '/admin/leads/dropped-hold' },
         { name: 'Unassigned Leads', path: '/admin/leads/unassigned' },
         { name: 'All Leads', path: '/admin/leads/all', requiredPermission: 'leads.viewAll' },
         { name: 'Lead Activity', path: '/admin/lead-activity', requiredPermission: 'leads.assign' },
         { name: 'BDE Team Performance', path: '/admin/team-performance', requiredPermission: 'team.performance' },
-        { name: 'Follow-ups', path: '/admin/follow-ups', requiredPermission: 'leads.assign' },
-        // Newsletter list — same permission as its API (subscribeRoutes.js)
-        { name: 'Subscribers', path: '/admin/subscribers', requiredPermission: 'cms.manage' }
+        { name: 'Follow-ups', path: '/admin/follow-ups', requiredPermission: 'leads.assign' }
       ]
+    },
+    {
+      name: 'Newsletter Subscribers',
+      path: '/admin/subscribers',
+      icon: Mail,
+      requiredPermission: ['newsletter.manage', 'cms.manage']
     },
     {
       name: 'Audit & Logs',

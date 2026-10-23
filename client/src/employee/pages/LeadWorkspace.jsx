@@ -11,6 +11,7 @@ import {
 } from '../../shared/serviceQualification';
 import NoCopyText from '../components/NoCopyText';
 import FollowUpTasksPanel from '../components/FollowUpTasksPanel';
+import LeadCollaborationPanel from '../../shared/LeadCollaborationPanel';
 import WhatsAppAction from '../components/WhatsAppAction';
 import FollowUpForm from '../components/FollowUpForm';
 import ProposalWorkflow from '../components/ProposalWorkflow';
@@ -813,6 +814,8 @@ export default function EmployeeLeadWorkspace() {
       </div>
 
       <FollowUpTasksPanel key={lead.nextFollowUpDate || 'none'} lead={lead} onLeadChanged={refreshAfterChange} />
+
+      <LeadCollaborationPanel http={employeeApi} leadUrl={`/employee-portal/ess/leads/${id}`} lead={lead} />
 
       {/* Qualification — service-aware discovery data, doesn't gate any
           stage transition; saved together with Stage & Deal Details via the

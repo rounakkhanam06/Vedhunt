@@ -5,7 +5,9 @@ const {
   createLead, getLeads, getLeadById, updateLead, deleteLead,
   assignLead, bulkAssignLeads, getAssignmentHistory, getAllAssignmentLogs, lockLead, unlockLead,
   uploadLeadDocument, deleteLeadDocument, importLeads, previewImportLeads, getImportStatus,
-  getLeadTasks, createLeadTask, completeLeadTask
+  getLeadTasks, createLeadTask, completeLeadTask,
+  getLeadNotes, addLeadNote, shareLeadWith, unshareLeadWith,
+  previewBulkAssign, getBulkAssignRuns
 } = require('../controllers/leadController');
 const authMiddleware = require('../middleware/authMiddleware');
 const requirePermission = require('../middleware/requirePermission');
@@ -41,10 +43,18 @@ const tasks = (action) => requirePageAccess([['leads', action], ['followups', ac
 scoped.get('/', leads('view'), getLeads);
 scoped.get('/import/:jobId', requirePermission('leads.import'), getImportStatus);
 scoped.get('/assignments/all', requirePermission('audit.view'), getAllAssignmentLogs);
+scoped.get('/bulk-assign/runs', leads('assign'), getBulkAssignRuns);
+scoped.get('/bulk-assign/runs/:runId', leads('assign'), getBulkAssignRuns);
 scoped.get('/:id', leads('view'), getLeadById);
 scoped.get('/:id/assignment-history', leads('view'), getAssignmentHistory);
+scoped.post('/bulk-assign/preview', leads('assign'), previewBulkAssign);
 scoped.post('/bulk-assign', leads('assign'), bulkAssignLeads);
 scoped.post('/:id/assign', leads('assign'), assignLead);
+scoped.post('/:id/share', leads('assign'), shareLeadWith);
+scoped.delete('/:id/share/:adminId', leads('assign'), unshareLeadWith);
+scoped.post('/:id/share/:adminId/remove', leads('assign'), unshareLeadWith);
+scoped.get('/:id/notes', leads('view'), getLeadNotes);
+scoped.post('/:id/notes', leads('view'), addLeadNote);
 scoped.post('/:id/lock', leads('edit'), lockLead);
 scoped.post('/:id/unlock', leads('view'), unlockLead);
 scoped.put('/:id', leads('edit'), updateLead);

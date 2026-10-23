@@ -10,7 +10,7 @@ const CALL_PENDING_SLA_HOURS = 4;
 export const isActiveLead = (lead) => !NON_ACTIVE_FOLLOWUP_STATUSES.includes(lead.status);
 
 export function isCallPending(lead) {
-  if (lead.status !== 'New' || !lead.assignedAt) return false;
+  if (!lead.isRaw || !lead.assignedAt) return false;
   return (Date.now() - new Date(lead.assignedAt).getTime()) / 3600000 >= CALL_PENDING_SLA_HOURS;
 }
 
@@ -40,6 +40,21 @@ export const PIPELINE_STAGES = [
   { key: 'Won', label: 'Won', match: (l) => l.status === 'Won' && !isPaymentPending(l), param: 'status=Won&payment=cleared' },
 ];
 
+// Mirrors server/utils/leadActivity.js — keep the two in step.
+export const CLOSED_OR_HOLD = ['Won', 'Lost', 'Dropped', 'Hold'];
+export const DROPPED_OR_HOLD = ['Dropped', 'Hold'];
+const POST_CONTACT_STATUSES = ['Qualified', 'Proposal Sent', 'Negotiation'];
+
+/** Raw = assigned, still open, never connected with the prospect (needs the full lead). */
+export function isRawLead(lead) {
+  if (!lead?.assignedTo || CLOSED_OR_HOLD.includes(lead.status)) return false;
+  const connected = lead.connected === 'Yes'
+    || (lead.callLogs || []).some((c) => c.connected === 'Yes')
+    || POST_CONTACT_STATUSES.includes(lead.status)
+    || (lead.pipelineHistory || []).some((h) => h.status === 'Call connected');
+  return !connected;
+}
+
 /** Merges a full lead returned by an update into the light, list-shaped cached lead. */
 export function mergeLead(listLead, updated) {
   // eslint-disable-next-line no-unused-vars
@@ -47,6 +62,8 @@ export function mergeLead(listLead, updated) {
   return {
     ...listLead,
     ...fields,
+    // The update returns the full lead, so the same Raw rule applies directly
+    isRaw: isRawLead(updated),
     lastActivity: pipelineHistory?.length ? pipelineHistory[pipelineHistory.length - 1] : listLead.lastActivity,
   };
 }

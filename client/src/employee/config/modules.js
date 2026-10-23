@@ -17,6 +17,7 @@ export const EMPLOYEE_MODULES = [
   { key: 'dashboard', name: 'Dashboard', icon: LayoutDashboard, always: true },
   { key: 'raw-leads', name: 'Raw Leads', icon: UserCheck, permission: 'leads.view' },
   { key: 'working-leads', name: 'Working Leads', icon: UserCheck, permission: 'leads.view' },
+  { key: 'dropped-hold-leads', name: 'Dropped & Hold', icon: UserCheck, permission: 'leads.view' },
   { key: 'followups', name: 'Follow-ups', icon: AlertTriangle, permission: 'followups.view' },
   { key: 'my-calls', name: 'My Call Log', icon: PhoneCall, permission: 'leads.view' },
   { key: 'attendance', name: 'Attendance & Leave', icon: Clock },

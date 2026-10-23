@@ -993,3 +993,511 @@ describe('Loophole fixes — password vault, account takeover, Super Admin locko
     assert.equal(outsider.isTemporaryPassword, true);
   });
 });
+
+// payViewer is a plain BDE outside the team lead's team: the second BD here.
+describe('Cross-assignment and lead notes — enforced by the server', () => {
+  const ess = '/employee-portal/ess/leads';
+  const g = '/employee-portal/grants';
+  const helper = 'payViewer';
+  const oidOf = (id) => new mongoose.Types.ObjectId(id);
+  const leadDoc = () => mongoose.connection.db.collection('leads').findOne({ _id: oidOf(ids.collabLead) });
+  const hasLead = (r) => (r.body.leads || []).some((l) => String(l._id) === ids.collabLead);
+
+  before(async () => {
+    // The temp-password test above forces a reset on portal logins
+    await mongoose.connection.db.collection('admins').updateMany(
+      { _id: { $in: ['bde', helper, 'teamLead', 'pm'].map((k) => oidOf(ids[k])) } },
+      { $set: { isTemporaryPassword: false } }
+    );
+    ids.collabLead =String((await mongoose.connection.db.collection('leads').insertOne({
+      fullName: 'CollabLead', phone: '9833333333', email: 'collab@lead.test', status: 'Contacted', leadType: 'Sales',
+      assignedTo: oidOf(ids.bde), createdAt: new Date(), updatedAt: new Date(), documents: [], pipelineHistory: [],
+    })).insertedId);
+  });
+
+  test('before sharing, another BD cannot see, read notes on or change the lead', async () => {
+    assert.equal((await call(helper, 'GET', `${ess}/${ids.collabLead}`)).status, 404);
+    assert.equal((await call(helper, 'GET', `${ess}/${ids.collabLead}/notes`)).status, 404);
+    assert.equal((await call(helper, 'POST', `${ess}/${ids.collabLead}/notes`, { text: 'x' })).status, 404);
+    assert.equal((await call(helper, 'PUT', `${ess}/${ids.collabLead}`, { remark: 'x' })).status, 404);
+    const list = await call(helper, 'GET', '/employee-portal/ess/leads');
+    assert.equal(list.status, 200);
+    assert.equal(hasLead(list), false);
+  });
+
+  test('only assigners can cross-assign, and only to people in their scope', async () => {
+    assert.equal((await call('bde', 'POST', `/leads/${ids.collabLead}/share`, { adminId: ids[helper] })).status, 403);
+    assert.equal((await call(helper, 'POST', `${g}/leads/${ids.collabLead}/share`, { adminId: ids[helper] })).status, 403);
+    // the team lead assigns within the team (bde, teamLead) only
+    assert.equal((await call('teamLead', 'POST', `${g}/leads/${ids.collabLead}/share`, { adminId: ids[helper] })).status, 403);
+    assert.equal((await call('super', 'POST', `/leads/${ids.collabLead}/share`, { adminId: ids.bde })).status, 400); // already the owner
+  });
+
+  test('Super Admin cross-assigns; the owner is kept and the grant is audited', async () => {
+    const r = await call('super', 'POST', `/leads/${ids.collabLead}/share`, { adminId: ids[helper], reason: 'Needs a second caller' });
+    assert.equal(r.status, 201);
+    assert.equal((await call('super', 'POST', `/leads/${ids.collabLead}/share`, { adminId: ids[helper] })).status, 409);
+
+    const lead = await leadDoc();
+    assert.equal(String(lead.assignedTo), ids.bde);
+    assert.deepEqual(lead.sharedWith.map((s) => String(s.admin)), [ids[helper]]);
+    assert.equal(String(lead.sharedWith[0].grantedBy), ids.super);
+
+    const history = await call('super', 'GET', `/leads/${ids.collabLead}/assignment-history`);
+    const log = history.body.data.find((h) => h.mode === 'Cross-Assign');
+    assert.equal(String(log.toAdmin._id), ids[helper]);
+    assert.equal(String(log.assignedBy._id), ids.super);
+    assert.equal(log.reason, 'Needs a second caller');
+    assert.ok(log.createdAt);
+    const entry = lead.pipelineHistory.find((h) => h.status.startsWith('Cross-assigned to'));
+    assert.equal(String(entry.updatedBy), ids.super);
+
+    const detail = await call('super', 'GET', `/leads/${ids.collabLead}`);
+    assert.deepEqual(detail.body.data.sharedWith.map((s) => String(s.admin._id)), [ids[helper]]);
+  });
+
+  test('the shared BD can now list, open, search and work the lead', async () => {
+    const list = await call(helper, 'GET', '/employee-portal/ess/leads');
+    assert.equal(list.body.leads.find((l) => String(l._id) === ids.collabLead).isShared, true);
+    const ownerList = await call('bde', 'GET', '/employee-portal/ess/leads');
+    assert.equal(ownerList.body.leads.find((l) => String(l._id) === ids.collabLead).isShared, false);
+
+    const open = await call(helper, 'GET', `${ess}/${ids.collabLead}`);
+    assert.equal(open.status, 200);
+    assert.equal(open.body.lead.isOwner, false);
+    const search = await call(helper, 'GET', '/employee-portal/ess/leads/search?q=CollabLead');
+    assert.equal(search.body.results[0].isMine, true);
+    assert.equal(search.body.results[0].phone, '9833333333'); // not masked
+
+    assert.equal((await call(helper, 'PUT', `${ess}/${ids.collabLead}`, { remark: 'Spoke to the owner' })).status, 200);
+    const remark = (await leadDoc()).pipelineHistory.find((h) => h.status === 'Remark updated');
+    assert.equal(String(remark.updatedBy), ids[helper]);
+    assert.equal(remark.note, 'Spoke to the owner');
+  });
+
+  test('the shared BD still cannot reassign or delete the lead', async () => {
+    assert.equal((await call(helper, 'POST', `${g}/leads/${ids.collabLead}/assign`, { assignedTo: ids[helper] })).status, 403);
+    assert.equal((await call(helper, 'DELETE', `${g}/leads/${ids.collabLead}`)).status, 403);
+    assert.equal(String((await leadDoc()).assignedTo), ids.bde);
+  });
+
+  test('private notes: author and all-leads admins only; shared notes: everyone with access', async () => {
+    const add = (who, text, visibility) => call(who, 'POST', `${ess}/${ids.collabLead}/notes`, { text, visibility });
+    assert.equal((await add('bde', 'OWNER-PRIVATE', 'private')).status, 201);
+    assert.equal((await add(helper, 'HELPER-PRIVATE', 'private')).status, 201);
+    assert.equal((await add(helper, 'HELPER-SHARED', 'shared')).status, 201);
+    assert.equal((await add(helper, '   ', 'shared')).status, 400);
+
+    const texts = async (who, url = `${ess}/${ids.collabLead}/notes`) => {
+      const r = await call(who, 'GET', url);
+      assert.equal(r.status, 200, `${who} ${url}`);
+      return (r.body.notes || r.body.data).map((n) => n.text).sort();
+    };
+    assert.deepEqual(await texts('bde'), ['HELPER-SHARED', 'OWNER-PRIVATE']);
+    assert.deepEqual(await texts(helper), ['HELPER-PRIVATE', 'HELPER-SHARED']);
+    assert.deepEqual(await texts('super', `/leads/${ids.collabLead}/notes`), ['HELPER-PRIVATE', 'HELPER-SHARED', 'OWNER-PRIVATE']);
+    // team scope is not all-leads: shared notes only
+    assert.deepEqual(await texts('teamLead', `${g}/leads/${ids.collabLead}/notes`), ['HELPER-SHARED']);
+
+    // No lead response carries note text, so private notes can't leak sideways
+    for (const [who, url] of [['bde', `${ess}/${ids.collabLead}`], [helper, `${ess}/${ids.collabLead}`], ['teamLead', `${g}/leads/${ids.collabLead}`], ['teamLead', `${g}/leads`]]) {
+      const body = JSON.stringify((await call(who, 'GET', url)).body);
+      assert.ok(!body.includes('PRIVATE'), `${who} saw a private note via ${url}`);
+    }
+
+    // Every note records author + time; only shared notes reach the timeline
+    const LeadNote = require('../../models/LeadNote');
+    const notes = await LeadNote.find({ lead: ids.collabLead }).lean();
+    assert.equal(notes.length, 3);
+    for (const n of notes) { assert.ok(n.author); assert.ok(n.createdAt); }
+    const timeline = (await leadDoc()).pipelineHistory.filter((h) => h.status === 'Note added');
+    assert.equal(timeline.length, 1);
+    assert.equal(String(timeline[0].updatedBy), ids[helper]);
+  });
+
+  test('removing the cross-assignment cuts access on the next request and is audited', async () => {
+    assert.equal((await call('super', 'DELETE', `/leads/${ids.collabLead}/share/${ids[helper]}`)).status, 200);
+    assert.equal((await call('super', 'DELETE', `/leads/${ids.collabLead}/share/${ids[helper]}`)).status, 404);
+    assert.equal((await call(helper, 'GET', `${ess}/${ids.collabLead}`)).status, 404);
+    assert.equal((await call(helper, 'GET', `${ess}/${ids.collabLead}/notes`)).status, 404);
+    assert.equal(hasLead(await call(helper, 'GET', '/employee-portal/ess/leads')), false);
+
+    const history = await call('super', 'GET', `/leads/${ids.collabLead}/assignment-history`);
+    const log = history.body.data.find((h) => h.mode === 'Cross-Unassign');
+    assert.equal(String(log.fromAdmin._id), ids[helper]);
+    assert.equal(String(log.assignedBy._id), ids.super);
+    assert.equal(String((await leadDoc()).assignedTo), ids.bde);
+  });
+
+  test('reassigning to a BD the lead was shared with makes them owner and drops the share', async () => {
+    assert.equal((await call('super', 'POST', `/leads/${ids.collabLead}/share`, { adminId: ids.pm })).status, 201);
+    assert.equal((await call('super', 'POST', `/leads/${ids.collabLead}/assign`, { assignedTo: ids.pm })).status, 200);
+    const lead = await leadDoc();
+    assert.equal(String(lead.assignedTo), ids.pm);
+    assert.deepEqual(lead.sharedWith, []);
+  });
+});
+
+describe('Bulk reassignment by filter — acceptance: Owner = Priya, Stage = Qualified → Jyoti', () => {
+  const g = '/employee-portal/grants';
+  const oidOf = (id) => new mongoose.Types.ObjectId(id);
+  const leadsCol = () => mongoose.connection.db.collection('leads');
+  const qualified = [];
+  const contacted = [];
+  let lockedId;
+
+  before(async () => {
+    const Role = require('../../models/Role');
+    const Admin = require('../../models/Admin');
+    const bdeRole = await Role.findOne({ name: 'BDE' });
+    for (const key of ['priya', 'jyoti']) {
+      const a = await Admin.create({ firstName: key === 'priya' ? 'Priya' : 'Jyoti', lastName: 'BD', email: `${key}@e2e.test`, password: PASSWORD, roles: [bdeRole._id] });
+      ids[key] = String(a._id);
+    }
+    const make = async (n, status, owner) => {
+      const now = new Date();
+      return String((await leadsCol().insertOne({
+        leadId: `VH-BULK-${status}-${n}`, fullName: `Bulk ${status} ${n}`, phone: `97000${String(n).padStart(5, '0')}`, email: `bulk${status}${n}@lead.test`,
+        status, leadType: 'Sales', interestLevel: 'Warm', leadScore: 40 + n, remark: `Priya remark ${n}`,
+        assignedTo: oidOf(ids[owner]), assignedAt: now, createdAt: now, updatedAt: now, documents: [],
+        callLogs: [{ touchNumber: 1, calledBy: oidOf(ids[owner]), callDate: now, connected: 'Yes', remark: `call ${n}` }],
+        pipelineHistory: [{ status: 'Qualified', date: now, updatedBy: oidOf(ids[owner]), note: `qualified ${n}` }],
+      })).insertedId);
+    };
+    for (let n = 1; n <= 24; n++) qualified.push(await make(n, 'Qualified', 'priya'));
+    for (let n = 1; n <= 4; n++) contacted.push(await make(n, 'Contacted', 'priya'));
+    ids.jyotiOwn = await make(99, 'Qualified', 'jyoti');
+    // Open in someone else's workspace right now, so it can't be moved
+    lockedId = qualified[23];
+    await leadsCol().updateOne({ _id: oidOf(lockedId) }, { $set: { lockedBy: oidOf(ids.pm), lockedAt: new Date() } });
+    // Priya's private note on every qualified lead
+    const LeadNote = require('../../models/LeadNote');
+    await LeadNote.insertMany(qualified.map((lead) => ({ lead, author: ids.priya, text: 'PRIYA-PRIVATE', visibility: 'private' })));
+  });
+
+  test('the filter reports 24 matches across pages; "select all matching" returns exactly those 24', async () => {
+    const page = await call('super', 'GET', `/leads?assignedTo=${ids.priya}&status=Qualified&limit=10`);
+    assert.equal(page.body.totalLeads, 24);
+    assert.equal(page.body.totalPages, 3);
+    assert.equal(page.body.data.length, 10);
+    const all = await call('super', 'GET', `/leads?assignedTo=${ids.priya}&status=Qualified&idsOnly=true`);
+    assert.deepEqual([...all.body.ids].sort(), [...qualified].sort());
+  });
+
+  test('new filters combine: interest level and follow-up due date', async () => {
+    await leadsCol().updateOne({ _id: oidOf(qualified[0]) }, { $set: { interestLevel: 'Hot Lead', nextFollowUpDate: new Date('2026-11-05T10:00:00Z') } });
+    const hot = await call('super', 'GET', `/leads?assignedTo=${ids.priya}&status=Qualified&interestLevel=Hot%20Lead&idsOnly=true`);
+    assert.deepEqual(hot.body.ids, [qualified[0]]);
+    const due = await call('super', 'GET', `/leads?assignedTo=${ids.priya}&followUpFrom=2026-11-05&followUpTo=2026-11-05&idsOnly=true`);
+    assert.deepEqual(due.body.ids, [qualified[0]]);
+  });
+
+  test('preview: source, destination, count, and the record that cannot move', async () => {
+    const r = await call('super', 'POST', '/leads/bulk-assign/preview', { leadIds: qualified, assignedTo: ids.jyoti, expectedOwner: ids.priya });
+    assert.equal(r.status, 200);
+    const p = r.body.data;
+    assert.equal(p.requested, 24);
+    assert.equal(p.eligible, 23);
+    assert.deepEqual(p.sources.map((s) => [s.name, s.count]), [['Priya BD', 23]]);
+    assert.equal(p.target.name, 'Jyoti BD');
+    assert.equal(p.ineligible.length, 1);
+    assert.equal(p.ineligible[0]._id, lockedId);
+    assert.match(p.ineligible[0].reason, /locked/i);
+    // preview changes nothing
+    assert.equal(await leadsCol().countDocuments({ assignedTo: oidOf(ids.jyoti) }), 1);
+  });
+
+  test('preview refuses non-matching and out-of-scope leads instead of moving them', async () => {
+    const r = await call('super', 'POST', '/leads/bulk-assign/preview', { leadIds: [qualified[0], ids.jyotiOwn, 'nope'], assignedTo: ids.jyoti, expectedOwner: ids.priya });
+    const why = Object.fromEntries(r.body.data.ineligible.map((x) => [x._id, x.reason]));
+    assert.match(why[ids.jyotiOwn], /owner changed/i);
+    assert.match(why.nope, /not found/i);
+    // team lead: Jyoti isn't in their team; Priya's leads are outside it
+    assert.equal((await call('teamLead', 'POST', `${g}/leads/bulk-assign/preview`, { leadIds: qualified, assignedTo: ids.jyoti })).status, 403);
+    const scoped = await call('teamLead', 'POST', `${g}/leads/bulk-assign/preview`, { leadIds: [qualified[0], ids.leadBde], assignedTo: ids.teamLead });
+    assert.equal(scoped.status, 200);
+    assert.match(scoped.body.data.ineligible.find((x) => x._id === qualified[0]).reason, /outside/i);
+    // no assign rights, no preview; no destination, no preview
+    assert.equal((await call('bde', 'POST', '/leads/bulk-assign/preview', { leadIds: qualified, assignedTo: ids.jyoti })).status, 403);
+    assert.equal((await call('super', 'POST', '/leads/bulk-assign/preview', { leadIds: qualified })).status, 400);
+  });
+
+  test('confirm: eligible leads move to Jyoti, the locked one is reported, and it does not claim full success', async () => {
+    const r = await call('super', 'POST', '/leads/bulk-assign', {
+      leadIds: qualified, assignedTo: ids.jyoti, expectedOwner: ids.priya, selection: 'all-matching',
+      reason: 'Priya on leave', filters: { chips: ['BD: Priya BD', 'Status: Qualified'] },
+    });
+    assert.equal(r.status, 200);
+    assert.equal(r.body.success, false);
+    assert.equal(r.body.partial, true);
+    assert.equal(r.body.requested, 24);
+    assert.equal(r.body.assigned, 23);
+    assert.equal(r.body.failed, 1);
+    assert.equal(String(r.body.failures[0].lead), lockedId);
+    assert.match(r.body.failures[0].reason, /locked/i);
+    ids.bulkRun = String(r.body.runId);
+
+    const moved = await leadsCol().find({ _id: { $in: qualified.map(oidOf) } }).toArray();
+    for (const lead of moved) {
+      const expected = String(lead._id) === lockedId ? ids.priya : ids.jyoti;
+      assert.equal(String(lead.assignedTo), expected, lead.leadId);
+    }
+    // unselected Priya leads (other stage) untouched
+    for (const id of contacted) assert.equal(String((await leadsCol().findOne({ _id: oidOf(id) })).assignedTo), ids.priya);
+  });
+
+  test('moved leads keep stage, score, remark, call logs and history; Priya notes stay visible to Admin', async () => {
+    const lead = await leadsCol().findOne({ _id: oidOf(qualified[4]) });
+    assert.equal(lead.status, 'Qualified');
+    assert.equal(lead.leadScore, 45);
+    assert.equal(lead.remark, 'Priya remark 5');
+    assert.equal(lead.callLogs.length, 1);
+    assert.equal(String(lead.callLogs[0].calledBy), ids.priya);
+    assert.equal(lead.pipelineHistory[0].note, 'qualified 5');
+
+    const notes = await call('super', 'GET', `/leads/${qualified[4]}/notes`);
+    assert.deepEqual(notes.body.data.map((n) => [n.text, n.author.name]), [['PRIYA-PRIVATE', 'Priya BD']]);
+  });
+
+  test('one assignment-log entry per changed lead, linked to the run, visible to Admin', async () => {
+    const AssignmentLog = require('../../models/AssignmentLog');
+    const logs = await AssignmentLog.find({ bulkRun: ids.bulkRun }).lean();
+    assert.equal(logs.length, 23);
+    for (const l of logs) {
+      assert.equal(String(l.fromAdmin), ids.priya);
+      assert.equal(String(l.toAdmin), ids.jyoti);
+      assert.equal(String(l.assignedBy), ids.super);
+      assert.equal(l.reason, 'Priya on leave');
+    }
+    const history = await call('super', 'GET', `/leads/${qualified[4]}/assignment-history`);
+    assert.equal(history.body.data[0].fromAdmin.firstName, 'Priya');
+    assert.equal(history.body.data[0].toAdmin.firstName, 'Jyoti');
+  });
+
+  test('the run records who, when, previous owners, affected leads and failures', async () => {
+    const r = await call('super', 'GET', `/leads/bulk-assign/runs/${ids.bulkRun}`);
+    assert.equal(r.status, 200);
+    const run = r.body.data;
+    assert.equal(run.initiatedBy.firstName, 'super');
+    assert.equal(run.toAdmin.firstName, 'Jyoti');
+    assert.equal(run.expectedOwner.firstName, 'Priya');
+    assert.equal(run.selection, 'all-matching');
+    assert.deepEqual(run.filters.chips, ['BD: Priya BD', 'Status: Qualified']);
+    assert.equal(run.status, 'partial');
+    assert.equal(run.requested, 24);
+    assert.equal(run.succeeded.length, 23);
+    assert.ok(run.succeeded.every((s) => s.fromAdmin.firstName === 'Priya'));
+    assert.equal(run.failed.length, 1);
+    assert.ok(run.createdAt && run.finishedAt);
+
+    const list = await call('super', 'GET', '/leads/bulk-assign/runs');
+    const row = list.body.data.find((x) => String(x._id) === ids.bulkRun);
+    assert.equal(row.succeededCount, 23);
+    assert.equal(row.failedCount, 1);
+    // a scoped assigner sees only the runs they started
+    const theirs = await call('teamLead', 'GET', `${g}/leads/bulk-assign/runs`);
+    assert.equal(theirs.status, 200);
+    assert.ok(!theirs.body.data.some((x) => String(x._id) === ids.bulkRun));
+    assert.equal((await call('teamLead', 'GET', `${g}/leads/bulk-assign/runs/${ids.bulkRun}`)).status, 404);
+  });
+
+  test('running it again moves nothing twice: already-moved leads are reported, not reassigned', async () => {
+    await leadsCol().updateOne({ _id: oidOf(lockedId) }, { $set: { lockedBy: null, lockedAt: null } });
+    const r = await call('super', 'POST', '/leads/bulk-assign', { leadIds: qualified, assignedTo: ids.jyoti });
+    assert.equal(r.body.assigned, 1); // the formerly locked one
+    assert.equal(r.body.failed, 23);
+    assert.ok(r.body.failures.every((f) => /already owned/i.test(f.reason)));
+    const AssignmentLog = require('../../models/AssignmentLog');
+    assert.equal(await AssignmentLog.countDocuments({ lead: oidOf(qualified[4]) }), 1);
+  });
+});
+
+describe('Raw / Working / Dropped & Hold — connected-based rules', () => {
+  const ess = '/employee-portal/ess/leads';
+  const g = '/employee-portal/grants';
+  const oidOf = (id) => new mongoose.Types.ObjectId(id);
+  const leadsCol = () => mongoose.connection.db.collection('leads');
+  const L = {};
+  const listIds = async (who, url) => {
+    const r = await call(who, 'GET', url);
+    assert.equal(r.status, 200, url);
+    return (r.body.data || []).map((l) => String(l._id));
+  };
+  const page = (group, who = 'super', base = '') => listIds(who, `${base}/leads?stageGroup=${group}&leadType=All&search=RAWT&limit=100`);
+  const essRow = async (who, id) => (await call(who, 'GET', '/employee-portal/ess/leads')).body.leads.find((l) => String(l._id) === id);
+  const doc = (key) => leadsCol().findOne({ _id: oidOf(L[key]) });
+  const later = new Date(Date.now() + 3 * 864e5).toISOString();
+
+  before(async () => {
+    const make = async (key, fields) => {
+      const now = new Date();
+      L[key] = String((await leadsCol().insertOne({
+        fullName: `RAWT ${key}`, phone: '9844444444', email: `rawt-${key}@lead.test`, status: 'New', leadType: 'Sales',
+        platform: 'Facebook', createdAt: now, updatedAt: now, documents: [],
+        pipelineHistory: [{ status: 'New', date: now, note: 'Lead captured' }],
+        assignedTo: oidOf(ids.bde), assignedAt: now, ...fields,
+      })).insertedId);
+    };
+    const yes = { touchNumber: 1, calledBy: oidOf(ids.bde), callDate: new Date(), connected: 'Yes' };
+    const no = { touchNumber: 1, calledBy: oidOf(ids.bde), callDate: new Date(), connected: 'No', notConnectedReason: 'Ringing / No Answer' };
+    await make('fresh', {});
+    await make('unassigned', { assignedTo: null, assignedAt: null });
+    await make('notConnected', { connected: 'No', callLogs: [no] });
+    await make('contactedNoConnect', { status: 'Contacted' });
+    await make('whatsappOnly', { pipelineHistory: [{ status: 'New' }, { status: 'WhatsApp initiated', updatedBy: oidOf(ids.bde) }] });
+    await make('connectedYes', { status: 'Contacted', connected: 'Yes', interestLevel: 'Cold', callLogs: [yes] });
+    await make('connectedThenNo', { connected: 'No', callLogs: [yes, { ...no, touchNumber: 2 }] });
+    await make('legacyConnected', { pipelineHistory: [{ status: 'New' }, { status: 'Call connected' }] });
+    await make('qualified', { status: 'Qualified' });
+    await make('won', { status: 'Won', connected: 'Yes', callLogs: [yes] });
+    await make('lost', { status: 'Lost', notConvertedReason: 'Budget Constraint' });
+    await make('dropped', { status: 'Dropped', notConvertedReason: 'Budget Constraint', callLogs: [yes] });
+    await make('hold', { status: 'Hold', holdReason: 'Budget next quarter', holdUntil: new Date(later) });
+    await make('website', { platform: 'Website', userSource: 'Website' });
+    await make('manualOld', { platform: 'Manual' });
+    await leadsCol().updateOne({ _id: oidOf(L.manualOld) }, { $unset: { leadType: '' } });
+    await make('otherBd', { assignedTo: oidOf(ids.outsider) });
+    await make('otherDropped', { assignedTo: oidOf(ids.outsider), status: 'Dropped', notConvertedReason: 'Budget Constraint' });
+    for (const k of ['forUnanswered', 'forConnect', 'forHold', 'forOpen']) await make(k, {});
+    // portal BDs work again after the temp-password test
+    await mongoose.connection.db.collection('admins').updateMany(
+      { _id: { $in: ['bde', 'outsider', 'teamLead'].map((k) => oidOf(ids[k])) } }, { $set: { isTemporaryPassword: false } });
+    // a BDE allowed to reactivate Dropped / Lost leads
+    const Role = require('../../models/Role');
+    const Admin = require('../../models/Admin');
+    const role = await Role.create({ name: 'BDE_REACTIVATE', permissions: ['leads.view', 'ess.access', 'followups.view', 'leads.reactivate'], isEmployeeRole: true });
+    ids.reactivator = String((await Admin.create({ firstName: 'Re', lastName: 'Activator', email: 'reactivator@e2e.test', password: PASSWORD, roles: [role._id], employeeId: 'VH-E2E-RA' }))._id);
+    await mongoose.connection.db.collection('employees').insertOne({
+      employeeId: 'VH-E2E-reactivator', adminId: oidOf(ids.reactivator), firstName: 'Re', lastName: 'Activator',
+      email: 'reactivator@e2e.test', phone: '9800000000', roleDept: 'Test', joinDate: new Date(), salaryCTC: 1, employmentStatus: 'Permanent',
+    });
+    await make('reactivateMe', { assignedTo: oidOf(ids.reactivator), status: 'Dropped', notConvertedReason: 'Budget Constraint', callLogs: [{ ...yes, calledBy: oidOf(ids.reactivator) }] });
+    await make('wonOfReactivator', { assignedTo: oidOf(ids.reactivator), status: 'Won', callLogs: [yes] });
+  });
+
+  test('Raw: assigned and never connected — unanswered calls, WhatsApp and a bare Contacted status stay here', async () => {
+    const raw = await page('raw');
+    for (const k of ['fresh', 'notConnected', 'contactedNoConnect', 'whatsappOnly', 'website', 'manualOld', 'otherBd']) assert.ok(raw.includes(L[k]), `${k} should be raw`);
+    for (const k of ['unassigned', 'connectedYes', 'connectedThenNo', 'legacyConnected', 'qualified', 'won', 'lost', 'dropped', 'hold']) assert.ok(!raw.includes(L[k]), `${k} should not be raw`);
+  });
+
+  test('Working: connected and still open — Won, Lost, Dropped and Hold leave it', async () => {
+    const working = await page('working');
+    for (const k of ['connectedYes', 'connectedThenNo', 'legacyConnected', 'qualified']) assert.ok(working.includes(L[k]), `${k} should be working`);
+    for (const k of ['fresh', 'notConnected', 'won', 'lost', 'dropped', 'hold', 'unassigned']) assert.ok(!working.includes(L[k]), `${k} should not be working`);
+    const raw = await page('raw');
+    assert.equal(raw.filter((id) => working.includes(id)).length, 0);
+  });
+
+  test('Dropped & Hold page lists exactly those, with owner; Won is kept, just not on these lists', async () => {
+    const dh = await page('dropped-hold');
+    for (const k of ['dropped', 'hold', 'otherDropped']) assert.ok(dh.includes(L[k]), `${k} should be dropped/hold`);
+    for (const k of ['won', 'lost', 'fresh', 'connectedYes']) assert.ok(!dh.includes(L[k]), `${k} should not be dropped/hold`);
+    assert.deepEqual(await listIds('super', `/leads?stageGroup=dropped-hold&status=Hold&leadType=All&search=RAWT`), [L.hold]);
+    const row = (await call('super', 'GET', '/leads?stageGroup=dropped-hold&leadType=All&search=RAWT%20dropped')).body.data[0];
+    assert.equal(row.assignedTo.firstName, 'bde');
+    // Won lead still exists with its history (Lead Manager)
+    assert.ok((await listIds('super', '/leads?leadType=All&search=RAWT%20won')).includes(L.won));
+  });
+
+  test('scoping: BD sees own + shared only; team grant sees the team; the API enforces it', async () => {
+    assert.equal((await essRow('bde', L.fresh)).isRaw, true);
+    assert.equal((await essRow('bde', L.notConnected)).isRaw, true);
+    assert.equal((await essRow('bde', L.connectedYes)).isRaw, false);
+    assert.equal(await essRow('bde', L.otherDropped), undefined);
+    assert.equal((await essRow('outsider', L.otherDropped)).status, 'Dropped');
+    assert.equal((await call('super', 'POST', `/leads/${L.otherBd}/share`, { adminId: ids.bde })).status, 201);
+    assert.equal((await essRow('bde', L.otherBd)).isRaw, true);
+    const teamDh = await page('dropped-hold', 'teamLead', g);
+    assert.ok(teamDh.includes(L.dropped));
+    assert.ok(!teamDh.includes(L.otherDropped));
+  });
+
+  test('Sales stays the default for older leads without a type', async () => {
+    assert.ok((await listIds('super', '/leads?stageGroup=raw&leadType=Sales&search=RAWT&limit=100')).includes(L.manualOld));
+    assert.ok(!(await listIds('super', '/leads?stageGroup=raw&leadType=Hiring&search=RAWT&limit=100')).includes(L.manualOld));
+  });
+
+  test('opening or locking is not activity', async () => {
+    assert.equal((await call('bde', 'GET', `${ess}/${L.forOpen}`)).status, 200);
+    assert.equal((await call('super', 'POST', `/leads/${L.forOpen}/lock`)).status, 200);
+    const lead = await doc('forOpen');
+    assert.equal(lead.lastActivityAt ?? null, null);
+    assert.ok((await page('raw')).includes(L.forOpen));
+  });
+
+  test('an unanswered call keeps the lead in Raw, with the attempt logged and activity stamped', async () => {
+    const r = await call('bde', 'PUT', `${ess}/${L.forUnanswered}`, { connected: 'No', notConnectedReason: 'Ringing / No Answer' });
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    const lead = await doc('forUnanswered');
+    assert.equal(lead.callLogs.length, 1);
+    assert.equal(lead.callLogs[0].notConnectedReason, 'Ringing / No Answer');
+    assert.equal(lead.lastActivityType, 'Call logged');
+    assert.ok((await page('raw')).includes(L.forUnanswered));
+    assert.equal((await essRow('bde', L.forUnanswered)).isRaw, true);
+  });
+
+  test('example: "Connected — requested a strategy discussion" moves it to Working with outcome and timestamp', async () => {
+    const r = await call('bde', 'PUT', `${ess}/${L.forConnect}`, {
+      connected: 'Yes', interestLevel: 'Interested', remark: 'Connected — requested a strategy discussion', nextFollowUpDate: later,
+    });
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    const lead = await doc('forConnect');
+    assert.equal(lead.connected, 'Yes');
+    assert.equal(lead.interestLevel, 'Interested');
+    assert.equal(lead.remark, 'Connected — requested a strategy discussion');
+    assert.ok(lead.lastActivityAt);
+    assert.ok((await page('working')).includes(L.forConnect));
+    assert.ok(!(await page('raw')).includes(L.forConnect));
+    // sortable by latest activity: the newest action comes first
+    const sorted = await listIds('super', '/leads?stageGroup=working&leadType=All&search=RAWT&sortBy=lastActivityAt&sortOrder=desc&limit=100');
+    assert.equal(sorted[0], L.forConnect);
+    assert.ok((await essRow('bde', L.forConnect)).lastActivityAt);
+  });
+
+  test('Hold moves a working lead to Dropped & Hold; reactivating returns it to Working with history kept', async () => {
+    assert.equal((await call('bde', 'PUT', `${ess}/${L.forHold}`, { connected: 'Yes', interestLevel: 'Cold' })).status, 200);
+    assert.ok((await page('working')).includes(L.forHold));
+    const hold = await call('bde', 'PUT', `${ess}/${L.forHold}`, { status: 'Hold', holdReason: 'Budget next quarter', holdUntil: later });
+    assert.equal(hold.status, 200, JSON.stringify(hold.body));
+    assert.ok((await page('dropped-hold')).includes(L.forHold));
+    assert.ok(!(await page('working')).includes(L.forHold));
+    const back = await call('bde', 'PUT', `${ess}/${L.forHold}`, { status: 'Contacted' });
+    assert.equal(back.status, 200, JSON.stringify(back.body));
+    assert.ok((await page('working')).includes(L.forHold));
+    const lead = await doc('forHold');
+    assert.equal(lead.callLogs.length, 1);
+    assert.deepEqual(lead.pipelineHistory.map((h) => h.status).filter((s) => ['Hold', 'Contacted'].includes(s)), ['Hold', 'Contacted']);
+  });
+
+  test('a never-connected lead reactivated from Hold returns to Raw', async () => {
+    const r = await call('bde', 'PUT', `${ess}/${L.hold}`, { status: 'Contacted' });
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    assert.ok((await page('raw')).includes(L.hold));
+  });
+
+  test('Dropped reactivation needs leads.reactivate (or Super Admin); Won stays Super Admin only', async () => {
+    const refused = await call('bde', 'PUT', `${ess}/${L.dropped}`, { status: 'Contacted' });
+    assert.equal(refused.status, 403);
+    assert.match(refused.body.message, /allowed to reactivate/);
+    assert.equal((await doc('dropped')).status, 'Dropped');
+
+    const ok = await call('reactivator', 'PUT', `${ess}/${L.reactivateMe}`, { status: 'Contacted' });
+    assert.equal(ok.status, 200, JSON.stringify(ok.body));
+    const lead = await doc('reactivateMe');
+    assert.equal(lead.status, 'Contacted');
+    assert.equal(lead.callLogs.length, 1);
+    assert.match(lead.pipelineHistory.at(-1).note, /Reactivated \(was Dropped/);
+    assert.equal(String(lead.pipelineHistory.at(-1).updatedBy), ids.reactivator);
+    assert.ok((await page('working')).includes(L.reactivateMe)); // it had connected before
+
+    const won = await call('reactivator', 'PUT', `${ess}/${L.wonOfReactivator}`, { status: 'Contacted' });
+    assert.equal(won.status, 403);
+    // and a reactivator still can't edit a closed lead in any other way
+    assert.equal((await call('reactivator', 'PUT', `${ess}/${L.reactivateMe}`, { status: 'Dropped', notConvertedReason: 'Budget Constraint' })).status, 200);
+    assert.equal((await call('reactivator', 'PUT', `${ess}/${L.reactivateMe}`, { remark: 'edit while dropped' })).status, 403);
+
+    assert.equal((await call('super', 'PUT', `/leads/${L.dropped}`, { status: 'Contacted' })).status, 200);
+    assert.ok((await page('working')).includes(L.dropped));
+  });
+});

@@ -97,7 +97,7 @@ function LeadWidgets({ leads, isLoading, today, navigate }) {
       sub: today?.overdue ? `${today.overdue} overdue` : undefined,
       onClick: () => document.getElementById('today-agenda')?.scrollIntoView({ behavior: 'smooth' }),
     },
-    { key: 'new', label: 'New Leads', icon: UserPlus, value: leads.filter((l) => l.status === 'New').length, onClick: go(navigate, 'tab=raw-leads') },
+    { key: 'new', label: 'New Leads', icon: UserPlus, value: leads.filter((l) => l.isRaw).length, onClick: go(navigate, 'tab=raw-leads') },
     { key: 'call-pending', label: 'Call Pending', icon: PhoneCall, value: leads.filter(isCallPending).length, onClick: go(navigate, 'tab=raw-leads&urgent=1') },
     { key: 'followups-today', label: 'Follow-ups Today', icon: CalendarClock, value: leads.filter((l) => followUpBucket(l) === 'today').length, onClick: go(navigate, 'tab=followups&bucket=Today') },
     { key: 'followups-overdue', label: 'Overdue Follow-ups', icon: AlertCircle, tone: 'danger', value: leads.filter((l) => followUpBucket(l) === 'overdue').length, onClick: go(navigate, 'tab=followups&bucket=Overdue') },

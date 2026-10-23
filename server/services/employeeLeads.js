@@ -5,11 +5,14 @@ const Lead = require('../models/Lead');
 const Admin = require('../models/Admin');
 const FollowUpTask = require('../models/FollowUpTask');
 const { normalizePhone } = require('../utils/normalize');
+const { accessibleTo, hasLeadAccess, oid } = require('../utils/leadScope');
+const { rawLeadFilter } = require('../utils/leadActivity');
 
 // Everything the Raw/Working/Follow-up cards and the BD dashboard read.
 // Heavy arrays (rawPayload, callLogs, pipelineHistory, documents) stay out.
 const LIST_FIELDS = [
   'leadId', 'fbLeadId', 'fullName', 'phone', 'email', 'service', 'platform', 'status', 'interestLevel',
+  'lastActivityAt', 'lastActivityType',
   'nextFollowUpDate', 'nextActionType', 'assignedAt', 'createdAt', 'updatedAt', 'closedDate',
   'dealValue', 'dealCloseValue', 'proposalValue', 'paymentStatus', 'amountPaid', 'userSource', 'remark',
   'businessName', 'website', 'leadPriority', 'connected', 'touchNumber',
@@ -19,19 +22,27 @@ const LIST_FIELDS = [
 const listProjection = Object.fromEntries(LIST_FIELDS.map((f) => [f, 1]));
 
 async function listAssignedLeads(adminId) {
-  return Lead.aggregate([
-    { $match: { assignedTo: adminId } },
+  const leads = await Lead.aggregate([
+    // Owned leads plus any cross-assigned to this BD (isShared marks those)
+    { $match: accessibleTo(adminId) },
     { $sort: { createdAt: -1 } },
     {
       $project: {
         ...listProjection,
+        isShared: { $ne: ['$assignedTo', oid(adminId)] },
         lastActivity: { $arrayElemAt: ['$pipelineHistory', -1] },
         // Leads last called before lastCallAt existed: their newest call log,
         // or failing that the call-timer/imported callDate.
         lastCallAt: { $ifNull: ['$lastCallAt', { $max: '$callLogs.callDate' }, '$callDate'] },
+        // Leads from before lastActivityAt existed: their newest history entry or call
+        lastActivityAt: { $ifNull: ['$lastActivityAt', { $max: '$pipelineHistory.date' }, '$lastCallAt', { $max: '$callLogs.callDate' }] },
       },
     },
   ]);
+  // Raw = assigned + not connected yet (utils/leadActivity.js); the portal's
+  // Raw/Working tabs read this flag instead of re-deriving it
+  const raw = new Set((await Lead.find({ ...accessibleTo(adminId), ...rawLeadFilter() }, { _id: 1 }).lean()).map((l) => String(l._id)));
+  return leads.map((l) => ({ ...l, isRaw: raw.has(String(l._id)) }));
 }
 
 const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -77,11 +88,11 @@ async function searchLeads(user, rawQuery) {
   if (!search) return [];
 
   const canSearchAll = user.permissions?.includes('*') || user.permissions?.includes('leads.viewAll');
-  const filter = canSearchAll ? search : { ...search, assignedTo: user._id };
-  const leads = await Lead.find(filter, { ...listProjection, assignedTo: 1 }).sort({ createdAt: -1 }).limit(20).lean();
+  const filter = canSearchAll ? search : { $and: [search, accessibleTo(user._id)] };
+  const leads = await Lead.find(filter, { ...listProjection, assignedTo: 1, sharedWith: 1 }).sort({ createdAt: -1 }).limit(20).lean();
 
   const otherOwnerIds = [...new Set(leads
-    .filter((l) => l.assignedTo && String(l.assignedTo) !== String(user._id))
+    .filter((l) => l.assignedTo && !hasLeadAccess(l, user._id))
     .map((l) => String(l.assignedTo)))];
   const owners = otherOwnerIds.length
     ? await Admin.find({ _id: { $in: otherOwnerIds } }, { firstName: 1, lastName: 1 }).lean()
@@ -89,8 +100,10 @@ async function searchLeads(user, rawQuery) {
   const ownerName = new Map(owners.map((o) => [String(o._id), `${o.firstName} ${o.lastName}`.trim()]));
 
   return leads.map((lead) => {
-    const isMine = String(lead.assignedTo) === String(user._id);
-    if (isMine) return { ...lead, isMine: true };
+    if (hasLeadAccess(lead, user._id)) {
+      const { sharedWith, ...rest } = lead;
+      return { ...rest, isMine: true, isShared: String(lead.assignedTo) !== String(user._id) };
+    }
     return {
       _id: lead._id,
       leadId: lead.leadId,

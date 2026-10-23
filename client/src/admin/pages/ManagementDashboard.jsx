@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Gauge, Users, TrendingUp, Clock, AlertTriangle, Flame, Wallet, UserX, PhoneCall
+  Gauge, Users, TrendingUp, Clock, AlertTriangle, Flame, Wallet, UserX, PhoneCall, Calendar, ChevronDown, X
 } from 'lucide-react';
 import {
   ResponsiveContainer, LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell
@@ -48,7 +48,43 @@ function displayName(person) {
 }
 
 function toDateInput(d) {
-  return d.toISOString().slice(0, 10);
+  const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 10);
+}
+
+function getPresetRange(key) {
+  const now = new Date();
+  const todayStr = toDateInput(now);
+
+  if (key === 'today') {
+    return { dateFrom: todayStr, dateTo: todayStr };
+  }
+
+  if (key === 'week') {
+    const day = now.getDay();
+    // Monday as start of the week:
+    const diffToMonday = day === 0 ? -6 : 1 - day;
+    const monday = new Date(now);
+    monday.setDate(now.getDate() + diffToMonday);
+    return { dateFrom: toDateInput(monday), dateTo: todayStr };
+  }
+
+  if (key === 'month') {
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+    return { dateFrom: toDateInput(firstDay), dateTo: todayStr };
+  }
+
+  return null;
+}
+
+function formatRangeBadge(dFrom, dTo) {
+  if (!dFrom || !dTo) return '';
+  const f = new Date(dFrom);
+  const t = new Date(dTo);
+  const options = { day: 'numeric', month: 'short' };
+  const fromStr = f.toLocaleDateString('en-IN', options);
+  const toStr = t.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+  return `${fromStr} – ${toStr}`;
 }
 
 const sectionClass = 'bg-app-card border border-app-border rounded-xl p-5';
@@ -75,14 +111,53 @@ function StatCard({ icon: Icon, label, value, sub, onClick, accent = 'text-prima
 export default function ManagementDashboard() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [dateFrom, setDateFrom] = useState(() => toDateInput(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)));
-  const [dateTo, setDateTo] = useState(() => toDateInput(new Date()));
+  const [activePreset, setActivePreset] = useState('month');
+  const [dateFrom, setDateFrom] = useState(() => getPresetRange('month').dateFrom);
+  const [dateTo, setDateTo] = useState(() => getPresetRange('month').dateTo);
+
+  // Custom range popover state
+  const [showCustomModal, setShowCustomModal] = useState(false);
+  const [tempDateFrom, setTempDateFrom] = useState(dateFrom);
+  const [tempDateTo, setTempDateTo] = useState(dateTo);
 
   const [volume, setVolume] = useState(null);
   const [pipeline, setPipeline] = useState(null);
   const [bdAccountability, setBdAccountability] = useState([]);
   const [compliance, setCompliance] = useState(null);
   const [actionMissingCounts, setActionMissingCounts] = useState(null);
+
+  const handlePresetSelect = (key) => {
+    if (key === 'custom') {
+      setTempDateFrom(dateFrom);
+      setTempDateTo(dateTo);
+      setShowCustomModal(true);
+      return;
+    }
+    setActivePreset(key);
+    setShowCustomModal(false);
+    const range = getPresetRange(key);
+    if (range) {
+      setDateFrom(range.dateFrom);
+      setDateTo(range.dateTo);
+    }
+  };
+
+  const handleApplyCustomRange = (e) => {
+    e?.preventDefault();
+    if (!tempDateFrom || !tempDateTo) {
+      toast.error('Please select both start and end dates');
+      return;
+    }
+    if (tempDateFrom > tempDateTo) {
+      toast.error('Start date cannot be after end date');
+      return;
+    }
+    setDateFrom(tempDateFrom);
+    setDateTo(tempDateTo);
+    setActivePreset('custom');
+    setShowCustomModal(false);
+    toast.success('Custom date range applied');
+  };
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
@@ -100,7 +175,7 @@ export default function ManagementDashboard() {
       if (complianceRes.data.success) setCompliance(complianceRes.data);
       if (actionRes.data.success) setActionMissingCounts(actionRes.data.counts);
     } catch (error) {
-      console.error('Error loading management dashboard:', error);
+      console.error('Error loading leads overview dashboard:', error);
       toast.error('Failed to load the dashboard');
     } finally {
       setLoading(false);
@@ -147,18 +222,122 @@ export default function ManagementDashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-app-text font-heading flex items-center gap-2">
-            <Gauge className="text-primary" size={24} /> Management Dashboard
+            <Gauge className="text-primary" size={24} /> Leads Overview
           </h1>
-          <p className="text-sm text-app-text-muted mt-1">Every number below is clickable — it opens the exact leads behind it. Sections marked <span className="font-semibold">Live</span> always show the current state and ignore the period.</p>
+          <p className="text-sm text-app-text-muted mt-1 max-w-3xl">
+            Every number below is clickable — it opens the exact leads behind it. Sections marked <span className="font-semibold text-app-text">Live</span> always show the current state and ignore the period.
+          </p>
         </div>
-        <div className="flex items-center gap-1.5 bg-app-card border border-app-border rounded-lg px-3 py-2">
-          <span className="text-xs text-app-text-muted">Period</span>
-          <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="bg-transparent text-sm text-app-text focus:outline-none" style={{ colorScheme: 'dark' }} />
-          <span className="text-xs text-app-text-muted">to</span>
-          <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="bg-transparent text-sm text-app-text focus:outline-none" style={{ colorScheme: 'dark' }} />
+
+        {/* Date Presets & Custom Popover */}
+        <div className="flex flex-wrap items-center gap-2.5 shrink-0 self-start lg:self-center">
+          {/* Active Period Indicator */}
+          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-app-card border border-app-border text-xs text-app-text-muted">
+            <Calendar className="w-3.5 h-3.5 text-primary shrink-0" />
+            <span className="font-medium text-app-text">{formatRangeBadge(dateFrom, dateTo)}</span>
+          </div>
+
+          {/* Preset Buttons Group */}
+          <div className="relative inline-flex bg-app-card border border-app-border p-1 rounded-xl shadow-xs">
+            {[
+              { key: 'today', label: 'Today' },
+              { key: 'week', label: 'This Week' },
+              { key: 'month', label: 'This Month' },
+              { key: 'custom', label: 'Custom' }
+            ].map(({ key, label }) => {
+              const isActive = activePreset === key;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => handlePresetSelect(key)}
+                  className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 cursor-pointer whitespace-nowrap ${
+                    isActive
+                      ? 'bg-primary text-black shadow-xs'
+                      : 'text-app-text-muted hover:text-app-text hover:bg-surface-variant/40'
+                  }`}
+                >
+                  <span>{label}</span>
+                  {key === 'custom' && (
+                    <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${showCustomModal ? 'rotate-180' : ''}`} />
+                  )}
+                </button>
+              );
+            })}
+
+            {/* Custom Range Popover */}
+            {showCustomModal && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowCustomModal(false)} />
+                <div className="absolute right-0 top-full mt-2 w-80 bg-app-card border border-app-border rounded-xl shadow-2xl z-50 p-4 animate-in fade-in slide-in-from-top-2 duration-150">
+                  <div className="flex items-center justify-between mb-3 pb-2 border-b border-app-border">
+                    <span className="text-xs font-bold uppercase tracking-wider text-app-text flex items-center gap-1.5">
+                      <Calendar className="w-4 h-4 text-primary" />
+                      Select Custom Range
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setShowCustomModal(false)}
+                      className="text-app-text-muted hover:text-app-text p-1 cursor-pointer"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <form onSubmit={handleApplyCustomRange} className="space-y-3">
+                    <div>
+                      <label className="block text-[11px] font-semibold uppercase tracking-wider text-app-text-muted mb-1">
+                        Start Date (From)
+                      </label>
+                      <input
+                        type="date"
+                        required
+                        max={tempDateTo || undefined}
+                        value={tempDateFrom}
+                        onChange={(e) => setTempDateFrom(e.target.value)}
+                        className="w-full bg-app-bg border border-app-border rounded-lg px-3 py-2 text-sm text-app-text focus:outline-none focus:border-primary transition-colors cursor-pointer"
+                        style={{ colorScheme: 'dark' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold uppercase tracking-wider text-app-text-muted mb-1">
+                        End Date (To)
+                      </label>
+                      <input
+                        type="date"
+                        required
+                        min={tempDateFrom || undefined}
+                        value={tempDateTo}
+                        onChange={(e) => setTempDateTo(e.target.value)}
+                        className="w-full bg-app-bg border border-app-border rounded-lg px-3 py-2 text-sm text-app-text focus:outline-none focus:border-primary transition-colors cursor-pointer"
+                        style={{ colorScheme: 'dark' }}
+                      />
+                    </div>
+
+                    <div className="pt-2 flex items-center justify-end gap-2 border-t border-app-border">
+                      <button
+                        type="button"
+                        onClick={() => setShowCustomModal(false)}
+                        className="px-3 py-1.5 text-xs rounded-lg border border-app-border text-app-text hover:bg-surface-variant transition-colors cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs rounded-lg bg-primary hover:bg-primary-hover text-black font-bold shadow-xs transition-colors cursor-pointer"
+                      >
+                        Apply Range
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
 

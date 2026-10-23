@@ -318,7 +318,7 @@ const Dashboard = () => {
               <section className="flex items-center justify-between">
                 <h2 className="text-xl font-bold text-white">Leads Overview <span className="text-xs font-normal text-on-primary-container">(last 30 days)</span></h2>
                 <Link to="/admin/management-dashboard" className="flex items-center gap-1.5 text-xs font-semibold text-secondary hover:opacity-80">
-                  <Gauge size={14} /> Full Management Dashboard
+                  <Gauge size={14} /> Full Leads Overview
                 </Link>
               </section>
 

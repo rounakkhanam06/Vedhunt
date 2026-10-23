@@ -166,6 +166,15 @@ const leadSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  // Cross-assignment: extra BDs who may work this lead alongside the owner
+  // (assignedTo stays the owner). Changed only through
+  // services/leadCollaboration.js, which logs every grant/revoke.
+  sharedWith: [{
+    _id: false,
+    admin: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin', required: true },
+    grantedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin', default: null },
+    grantedAt: { type: Date, default: Date.now }
+  }],
   lockedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Admin',
@@ -299,6 +308,15 @@ const leadSchema = new mongoose.Schema({
   lastCallAt: {
     type: Date
   },
+  // First time a person acted on the lead (call outcome, stage change, message,
+  // note, completed follow-up, proposal) — moves it from Raw to Working
+  // Leads. Opening or assigning a lead never sets it. See utils/leadActivity.js.
+  firstActionAt: { type: Date, default: null },
+  firstActionBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin', default: null },
+  firstActionType: { type: String, default: '' },
+  // Latest such action, for "last activity" in lists
+  lastActivityAt: { type: Date, default: null },
+  lastActivityType: { type: String, default: '' },
 
   // ── Follow-Up & Revenue Protection Engine ─────────────────────────────────
   // Escalation tracking for services/followUpEngine.js. All cleared whenever
@@ -522,7 +540,9 @@ leadSchema.index({ leadType: 1, createdAt: -1 });
 leadSchema.index({ fbFormId: 1 });
 leadSchema.index({ assignedTo: 1, createdAt: -1 });
 leadSchema.index({ assignedAt: -1 });
+leadSchema.index({ 'sharedWith.admin': 1 });
 leadSchema.index({ lastCallAt: -1 });
+leadSchema.index({ status: 1, assignedTo: 1, firstActionAt: 1 });
 
 // Duplicate-detection lookups (see server/services/leadDedup.js) filter by
 // these on every incoming lead, so they need real indexes rather than falling

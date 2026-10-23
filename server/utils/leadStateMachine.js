@@ -135,10 +135,11 @@ function isSameInstant(a, b) {
  * @param {object} existingLead current lead document (plain object)
  * @param {object} updates      proposed field changes, already filtered to allowed fields
  * @param {object} [options]
- * @param {boolean} [options.isSuperAdmin] allows reopening a closed lead (REOPEN_STATUSES)
+ * @param {boolean} [options.isSuperAdmin] allows reopening any closed lead (REOPEN_STATUSES)
+ * @param {boolean} [options.canReactivate] leads.reactivate: allows reopening a Lost or Dropped lead (not Won)
  * @returns {string|null} an error message, or null if the update is valid
  */
-function validateLeadTransition(existingLead, updates, { isSuperAdmin = false } = {}) {
+function validateLeadTransition(existingLead, updates, { isSuperAdmin = false, canReactivate = false } = {}) {
   if ('interestLevel' in updates && updates.interestLevel && !INTEREST_LEVELS.includes(updates.interestLevel)) {
     return `Invalid interest level: ${updates.interestLevel}`;
   }
@@ -167,8 +168,12 @@ function validateLeadTransition(existingLead, updates, { isSuperAdmin = false } 
   // ── Stage sequencing ──────────────────────────────────────────────────
   if ('status' in updates && updates.status !== existingLead.status) {
     if (TERMINAL_STATUSES.includes(existingLead.status)) {
-      if (!isSuperAdmin) {
-        return `Cannot change the status of a ${existingLead.status} lead. Only a Super Admin can reopen it.`;
+      // A Won lead has a client account behind it, so only a Super Admin reopens it
+      const mayReopen = isSuperAdmin || (canReactivate && existingLead.status !== 'Won');
+      if (!mayReopen) {
+        return existingLead.status === 'Won'
+          ? 'Cannot change the status of a Won lead. Only a Super Admin can reopen it.'
+          : `Cannot change the status of a ${existingLead.status} lead without permission to reactivate leads.`;
       }
       if (!REOPEN_STATUSES.includes(updates.status)) {
         return `A ${existingLead.status} lead can only be reopened to ${REOPEN_STATUSES.join(', ')}.`;

@@ -29,6 +29,8 @@ const workTimer = require('../services/workTimer');
 const employeeTasks = require('../services/employeeTasks');
 const { getActivityTypes } = require('../services/activityMaster');
 const { listAssignedLeads, searchLeads, todayAgenda } = require('../services/employeeLeads');
+const { accessibleTo } = require('../utils/leadScope');
+const collaboration = require('../services/leadCollaboration');
 const { completeFollowUp, appendLeadActivity } = require('../services/leadLifecycle');
 const { buildScorecard } = require('../services/employeeKpis');
 const { payslipPaymentStatus } = require('../services/payslipGenerator');
@@ -719,7 +721,7 @@ router.get('/ess/leads/:id', requirePermission('leads.view'), async (req, res) =
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
       return res.status(400).json({ success: false, message: 'Invalid lead id' });
     }
-    const lead = await Lead.findOne({ _id: req.params.id, assignedTo: req.user._id }).select('-rawPayload').lean();
+    const lead = await Lead.findOne({ _id: req.params.id, ...accessibleTo(req.user._id) }).select('-rawPayload').lean();
     if (!lead) return res.status(404).json({ success: false, message: 'Lead not found' });
 
     // Who did each timeline entry — names only, resolved in one query
@@ -729,6 +731,8 @@ router.get('/ess/leads/:id', requirePermission('leads.view'), async (req, res) =
       const names = new Map(actors.map((a) => [String(a._id), `${a.firstName} ${a.lastName}`.trim()]));
       lead.pipelineHistory = lead.pipelineHistory.map((h) => ({ ...h, updatedByName: names.get(String(h.updatedBy)) || '' }));
     }
+    lead.sharedWith = await collaboration.sharedWithDetails(lead);
+    lead.isOwner = String(lead.assignedTo) === String(req.user._id);
     res.json({ success: true, lead });
   } catch (error) {
     logger.error('Error fetching employee lead:', error);
@@ -744,7 +748,7 @@ router.post('/ess/leads/:id/follow-up/complete', requirePermission('followups.vi
     req.params.id,
     { connected, interestLevel, notConnectedReason, result, nextFollowUpDate, nextActionType },
     { id: req.user._id },
-    { assignedTo: req.user._id }
+    accessibleTo(req.user._id)
   );
   respond(res, outcome.ok ? { ok: true, lead: outcome.lead, message: 'Follow-up completed.' } : outcome);
 });
@@ -757,7 +761,7 @@ router.post('/ess/leads/:id/whatsapp-log', requirePermission('leads.view'), asyn
     status: 'WhatsApp initiated',
     note: `via ${app}`,
     actorId: req.user._id,
-  }, { assignedTo: req.user._id });
+  }, accessibleTo(req.user._id));
   if (!lead) return res.status(404).json({ success: false, message: 'Lead not found' });
   res.status(201).json({ success: true });
 });
@@ -773,7 +777,8 @@ router.put('/ess/leads/:id', requirePermission('leads.view'), async (req, res) =
       if (LEAD_UPDATE_FIELDS.includes(key)) updates[key] = req.body[key];
     }
 
-    const result = await applyLeadUpdate(req.params.id, updates, { id: req.user._id }, { assignedTo: req.user._id });
+    const canReactivate = req.user.permissions?.includes('leads.reactivate');
+    const result = await applyLeadUpdate(req.params.id, updates, { id: req.user._id, canReactivate }, accessibleTo(req.user._id));
     if (!result.ok) {
       return res.status(result.status).json({ success: false, message: result.message });
     }
@@ -792,7 +797,7 @@ router.post('/ess/leads/:id/documents', requirePermission('leads.view'), uploadL
     if (!req.file) {
       return res.status(400).json({ success: false, message: 'No file uploaded' });
     }
-    const result = await addLeadDocument(req.params.id, req.file, req.body.docType, req.user._id, { assignedTo: req.user._id });
+    const result = await addLeadDocument(req.params.id, req.file, req.body.docType, req.user._id, accessibleTo(req.user._id));
     if (!result.ok) {
       return res.status(result.status).json({ success: false, message: result.message });
     }
@@ -805,7 +810,7 @@ router.post('/ess/leads/:id/documents', requirePermission('leads.view'), uploadL
 
 router.delete('/ess/leads/:id/documents/:docId', requirePermission('leads.view'), async (req, res) => {
   try {
-    const result = await removeLeadDocument(req.params.id, req.params.docId, { assignedTo: req.user._id });
+    const result = await removeLeadDocument(req.params.id, req.params.docId, accessibleTo(req.user._id));
     if (!result.ok) {
       return res.status(result.status).json({ success: false, message: result.message });
     }
@@ -822,7 +827,7 @@ router.delete('/ess/leads/:id/documents/:docId', requirePermission('leads.view')
 // view and complete tasks assigned to them.
 router.get('/ess/leads/:id/tasks', requirePermission('followups.view'), async (req, res) => {
   try {
-    const result = await listTasks(req.params.id, { assignedTo: req.user._id });
+    const result = await listTasks(req.params.id, accessibleTo(req.user._id));
     if (!result.ok) {
       return res.status(result.status).json({ success: false, message: result.message });
     }
@@ -835,13 +840,39 @@ router.get('/ess/leads/:id/tasks', requirePermission('followups.view'), async (r
 
 router.put('/ess/leads/:id/tasks/:taskId/complete', requirePermission('followups.view'), async (req, res) => {
   try {
-    const result = await completeTask(req.params.id, req.params.taskId, req.body.result, req.user._id, { canManage: false }, { assignedTo: req.user._id });
+    const result = await completeTask(req.params.id, req.params.taskId, req.body.result, req.user._id, { canManage: false }, accessibleTo(req.user._id));
     if (!result.ok) {
       return res.status(result.status).json({ success: false, message: result.message });
     }
     res.json({ success: true, task: result.task });
   } catch (error) {
     logger.error('Error completing employee lead task:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// Notes on a lead this BD owns or has shared with them. Shared notes are seen
+// by everyone with access; private ones only by their author (and admins).
+router.get('/ess/leads/:id/notes', requirePermission('leads.view'), async (req, res) => {
+  try {
+    const lead = await findLeadRaw(req.params.id, accessibleTo(req.user._id));
+    if (!lead) return res.status(404).json({ success: false, message: 'Lead not found' });
+    res.json({ success: true, notes: await collaboration.listNotes(lead._id, req.user) });
+  } catch (error) {
+    logger.error('Error listing employee lead notes:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+router.post('/ess/leads/:id/notes', requirePermission('leads.view'), async (req, res) => {
+  try {
+    const lead = await findLeadRaw(req.params.id, accessibleTo(req.user._id));
+    if (!lead) return res.status(404).json({ success: false, message: 'Lead not found' });
+    const result = await collaboration.addNote(lead, req.user, req.body);
+    if (!result.ok) return res.status(result.status).json({ success: false, message: result.message });
+    res.status(201).json({ success: true, note: result.note });
+  } catch (error) {
+    logger.error('Error adding employee lead note:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });

@@ -9,6 +9,10 @@ export const usePermissions = () => {
     // Super Admin check
     if (admin.permissions.includes('*')) return true;
 
+    if (Array.isArray(permission)) {
+      return permission.some((perm) => admin.permissions.includes(perm));
+    }
+
     return admin.permissions.includes(permission);
   };
 

@@ -5,6 +5,7 @@
 const express = require('express');
 const { sendResult: respond } = require('../utils/apiResponse');
 const proposals = require('../services/proposals');
+const { accessibleTo } = require('../utils/leadScope');
 
 /**
  * @param {(req) => object} leadScope extra lead filter for every call, e.g. { assignedTo } — {} for all leads
@@ -69,6 +70,6 @@ function buildProposalRouters(leadScope) {
 }
 
 module.exports = {
-  ...buildProposalRouters((req) => ({ assignedTo: req.user._id })),
+  ...buildProposalRouters((req) => accessibleTo(req.user._id)),
   buildProposalRouters,
 };

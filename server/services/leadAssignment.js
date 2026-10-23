@@ -78,9 +78,10 @@ async function activeLeadCount(adminId) {
  * @param {ObjectId|null} assignedBy   who performed this; null = system/round-robin
  * @param {'Manual'|'Auto-RoundRobin'} mode
  * @param {string} [reason]
+ * @param {ObjectId} [bulkRun]        BulkAssignmentRun this change belongs to
  * @returns {object} plain object reflecting the lead's new assignment state
  */
-async function applyAssignment(leadRef, { toAdmin, assignedBy = null, mode, reason = '' }) {
+async function applyAssignment(leadRef, { toAdmin, assignedBy = null, mode, reason = '', bulkRun = null }) {
   const leadPlain = typeof leadRef.toObject === 'function' ? leadRef.toObject() : leadRef;
   const fromAdmin = leadPlain.assignedTo || null;
   const toAdminId = toAdmin || null;
@@ -114,10 +115,10 @@ async function applyAssignment(leadRef, { toAdmin, assignedBy = null, mode, reas
   }
 
   const db = mongoose.connection.db;
-  await db.collection('leads').updateOne(
-    { _id: leadPlain._id },
-    { $set: updateFields }
-  );
+  // A BD who becomes the owner no longer needs a separate shared-access entry
+  const update = { $set: updateFields };
+  if (toAdminObjectId) update.$pull = { sharedWith: { admin: toAdminObjectId } };
+  await db.collection('leads').updateOne({ _id: leadPlain._id }, update);
 
   // The lead's status, call logs, notes and pipeline history live on the lead
   // itself and are untouched by a reassignment. Pending follow-up tasks belong
@@ -137,7 +138,8 @@ async function applyAssignment(leadRef, { toAdmin, assignedBy = null, mode, reas
     toAdmin: toAdminObjectId,
     assignedBy,
     mode,
-    reason
+    reason,
+    bulkRun
   });
 
   if (toAdminId) {
@@ -164,7 +166,7 @@ async function applyAssignment(leadRef, { toAdmin, assignedBy = null, mode, reas
  * Admin-initiated assign/reassign/unassign. No workload-limit check — an
  * admin overriding capacity is the point of "Manual" mode.
  */
-async function manualAssign({ leadId, toAdmin, assignedBy, reason }) {
+async function manualAssign({ leadId, toAdmin, assignedBy, reason, bulkRun = null }) {
   const lead = await findLeadRaw(leadId);
   if (!lead) return null;
 
@@ -178,7 +180,7 @@ async function manualAssign({ leadId, toAdmin, assignedBy, reason }) {
     }
   }
 
-  return applyAssignment(lead, { toAdmin, assignedBy, mode: 'Manual', reason });
+  return applyAssignment(lead, { toAdmin, assignedBy, mode: 'Manual', reason, bulkRun });
 }
 
 /**

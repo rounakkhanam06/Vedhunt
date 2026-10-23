@@ -8,6 +8,7 @@ const permissionLabels = {
   'services.manage': 'Services Management',
   'portfolio.manage': 'Portfolio Items',
   'cms.manage': 'Content Manager (CMS)',
+  'newsletter.manage': 'Newsletter Subscribers',
   'pricing.manage': 'Pricing Management',
   'careers.manage': 'Careers CMS',
   'legal.manage': 'Legal & Compliance',
@@ -19,6 +20,7 @@ const permissionLabels = {
   'payroll.manage': 'Payroll & Payslips',
   'ess.manage': 'Productivity Reports (all staff)',
   'ess.access': 'Employee Portal Access (ESS)',
+  'dashboard.management': 'Leads Overview',
 };
 
 const RoleManager = () => {

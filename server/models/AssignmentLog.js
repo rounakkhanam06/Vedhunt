@@ -30,8 +30,17 @@ const assignmentLogSchema = new mongoose.Schema({
   },
   mode: {
     type: String,
-    enum: ['Manual', 'Auto-RoundRobin'],
+    // Cross-Assign / Cross-Unassign: toAdmin / fromAdmin is the BD given or
+    // losing shared access; the owner is unchanged.
+    enum: ['Manual', 'Auto-RoundRobin', 'Cross-Assign', 'Cross-Unassign'],
     required: true
+  },
+  // Set when the change was part of a bulk reassignment (BulkAssignmentRun)
+  bulkRun: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'BulkAssignmentRun',
+    default: null,
+    index: true
   },
   reason: {
     type: String,

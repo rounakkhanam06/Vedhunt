@@ -128,10 +128,14 @@ export default function UnassignedLeadsManager() {
       });
       if (response.data.success) {
         toast.success(response.data.message, { id: toastId });
-        setSelectedLeads([]);
-        setBulkAssignTo('');
-        fetchLeads();
+      } else {
+        // Some leads didn't move — say so instead of reporting success
+        const reasons = [...new Set((response.data.failures || []).map((f) => f.reason))].join(' ');
+        toast.error(`${response.data.message} ${reasons}`.trim(), { id: toastId, duration: 8000 });
       }
+      setSelectedLeads([]);
+      setBulkAssignTo('');
+      fetchLeads();
     } catch (error) {
       console.error('Bulk assign error:', error);
       toast.error(error.response?.data?.message || 'Failed to assign leads', { id: toastId });
@@ -288,36 +292,36 @@ export default function UnassignedLeadsManager() {
   return (
     <div className="space-y-5">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+        <div className="min-w-0 flex-1">
           <h1 className="text-2xl font-bold text-app-text font-heading">Unassigned Leads</h1>
-          <p className="text-sm text-app-text-muted mt-1">
+          <p className="text-sm text-app-text-muted mt-1 max-w-3xl">
             {leadTypeFilter === 'All' ? 'Total' : leadTypeFilter} leads awaiting BD assignment:{' '}
             <span className="font-semibold text-app-text">{totalLeads}</span>
           </p>
         </div>
-        <div className="relative">
+        <div className="relative shrink-0 self-start">
           <button
             onClick={() => setShowExportDropdown(!showExportDropdown)}
-            className="flex items-center gap-2 bg-app-card border border-app-border hover:border-primary px-4 py-2 rounded-lg font-semibold text-sm text-app-text transition-colors"
+            className="inline-flex items-center gap-2 bg-app-card border border-app-border hover:border-primary/50 hover:bg-surface-variant/40 text-app-text px-3.5 py-2 rounded-lg font-semibold text-sm shadow-xs transition-all duration-150 active:scale-95 cursor-pointer whitespace-nowrap"
           >
-            <Download className="w-4 h-4" />
+            <Download className="w-4 h-4 text-app-text-muted" />
             <span>Export</span>
-            <ChevronDown className="w-4 h-4" />
+            <ChevronDown className={`w-3.5 h-3.5 text-app-text-muted transition-transform duration-200 ${showExportDropdown ? 'rotate-180 text-primary' : ''}`} />
           </button>
           {showExportDropdown && (
             <>
               <div className="fixed inset-0 z-40" onClick={() => setShowExportDropdown(false)} />
-              <div className="absolute right-0 mt-2 w-48 bg-app-card border border-app-border rounded-xl shadow-lg z-50 overflow-hidden">
+              <div className="absolute right-0 mt-2 w-48 bg-app-card border border-app-border rounded-xl shadow-xl z-50 overflow-hidden py-1 animate-in fade-in slide-in-from-top-2 duration-150">
                 <button
                   onClick={() => {
                     setShowExportDropdown(false);
                     handleExport('csv');
                   }}
-                  className="w-full text-left px-4 py-3 text-sm text-app-text hover:bg-surface-variant hover:text-primary transition-colors flex items-center gap-2"
+                  className="w-full text-left px-4 py-2.5 text-sm text-app-text hover:bg-surface-variant hover:text-primary transition-colors flex items-center gap-2 cursor-pointer"
                 >
-                  <FileText className="w-4 h-4" />
-                  Export as CSV
+                  <FileText className="w-4 h-4 text-primary" />
+                  <span>Export as CSV</span>
                 </button>
               </div>
             </>
