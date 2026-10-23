@@ -1,0 +1,32 @@
+[
+  {
+    "_id": "6ad9dd8c78c0c53e006b4d1c",
+    "email": "legacy@e2e.test",
+    "before": [
+      {
+        "page": "clients",
+        "allClients": false,
+        "clients": [
+          "6ad9dd8978c0c53e006b4d07"
+        ],
+        "actions": [
+          "view"
+        ]
+      }
+    ],
+    "after": [
+      {
+        "page": "clients",
+        "actions": [
+          "view"
+        ],
+        "scope": {
+          "mode": "clients",
+          "clients": [
+            "6ad9dd8978c0c53e006b4d07"
+          ]
+        }
+      }
+    ]
+  }
+]

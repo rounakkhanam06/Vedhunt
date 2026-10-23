@@ -14,6 +14,36 @@ const { sendPushToAdmin } = require('../utils/pushNotify');
 // A lead still being worked counts against a BD's workload; these are done.
 const TERMINAL_STATUSES = ['Won', 'Lost', 'Dropped'];
 
+const LEAD_PERMISSIONS = ['leads.view', 'leads.viewAll'];
+
+/**
+ * Everyone a lead can be manually assigned to: active BDEs, anyone whose role
+ * gives lead access (Role Management), and anyone granted the Leads page.
+ */
+async function assignableAdminFilter() {
+  const bdeRole = await getBDERole();
+  const leadRoles = await Role.find({ permissions: { $in: LEAD_PERMISSIONS } }).select('_id');
+  return {
+    isActive: true,
+    $or: [
+      { roles: { $in: [bdeRole._id, ...leadRoles.map((r) => r._id)] } },
+      { accessGrants: { $elemMatch: { page: 'leads', actions: 'view' } } },
+    ],
+  };
+}
+
+/** The round-robin default pool: BDEs not opted out, plus anyone opted in. */
+async function autoAssignPoolFilter() {
+  const bdeRole = await getBDERole();
+  return {
+    isActive: true,
+    $or: [
+      { roles: bdeRole._id, autoAssignEligible: { $ne: false } },
+      { autoAssignEligible: true },
+    ],
+  };
+}
+
 /** Find-or-create the BDE role, same idiom as employeeRoutes.js's getEmployeeRole(). */
 async function getBDERole() {
   let role = await Role.findOne({ name: 'BDE' });
@@ -180,8 +210,7 @@ async function autoAssignLead(lead) {
       let pool = rule.bdPool;
       if (!pool.length) {
         if (!allActiveBDs) {
-          const bdeRole = await getBDERole();
-          allActiveBDs = (await Admin.find({ roles: bdeRole._id, isActive: true }).sort({ _id: 1 }).select('_id')).map((a) => a._id);
+          allActiveBDs = (await Admin.find(await autoAssignPoolFilter()).sort({ _id: 1 }).select('_id')).map((a) => a._id);
         }
         pool = allActiveBDs;
       }
@@ -220,4 +249,4 @@ async function autoAssignLead(lead) {
   }
 }
 
-module.exports = { getBDERole, activeLeadCount, applyAssignment, manualAssign, autoAssignLead, TERMINAL_STATUSES };
+module.exports = { getBDERole, assignableAdminFilter, autoAssignPoolFilter,activeLeadCount, applyAssignment, manualAssign, autoAssignLead, TERMINAL_STATUSES };

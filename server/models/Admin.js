@@ -74,6 +74,13 @@ const adminSchema = new mongoose.Schema(
       }],
       default: undefined,
     },
+    // Round-robin auto-assign opt-in/out, set from Settings → Lead Assignment.
+    // Unset = the default: BDEs are in the rotation, everyone else is not.
+    // true adds a non-BDE; false takes a BDE out. See services/leadAssignment.js.
+    autoAssignEligible: {
+      type: Boolean,
+      default: undefined,
+    },
     // LEGACY (before accessGrants) — read-only fallback until
     // scripts/migrations/migrateCrmGrants.js moves it to accessGrants.
     crmGrants: {

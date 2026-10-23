@@ -228,6 +228,17 @@ const SettingsPage = () => {
     }
   };
 
+  const handleToggleEligibility = async (bd) => {
+    const next = !bd.autoAssignEligible;
+    try {
+      await api.put(`/admin/assignment/eligibility/${bd._id}`, { autoAssignEligible: next });
+      setBdRoster((prev) => prev.map((p) => (p._id === bd._id ? { ...p, autoAssignEligible: next } : p)));
+      toast.success(`${bd.firstName} ${next ? 'added to' : 'removed from'} auto-assign`);
+    } catch {
+      toast.error('Failed to update auto-assign availability');
+    }
+  };
+
   const handleToggleAutoAssign = async () => {
     const next = !autoAssignEnabled;
     try {
@@ -1387,6 +1398,43 @@ const SettingsPage = () => {
             </div>
 
             <div className="bg-app-bg border border-app-border p-6 rounded-xl mb-8">
+              <h4 className="text-sm font-semibold text-app-text">Available for Auto-Assign</h4>
+              <p className="text-xs text-app-text-muted mt-1 mb-4">
+                Everyone with lead access can be assigned leads manually. Switch on the people who should also receive leads from round-robin (used when a rule's pool is left empty). BDEs are on by default.
+              </p>
+              {bdRoster.length === 0 ? (
+                <p className="text-xs text-app-text-muted">No one with lead access yet.</p>
+              ) : (
+                <ul className="divide-y divide-app-border">
+                  {bdRoster.map((bd) => (
+                    <li key={bd._id} className="flex items-center justify-between py-2.5">
+                      <div>
+                        <p className="text-sm text-app-text">{bd.firstName} {bd.lastName}{bd.isBDE && <span className="ml-2 text-[10px] font-semibold uppercase text-[#FF5A1F]">BDE</span>}</p>
+                        <p className="text-xs text-app-text-muted">{bd.email} · {bd.activeLeadCount} active</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleToggleEligibility(bd)}
+                        className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                          bd.autoAssignEligible ? 'bg-primary' : 'bg-slate-300 dark:bg-slate-700'
+                        }`}
+                        role="switch"
+                        aria-checked={bd.autoAssignEligible}
+                        aria-label={`Auto-assign leads to ${bd.firstName} ${bd.lastName}`}
+                      >
+                        <span
+                          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                            bd.autoAssignEligible ? 'translate-x-5' : 'translate-x-0'
+                          }`}
+                        />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            <div className="bg-app-bg border border-app-border p-6 rounded-xl mb-8">
               <h4 className="text-sm font-semibold text-[#FF5A1F] uppercase tracking-widest mb-4">
                 {editingRuleId ? 'Edit Rule' : 'New Rule'}
               </h4>
@@ -1416,7 +1464,7 @@ const SettingsPage = () => {
                 <div>
                   <label className={labelClasses}>BD Pool (rotation order)</label>
                   <p className="text-xs text-app-text-muted mb-2">
-                    Leave everyone unselected to auto-include every active BD — new hires join the rotation on their own, and no one lingers after their account is removed. Select specific BDs only to restrict this rule to them.
+                    Leave everyone unselected to use everyone switched on under Available for Auto-Assign — new BDEs join the rotation on their own, and no one lingers after their account is removed. Select specific BDs only to restrict this rule to them.
                   </p>
                   {bdRoster.length === 0 ? (
                     <p className="text-xs text-app-text-muted">No BD accounts found yet — create BD team members first.</p>
@@ -1477,7 +1525,7 @@ const SettingsPage = () => {
                           <td className="px-6 py-4 text-xs text-app-text-muted">
                             {rule.matchService || 'Any service'} · {rule.matchSource || 'Any source'}
                           </td>
-                          <td className="px-6 py-4 text-xs text-app-text-muted">{(rule.bdPool || []).length ? `${rule.bdPool.length} BD(s)` : 'All active BDs'}</td>
+                          <td className="px-6 py-4 text-xs text-app-text-muted">{(rule.bdPool || []).length ? `${rule.bdPool.length} BD(s)` : 'Auto-assign pool'}</td>
                           <td className="px-6 py-4 text-xs text-app-text-muted">{rule.maxActiveLeads ?? 'Unlimited'}</td>
                           <td className="px-6 py-4">
                             <button onClick={() => handleToggleRuleActive(rule)} className={`px-2 py-1 rounded text-[10px] uppercase font-bold tracking-wider ${rule.active ? 'bg-green-500/10 text-green-500' : 'bg-gray-500/10 text-app-text-muted'}`}>

@@ -2,7 +2,7 @@ const Admin = require('../models/Admin');
 const Settings = require('../models/Settings');
 const AssignmentRule = require('../models/AssignmentRule');
 const logger = require('../utils/logger');
-const { getBDERole, activeLeadCount } = require('../services/leadAssignment');
+const { getBDERole, activeLeadCount, assignableAdminFilter } = require('../services/leadAssignment');
 const { DEFAULT_LEAD_SCORING_SETTINGS, getLeadScoringSettings } = require('../services/leadScoring');
 
 // @desc    List BD team members (dynamically, from the DB — not hardcoded)
@@ -11,21 +11,46 @@ const { DEFAULT_LEAD_SCORING_SETTINGS, getLeadScoringSettings } = require('../se
 exports.getAssignableBDs = async (req, res, next) => {
   try {
     const bdeRole = await getBDERole();
-    const bds = await Admin.find({ roles: bdeRole._id, isActive: true }).select('firstName lastName email');
+    const bds = await Admin.find(await assignableAdminFilter()).select('firstName lastName email roles autoAssignEligible');
 
     const withWorkload = await Promise.all(
-      bds.map(async (bd) => ({
-        _id: bd._id,
-        firstName: bd.firstName,
-        lastName: bd.lastName,
-        email: bd.email,
-        activeLeadCount: await activeLeadCount(bd._id)
-      }))
+      bds.map(async (bd) => {
+        const isBDE = bd.roles.some((r) => String(r) === String(bdeRole._id));
+        return {
+          _id: bd._id,
+          firstName: bd.firstName,
+          lastName: bd.lastName,
+          email: bd.email,
+          isBDE,
+          autoAssignEligible: typeof bd.autoAssignEligible === 'boolean' ? bd.autoAssignEligible : isBDE,
+          activeLeadCount: await activeLeadCount(bd._id)
+        };
+      })
     );
 
     res.status(200).json({ success: true, data: withWorkload });
   } catch (error) {
     logger.error('Error fetching assignable BDs:', error);
+    next(error);
+  }
+};
+
+// @desc    Put a person in or out of the round-robin pool
+// @route   PUT /api/admin/assignment/eligibility/:adminId
+// @access  Private (leads.assign)
+exports.updateAutoAssignEligibility = async (req, res, next) => {
+  try {
+    const { autoAssignEligible } = req.body;
+    if (typeof autoAssignEligible !== 'boolean') {
+      return res.status(400).json({ success: false, message: 'autoAssignEligible must be true or false' });
+    }
+    const admin = await Admin.findOne({ _id: req.params.adminId, ...(await assignableAdminFilter()) });
+    if (!admin) return res.status(404).json({ success: false, message: 'No assignable user found' });
+    admin.autoAssignEligible = autoAssignEligible;
+    await admin.save();
+    res.status(200).json({ success: true, data: { _id: admin._id, autoAssignEligible } });
+  } catch (error) {
+    logger.error('Error updating auto-assign eligibility:', error);
     next(error);
   }
 };

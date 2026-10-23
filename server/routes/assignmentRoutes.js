@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const {
-  getAssignableBDs, getAssignmentSettings, updateAssignmentSettings,
+  getAssignableBDs, updateAutoAssignEligibility, getAssignmentSettings, updateAssignmentSettings,
   listRules, createRule, updateRule, deleteRule,
   getLeadScoringConfig, updateLeadScoringConfig
 } = require('../controllers/assignmentController');
@@ -11,6 +11,7 @@ const requirePermission = require('../middleware/requirePermission');
 router.use(authMiddleware, requirePermission('leads.assign'));
 
 router.get('/bds', getAssignableBDs);
+router.put('/eligibility/:adminId', updateAutoAssignEligibility);
 
 router.get('/settings', getAssignmentSettings);
 router.put('/settings', updateAssignmentSettings);
