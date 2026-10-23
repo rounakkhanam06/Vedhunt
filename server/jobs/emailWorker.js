@@ -19,6 +19,12 @@ module.exports = function (agenda) {
       let emailSubject = subject;
       let emailHtmlContent = htmlContent;
 
+      const frontendUrl = (
+        process.env.FRONTEND_URL ||
+        process.env.CLIENT_ORIGIN ||
+        'https://vedhunt.in'
+      ).replace(/\/$/, '');
+
       if (type === 'BLOG_UPDATE') {
         const blog = await Blog.findById(blogId);
         if (!blog) {
@@ -28,13 +34,15 @@ module.exports = function (agenda) {
 
         emailSubject = `New Blog Post: ${blog.title}`;
 
+        const blogUrl = `${frontendUrl}/blog/${blog.slug}`;
+
         // Construct HTML (In production, use a proper template)
         emailHtmlContent = `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
             <h2 style="color: #ff6b00;">${blog.title}</h2>
             <p>${blog.excerpt || ''}</p>
             <div style="text-align: center; margin: 30px 0;">
-              <a href="${process.env.FRONTEND_URL}/blog/${blog.slug}" style="background-color: #ff6b00; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Read Full Article</a>
+              <a href="${blogUrl}" style="background-color: #ff6b00; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Read Full Article</a>
             </div>
             <hr style="border: 1px solid #eee; margin: 30px 0;" />
             <p style="font-size: 12px; color: #888; text-align: center;">
@@ -78,11 +86,13 @@ module.exports = function (agenda) {
         const batch = subscribers.slice(i, i + BATCH_SIZE);
 
         const emailPayloads = batch.map(sub => {
-          const unsubLink = `${process.env.FRONTEND_URL}/unsubscribe/${sub.unsubscribeToken}`;
+          const unsubLink = sub.unsubscribeToken
+            ? `${frontendUrl}/unsubscribe/${sub.unsubscribeToken}`
+            : `${frontendUrl}/unsubscribe`;
           return {
             email: sub.email,
             subject: emailSubject,
-            html: emailHtmlContent.replace('{{UNSUBSCRIBE_LINK}}', unsubLink)
+            html: emailHtmlContent.replace(/\{\{UNSUBSCRIBE_LINK\}\}/g, unsubLink)
           };
         });
 

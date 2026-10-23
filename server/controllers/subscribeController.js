@@ -62,8 +62,14 @@ exports.subscribe = async (req, res) => {
     res.status(201).json({ success: true, message: 'Successfully subscribed to the newsletter!' });
 
     // Send Welcome Email Asynchronously
-    const frontendUrl = process.env.CLIENT_ORIGIN || 'http://localhost:5173';
-    const unsubscribeLink = `${frontendUrl}/unsubscribe/${subscriber.unsubscribeToken}`;
+    const frontendUrl = (
+      process.env.FRONTEND_URL ||
+      process.env.CLIENT_ORIGIN ||
+      'https://vedhunt.in'
+    ).replace(/\/$/, '');
+    const unsubscribeLink = subscriber.unsubscribeToken
+      ? `${frontendUrl}/unsubscribe/${subscriber.unsubscribeToken}`
+      : `${frontendUrl}/unsubscribe`;
 
     const emailHtml = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
