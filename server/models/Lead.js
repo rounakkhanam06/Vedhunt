@@ -318,12 +318,18 @@ const leadSchema = new mongoose.Schema({
   lastCallAt: {
     type: Date
   },
-  // First time a person acted on the lead (call outcome, stage change, message,
-  // note, completed follow-up, proposal) — moves it from Raw to Working
-  // Leads. Opening or assigning a lead never sets it. See utils/leadActivity.js.
+  // First time a person acted on the lead in any way (call outcome, stage
+  // change, message, note, completed follow-up, proposal). Audit trail only:
+  // list membership uses firstContactAt below. See utils/leadActivity.js.
   firstActionAt: { type: Date, default: null },
   firstActionBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin', default: null },
   firstActionType: { type: String, default: '' },
+  // First time that action was one that counts as taking action on the lead
+  // (a call, WhatsApp message, shared proposal or note — not a stage or
+  // interest change). Takes a lead off Raw Leads and the Pending Call board.
+  firstContactAt: { type: Date, default: null },
+  firstContactBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin', default: null },
+  firstContactType: { type: String, default: '' },
   // Latest such action, for "last activity" in lists
   lastActivityAt: { type: Date, default: null },
   lastActivityType: { type: String, default: '' },

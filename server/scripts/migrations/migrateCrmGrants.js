@@ -12,6 +12,9 @@
  *
  *   node scripts/migrations/migrateCrmGrants.js            # report only
  *   node scripts/migrations/migrateCrmGrants.js --apply    # migrate
+ *
+ * The backup goes to scripts/migrations/backups/ unless MIGRATION_BACKUP_DIR names
+ * another folder (the end-to-end tests use a temporary one so they leave nothing behind).
  */
 const fs = require('fs');
 const path = require('path');
@@ -53,7 +56,7 @@ const apply = process.argv.includes('--apply');
   } else if (!apply) {
     console.log(`\n${changes.length} login(s) to migrate. Re-run with --apply to write them.`);
   } else {
-    const dir = path.resolve(__dirname, 'backups');
+    const dir = process.env.MIGRATION_BACKUP_DIR ? path.resolve(process.env.MIGRATION_BACKUP_DIR) : path.resolve(__dirname, 'backups');
     fs.mkdirSync(dir, { recursive: true });
     const file = path.join(dir, `crmGrants-${new Date().toISOString().replace(/[:.]/g, '-')}.json`);
     fs.writeFileSync(file, JSON.stringify(changes, null, 2));

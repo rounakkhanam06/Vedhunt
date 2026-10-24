@@ -15,7 +15,6 @@ import { LEAD_PRIORITY_BADGE_CLASSES } from '../../shared/serviceQualification';
 // keys, in stage order, for the bottleneck funnel.
 const PIPELINE_STAGE_ORDER = ['New', 'Contacted', 'Qualified', 'Proposal Sent', 'Negotiation', 'Hold', 'Won', 'Lost', 'Dropped'];
 
-const PRIORITY_COLORS = { Hot: '#f87171', Warm: '#fbbf24', Normal: '#60a5fa', Low: '#94a3b8' };
 const CHART_COLOR = '#FF6B00';
 
 const CHART_TOOLTIP_PROPS = {
@@ -105,6 +104,76 @@ function StatCard({ icon: Icon, label, value, sub, onClick, accent = 'text-prima
         {sub && <p className="text-[11px] text-app-text-muted mt-0.5">{sub}</p>}
       </div>
     </button>
+  );
+}
+
+/**
+ * Cards + BD-wise table over one breakdown (Interest Level / Lead Stage).
+ * `data` = { columns, rows: [{ owner, name, unassigned, counts, total }], totals }
+ * from services/leadOverview.js. Every count opens the leads behind it.
+ */
+function BreakdownSection({ icon: Icon, title, basis, data, cardClass, onCount }) {
+  const columns = data?.columns || [];
+  const rows = data?.rows || [];
+  const totals = data?.totals;
+  return (
+    <div className={sectionClass}>
+      <h2 className={sectionTitleClass}>
+        <Icon size={16} /> {title} <span className="normal-case font-medium text-app-text-muted">· {basis}</span>
+      </h2>
+      <div className="grid gap-3 mb-5" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))' }}>
+        {columns.map((column) => (
+          <button
+            key={column}
+            type="button"
+            onClick={() => onCount({ column })}
+            className={`text-left bg-app-bg border border-app-border rounded-lg px-3 py-2.5 hover:border-primary/50 transition-colors cursor-pointer ${cardClass?.(column) || ''}`}
+          >
+            <p className="text-[11px] text-app-text-muted uppercase tracking-wider font-bold truncate" title={column}>{column}</p>
+            <p className="text-xl font-bold text-app-text">{(totals?.[column] ?? 0).toLocaleString('en-IN')}</p>
+          </button>
+        ))}
+      </div>
+
+      <p className="text-xs font-bold text-app-text-muted uppercase tracking-wider mb-2">BD-wise · primary owner</p>
+      <div className="overflow-x-auto">
+        <table className="w-full text-left text-sm whitespace-nowrap">
+          <thead className="bg-app-bg border-b border-app-border text-app-text-muted text-[11px] uppercase tracking-wider">
+            <tr>
+              <th className="px-3 py-2 font-semibold">Lead owner</th>
+              {columns.map((column) => <th key={column} className="px-3 py-2 font-semibold text-right">{column}</th>)}
+              <th className="px-3 py-2 font-semibold text-right">Total</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-app-border/70 text-[13px]">
+            {rows.length === 0 ? (
+              <tr><td colSpan={columns.length + 2} className="px-3 py-8 text-center text-app-text-muted">No leads received in this period.</td></tr>
+            ) : rows.map((row) => (
+              <tr key={row.owner} className="hover:bg-app-bg/50 transition-colors">
+                <td className="px-3 py-2 font-medium text-app-text">{row.name}</td>
+                {columns.map((column) => (
+                  <td key={column} className="px-3 py-2 text-right">
+                    {row.counts[column] > 0 ? (
+                      <button type="button" onClick={() => onCount({ column, row })} className="text-primary hover:underline cursor-pointer">{row.counts[column]}</button>
+                    ) : <span className="text-app-text-muted">0</span>}
+                  </td>
+                ))}
+                <td className="px-3 py-2 text-right font-bold text-app-text">{row.total}</td>
+              </tr>
+            ))}
+          </tbody>
+          {rows.length > 0 && (
+            <tfoot className="border-t border-app-border bg-app-bg/60 font-bold text-app-text text-[13px]">
+              <tr>
+                <td className="px-3 py-2">Total</td>
+                {columns.map((column) => <td key={column} className="px-3 py-2 text-right">{totals?.[column] ?? 0}</td>)}
+                <td className="px-3 py-2 text-right">{totals?.total ?? 0}</td>
+              </tr>
+            </tfoot>
+          )}
+        </table>
+      </div>
+    </div>
   );
 }
 
@@ -347,28 +416,37 @@ export default function ManagementDashboard() {
       {/* Lead Volume & Source */}
       <div className={sectionClass}>
         <h2 className={sectionTitleClass}><TrendingUp size={16} /> Lead Volume &amp; Source</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
           <StatCard
             icon={TrendingUp}
-            label="New Leads (period)"
+            label="Leads Received"
             value={volume?.totalLeads ?? 0}
+            sub="Created in the selected period"
             onClick={() => goToLeads({ dateFrom, dateTo })}
           />
           <StatCard
+            icon={Users}
+            label="Assigned Leads"
+            value={volume?.assignedLeads ?? 0}
+            sub="Assigned to a BD in the selected period"
+            accent="text-sky-400"
+            onClick={() => goToLeads({ dateField: 'assigned', dateFrom, dateTo })}
+          />
+          <StatCard
             icon={UserX}
-            label="Unassigned Now (live)"
+            label="Unassigned Leads (now)"
             value={volume?.unassignedCount ?? 0}
-            sub={volume?.unassignedSlaBreachedCount ? `${volume.unassignedSlaBreachedCount} past SLA` : undefined}
+            sub={volume?.unassignedSlaBreachedCount ? `Open and unassigned right now · ${volume.unassignedSlaBreachedCount} past SLA` : 'Open and unassigned right now'}
             accent="text-amber-400"
             onClick={() => goToLeads({ assignedTo: 'Unassigned', stage: 'open' })}
           />
           <StatCard
             icon={Wallet}
-            label="Open Pipeline Value"
+            label="Current Open Pipeline Value"
             value={`₹${(pipeline?.pipelineValue || 0).toLocaleString('en-IN')}`}
-            sub="Leads received in the period"
+            sub="Snapshot of all open leads right now, not limited to the period"
             accent="text-emerald-400"
-            onClick={() => goToLeads({ stage: 'open', dateFrom, dateTo })}
+            onClick={() => goToLeads({ stage: 'open' })}
           />
         </div>
 
@@ -459,6 +537,56 @@ export default function ManagementDashboard() {
               </ResponsiveContainer>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Interest Level — leads received in the period, current interest level, by primary owner */}
+      <BreakdownSection
+        icon={Flame}
+        title="Interest Level"
+        basis="leads received in the period, by current interest level"
+        data={volume?.interest}
+        cardClass={(column) => (column === 'Hot Lead' ? 'border-red-500/30' : column === 'Not rated' ? 'opacity-80' : '')}
+        onCount={({ column, row }) => goToLeads({
+          interestLevel: column,
+          assignedTo: row ? (row.unassigned ? 'Unassigned' : row.owner) : undefined,
+          dateFrom, dateTo
+        })}
+      />
+
+      {/* Lead Stage — same cohort, current stage, by primary owner */}
+      <BreakdownSection
+        icon={Gauge}
+        title="Lead Stage"
+        basis="leads received in the period, by current stage"
+        data={volume?.stages}
+        cardClass={(column) => (column === 'Won' ? 'border-emerald-500/30' : column === 'Lost' || column === 'Dropped' ? 'border-red-500/20' : '')}
+        onCount={({ column, row }) => goToLeads({
+          status: column,
+          assignedTo: row ? (row.unassigned ? 'Unassigned' : row.owner) : undefined,
+          dateFrom, dateTo
+        })}
+      />
+
+      {/* Pipeline Funnel — a snapshot of the same cohort's current stage, not a conversion funnel */}
+      <div className={sectionClass}>
+        <h2 className={sectionTitleClass}>
+          <TrendingUp size={16} /> Pipeline Funnel <span className="normal-case font-medium text-app-text-muted">· current stage of leads received in the period (a snapshot, not stage-to-stage conversion)</span>
+        </h2>
+        <div className="h-64">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={funnelData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#2D2D33" vertical={false} />
+              <XAxis dataKey="status" tick={{ fontSize: 10, fill: '#9CA3AF' }} interval={0} angle={-20} textAnchor="end" height={60} />
+              <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#9CA3AF' }} />
+              <Tooltip {...CHART_TOOLTIP_PROPS} cursor={{ fill: 'rgba(255, 255, 255, 0.06)' }} />
+              <Bar dataKey="count" radius={[4, 4, 0, 0]} style={{ cursor: 'pointer' }} onClick={(data) => goToLeads({ status: data.status, dateFrom, dateTo })}>
+                {funnelData.map((entry) => (
+                  <Cell key={entry.status} fill={['Won'].includes(entry.status) ? '#34d399' : ['Lost', 'Dropped'].includes(entry.status) ? '#f87171' : CHART_COLOR} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
         </div>
       </div>
 
@@ -570,22 +698,6 @@ export default function ManagementDashboard() {
             onClick={() => navigate('/admin/follow-ups')}
           />
         </div>
-        <p className="text-xs font-bold text-app-text-muted uppercase tracking-wider mb-2">Pipeline Funnel — current stage of leads received in the period</p>
-        <div className="h-64">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={funnelData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#2D2D33" vertical={false} />
-              <XAxis dataKey="status" tick={{ fontSize: 10, fill: '#9CA3AF' }} interval={0} angle={-20} textAnchor="end" height={60} />
-              <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#9CA3AF' }} />
-              <Tooltip {...CHART_TOOLTIP_PROPS} cursor={{ fill: 'rgba(255, 255, 255, 0.06)' }} />
-              <Bar dataKey="count" radius={[4, 4, 0, 0]} style={{ cursor: 'pointer' }} onClick={(data) => goToLeads({ status: data.status, dateFrom, dateTo })}>
-                {funnelData.map((entry) => (
-                  <Cell key={entry.status} fill={['Won'].includes(entry.status) ? '#34d399' : ['Lost', 'Dropped'].includes(entry.status) ? '#f87171' : CHART_COLOR} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
       </div>
 
       {/* Likely to Convert */}
@@ -643,10 +755,11 @@ export default function ManagementDashboard() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <StatCard
             icon={Wallet}
-            label="Open Pipeline Value"
+            label="Current Open Pipeline Value"
             value={`₹${(pipeline?.pipelineValue || 0).toLocaleString('en-IN')}`}
+            sub="Snapshot of all open leads right now"
             accent="text-primary"
-            onClick={() => goToLeads({ stage: 'open', dateFrom, dateTo })}
+            onClick={() => goToLeads({ stage: 'open' })}
           />
           <StatCard
             icon={TrendingUp}

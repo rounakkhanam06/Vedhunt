@@ -94,7 +94,7 @@ const REOPEN_STATUSES = ['Contacted', 'Qualified', 'Proposal Sent', 'Negotiation
 const LEAD_UPDATE_FIELDS = [
   'status', 'city', 'country', 'callStartTime', 'callEndTime', 'callDuration',
   'callDate', 'connected', 'notConnectedReason', 'interestLevel',
-  'notConvertedReason', 'remark', 'nextFollowUpDate', 'nextActionType', 'followUpType', 'leadAgeAtCall', 'touchNumber',
+  'notConvertedReason', 'remark' /* outcome text of the call being logged — never saved on the lead */, 'callNote', 'nextFollowUpDate', 'nextActionType', 'followUpType', 'leadAgeAtCall', 'touchNumber',
   'dealValue', 'proposalValue', 'proposalSentDate', 'proposalReference', 'holdReason', 'holdUntil',
   'dealCloseValue', 'expectedCloseDate', 'paymentStatus', 'amountPaid',
   'budget', 'timeline', 'decisionMaker', 'currentVendor', 'requirementSummary',

@@ -34,7 +34,7 @@ const FIELD_LABELS = {
   service: 'Service',
   city: 'City',
   country: 'Country',
-  remark: 'Remark'
+  note: 'Note (added to the lead\'s notes)'
 };
 
 const FILTERS = [
@@ -244,6 +244,7 @@ export default function ImportLeadsModal({ onClose, onImported }) {
                 {chip('Create', summary.create, 'border-emerald-500/20 text-emerald-400 bg-emerald-500/5')}
                 {chip('Update', summary.update, 'border-blue-500/20 text-blue-400 bg-blue-500/5')}
                 {chip('No change', summary.unchanged, 'border-app-border text-app-text-muted bg-app-bg')}
+                {summary.notesToAdd > 0 && chip('Notes to add', summary.notesToAdd, 'border-purple-500/20 text-purple-400 bg-purple-500/5')}
                 {chip('Skipped', summary.skip, 'border-red-500/20 text-red-400 bg-red-500/5')}
                 {chip('Warnings', summary.withWarnings, 'border-amber-500/20 text-amber-400 bg-amber-500/5')}
                 {chip('Status changes', summary.statusChanges, 'border-primary/20 text-primary bg-primary/5')}

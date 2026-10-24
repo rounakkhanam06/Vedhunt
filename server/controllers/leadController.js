@@ -11,12 +11,12 @@ const { manualAssign, autoAssignLead } = require('../services/leadAssignment');
 const { findLeadRaw } = require('../utils/leadLookup');
 const { LEAD_UPDATE_FIELDS, TERMINAL_STATUSES } = require('../utils/leadStateMachine');
 const { applyLeadUpdate, hasActiveCallByOther } = require('../services/leadLifecycle');
-const { addLeadDocument, removeLeadDocument } = require('../services/leadDocuments');
 const { prepareImport, previewImport } = require('../services/leadImport');
 const { startImportJob, getImportJob } = require('../services/importJobs');
 const { listTasks, createParallelTask, completeTask } = require('../services/followUpTasks');
 const collaboration = require('../services/leadCollaboration');
 const { rawLeadFilter, workingLeadFilter, droppedHoldLeadFilter, DROPPED_OR_HOLD } = require('../utils/leadActivity');
+const { latestNotes } = require('../services/leadCollaboration');
 const { parseLeadIds, previewBulkReassign, runBulkReassign, loadRun } = require('../services/bulkReassign');
 const BulkAssignmentRun = require('../models/BulkAssignmentRun');
 const { derivePriority } = require('../utils/serviceQualification');
@@ -267,7 +267,8 @@ exports.getLeads = async (req, res, next) => {
 
     // Interest level (latest call outcome)
     if (req.query.interestLevel && req.query.interestLevel !== 'All') {
-      query.interestLevel = req.query.interestLevel;
+      // 'Not rated' = the lead has no interest level yet (Leads Overview drill-down)
+      query.interestLevel = req.query.interestLevel === 'Not rated' ? { $in: [null, ''] } : req.query.interestLevel;
     }
 
     // Follow-up due date — its own range so it combines with the
@@ -386,7 +387,16 @@ exports.getLeads = async (req, res, next) => {
       leadsQuery = leadsQuery.skip(startIndex).limit(limit);
     }
     
-    const leads = await leadsQuery;
+    let leads = await leadsQuery;
+
+    // The CSV export's "Latest note" column: the newest note this person may read on each lead
+    if (isExport && leads.length) {
+      const notes = await latestNotes(leads.map((l) => l._id), req.user);
+      leads = leads.map((l) => {
+        const note = notes.get(String(l._id));
+        return { ...l.toObject(), latestNote: note ? { text: note.text, author: note.author, createdAt: note.createdAt } : null };
+      });
+    }
 
     res.status(200).json({
       success: true,
@@ -896,41 +906,6 @@ exports.getImportStatus = async (req, res) => {
       error: job.error
     }
   });
-};
-
-// @desc    Attach a document (proposal, quotation, scope, other) to a lead
-// @route   POST /api/leads/:id/documents
-// @access  Private (Admin)
-exports.uploadLeadDocument = async (req, res, next) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ success: false, message: 'No file uploaded' });
-    }
-    const result = await addLeadDocument(req.params.id, req.file, req.body.docType, req.user._id, await leadFilter(req));
-    if (!result.ok) {
-      return res.status(result.status).json({ success: false, message: result.message });
-    }
-    res.status(201).json({ success: true, data: result.lead });
-  } catch (error) {
-    logger.error('Error uploading lead document:', error);
-    next(error);
-  }
-};
-
-// @desc    Remove a document from a lead
-// @route   DELETE /api/leads/:id/documents/:docId
-// @access  Private (Admin)
-exports.deleteLeadDocument = async (req, res, next) => {
-  try {
-    const result = await removeLeadDocument(req.params.id, req.params.docId, await leadFilter(req));
-    if (!result.ok) {
-      return res.status(result.status).json({ success: false, message: result.message });
-    }
-    res.status(200).json({ success: true, data: result.lead });
-  } catch (error) {
-    logger.error('Error deleting lead document:', error);
-    next(error);
-  }
 };
 
 // @desc    Delete lead

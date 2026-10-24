@@ -137,7 +137,7 @@ export default function LeadCollaborationPanel({ http, leadUrl, lead, canShare =
         </div>
 
         <div className="mt-4 space-y-3 max-h-80 overflow-y-auto overscroll-contain">
-          {notes.length === 0 && <p className="text-sm text-app-text-muted">No notes yet.</p>}
+          {notes.length === 0 && !lead.remark && <p className="text-sm text-app-text-muted">No notes yet.</p>}
           {notes.map((n) => (
             <div key={n._id} className="border-l-2 border-app-border pl-3">
               <p className="text-sm text-app-text whitespace-pre-wrap break-words">{n.text}</p>
@@ -147,6 +147,13 @@ export default function LeadCollaborationPanel({ http, leadUrl, lead, canShare =
               </p>
             </div>
           ))}
+          {/* Text saved in the old Remark box, from before Notes replaced it — kept as it was, read-only */}
+          {lead.remark && (
+            <div className="border-l-2 border-dashed border-app-border pl-3 opacity-90">
+              <p className="text-sm text-app-text whitespace-pre-wrap break-words">{lead.remark}</p>
+              <p className="text-[11px] text-app-text-muted mt-1">Earlier remark · read-only</p>
+            </div>
+          )}
         </div>
       </div>
     </>

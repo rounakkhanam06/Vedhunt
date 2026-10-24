@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 const logger = require('../utils/logger');
 const { TERMINAL_STATUSES, FOLLOWUP_TRIGGER_INTEREST_LEVELS, FOLLOWUP_TRIGGER_STATUSES, FOLLOW_UP_TYPES } = require('../utils/leadStateMachine');
 const { latestNotes } = require('../services/leadCollaboration');
+const { leadOverview } = require('../services/leadOverview');
 
 // A lead on Hold has no active follow-up requirement — it's paused, not overdue.
 const NON_ACTIVE_STATUSES = [...TERMINAL_STATUSES, 'Hold'];
@@ -215,7 +216,8 @@ exports.getFollowUpsList = async (req, res, next) => {
       ...l,
       bucket: bucketOf(l.nextFollowUpDate),
       lastContactAt: l.lastCallAt || (callLogs || []).reduce((max, c) => (c.callDate && (!max || c.callDate > max) ? c.callDate : max), null) || l.callDate || null,
-      latestNote: notes.get(String(l._id)) || (remark ? { text: remark, source: 'remark' } : null),
+      // Leads from before Notes replaced Remarks still show that text, read-only
+      latestNote: notes.get(String(l._id)) || (remark ? { text: remark, source: 'earlier-remark' } : null),
       sharedCount: (sharedWith || []).length,
     }));
 
@@ -317,17 +319,27 @@ exports.getPipelineSummary = async (req, res, next) => {
     // Optional ?dateFrom/dateTo: only leads received in that period.
     const period = dateRangeFromQuery(req.query);
     const ids = await scopeIds(req);
-    const rows = await Lead.aggregate([
-      { $match: { leadType: { $in: ['Sales', null] }, ...(period && { createdAt: period }), ...(ids && { assignedTo: { $in: ids } }) } },
-      {
-        $group: {
-          _id: '$status',
-          count: { $sum: 1 },
-          dealValue: { $sum: { $ifNull: ['$dealValue', 0] } },
-          dealCloseValue: { $sum: { $ifNull: ['$dealCloseValue', 0] } },
-          proposalValue: { $sum: { $ifNull: ['$proposalValue', 0] } }
+    const inScope = { leadType: { $in: ['Sales', null] }, ...(ids && { assignedTo: { $in: ids } }) };
+    const [rows, openRows] = await Promise.all([
+      Lead.aggregate([
+        { $match: { ...inScope, ...(period && { createdAt: period }) } },
+        {
+          $group: {
+            _id: '$status',
+            count: { $sum: 1 },
+            dealValue: { $sum: { $ifNull: ['$dealValue', 0] } },
+            dealCloseValue: { $sum: { $ifNull: ['$dealCloseValue', 0] } },
+            proposalValue: { $sum: { $ifNull: ['$proposalValue', 0] } }
+          }
         }
-      }
+      ]),
+      // Current Open Pipeline Value: every open lead right now, whenever it was
+      // received. Counted by primary owner only, so a cross-assigned lead is
+      // never counted twice.
+      Lead.aggregate([
+        { $match: { ...inScope, status: { $nin: NON_ACTIVE_STATUSES } } },
+        { $group: { _id: null, value: { $sum: { $ifNull: ['$proposalValue', 0] } } } }
+      ])
     ]);
 
     const byStatus = {};
@@ -341,9 +353,7 @@ exports.getPipelineSummary = async (req, res, next) => {
 
     const closedCount = won + lost + dropped;
     const conversionRate = closedCount > 0 ? Math.round((won / closedCount) * 100) : 0;
-    const pipelineValue = Object.entries(byStatus)
-      .filter(([status]) => !NON_ACTIVE_STATUSES.includes(status))
-      .reduce((sum, [, v]) => sum + (v.proposalValue || 0), 0);
+    const pipelineValue = openRows[0]?.value || 0;
     // Actual closed revenue, not the pre-close estimate — dealValue can keep
     // changing after a deal is Won, dealCloseValue is fixed at close time.
     const wonValue = byStatus.Won?.dealCloseValue || 0;
@@ -539,10 +549,17 @@ exports.getLeadVolumeBreakdown = async (req, res, next) => {
       assignedTo: null, unassignedSlaAlerted: true, status: OPEN_STATUS_FILTER
     });
 
+    // Received / Assigned KPIs and the Interest Level + Lead Stage tables
+    // (definitions in services/leadOverview.js)
+    const overview = await leadOverview({ from: dateFrom, to: dateTo });
+
     res.status(200).json({
       success: true,
       period: { from: dateFrom, to: dateTo },
       totalLeads: periodResult.total[0]?.count || 0,
+      assignedLeads: overview.assigned,
+      interest: overview.interest,
+      stages: overview.stages,
       byPlatform: periodResult.byPlatform.map((r) => ({ platform: r._id, count: r.count })),
       byService: periodResult.byService.map((r) => ({ service: r._id, count: r.count })),
       trend: periodResult.trend.map((r) => ({ date: r._id, count: r.count })),

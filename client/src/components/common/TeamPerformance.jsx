@@ -674,7 +674,7 @@ function LeadStatusTable({ scope, fetchData, leadHref }) {
   );
 }
 
-/** Pending Call — assigned, not yet called or acted on; owner × IST assignment date. */
+/** Pending Call — assigned, no action taken yet (same leads as Raw Leads); owner × IST assignment date. */
 function PendingCallsTable({ scope, fetchData, leadHref }) {
   const [drill, setDrill] = useState(null);
   const { data, error, isLoading } = useQuery({ queryKey: [scope, 'pending-calls'], queryFn: () => fetchData('/pending-calls', {}) });
@@ -690,7 +690,7 @@ function PendingCallsTable({ scope, fetchData, leadHref }) {
     <div className="space-y-3">
       <div>
         <h3 className="text-lg font-bold text-app-text">Pending Calls</h3>
-        <p className="text-xs text-app-text-muted">Leads assigned but not yet called or acted on (open leads only), by owner and assignment date (IST), as of now. Click a number to see the leads.</p>
+        <p className="text-xs text-app-text-muted">Leads assigned with no action taken yet — the same leads as the Raw Leads tab (open leads only), by owner and assignment date (IST), as of now. Click a number to see the leads.</p>
       </div>
       {error && <div className="text-sm text-red-400">{errorOf(error, 'Could not load pending calls.')}</div>}
       {isLoading ? <Loader /> : !data?.total && !allOwners.some((o) => o.total) ? <Empty>Nothing pending — every assigned lead has been called.</Empty> : (

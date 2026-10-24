@@ -4,7 +4,7 @@ import toast from 'react-hot-toast';
 import NoCopyText from './NoCopyText';
 import WhatsAppAction from './WhatsAppAction';
 import FollowUpForm from './FollowUpForm';
-import { essPut, apiError } from '../lib/ess';
+import { essGet, essPost, essPut, apiError } from '../lib/ess';
 import { fmtDate, fmtDateTime, timeAgo } from '../lib/datetime';
 import { INTEREST_LEVELS, NON_ACTIVE_FOLLOWUP_STATUSES, FOLLOW_UP_TYPE_BADGE } from '../../shared/leadConstants';
 
@@ -42,11 +42,12 @@ const InfoCell = ({ label, children, tone }) => (
  */
 export default function LeadCard({ lead, onUpdated, navigate }) {
   const [openPanel, setOpenPanel] = useState(null); // 'followup' | 'note' | 'interest' | null
-  const [noteDraft, setNoteDraft] = useState(lead.remark || '');
+  const [noteDraft, setNoteDraft] = useState('');
+  const [notePrivate, setNotePrivate] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const togglePanel = (panel) => {
-    if (panel === 'note' && openPanel !== 'note') setNoteDraft(lead.remark || '');
+    if (panel === 'note' && openPanel !== 'note') { setNoteDraft(''); setNotePrivate(false); }
     setOpenPanel(openPanel === panel ? null : panel);
   };
 
@@ -59,6 +60,24 @@ export default function LeadCard({ lead, onUpdated, navigate }) {
       setOpenPanel(null);
     } catch (err) {
       toast.error(apiError(err, 'Failed to save'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // A note goes on the lead's Notes timeline (shared with its team, or private) — the same as the lead page's Notes section.
+  // Adding one counts as working the lead, so the fresh lead is fetched to update the lists.
+  const saveNote = async () => {
+    if (!noteDraft.trim()) return;
+    try {
+      setSaving(true);
+      await essPost(`/leads/${lead._id}/notes`, { text: noteDraft, visibility: notePrivate ? 'private' : 'shared' });
+      toast.success('Note added', { duration: 1000, position: 'bottom-right' });
+      const fresh = await essGet(`/leads/${lead._id}`);
+      onUpdated?.(fresh.lead);
+      setOpenPanel(null);
+    } catch (err) {
+      toast.error(apiError(err, 'Failed to add the note'));
     } finally {
       setSaving(false);
     }
@@ -164,16 +183,23 @@ export default function LeadCard({ lead, onUpdated, navigate }) {
             rows={2}
             value={noteDraft}
             onChange={(e) => setNoteDraft(e.target.value)}
+            maxLength={5000}
             placeholder="Add a note..."
             className="bg-app-card border border-app-border rounded-lg px-3 py-2 text-sm text-app-text focus:outline-none focus:border-primary/50 resize-none"
           />
-          <button
-            disabled={saving}
-            onClick={() => save({ remark: noteDraft })}
-            className="self-end px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-bold disabled:opacity-50"
-          >
-            Save
-          </button>
+          <div className="flex items-center justify-between gap-3">
+            <label className="inline-flex items-center gap-2 text-xs text-app-text-muted cursor-pointer">
+              <input type="checkbox" checked={notePrivate} onChange={(e) => setNotePrivate(e.target.checked)} className="accent-primary" />
+              Private (only you and admins)
+            </label>
+            <button
+              disabled={saving || !noteDraft.trim()}
+              onClick={saveNote}
+              className="px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-bold disabled:opacity-50"
+            >
+              Add note
+            </button>
+          </div>
         </div>
       )}
 

@@ -15,7 +15,7 @@ const LIST_FIELDS = [
   'leadId', 'fbLeadId', 'fullName', 'phone', 'email', 'service', 'platform', 'status', 'interestLevel',
   'lastActivityAt', 'lastActivityType',
   'nextFollowUpDate', 'nextActionType', 'followUpType', 'assignedAt', 'createdAt', 'updatedAt', 'closedDate',
-  'dealValue', 'dealCloseValue', 'proposalValue', 'paymentStatus', 'amountPaid', 'userSource', 'remark',
+  'dealValue', 'dealCloseValue', 'proposalValue', 'paymentStatus', 'amountPaid', 'userSource',
   'businessName', 'website', 'leadPriority', 'connected', 'touchNumber',
   // Raw/Working list filters (platform, source, form, lead type, breached).
   'leadType', 'fbFormId', 'fbFormName', 'followUpBreached',

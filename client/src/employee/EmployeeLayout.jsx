@@ -8,7 +8,8 @@ import BrandLogo from '../components/brand/BrandLogo';
 import NotificationBell from './components/NotificationBell';
 import { WorkTimerProvider, TimerHeaderChip, TimerFloatingWidget } from './components/WorkTimer';
 import { visibleModules, modulePath } from './config/modules';
-import { useAccess } from './lib/ess';
+import { useAccess, useEssLeads } from './lib/ess';
+import { leadListCounts } from './lib/leads';
 
 const EmployeeLayout = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
@@ -35,6 +36,10 @@ const EmployeeLayout = () => {
   const filteredNavItems = navItems.filter((item) =>
     item.name.toLowerCase().includes(searchQuery.toLowerCase().trim())
   );
+  // Lead-list sizes for the badges — same cached list and same rules as the lists themselves
+  const { data: portalLeads } = useEssLeads(access.can('leads.view'));
+  const listCounts = leadListCounts(portalLeads);
+  const BADGES = { 'raw-leads': listCounts.raw, 'working-leads': listCounts.working, 'dropped-hold-leads': listCounts.droppedHold, followups: listCounts.followups };
   const activeTab = new URLSearchParams(location.search).get('tab') || 'dashboard';
   const onDashboard = location.pathname === '/employee/dashboard';
 
@@ -136,10 +141,20 @@ const EmployeeLayout = () => {
                     )}
                     <Icon className={`relative z-10 w-5 h-5 flex-shrink-0 transition-colors duration-200 ${isActive ? 'text-primary' : 'text-app-text-muted group-hover:text-app-text'}`} />
                     <span className="relative z-10 truncate">{item.name}</span>
+                    {portalLeads && item.key in BADGES && (
+                      <span
+                        className={`relative z-10 ml-auto min-w-[1.5rem] px-1.5 py-0.5 rounded-full text-[11px] font-bold text-center ${
+                          item.key === 'followups' && listCounts.overdue > 0 ? 'bg-red-500/15 text-red-400' : 'bg-primary/10 text-primary'
+                        }`}
+                        title={item.key === 'followups' && listCounts.overdue > 0 ? `${BADGES[item.key]} follow-ups, ${listCounts.overdue} overdue` : `${BADGES[item.key]} leads`}
+                      >
+                        {BADGES[item.key]}
+                      </span>
+                    )}
                     {isActive && (
                       <motion.span
                         layoutId="employeeActiveNavDot"
-                        className="relative z-10 ml-auto w-1.5 h-1.5 rounded-full bg-primary shrink-0"
+                        className="relative z-10 ml-1 w-1.5 h-1.5 rounded-full bg-primary shrink-0"
                         transition={{
                           type: "spring",
                           stiffness: 380,

@@ -43,16 +43,42 @@ export const PIPELINE_STAGES = [
 // Mirrors server/utils/leadActivity.js — keep the two in step.
 export const CLOSED_OR_HOLD = ['Won', 'Lost', 'Dropped', 'Hold'];
 export const DROPPED_OR_HOLD = ['Dropped', 'Hold'];
+
+// Each portal list, defined once: the lists, the dashboard tiles and the
+// sidebar badges all count with these, so a number always matches its list.
+export const isWorkingLead = (lead) => !lead.isRaw && !CLOSED_OR_HOLD.includes(lead.status);
+export const isDroppedHoldLead = (lead) => DROPPED_OR_HOLD.includes(lead.status);
+export const hasFollowUp = (lead) => followUpBucket(lead) !== null;
+
+/** Size of every list for one BD: Raw, Working, Dropped & Hold, Follow-ups (and its buckets). */
+export function leadListCounts(leads = []) {
+  const counts = { raw: 0, working: 0, droppedHold: 0, followups: 0, overdue: 0, today: 0, upcoming: 0 };
+  for (const lead of leads) {
+    if (lead.isRaw) counts.raw += 1;
+    if (isWorkingLead(lead)) counts.working += 1;
+    if (isDroppedHoldLead(lead)) counts.droppedHold += 1;
+    const bucket = followUpBucket(lead);
+    if (bucket) { counts.followups += 1; counts[bucket] += 1; }
+  }
+  return counts;
+}
 const POST_CONTACT_STATUSES = ['Qualified', 'Proposal Sent', 'Negotiation'];
 
-/** Raw = assigned, still open, never connected with the prospect (needs the full lead). */
+/**
+ * Raw = assigned, still open, no action taken yet (needs the full lead). Mirrors
+ * server/utils/leadActivity.js: a logged call (answered or not), WhatsApp
+ * message, shared proposal or note takes a lead out of Raw; a stage or interest
+ * change alone does not.
+ */
 export function isRawLead(lead) {
   if (!lead?.assignedTo || CLOSED_OR_HOLD.includes(lead.status)) return false;
-  const connected = lead.connected === 'Yes'
-    || (lead.callLogs || []).some((c) => c.connected === 'Yes')
+  const actioned = Boolean(lead.firstContactAt)
+    || (lead.callLogs || []).length > 0
+    || Boolean(lead.firstCallAt || lead.lastCallAt || lead.callDate)
+    || Boolean(lead.connected)
     || POST_CONTACT_STATUSES.includes(lead.status)
-    || (lead.pipelineHistory || []).some((h) => h.status === 'Call connected');
-  return !connected;
+    || (lead.pipelineHistory || []).some((h) => h.status === 'Call connected' || h.status === 'WhatsApp initiated' || /^Proposal shared via /.test(h.status || ''));
+  return !actioned;
 }
 
 /** Merges a full lead returned by an update into the light, list-shaped cached lead. */

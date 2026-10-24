@@ -283,13 +283,15 @@ export default function LeadsManager({ stageGroup }) {
 
   const selectAllMatching = async () => {
     try {
-      const { page, limit, ...filters } = lastFilterParams.current;
+      const filters = { ...lastFilterParams.current };
+      delete filters.page;
+      delete filters.limit;
       const res = await http.get(`${root}/leads`, { params: { ...filters, idsOnly: true } });
       if (res.data?.success) {
         setSelectedIds(new Set(res.data.ids));
         setSelectionMode('all-matching');
       }
-    } catch (error) {
+    } catch {
       toast.error('Could not select all matching leads');
     }
   };
@@ -466,8 +468,8 @@ export default function LeadsManager({ stageGroup }) {
             {stageGroup === 'raw' ? 'Raw Leads' : stageGroup === 'working' ? 'Working Leads' : stageGroup === 'dropped-hold' ? 'Dropped & Hold Leads' : 'Lead Manager'}
           </h1>
           <p className="text-sm text-app-text-muted mt-1 max-w-3xl">
-            {stageGroup === 'raw' && 'Assigned to a BD, not connected with the prospect yet. Unanswered calls stay here with their attempts logged. Unassigned leads are on the Unassigned page. '}
-            {stageGroup === 'working' && 'Connected with the prospect and still open. Won, Lost, Dropped and Hold leads leave this list. '}{stageGroup === 'dropped-hold' && 'Dropped and on-hold leads with their owner and history. Reactivating one returns it to Raw or Working. '}
+            {stageGroup === 'raw' && 'Assigned to a BD, no action taken yet. A logged call (even unanswered), message or note moves it to Working. Unassigned leads are on the Unassigned page. '}
+            {stageGroup === 'working' && 'A BD has taken action (call, message or note) and the lead is still open. Won, Lost, Dropped and Hold leads leave this list. '}{stageGroup === 'dropped-hold' && 'Dropped and on-hold leads with their owner and history. Reactivating one returns it to Raw or Working. '}
             {leadTypeFilter === 'All' ? 'Total' : leadTypeFilter} leads:{' '}
             <span className="font-semibold text-app-text">{totalLeads}</span>
           </p>

@@ -39,7 +39,7 @@ function hasActiveCallByOther(lead, userId) {
 }
 
 const NON_GATING_FIELDS = [
-  'remark', 'city', 'country', 'callStartTime', 'callEndTime', 'callDuration', 'callDate',
+  'city', 'country', 'callStartTime', 'callEndTime', 'callDuration', 'callDate',
   'dealValue', 'paymentStatus', 'budget', 'timeline', 'decisionMaker', 'currentVendor', 'requirementSummary',
   'businessName', 'website', 'servicesRequired', 'businessType', 'projectBudget', 'monthlyMarketingBudget'
 ];
@@ -91,13 +91,26 @@ async function applyLeadUpdate(leadId, updates, actor, extraFilter = {}) {
     }
   }
 
+  // The lead-level Remark is retired — Notes replace it (services/leadCollaboration.js)
+  // and older remarks stay on the lead, read-only. What can still carry text is a call:
+  //   callNote — the optional "Call note" on the call outcome. Sent with an outcome it is saved on
+  //              that call; sent alone it edits the note on the lead's latest call (no new call).
+  //   remark   — the same text from callers that predate callNote (the follow-up outcome form).
+  // Either goes to the call log and the follow-up task, never onto the lead. A `remark` sent on
+  // its own (a stale browser tab) is ignored.
+  const hasCallNote = 'callNote' in updates;
+  const hasOutcomeText = hasCallNote || 'remark' in updates;
+  const outcomeRemark = String((hasCallNote ? updates.callNote : updates.remark) ?? '').trim().slice(0, 1000);
+  delete updates.remark;
+  delete updates.callNote;
+  if (!Object.keys(updates).length && !hasCallNote) return { ok: true, lead: existingLead };
+
   const dateError = normalizeDateFields(updates);
   if (dateError) {
     return { ok: false, status: 400, message: dateError };
   }
 
-  // A remark, qualification or call-timer save changes nothing the state
-  // machine gates — validating the merged lead would block it on any
+  // A qualification or call-timer save changes nothing the state machine gates — validating the merged lead would block it on any
   // unrelated pre-existing gap (e.g. a legacy Warm lead with no follow-up).
   const touchesPipeline = Object.keys(updates).some((field) => !NON_GATING_FIELDS.includes(field));
   const error = touchesPipeline
@@ -156,12 +169,6 @@ async function applyLeadUpdate(leadId, updates, actor, extraFilter = {}) {
 
   if (updates.interestLevel && updates.interestLevel !== existingLead.interestLevel) {
     pipelineEntries.push({ status: `Interest set: ${updates.interestLevel}`, date: now, updatedBy: actor.id, note: '' });
-  }
-
-  // A call outcome already keeps its remark in callLogs; a remark edited on
-  // its own would otherwise be overwritten with no trace of who changed it.
-  if ('remark' in updates && !updates.connected && (updates.remark || '') !== (existingLead.remark || '')) {
-    pipelineEntries.push({ status: 'Remark updated', date: now, updatedBy: actor.id, note: String(updates.remark || '').slice(0, 500) });
   }
 
   const reschedulingFollowUp =
@@ -233,7 +240,8 @@ async function applyLeadUpdate(leadId, updates, actor, extraFilter = {}) {
       connected: updates.connected,
       notConnectedReason: resultingNotConnectedReason,
       interestLevel: updates.connected === 'Yes' ? (updates.interestLevel || existingLead.interestLevel || '') : '',
-      remark: updates.remark ?? existingLead.remark ?? '',
+      // Re-saving the same call without a note keeps the note it already has
+      remark: hasOutcomeText ? outcomeRemark : (amendsLastCall ? (lastLog.remark || '') : ''),
       leadStage: resultingStage,
       callType: amendsLastCall ? lastLog.callType : callType,
       loggedAt: amendsLastCall ? lastLog.loggedAt : now
@@ -303,14 +311,24 @@ async function applyLeadUpdate(leadId, updates, actor, extraFilter = {}) {
     logger.error(`Lead score computation failed for lead ${existingLead._id}:`, err);
   }
 
+  // A call note sent without a call outcome edits the note on the latest call; no new call is logged.
+  if (hasCallNote && !updates.connected) {
+    const calls = existingLead.callLogs || [];
+    const last = calls[calls.length - 1];
+    if (!last) return { ok: false, status: 400, message: 'Log a call outcome first — a call note belongs to a call.' };
+    if (!actor.isSuperAdmin && String(last.calledBy) !== String(actor.id)) {
+      return { ok: false, status: 403, message: 'Only the person who made the call can change its note.' };
+    }
+    updates[`callLogs.${calls.length - 1}.remark`] = outcomeRemark;
+  }
+
   // A real interaction moves the lead out of Raw Leads (utils/leadActivity.js).
   // Call-timer, qualification and contact-detail saves alone don't count.
   const actionType =
     updates.connected ? 'Call logged'
       : updates.status && updates.status !== existingLead.status ? 'Stage changed'
         : updates.interestLevel && updates.interestLevel !== existingLead.interestLevel ? 'Interest set'
-          : updates.remark && updates.remark !== (existingLead.remark || '') ? 'Remark'
-            : null;
+          : null;
   if (actionType) Object.assign(updates, actionStamp(existingLead, actor.id, actionType, now));
 
   if (touchNumberUpdate) updates.touchNumber = touchNumberUpdate;
@@ -333,7 +351,7 @@ async function applyLeadUpdate(leadId, updates, actor, extraFilter = {}) {
   // UI/validation at all. Never blocks or fails the lead update itself.
   if (followUpChanged) {
     try {
-      const result_ = updates.remark
+      const result_ = outcomeRemark
         || (updates.connected === 'No' ? updates.notConnectedReason
           : updates.connected === 'Yes' ? `Connected — ${updates.interestLevel || existingLead.interestLevel || ''}`
             : (updates.status && updates.status !== existingLead.status ? `Moved to ${updates.status}` : 'Updated'));
@@ -347,7 +365,7 @@ async function applyLeadUpdate(leadId, updates, actor, extraFilter = {}) {
           assignedTo: existingLead.assignedTo || actor.id,
           createdBy: actor.id,
           dueDate: updates.nextFollowUpDate,
-          note: updates.remark || '',
+          note: outcomeRemark,
           actionType: updatedLead?.nextActionType || '',
           followUpType: updatedLead?.followUpType || '',
           type: 'Primary',

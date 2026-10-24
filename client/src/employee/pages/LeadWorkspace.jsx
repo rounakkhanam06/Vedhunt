@@ -3,7 +3,7 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import employeeApi from '../../services/employeeApi';
 import toast from 'react-hot-toast';
-import { ArrowLeft, Phone, Mail, Play, Square, Clock, FileText, Upload, Trash2, PhoneCall, CalendarClock, ListChecks, FileSignature } from 'lucide-react';
+import { ArrowLeft, Phone, Mail, Play, Square, Clock, FileText, PhoneCall, CalendarClock, ListChecks, FileSignature } from 'lucide-react';
 import { NOT_CONNECTED_REASONS, INTEREST_LEVELS, LOST_DROPPED_REASONS, FOLLOWUP_TRIGGER_INTEREST_LEVELS, PAYMENT_STATUS_OPTIONS, NEXT_ACTION_TYPES, FOLLOW_UP_TYPES } from '../../shared/leadConstants';
 import {
   SERVICES_REQUIRED_OPTIONS, MARKETING_TYPE_SERVICES, TIMELINE_OPTIONS, DECISION_MAKER_OPTIONS,
@@ -12,6 +12,7 @@ import {
 import NoCopyText from '../components/NoCopyText';
 import FollowUpTasksPanel from '../components/FollowUpTasksPanel';
 import LeadCollaborationPanel from '../../shared/LeadCollaborationPanel';
+import CallNoteField from '../../shared/CallNoteField';
 import WhatsAppAction from '../components/WhatsAppAction';
 import FollowUpForm from '../components/FollowUpForm';
 import ProposalWorkflow from '../components/ProposalWorkflow';
@@ -41,7 +42,6 @@ function buildActivityTimeline(lead) {
 /** The editable form fields, as last loaded from the server. */
 function buildDraft(l) {
   return {
-    remark: l.remark || '',
     dealValue: l.dealValue || '',
     dealCloseValue: l.dealCloseValue || '',
     notConvertedReason: l.notConvertedReason || '',
@@ -97,13 +97,14 @@ export default function EmployeeLeadWorkspace() {
   // required combination is known — a one-tap flow, no separate Save click
   // needed for the common case. Mirrors admin/pages/LeadWorkspace.jsx.
   const [callOutcomeDraft, setCallOutcomeDraft] = useState(null);
+  // Optional note typed for the call being logged (null = the box shows the latest call's saved note)
+  const [callNoteDraft, setCallNoteDraft] = useState(null);
+  const [noteSaving, setNoteSaving] = useState(false);
   // In-flight Start/End Call ('start' | 'end') and call-outcome saves — the
   // buttons show it and ignore repeat taps, which used to log duplicate calls.
   const [callBusy, setCallBusy] = useState(null);
   const [outcomeSaving, setOutcomeSaving] = useState(false);
   const outcomeSavingRef = useRef(false);
-  const [uploading, setUploading] = useState(false);
-  const [docType, setDocType] = useState('Attachment');
   // "Update Stage" scrolls to (and focuses) the status select further down.
   // "Follow-up" opens FollowUpForm inline — schedule a first action, or
   // complete the current one with an outcome and the next action.
@@ -125,7 +126,7 @@ export default function EmployeeLeadWorkspace() {
 
   // Adopts a fresh copy of the lead from the server without discarding the
   // BD's unsaved edits (a call outcome, call start/end or follow-up reloads
-  // the lead while a typed remark or picked status is still pending).
+  // the lead while a picked status or typed value is still pending).
   // `sentFields` were just saved, so the server's value wins for them.
   const syncLead = useCallback((next, sentFields = []) => {
     const saved = savedDraftRef.current;
@@ -143,32 +144,45 @@ export default function EmployeeLeadWorkspace() {
   }, []);
 
   // The lead lists and today's agenda are cached (lib/ess.js) — without
-  // this they keep showing the old stage/remark after a save here.
+  // this they keep showing the old stage after a save here.
   const queryClient = useQueryClient();
   const markListsStale = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: essKeys.leads });
     queryClient.invalidateQueries({ queryKey: essKeys.today });
   }, [queryClient]);
 
+  // Adopts a lead fetched from the server, and the follow-up picks that start from it
+  const adoptLead = useCallback((fetched) => {
+    syncLead(fetched);
+    setOutcomeActionType(fetched.nextActionType || 'Call');
+    setOutcomeFollowUpType(fetched.followUpType || 'Other');
+  }, [syncLead]);
+
+  // Load the lead when the page opens. The route is keyed by the lead id, so each lead gets a fresh page
+  // (loading starts true) and the effect only reacts to the request finishing.
+  useEffect(() => {
+    let ignore = false;
+    employeeApi.get(`/employee-portal/ess/leads/${id}`)
+      .then((res) => { if (!ignore && res.data?.success) adoptLead(res.data.lead); })
+      .catch(() => {
+        if (ignore) return;
+        toast.error('That lead could not be found');
+        navigate('/employee/dashboard?tab=working-leads');
+      })
+      .finally(() => { if (!ignore) setLoading(false); });
+    return () => { ignore = true; };
+  }, [id, navigate, adoptLead]);
+
+  // Reload after a child component changed the lead (no full-page loader)
   const fetchLead = useCallback(async () => {
     try {
       const res = await employeeApi.get(`/employee-portal/ess/leads/${id}`);
-      if (res.data?.success) {
-        syncLead(res.data.lead);
-        setOutcomeActionType(res.data.lead.nextActionType || 'Call');
-        setOutcomeFollowUpType(res.data.lead.followUpType || 'Other');
-      }
+      if (res.data?.success) adoptLead(res.data.lead);
     } catch {
       toast.error('That lead could not be found');
       navigate('/employee/dashboard?tab=working-leads');
-    } finally {
-      setLoading(false);
     }
-  }, [id, navigate, syncLead]);
-
-  useEffect(() => {
-    fetchLead();
-  }, [fetchLead]);
+  }, [id, navigate, adoptLead]);
 
   // For child components that changed the lead themselves.
   const refreshAfterChange = useCallback(() => {
@@ -228,6 +242,20 @@ export default function EmployeeLeadWorkspace() {
     return lead?.[field] ?? '';
   };
 
+  // Edits the note on the latest call; logs no new call
+  const saveCallNote = async (text) => {
+    setNoteSaving(true);
+    try {
+      await handleFieldsChange({ callNote: text });
+      setCallNoteDraft(null);
+      toast.success('Call note saved', { duration: 1500, position: 'bottom-right' });
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to save the note');
+    } finally {
+      setNoteSaving(false);
+    }
+  };
+
   // One-tap outcome capture: a chip tap stages the field, and the instant the
   // state machine's required combination for that branch is known (e.g.
   // Not Connected + a reason, or Connected + interest level with no
@@ -258,9 +286,13 @@ export default function EmployeeLeadWorkspace() {
     }
 
     const followUp = merged.nextFollowUpDate ? { nextFollowUpDate: merged.nextFollowUpDate, nextActionType: outcomeActionType || 'Call', followUpType: outcomeFollowUpType || 'Other' } : {};
-    const fields = merged.connected === 'Yes'
-      ? { connected: 'Yes', interestLevel: merged.interestLevel, ...followUp }
-      : { connected: 'No', notConnectedReason: merged.notConnectedReason, ...followUp };
+    const fields = {
+      ...(merged.connected === 'Yes'
+        ? { connected: 'Yes', interestLevel: merged.interestLevel, ...followUp }
+        : { connected: 'No', notConnectedReason: merged.notConnectedReason, ...followUp }),
+      // optional — only sent when something was typed
+      ...(callNoteDraft?.trim() ? { callNote: callNoteDraft.trim() } : {}),
+    };
 
     outcomeSavingRef.current = true;
     setOutcomeSaving(true);
@@ -268,48 +300,13 @@ export default function EmployeeLeadWorkspace() {
     try {
       const data = await handleFieldsChange(fields);
       setCallOutcomeDraft(null);
+      setCallNoteDraft(null);
       toast.success(`Call outcome saved · Touch #${data.lead?.touchNumber ?? ''}`, { duration: 1500, position: 'bottom-right' });
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to save outcome');
     } finally {
       outcomeSavingRef.current = false;
       setOutcomeSaving(false);
-    }
-  };
-
-  const handleUploadDocument = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    try {
-      setUploading(true);
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('docType', docType);
-      const res = await employeeApi.post(`/employee-portal/ess/leads/${id}/documents`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-      if (res.data.success) {
-        toast.success('Document uploaded');
-        setLead(res.data.lead);
-      }
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to upload document');
-    } finally {
-      setUploading(false);
-      e.target.value = '';
-    }
-  };
-
-  const handleDeleteDocument = async (docId) => {
-    if (!window.confirm('Remove this document?')) return;
-    try {
-      const res = await employeeApi.delete(`/employee-portal/ess/leads/${id}/documents/${docId}`);
-      if (res.data.success) {
-        toast.success('Document removed');
-        setLead(res.data.lead);
-      }
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to remove document');
     }
   };
 
@@ -632,6 +629,14 @@ export default function EmployeeLeadWorkspace() {
             </div>
           )}
         </div>
+        <CallNoteField
+          lastCall={lastCallLog(lead)}
+          pending={Boolean(callOutcomeDraft?.connected)}
+          value={callNoteDraft}
+          onChange={setCallNoteDraft}
+          onSave={saveCallNote}
+          saving={noteSaving}
+        />
       </div>
 
       {/* Stage, Qualification & Deal Details — bundled into one request via
@@ -799,16 +804,6 @@ export default function EmployeeLeadWorkspace() {
           )}
         </div>
 
-        <div className="mt-4">
-          <label className={fieldLabelClass}>Remark</label>
-          <textarea
-            rows={3}
-            value={draft.remark || ''}
-            onChange={(e) => updateDraft('remark', e.target.value)}
-            className={selectClass}
-          />
-        </div>
-
         <button
           onClick={handleSave}
           disabled={saving}
@@ -974,45 +969,6 @@ export default function EmployeeLeadWorkspace() {
         >
           {saving ? 'Saving...' : 'Save Updates'}
         </button>
-      </div>
-
-      {/* Documents — proposal, quotation, scope, and other attachments */}
-      <div className={sectionClass}>
-        <label className={sectionLabelClass}>Documents</label>
-        <div className="flex flex-wrap items-center gap-2 mb-4">
-          <select
-            value={docType}
-            onChange={(e) => setDocType(e.target.value)}
-            className={`${selectClass} w-full sm:w-auto flex-1`}
-          >
-            <option value="Proposal">Proposal</option>
-            <option value="Quotation">Quotation</option>
-            <option value="Scope">Scope</option>
-            <option value="Attachment">Other Attachment</option>
-          </select>
-          <label className="flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 text-primary hover:bg-primary/20 rounded-lg text-xs font-bold cursor-pointer transition-colors">
-            <Upload size={13} /> {uploading ? 'Uploading...' : 'Upload File'}
-            <input type="file" className="hidden" disabled={uploading} onChange={handleUploadDocument} />
-          </label>
-        </div>
-        {(lead.documents || []).length === 0 ? (
-          <p className="text-sm text-app-text-muted">No documents attached yet.</p>
-        ) : (
-          <div className="space-y-2">
-            {lead.documents.map((doc) => (
-              <div key={doc._id} className="flex items-center justify-between gap-3 bg-form-input-bg px-3 py-2 rounded-lg">
-                <a href={doc.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-app-text hover:text-primary min-w-0">
-                  <FileText size={14} className="shrink-0" />
-                  <span className="truncate">{doc.name}</span>
-                  <span className="text-[10px] text-app-text-muted shrink-0 uppercase font-bold">{doc.docType}</span>
-                </a>
-                <button onClick={() => handleDeleteDocument(doc._id)} className="text-red-400 hover:text-red-300 shrink-0">
-                  <Trash2 size={14} />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
 
       {lead.nextFollowUpDate && (

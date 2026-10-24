@@ -4,7 +4,7 @@ const multer = require('multer');
 const {
   createLead, getLeads, getLeadById, updateLead, deleteLead,
   assignLead, bulkAssignLeads, getAssignmentHistory, getAllAssignmentLogs, lockLead, unlockLead,
-  uploadLeadDocument, deleteLeadDocument, importLeads, previewImportLeads, getImportStatus,
+  importLeads, previewImportLeads, getImportStatus,
   getLeadTasks, createLeadTask, completeLeadTask,
   getLeadNotes, addLeadNote, shareLeadWith, unshareLeadWith,
   previewBulkAssign, getBulkAssignRuns
@@ -12,7 +12,6 @@ const {
 const authMiddleware = require('../middleware/authMiddleware');
 const requirePermission = require('../middleware/requirePermission');
 const requirePageAccess = require('../middleware/requirePageAccess');
-const { uploadLeadDocument: uploadLeadDocumentMiddleware } = require('../utils/cloudinary');
 
 // In-memory only — the uploaded spreadsheet is parsed and discarded, never
 // persisted anywhere (unlike lead documents, which go to Cloudinary).
@@ -60,8 +59,6 @@ scoped.post('/:id/unlock', leads('view'), unlockLead);
 scoped.put('/:id', leads('edit'), updateLead);
 scoped.post('/import/preview', requirePermission('leads.import'), uploadLeadFile.single('file'), previewImportLeads);
 scoped.post('/import', requirePermission('leads.import'), uploadLeadFile.single('file'), importLeads);
-scoped.post('/:id/documents', leads('edit'), uploadLeadDocumentMiddleware.single('file'), uploadLeadDocument);
-scoped.delete('/:id/documents/:docId', leads('edit'), deleteLeadDocument);
 scoped.get('/:id/tasks', tasks('view'), getLeadTasks);
 scoped.post('/:id/tasks', requirePageAccess('followups', 'edit'), createLeadTask);
 scoped.put('/:id/tasks/:taskId/complete', tasks('edit'), completeLeadTask);

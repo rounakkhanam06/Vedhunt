@@ -40,7 +40,7 @@ const lastCallDate = (lead) => lead.lastCallAt
 
 const pendingAmount = (lead) => Math.max(0, (lead.dealCloseValue || 0) - (lead.amountPaid || 0));
 
-const LEAD_EXPORT_COLUMNS = [
+export const LEAD_EXPORT_COLUMNS = [
   { header: 'Lead ID', value: (lead) => csvCell(lead.leadId) },
   { header: 'Meta Lead ID', value: (lead) => csvCell(lead.fbLeadId) },
   { header: 'Date', value: (lead) => csvCell(formatDateForCsv(lead.createdAt)) },
@@ -81,7 +81,9 @@ const LEAD_EXPORT_COLUMNS = [
   { header: 'Payment Status', value: (lead) => csvCell(lead.paymentStatus) },
   { header: 'Amount Paid', value: (lead) => (lead.amountPaid != null ? lead.amountPaid : '') },
   { header: 'Pending Amount', value: (lead) => (lead.dealCloseValue ? pendingAmount(lead) : '') },
-  { header: 'Remark', value: (lead) => csvCell(lead.remark) }
+  // The newest note on the lead; a lead that only has an old remark exports that text, so nothing drops out of the file.
+  // Re-importing the file reads this column back in as a note (server/services/leadImport.js).
+  { header: 'Latest note', value: (lead) => csvCell(lead.latestNote?.text ?? lead.remark) }
 ];
 
 /** Builds the CSV string for a list of leads using LEAD_EXPORT_COLUMNS. */

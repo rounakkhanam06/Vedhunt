@@ -5,6 +5,8 @@ const Lead = require('../models/Lead');
 const logger = require('../utils/logger');
 const { autoAssignLead } = require('./leadAssignment');
 const { applyLeadUpdate } = require('./leadLifecycle');
+const { addImportedNote } = require('./leadCollaboration');
+const LeadNote = require('../models/LeadNote');
 const { validateLeadTransition, TERMINAL_STATUSES } = require('../utils/leadStateMachine');
 const { normalizePhone, normalizeEmail } = require('../utils/normalize');
 
@@ -26,8 +28,14 @@ const { normalizePhone, normalizeEmail } = require('../utils/normalize');
  * state machine as the UI re-validates every change at write time.
  *
  * UPSERT BEHAVIOUR: a row matching an existing lead (by phone, alt phone or
- * email) updates it with the sheet's non-empty fields (status, remark,
- * service, city, country, fullName, altPhone). Otherwise a new lead is created.
+ * email) updates it with the sheet's non-empty fields (status, service, city,
+ * country, fullName, altPhone). Otherwise a new lead is created.
+ *
+ * NOTES: the sheet's note column ("Latest note", or the older "Remark", "Notes",
+ * "Comments") becomes a shared lead note written as whoever ran the import —
+ * never the retired lead-level remark. It does not count as a BD acting on the
+ * lead, and a note the lead already has word for word is not added again, so
+ * re-importing a sheet is safe.
  */
 
 const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
@@ -58,9 +66,9 @@ const FIELD_ALIASES = {
   city:      ['city', 'location'],
   country:   ['country'],
   service:   ['service', 'servicerequired', 'interest', 'requirement'],
-  // "remark" covers the exported "Remark" column; "message" aliases kept for
-  // new-lead creation path that uses the message field.
-  remark:    ['remark', 'remarks', 'note', 'notes', 'comments'],
+  // The exported "Latest note" column, and the older "Remark" export, both read back in.
+  // "message" is separate: it is the lead's original enquiry, not a note.
+  note:      ['latestnote', 'note', 'notes', 'remark', 'remarks', 'comments'],
   message:   ['message'],
   campaign:  ['campaign', 'campaignname', 'utmcampaign'],
   form:      ['form', 'formname', 'adname'],
@@ -168,7 +176,12 @@ async function loadCandidateLeads(rows) {
   }
   if (emails.size) or.push({ emailNormalized: { $in: [...emails] } });
   if (!or.length) return [];
-  return mongoose.connection.db.collection('leads').find({ $or: or }).sort({ _id: 1 }).toArray();
+  const leads = await mongoose.connection.db.collection('leads').find({ $or: or }).sort({ _id: 1 }).toArray();
+  // The notes each matched lead already has, so a repeated import can tell what is new
+  const notes = await LeadNote.find({ lead: { $in: leads.map((l) => l._id) } }, { lead: 1, text: 1 }).lean();
+  const textsByLead = new Map();
+  for (const n of notes) textsByLead.set(String(n.lead), [...(textsByLead.get(String(n.lead)) || []), n.text]);
+  return leads.map((lead) => ({ ...lead, noteTexts: textsByLead.get(String(lead._id)) || [] }));
 }
 
 function findMatch(candidates, phones, email) {
@@ -179,7 +192,7 @@ function findMatch(candidates, phones, email) {
   ) || null;
 }
 
-const UPDATABLE_FIELDS = ['fullName', 'altPhone', 'service', 'city', 'country', 'remark'];
+const UPDATABLE_FIELDS = ['fullName', 'altPhone', 'service', 'city', 'country'];
 
 /**
  * Read-only: decides what each row would do. Never writes.
@@ -244,7 +257,7 @@ async function buildImportPlan(prepared, { loadCandidates = loadCandidateLeads }
     keys.forEach((k) => seenInSheet.set(k, rowNumber));
 
     const existing = findMatch(candidates, phones, email);
-    const remark = data.remark || data.message;
+    const note = String(data.note || '').trim().slice(0, 5000);
 
     if (!existing) {
       entry.action = 'create';
@@ -252,7 +265,11 @@ async function buildImportPlan(prepared, { loadCandidates = loadCandidateLeads }
       if (status && status !== 'New') {
         entry.warnings.push(`New leads always start as New — status "${status}" will not be applied`);
       }
-      entry._create = { ...data, email: emailValid ? data.email : '', remark };
+      entry._create = { ...data, email: emailValid ? data.email : '' };
+      if (note) {
+        entry._note = note;
+        entry.changes.push({ field: 'note', from: '', to: note });
+      }
       return entry;
     }
 
@@ -260,9 +277,8 @@ async function buildImportPlan(prepared, { loadCandidates = loadCandidateLeads }
     entry.leadRef = String(existing._id);
 
     const patch = {};
-    const sheetValues = { ...data, remark };
     for (const field of UPDATABLE_FIELDS) {
-      const value = String(sheetValues[field] || '').trim();
+      const value = String(data[field] || '').trim();
       if (value && value !== String(existing[field] || '').trim()) {
         patch[field] = value;
         entry.changes.push({ field, from: existing[field] || '', to: value });
@@ -278,21 +294,31 @@ async function buildImportPlan(prepared, { loadCandidates = loadCandidateLeads }
       };
     }
 
-    if (!Object.keys(patch).length) {
+    // A note the lead already has, word for word, is not added again
+    const newNote = note && !(existing.noteTexts || []).includes(note) ? note : '';
+    if (newNote) {
+      entry._note = newNote;
+      entry.changes.push({ field: 'note', from: '', to: newNote });
+    }
+
+    if (!Object.keys(patch).length && !newNote) {
       entry.action = 'unchanged';
       return entry;
     }
 
-    if (existing.lockedBy && existing.lockedAt && Date.now() - new Date(existing.lockedAt).getTime() < LOCK_TIMEOUT_MS) {
-      entry.errors.push('Lead is open (locked) by another user right now — try again in a few minutes');
-      return entry;
-    }
+    // A note alone never touches the lead's fields, so it is fine on an open lead; field changes are not
+    if (Object.keys(patch).length) {
+      if (existing.lockedBy && existing.lockedAt && Date.now() - new Date(existing.lockedAt).getTime() < LOCK_TIMEOUT_MS) {
+        entry.errors.push('Lead is open (locked) by another user right now — try again in a few minutes');
+        return entry;
+      }
 
-    // Same rules the UI hits (importing is Super Admin only).
-    const ruleError = validateLeadTransition(existing, { ...patch }, { isSuperAdmin: true });
-    if (ruleError) {
-      entry.errors.push(ruleError);
-      return entry;
+      // Same rules the UI hits (importing is Super Admin only).
+      const ruleError = validateLeadTransition(existing, { ...patch }, { isSuperAdmin: true });
+      if (ruleError) {
+        entry.errors.push(ruleError);
+        return entry;
+      }
     }
 
     entry.action = 'update';
@@ -309,13 +335,14 @@ function summarizePlan(plan) {
     update: count((e) => e.action === 'update'),
     unchanged: count((e) => e.action === 'unchanged'),
     skip: count((e) => e.action === 'skip'),
+    notesToAdd: count((e) => e.action !== 'skip' && e.changes.some((c) => c.field === 'note')),
     withWarnings: count((e) => e.warnings.length > 0),
     statusChanges: count((e) => e.action === 'update' && e.statusChange),
     criticalStatusChanges: count((e) => e.action === 'update' && (e.statusChange?.closing || e.statusChange?.reopening))
   };
 }
 
-const publicEntry = ({ _create, _patch, ...entry }) => entry;
+const publicEntry = ({ _create, _patch, _note, ...entry }) => entry;
 
 /** Dry run — returns the plan for the admin to review. No DB writes. */
 async function previewImport(prepared, options) {
@@ -357,15 +384,20 @@ async function runImport(prepared, originalName, actor, onProgress = () => {}) {
       if (entry.action === 'update') {
         const patch = { ...entry._patch };
         if ('altPhone' in patch) patch.altPhoneNormalized = normalizePhone(patch.altPhone);
-        // applyLeadUpdate re-validates against the lead as it is right now.
-        const result = await applyLeadUpdate(entry.leadRef, patch, { id: actor?.id, isSuperAdmin: true });
-        if (!result.ok) {
-          invalid.push({ row: entry.row, reason: result.message });
-          continue;
+        let leadId = new mongoose.Types.ObjectId(entry.leadRef);
+        if (Object.keys(patch).length) {
+          // applyLeadUpdate re-validates against the lead as it is right now.
+          const result = await applyLeadUpdate(entry.leadRef, patch, { id: actor?.id, isSuperAdmin: true });
+          if (!result.ok) {
+            invalid.push({ row: entry.row, reason: result.message });
+            continue;
+          }
+          leadId = result.lead._id;
         }
+        if (entry._note) await addImportedNote(leadId, actor?.id, entry._note, originalName);
         const fields = entry.changes.map((c) => c.field).concat(entry.statusChange ? ['status'] : []);
         await mongoose.connection.db.collection('leads').updateOne(
-          { _id: result.lead._id },
+          { _id: leadId },
           { $push: { pipelineHistory: {
             status: 'Updated via import',
             date: new Date(),
@@ -387,7 +419,7 @@ async function runImport(prepared, originalName, actor, onProgress = () => {}) {
         // schema requires one.
         email: data.email || `import_${Date.now()}_${entry.row}@vedhunt.in`,
         service:     data.service || 'Not specified',
-        message:     data.message || data.remark,
+        message:     data.message,
         city:        data.city,
         country:     data.country,
         platform:    data.platform || 'Facebook',
@@ -400,6 +432,7 @@ async function runImport(prepared, originalName, actor, onProgress = () => {}) {
         pipelineHistory: [{ status: 'New', note: `Imported from ${originalName}` }]
       });
       await autoAssignLead(lead);
+      if (entry._note) await addImportedNote(lead._id, actor?.id, entry._note, originalName);
       imported++;
     } catch (err) {
       logger.error(`Lead import: failed to save row ${entry.row} from ${originalName}:`, err);

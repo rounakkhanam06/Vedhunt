@@ -421,7 +421,7 @@ function FollowUpTable({ rows, bucketFilter, onOpen }) {
                   {lead.latestNote ? (
                     <>
                       <p className="text-app-text line-clamp-2" title={lead.latestNote.text}>{lead.latestNote.text}</p>
-                      <p className="text-[11px]">{lead.latestNote.source === 'remark' ? 'Remark' : `${lead.latestNote.author} · ${fmtWhen(lead.latestNote.createdAt)}`}</p>
+                      <p className="text-[11px]">{lead.latestNote.source === 'earlier-remark' ? 'Earlier remark' : `${lead.latestNote.author} · ${fmtWhen(lead.latestNote.createdAt)}`}</p>
                     </>
                   ) : '—'}
                 </td>

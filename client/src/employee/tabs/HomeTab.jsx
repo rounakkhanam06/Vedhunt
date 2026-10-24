@@ -5,7 +5,7 @@ import {
 import { StatTile, LateBadge } from '../components/PortalUI';
 import { useAccess, useEssLeads, useEssToday } from '../lib/ess';
 import { fmtDateTime, fmtINR } from '../lib/datetime';
-import { followUpBucket, isCallPending, needsNextAction, isWonThisMonth, PIPELINE_STAGES } from '../lib/leads';
+import { followUpBucket, isCallPending, needsNextAction, isWonThisMonth, leadListCounts, PIPELINE_STAGES } from '../lib/leads';
 import { taskStatusLabel } from '../../shared/taskConstants';
 
 const go = (navigate, query) => () => navigate(`/employee/dashboard?${query}`);
@@ -87,6 +87,7 @@ function MyPipeline({ leads, navigate }) {
 }
 
 function LeadWidgets({ leads, isLoading, today, navigate }) {
+  const counts = leadListCounts(leads);
   const wonThisMonth = leads.filter(isWonThisMonth);
   const wonValue = wonThisMonth.reduce((sum, l) => sum + (Number(l.dealCloseValue) || 0), 0);
   const tiles = [
@@ -97,7 +98,9 @@ function LeadWidgets({ leads, isLoading, today, navigate }) {
       sub: today?.overdue ? `${today.overdue} overdue` : undefined,
       onClick: () => document.getElementById('today-agenda')?.scrollIntoView({ behavior: 'smooth' }),
     },
-    { key: 'new', label: 'New Leads', icon: UserPlus, value: leads.filter((l) => l.isRaw).length, onClick: go(navigate, 'tab=raw-leads') },
+    { key: 'new', label: 'Raw Leads', icon: UserPlus, value: counts.raw, sub: 'Assigned, no action yet', onClick: go(navigate, 'tab=raw-leads') },
+    { key: 'working', label: 'Working Leads', icon: Users, value: counts.working, sub: 'Acted on, still open', onClick: go(navigate, 'tab=working-leads') },
+    { key: 'dropped-hold', label: 'Dropped & Hold', icon: CircleDashed, value: counts.droppedHold, onClick: go(navigate, 'tab=dropped-hold-leads') },
     { key: 'call-pending', label: 'Call Pending', icon: PhoneCall, value: leads.filter(isCallPending).length, onClick: go(navigate, 'tab=raw-leads&urgent=1') },
     { key: 'followups-today', label: 'Follow-ups Today', icon: CalendarClock, value: leads.filter((l) => followUpBucket(l) === 'today').length, onClick: go(navigate, 'tab=followups&bucket=Today') },
     { key: 'followups-overdue', label: 'Overdue Follow-ups', icon: AlertCircle, tone: 'danger', value: leads.filter((l) => followUpBucket(l) === 'overdue').length, onClick: go(navigate, 'tab=followups&bucket=Overdue') },

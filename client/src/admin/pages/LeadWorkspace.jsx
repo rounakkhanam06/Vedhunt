@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useLeadAccess } from '../../shared/crmAccess';
-import { Mail, Phone, Clock, FileText, Play, Square, MessageCircle, Trash2, Upload, PhoneCall, CalendarClock, ListChecks, FileSignature } from 'lucide-react';
+import { Mail, Phone, Clock, FileText, Play, Square, MessageCircle, Trash2, PhoneCall, CalendarClock, ListChecks, FileSignature } from 'lucide-react';
 import toast from 'react-hot-toast';
 import StageDataModal from '../components/StageDataModal';
 import FollowUpTasksPanel from '../components/FollowUpTasksPanel';
 import LeadCollaborationPanel from '../../shared/LeadCollaborationPanel';
+import CallNoteField from '../../shared/CallNoteField';
 import ProposalWorkflow from '../../employee/components/ProposalWorkflow';
 import { isCallInProgress, lastCallLog, startedNewCall, isSameOutcome, fmtClock } from '../../shared/callHandling';
 import { NOT_CONNECTED_REASONS, INTEREST_LEVELS, LOST_DROPPED_REASONS, FOLLOWUP_TRIGGER_INTEREST_LEVELS, PAYMENT_STATUS_OPTIONS, FOLLOW_UP_TYPES } from '../../shared/leadConstants';
@@ -148,26 +149,14 @@ export default function LeadWorkspace() {
   // then committed as one combined update — the state machine validates the
   // whole outcome together, not field-by-field.
   const [callOutcomeDraft, setCallOutcomeDraft] = useState(null);
+  // Optional note typed for the call being logged (null = the box shows the latest call's saved note)
+  const [callNoteDraft, setCallNoteDraft] = useState(null);
+  const [noteSaving, setNoteSaving] = useState(false);
   // In-flight Start/End Call ('start' | 'end') and call-outcome saves — the
   // buttons show it and ignore repeat clicks, which used to log duplicate calls.
   const [callBusy, setCallBusy] = useState(null);
   const [outcomeSaving, setOutcomeSaving] = useState(false);
   const outcomeSavingRef = useRef(false);
-  const [uploading, setUploading] = useState(false);
-  const [docType, setDocType] = useState('Attachment');
-
-  const fetchLead = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await http.get(`${root}/leads/${id}`);
-      if (res.data?.success) setLead(res.data.data);
-    } catch {
-      toast.error('That lead could not be found');
-      navigate(leadsHome);
-    } finally {
-      setLoading(false);
-    }
-  }, [id, navigate]);
 
   // Refresh without the full-page loader, so an open dialog (Proposal) stays mounted.
   const reloadLead = useCallback(async () => {
@@ -179,9 +168,20 @@ export default function LeadWorkspace() {
     }
   }, [id]);
 
+  // Load the lead when the page opens. The route is keyed by the lead id, so each lead gets a fresh page
+  // (loading starts true) and the effect only has to react to the request finishing.
   useEffect(() => {
-    fetchLead();
-  }, [fetchLead]);
+    let ignore = false;
+    http.get(`${root}/leads/${id}`)
+      .then((res) => { if (!ignore && res.data?.success) setLead(res.data.data); })
+      .catch(() => {
+        if (ignore) return;
+        toast.error('That lead could not be found');
+        navigate(leadsHome);
+      })
+      .finally(() => { if (!ignore) setLoading(false); });
+    return () => { ignore = true; };
+  }, [id, navigate]);
 
   useEffect(() => {
     http.get(`${root}/leads/${id}/assignment-history`)
@@ -290,6 +290,22 @@ export default function LeadWorkspace() {
     }
   };
 
+  // The call note typed so far, in the shape the update expects — empty when there is none (it is optional)
+  const callNoteFields = () => (callNoteDraft?.trim() ? { callNote: callNoteDraft.trim() } : {});
+
+  // Edits the note on the latest call; logs no new call
+  const saveCallNote = async (text) => {
+    setNoteSaving(true);
+    try {
+      await handleFieldsChange({ callNote: text });
+      setCallNoteDraft(null);
+    } catch {
+      // handleFieldsChange already showed why (e.g. only the caller may change a call's note)
+    } finally {
+      setNoteSaving(false);
+    }
+  };
+
   const getCallOutcomeValue = (field) => {
     if (callOutcomeDraft && field in callOutcomeDraft) return callOutcomeDraft[field];
     return lead?.[field] ?? '';
@@ -318,7 +334,7 @@ export default function LeadWorkspace() {
       return;
     }
 
-    const fields = outcomeFields(merged);
+    const fields = { ...outcomeFields(merged), ...callNoteFields() };
 
     outcomeSavingRef.current = true;
     setOutcomeSaving(true);
@@ -326,6 +342,7 @@ export default function LeadWorkspace() {
     try {
       await handleFieldsChange(fields);
       setCallOutcomeDraft(null);
+      setCallNoteDraft(null);
     } catch {
       // Keep the draft so the admin doesn't lose what they picked — the
       // error toast from handleFieldsChange already explains what's missing.
@@ -339,7 +356,7 @@ export default function LeadWorkspace() {
   // follow-up date) travels with a stage change — otherwise the server
   // judges the new stage against a lead with no connected call logged.
   const outcomePending = Boolean(callOutcomeDraft?.connected);
-  const withPendingOutcome = (fields) => (outcomePending ? { ...outcomeFields(callOutcomeDraft), ...fields } : fields);
+  const withPendingOutcome = (fields) => (outcomePending ? { ...outcomeFields(callOutcomeDraft), ...callNoteFields(), ...fields } : fields);
 
   const handleStageChange = async (fields) => {
     if (outcomePending && !isOutcomeReady({ ...callOutcomeDraft, ...fields })) {
@@ -349,42 +366,7 @@ export default function LeadWorkspace() {
     }
     await handleFieldsChange(withPendingOutcome(fields));
     setCallOutcomeDraft(null);
-  };
-
-  const handleUploadDocument = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    try {
-      setUploading(true);
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('docType', docType);
-      const res = await http.post(`${root}/leads/${id}/documents`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-      if (res.data.success) {
-        toast.success('Document uploaded');
-        setLead(res.data.data);
-      }
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to upload document');
-    } finally {
-      setUploading(false);
-      e.target.value = '';
-    }
-  };
-
-  const handleDeleteDocument = async (docId) => {
-    if (!window.confirm('Remove this document?')) return;
-    try {
-      const res = await http.delete(`${root}/leads/${id}/documents/${docId}`);
-      if (res.data.success) {
-        toast.success('Document removed');
-        setLead(res.data.data);
-      }
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to remove document');
-    }
+    if (outcomePending) setCallNoteDraft(null);
   };
 
   if (loading) {
@@ -590,6 +572,14 @@ export default function LeadWorkspace() {
                 </div>
               </div>
             </div>
+            <CallNoteField
+              lastCall={lastCallLog(lead)}
+              pending={outcomePending}
+              value={callNoteDraft}
+              onChange={setCallNoteDraft}
+              onSave={saveCallNote}
+              saving={noteSaving}
+            />
           </div>
 
           {/* Pipeline & Stage */}
@@ -740,18 +730,6 @@ export default function LeadWorkspace() {
           <FollowUpTasksPanel leadId={lead._id} canManage={canAssign} bds={bds} myAdminId={me?._id} />
 
           <LeadCollaborationPanel http={http} leadUrl={`${root}/leads/${id}`} lead={lead} canShare={canAssign} bds={bds} onChanged={reloadLead} />
-
-          {/* Remark */}
-          <div className={sectionClass}>
-            <label className={sectionLabelClass}>Remark</label>
-            <textarea
-              defaultValue={lead.remark || ''}
-              placeholder="Add remark..."
-              rows={3}
-              onBlur={(e) => { if (e.target.value !== lead.remark) handleFieldChange('remark', e.target.value); }}
-              className="w-full bg-app-bg border border-app-border rounded-lg px-3 py-2 text-sm text-app-text focus:outline-none focus:border-primary resize-none"
-            />
-          </div>
 
           {/* Qualification — service-aware discovery data, doesn't gate any stage transition */}
           <div className={sectionClass}>
@@ -905,41 +883,6 @@ export default function LeadWorkspace() {
                 className="w-full bg-app-bg border border-app-border rounded-lg px-3 py-2 text-sm text-app-text focus:outline-none focus:border-primary resize-none"
               />
             </div>
-          </div>
-
-          {/* Documents — proposal, quotation, scope, and other attachments */}
-          <div className={sectionClass}>
-            <label className={sectionLabelClass}>Documents</label>
-            <div className="flex flex-wrap items-center gap-2 mb-4">
-              <select value={docType} onChange={(e) => setDocType(e.target.value)} className={`${selectClass} w-full sm:w-auto flex-1`}>
-                <option className="bg-app-bg text-app-text" value="Proposal">Proposal</option>
-                <option className="bg-app-bg text-app-text" value="Quotation">Quotation</option>
-                <option className="bg-app-bg text-app-text" value="Scope">Scope</option>
-                <option className="bg-app-bg text-app-text" value="Attachment">Other Attachment</option>
-              </select>
-              <label className="flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 text-primary hover:bg-primary/20 rounded-lg text-xs font-bold cursor-pointer transition-colors">
-                <Upload size={13} /> {uploading ? 'Uploading...' : 'Upload File'}
-                <input type="file" className="hidden" disabled={uploading} onChange={handleUploadDocument} />
-              </label>
-            </div>
-            {(lead.documents || []).length === 0 ? (
-              <p className="text-sm text-app-text-muted">No documents attached yet.</p>
-            ) : (
-              <div className="space-y-2">
-                {lead.documents.map((doc) => (
-                  <div key={doc._id} className="flex items-center justify-between gap-3 bg-app-bg px-3 py-2 rounded-lg">
-                    <a href={doc.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-app-text hover:text-primary min-w-0">
-                      <FileText size={14} className="shrink-0" />
-                      <span className="truncate">{doc.name}</span>
-                      <span className="text-[10px] text-app-text-muted shrink-0 uppercase font-bold">{doc.docType}</span>
-                    </a>
-                    <button onClick={() => handleDeleteDocument(doc._id)} className="text-red-400 hover:text-red-300 shrink-0 cursor-pointer">
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
         </div>
 

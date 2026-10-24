@@ -6,7 +6,8 @@
 //                  Counted by owner only, so a cross-assigned lead is one lead
 //                  in every total; leads a BD collaborates on are a separate
 //                  column that never adds into the totals.
-//   Pending Call — leads assigned but not yet called or acted on, grouped by
+//   Pending Call — leads assigned but with no action taken yet (same rule as
+//                  Raw Leads, utils/leadActivity.js), grouped by
 //                  owner and IST assignment date.
 //
 // Both are snapshots of the CRM as of now. Admin rows cover every owner plus
@@ -17,7 +18,7 @@ const mongoose = require('mongoose');
 const Lead = require('../models/Lead');
 const Admin = require('../models/Admin');
 const { TERMINAL_STATUSES } = require('../utils/leadStateMachine');
-const { CLOSED_OR_HOLD } = require('../utils/leadActivity');
+const { pendingCallFilter } = require('../utils/leadActivity');
 
 const TIME_ZONE = process.env.TZ || 'Asia/Kolkata';
 const SALES = { leadType: { $in: ['Sales', null] } };
@@ -33,18 +34,9 @@ const BUCKETS = {
   total: {},
 };
 
-// Assigned, still open, and nobody has called or acted on it yet
-const NOT_CALLED = {
-  status: { $nin: CLOSED_OR_HOLD },
-  $nor: [
-    { 'callLogs.0': { $exists: true } },
-    { firstCallAt: { $ne: null } },
-    { lastCallAt: { $ne: null } },
-    { callDate: { $ne: null } },
-    { connected: { $nin: [null, ''] } },
-    { firstActionAt: { $ne: null } },
-  ],
-};
+// Assigned, still open, and no action taken yet — the same rule as the Raw Leads
+// tab (utils/leadActivity.js), so the two always reconcile
+const NOT_CALLED = pendingCallFilter();
 
 const statusGroup = (idExpr) => ({
   $group: {

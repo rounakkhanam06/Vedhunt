@@ -142,4 +142,24 @@ async function latestNotes(leadIds, user) {
   return new Map(rows.map((r) => [String(r._id), { text: r.text, author: nameOf.get(String(r.author)) || 'Unknown', createdAt: r.createdAt, visibility: r.visibility }]));
 }
 
-module.exports = { sharedWithDetails, shareLead, unshareLead, listNotes, addNote, latestNotes };
+/**
+ * A shared note brought in by a spreadsheet import (services/leadImport.js), written
+ * as the person who ran the import. Unlike addNote it does NOT count as acting on the
+ * lead — a remark column in a sheet is background, so an imported lead stays in Raw
+ * Leads until a BD actually works it. Returns false when the lead already carries
+ * this exact text, so re-importing the same sheet never stacks duplicate notes.
+ */
+async function addImportedNote(leadId, authorId, text, source = 'import') {
+  const body = String(text || '').trim().slice(0, 5000);
+  if (!body || !authorId) return false;
+  if (await LeadNote.exists({ lead: leadId, text: body })) return false;
+  await LeadNote.create({ lead: leadId, author: authorId, text: body, visibility: 'shared' });
+  const now = new Date();
+  await mongoose.connection.db.collection('leads').updateOne(
+    { _id: leadId },
+    { $push: { pipelineHistory: { status: 'Note imported', date: now, updatedBy: oid(authorId), note: `${source}: ${body.slice(0, 200)}` } }, $set: { updatedAt: now } }
+  );
+  return true;
+}
+
+module.exports = { sharedWithDetails, shareLead, unshareLead, listNotes, addNote, addImportedNote, latestNotes };

@@ -13,6 +13,8 @@
 const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('path');
+const fs = require('fs');
+const os = require('os');
 const { spawn, execFile } = require('child_process');
 const net = require('net');
 const jwt = require('jsonwebtoken');
@@ -891,13 +893,19 @@ describe('Granting, legacy grants and migration', () => {
     }
   });
 
-  test('the migration converts legacy grants once, with a backup', async () => {
+  test('the migration converts legacy grants once, with a backup', async (t) => {
+    // The backup goes to a throwaway folder, so test runs never leave files in scripts/migrations/backups/
+    const backupDir = fs.mkdtempSync(path.join(os.tmpdir(), 'vedhunt-e2e-backups-'));
+    t.after(() => fs.rmSync(backupDir, { recursive: true, force: true }));
     const run = (args) => new Promise((resolve, reject) => execFile(process.execPath, ['scripts/migrations/migrateCrmGrants.js', ...args], {
-      cwd: SERVER_DIR, env: { ...process.env, MONGODB_URI: mongo.getUri('vedhunt_e2e') }, // never server/.env's database
+      cwd: SERVER_DIR, env: { ...process.env, MONGODB_URI: mongo.getUri('vedhunt_e2e'), MIGRATION_BACKUP_DIR: backupDir }, // never server/.env's database
     }, (err, stdout) => (err ? reject(err) : resolve(stdout))));
     assert.match(await run([]), /1 login\(s\) to migrate/);
     assert.match(await run(['--apply']), /Migrated 1 login\(s\)/);
     assert.match(await run(['--apply']), /Nothing to migrate/);
+    const backups = fs.readdirSync(backupDir);
+    assert.equal(backups.length, 1, 'exactly one backup was written, in the temporary folder');
+    assert.equal(JSON.parse(fs.readFileSync(path.join(backupDir, backups[0]), 'utf8'))[0].email, 'legacy@e2e.test');
     const doc = await mongoose.connection.db.collection('admins').findOne({ email: 'legacy@e2e.test' });
     assert.equal(doc.accessGrants[0].scope.mode, 'clients');
     assert.equal(String(doc.accessGrants[0].scope.clients[0]), ids.clientA);
@@ -1069,10 +1077,23 @@ describe('Cross-assignment and lead notes — enforced by the server', () => {
     assert.equal(search.body.results[0].isMine, true);
     assert.equal(search.body.results[0].phone, '9833333333'); // not masked
 
+    // The lead-level remark is retired: a stale tab sending one is ignored, and a note is what the shared BD writes now
     assert.equal((await call(helper, 'PUT', `${ess}/${ids.collabLead}`, { remark: 'Spoke to the owner' })).status, 200);
-    const remark = (await leadDoc()).pipelineHistory.find((h) => h.status === 'Remark updated');
-    assert.equal(String(remark.updatedBy), ids[helper]);
-    assert.equal(remark.note, 'Spoke to the owner');
+    const afterRemark = await leadDoc();
+    assert.equal(afterRemark.remark, undefined, 'a remark is never written on the lead');
+    assert.ok(!afterRemark.pipelineHistory.some((h) => h.status === 'Remark updated'));
+
+    const note = await call(helper, 'POST', `${ess}/${ids.collabLead}/notes`, { text: 'Spoke to the owner' });
+    assert.equal(note.status, 201, JSON.stringify(note.body));
+    const entry = (await leadDoc()).pipelineHistory.find((h) => h.status === 'Note added');
+    assert.equal(String(entry.updatedBy), ids[helper]);
+    assert.equal(entry.note, 'Spoke to the owner');
+    // later tests count this lead's notes exactly
+    await require('../../models/LeadNote').deleteMany({ lead: ids.collabLead, text: 'Spoke to the owner' });
+    await mongoose.connection.db.collection('leads').updateOne(
+      { _id: new mongoose.Types.ObjectId(ids.collabLead) },
+      { $pull: { pipelineHistory: { status: 'Note added', note: 'Spoke to the owner' } } }
+    );
   });
 
   test('the shared BD still cannot reassign or delete the lead', async () => {
@@ -1312,7 +1333,7 @@ describe('Bulk reassignment by filter — acceptance: Owner = Priya, Stage = Qua
   });
 });
 
-describe('Raw / Working / Dropped & Hold — connected-based rules', () => {
+describe('Raw / Working / Dropped & Hold — action-taken rules', () => {
   const ess = '/employee-portal/ess/leads';
   const g = '/employee-portal/grants';
   const oidOf = (id) => new mongoose.Types.ObjectId(id);
@@ -1375,16 +1396,16 @@ describe('Raw / Working / Dropped & Hold — connected-based rules', () => {
     await make('wonOfReactivator', { assignedTo: oidOf(ids.reactivator), status: 'Won', callLogs: [yes] });
   });
 
-  test('Raw: assigned and never connected — unanswered calls, WhatsApp and a bare Contacted status stay here', async () => {
+  test('Raw: assigned and no action taken — a bare Contacted status stays here; a call (even unanswered) or WhatsApp takes it out', async () => {
     const raw = await page('raw');
-    for (const k of ['fresh', 'notConnected', 'contactedNoConnect', 'whatsappOnly', 'website', 'manualOld', 'otherBd']) assert.ok(raw.includes(L[k]), `${k} should be raw`);
-    for (const k of ['unassigned', 'connectedYes', 'connectedThenNo', 'legacyConnected', 'qualified', 'won', 'lost', 'dropped', 'hold']) assert.ok(!raw.includes(L[k]), `${k} should not be raw`);
+    for (const k of ['fresh', 'contactedNoConnect', 'website', 'manualOld', 'otherBd']) assert.ok(raw.includes(L[k]), `${k} should be raw`);
+    for (const k of ['unassigned', 'notConnected', 'whatsappOnly', 'connectedYes', 'connectedThenNo', 'legacyConnected', 'qualified', 'won', 'lost', 'dropped', 'hold']) assert.ok(!raw.includes(L[k]), `${k} should not be raw`);
   });
 
-  test('Working: connected and still open — Won, Lost, Dropped and Hold leave it', async () => {
+  test('Working: an action has been taken and still open — Won, Lost, Dropped and Hold leave it', async () => {
     const working = await page('working');
-    for (const k of ['connectedYes', 'connectedThenNo', 'legacyConnected', 'qualified']) assert.ok(working.includes(L[k]), `${k} should be working`);
-    for (const k of ['fresh', 'notConnected', 'won', 'lost', 'dropped', 'hold', 'unassigned']) assert.ok(!working.includes(L[k]), `${k} should not be working`);
+    for (const k of ['notConnected', 'whatsappOnly', 'connectedYes', 'connectedThenNo', 'legacyConnected', 'qualified']) assert.ok(working.includes(L[k]), `${k} should be working`);
+    for (const k of ['fresh', 'contactedNoConnect', 'won', 'lost', 'dropped', 'hold', 'unassigned']) assert.ok(!working.includes(L[k]), `${k} should not be working`);
     const raw = await page('raw');
     assert.equal(raw.filter((id) => working.includes(id)).length, 0);
   });
@@ -1402,7 +1423,7 @@ describe('Raw / Working / Dropped & Hold — connected-based rules', () => {
 
   test('scoping: BD sees own + shared only; team grant sees the team; the API enforces it', async () => {
     assert.equal((await essRow('bde', L.fresh)).isRaw, true);
-    assert.equal((await essRow('bde', L.notConnected)).isRaw, true);
+    assert.equal((await essRow('bde', L.notConnected)).isRaw, false);
     assert.equal((await essRow('bde', L.connectedYes)).isRaw, false);
     assert.equal(await essRow('bde', L.otherDropped), undefined);
     assert.equal((await essRow('outsider', L.otherDropped)).status, 'Dropped');
@@ -1426,15 +1447,18 @@ describe('Raw / Working / Dropped & Hold — connected-based rules', () => {
     assert.ok((await page('raw')).includes(L.forOpen));
   });
 
-  test('an unanswered call keeps the lead in Raw, with the attempt logged and activity stamped', async () => {
+  test('an unanswered call takes the lead out of Raw into Working, with the attempt logged and first contact stamped', async () => {
     const r = await call('bde', 'PUT', `${ess}/${L.forUnanswered}`, { connected: 'No', notConnectedReason: 'Ringing / No Answer' });
     assert.equal(r.status, 200, JSON.stringify(r.body));
     const lead = await doc('forUnanswered');
     assert.equal(lead.callLogs.length, 1);
     assert.equal(lead.callLogs[0].notConnectedReason, 'Ringing / No Answer');
     assert.equal(lead.lastActivityType, 'Call logged');
-    assert.ok((await page('raw')).includes(L.forUnanswered));
-    assert.equal((await essRow('bde', L.forUnanswered)).isRaw, true);
+    assert.ok(lead.firstContactAt);
+    assert.equal(lead.firstContactType, 'Call logged');
+    assert.ok(!(await page('raw')).includes(L.forUnanswered));
+    assert.ok((await page('working')).includes(L.forUnanswered));
+    assert.equal((await essRow('bde', L.forUnanswered)).isRaw, false);
   });
 
   test('example: "Connected — requested a strategy discussion" moves it to Working with outcome and timestamp', async () => {
@@ -1445,7 +1469,8 @@ describe('Raw / Working / Dropped & Hold — connected-based rules', () => {
     const lead = await doc('forConnect');
     assert.equal(lead.connected, 'Yes');
     assert.equal(lead.interestLevel, 'Interested');
-    assert.equal(lead.remark, 'Connected — requested a strategy discussion');
+    assert.equal(lead.remark, undefined, 'the lead-level remark is no longer written');
+    assert.equal(lead.callLogs.at(-1).remark, 'Connected — requested a strategy discussion', 'the call keeps its own text');
     assert.ok(lead.lastActivityAt);
     assert.ok((await page('working')).includes(L.forConnect));
     assert.ok(!(await page('raw')).includes(L.forConnect));
@@ -1562,7 +1587,8 @@ describe('Follow-ups — due order, type, row details, filters, scope', () => {
     assert.ok(p.lastContactAt);
     assert.equal(p.nextActionType, 'Call');
     assert.equal(p.latestNote.text, 'Bring the revised rate card');
-    assert.equal(by.meetingTomorrow.latestNote.text, 'Wants a demo first'); // falls back to the remark
+    assert.equal(by.meetingTomorrow.latestNote.text, 'Wants a demo first'); // an older remark still shows
+    assert.equal(by.meetingTomorrow.latestNote.source, 'earlier-remark', 'and is labelled as one');
     assert.equal(by.sharedFromOther.sharedCount, 1);
     assert.equal(by.noType.followUpType ?? '', '');
     // Admin (all-leads) may read the private note
@@ -1626,7 +1652,12 @@ describe('Follow-ups — due order, type, row details, filters, scope', () => {
     assert.equal(r.status, 200, JSON.stringify(r.body));
     const lead = await leadsCol().findOne({ _id: oidOf(F.pricingToday) });
     assert.equal(lead.followUpType, 'Onboarding');
-    assert.equal(lead.remark, 'Agreed the price, sending onboarding pack');
+    assert.equal(lead.remark, undefined, 'the outcome is not saved as a lead-level remark');
+    assert.equal(lead.callLogs.at(-1).remark, 'Agreed the price, sending onboarding pack', 'the follow-up outcome is the call remark');
+    // the next follow-up carries the outcome text as its note
+    const FollowUpTask = require('../../models/FollowUpTask');
+    const next = await FollowUpTask.findOne({ lead: oidOf(F.pricingToday), status: 'Pending' }).sort({ createdAt: -1 });
+    assert.equal(next.note, 'Agreed the price, sending onboarding pack');
   });
 });
 
@@ -2221,5 +2252,288 @@ describe('Management dashboard — BD accountability connect rate', () => {
 
   test('still Admin-only', async () => {
     assert.equal((await call('bde', 'GET', `/admin/activity/bd-accountability${qs}`)).status, 403);
+  });
+});
+
+
+describe('Remarks retired — Notes are the record', () => {
+  const ess = '/employee-portal/ess/leads';
+  const oidOf = (id) => new mongoose.Types.ObjectId(id);
+  const leadsCol = () => mongoose.connection.db.collection('leads');
+  const L = {};
+  const later = new Date(Date.now() + 3 * 864e5).toISOString();
+
+  before(async () => {
+    const make = async (key, fields) => {
+      const now = new Date();
+      L[key] = String((await leadsCol().insertOne({
+        fullName: `NOREM ${key}`, phone: '9855555555', email: `norem-${key}@lead.test`, status: 'New', leadType: 'Sales',
+        platform: 'Facebook', createdAt: now, updatedAt: now, documents: [],
+        pipelineHistory: [{ status: 'New', date: now, note: 'Lead captured' }],
+        assignedTo: oidOf(ids.bde), assignedAt: now, ...fields,
+      })).insertedId);
+    };
+    await make('plain', {});
+    await make('stale', {});
+    await make('legacy', { remark: 'Spoke to the client in March', status: 'Contacted' });
+    await make('card', {});
+    await make('cardPrivate', {});
+    await make('exportA', {});
+    await make('exportLegacy', { remark: 'only an old remark' });
+  });
+
+  const doc = (key) => leadsCol().findOne({ _id: oidOf(L[key]) });
+
+  test('a remark sent on its own (a stale browser tab) is ignored: nothing saved, no history, not an action', async () => {
+    const r = await call('bde', 'PUT', `${ess}/${L.stale}`, { remark: 'typed in an old tab' });
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    const lead = await doc('stale');
+    assert.equal(lead.remark, undefined);
+    assert.equal(lead.lastActivityAt ?? null, null);
+    assert.ok(!lead.pipelineHistory.some((h) => h.status === 'Remark updated'));
+    const raw = await call('super', 'GET', `/leads?stageGroup=raw&leadType=All&search=NOREM&limit=100`);
+    assert.ok(raw.body.data.some((l) => String(l._id) === L.stale), 'still Raw: a remark is not an action');
+  });
+
+  test('a call outcome keeps its text on that call only; an older lead remark is not copied onto later calls', async () => {
+    const r = await call('bde', 'PUT', `${ess}/${L.legacy}`, { connected: 'No', notConnectedReason: 'Ringing / No Answer' });
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    const lead = await doc('legacy');
+    assert.equal(lead.remark, 'Spoke to the client in March', 'the old remark is untouched');
+    assert.equal(lead.callLogs.at(-1).remark, '', 'it is not stamped onto the new call');
+
+    const withText = await call('bde', 'PUT', `${ess}/${L.legacy}`, { connected: 'Yes', interestLevel: 'Warm', remark: 'Asked for a callback Friday', nextFollowUpDate: later, nextActionType: 'Call', followUpType: 'Other' });
+    assert.equal(withText.status, 200, JSON.stringify(withText.body));
+    const after = await doc('legacy');
+    assert.equal(after.remark, 'Spoke to the client in March');
+    assert.equal(after.callLogs.at(-1).remark, 'Asked for a callback Friday');
+  });
+
+  test('an older remark is still shown, read-only, on the lead for its owner and for Admin', async () => {
+    const mine = await call('bde', 'GET', `${ess}/${L.legacy}`);
+    assert.equal(mine.body.lead.remark, 'Spoke to the client in March');
+    const admin = await call('super', 'GET', `/leads/${L.legacy}`);
+    assert.equal(admin.body.data.remark, 'Spoke to the client in March');
+  });
+
+  test('the card Note button posts a real note, which counts as working the lead', async () => {
+    const r = await call('bde', 'POST', `${ess}/${L.card}/notes`, { text: 'Left a voicemail', visibility: 'shared' });
+    assert.equal(r.status, 201, JSON.stringify(r.body));
+    const lead = await doc('card');
+    assert.equal(lead.remark, undefined);
+    assert.equal(lead.firstContactType, 'Note');
+    const notes = await call('super', 'GET', `/leads/${L.card}/notes`);
+    assert.equal(notes.body.data[0].text, 'Left a voicemail');
+    assert.equal(notes.body.data[0].visibility, 'shared');
+  });
+
+  test('a private note from the card is hidden from other BDs and visible to Admin', async () => {
+    assert.equal((await call('bde', 'POST', `${ess}/${L.cardPrivate}/notes`, { text: 'only me', visibility: 'private' })).status, 201);
+    const admin = await call('super', 'GET', `/leads/${L.cardPrivate}/notes`);
+    assert.equal(admin.body.data.length, 1);
+    assert.equal(admin.body.data[0].visibility, 'private');
+  });
+
+  test('CSV export carries each lead\'s latest note, falling back to an old remark', async () => {
+    await call('bde', 'POST', `${ess}/${L.exportA}/notes`, { text: 'first note' });
+    await call('bde', 'POST', `${ess}/${L.exportA}/notes`, { text: 'newest note' });
+    const r = await call('super', 'GET', '/leads?export=true&leadType=All&search=NOREM');
+    assert.equal(r.status, 200);
+    const by = (key) => r.body.data.find((l) => String(l._id) === L[key]);
+    assert.equal(by('exportA').latestNote.text, 'newest note');
+    assert.equal(by('exportLegacy').latestNote, null);
+    assert.equal(by('exportLegacy').remark, 'only an old remark', 'the client falls back to this for the export cell');
+  });
+});
+
+describe('Lead import — note column becomes shared notes', () => {
+  const oidOf = (id) => new mongoose.Types.ObjectId(id);
+  const leadsCol = () => mongoose.connection.db.collection('leads');
+  const sheet = (rows, header = 'Full Name,Phone,Email,Status,Latest note,City') => Buffer.from([header, ...rows].join('\n'));
+  const run = async (buffer, name = 'import.csv') => {
+    const { prepareImport, runImport } = require('../../services/leadImport');
+    const prepared = await prepareImport(buffer, name);
+    return runImport(prepared, name, { id: ids.super });
+  };
+  const noteTexts = async (leadId) => (await require('../../models/LeadNote').find({ lead: leadId }).sort({ createdAt: 1 })).map((n) => n.text);
+
+  test('a new lead gets its sheet note as a shared note by the importer, and stays in Raw', async () => {
+    const out = await run(sheet(['Imported One,9811100001,imp1@x.com,,Met at the expo,Pune']));
+    assert.equal(out.imported, 1, JSON.stringify(out));
+    const lead = await leadsCol().findOne({ email: 'imp1@x.com' });
+    assert.equal(lead.remark, undefined, 'never written as a lead-level remark');
+    const LeadNote = require('../../models/LeadNote');
+    const note = await LeadNote.findOne({ lead: lead._id });
+    assert.equal(note.text, 'Met at the expo');
+    assert.equal(note.visibility, 'shared');
+    assert.equal(String(note.author), ids.super);
+    assert.equal(lead.firstContactAt ?? null, null, 'an imported note is not a BD working the lead');
+    assert.ok(lead.pipelineHistory.some((h) => h.status === 'Note imported'));
+  });
+
+  test('re-importing the same sheet adds no duplicate note', async () => {
+    const rows = ['Imported Two,9811100002,imp2@x.com,,Wants pricing,Delhi'];
+    await run(sheet(rows));
+    const lead = await leadsCol().findOne({ email: 'imp2@x.com' });
+    const again = await run(sheet(rows));
+    assert.equal(again.imported, 0);
+    assert.equal(again.unchanged, 1, JSON.stringify(again));
+    assert.deepEqual(await noteTexts(lead._id), ['Wants pricing']);
+  });
+
+  test('an existing lead gets a new note appended; its fields and older notes stay', async () => {
+    await run(sheet(['Imported Three,9811100003,imp3@x.com,,first,Goa']));
+    const lead = await leadsCol().findOne({ email: 'imp3@x.com' });
+    const out = await run(sheet(['Imported Three,9811100003,imp3@x.com,,second,Goa']));
+    assert.equal(out.updated, 1, JSON.stringify(out));
+    assert.deepEqual(await noteTexts(lead._id), ['first', 'second']);
+    assert.equal((await leadsCol().findOne({ _id: lead._id })).remark, undefined);
+  });
+
+  test('the old "Remark" header still imports, as a note', async () => {
+    const out = await run(sheet(['Imported Four,9811100004,imp4@x.com,,legacy header,Agra'], 'Full Name,Phone,Email,Status,Remark,City'));
+    assert.equal(out.imported, 1);
+    const lead = await leadsCol().findOne({ email: 'imp4@x.com' });
+    assert.deepEqual(await noteTexts(lead._id), ['legacy header']);
+  });
+
+  test('an exported file (Latest note column) round-trips: the same notes are not added twice', async () => {
+    await run(sheet(['Imported Five,9811100005,imp5@x.com,,Called twice,Surat']));
+    const lead = await leadsCol().findOne({ email: 'imp5@x.com' });
+    const out = await run(sheet(['Imported Five,9811100005,imp5@x.com,New,Called twice,Surat']));
+    assert.equal(out.imported + out.updated, 0, JSON.stringify(out));
+    assert.deepEqual(await noteTexts(lead._id), ['Called twice']);
+  });
+
+  test('importing does not touch call-level remarks on existing leads', async () => {
+    const id = (await leadsCol().insertOne({
+      fullName: 'Has Calls', phone: '9811100006', phoneNormalized: '9811100006', email: 'imp6@x.com', emailNormalized: 'imp6@x.com',
+      status: 'Contacted', leadType: 'Sales', platform: 'Facebook', createdAt: new Date(), updatedAt: new Date(), documents: [], pipelineHistory: [],
+      callLogs: [{ touchNumber: 1, calledBy: oidOf(ids.bde), callDate: new Date(), connected: 'Yes', remark: 'call-level text' }],
+    })).insertedId;
+    await run(sheet(['Has Calls,9811100006,imp6@x.com,,sheet note,']));
+    const lead = await leadsCol().findOne({ _id: id });
+    assert.equal(lead.callLogs[0].remark, 'call-level text');
+    assert.deepEqual(await noteTexts(id), ['sheet note']);
+  });
+});
+
+
+describe('Call note — optional text on the call record', () => {
+  const ess = '/employee-portal/ess/leads';
+  const oidOf = (id) => new mongoose.Types.ObjectId(id);
+  const leadsCol = () => mongoose.connection.db.collection('leads');
+  const L = {};
+  const later = new Date(Date.now() + 3 * 864e5).toISOString();
+  const outcome = { connected: 'No', notConnectedReason: 'Ringing / No Answer' };
+  const helper = 'payViewer'; // another BD, shared into the lead below
+
+  before(async () => {
+    const make = async (key, fields = {}) => {
+      const now = new Date();
+      L[key] = String((await leadsCol().insertOne({
+        fullName: `CALLNOTE ${key}`, phone: '9866666666', email: `callnote-${key}@lead.test`, status: 'New', leadType: 'Sales',
+        platform: 'Facebook', createdAt: now, updatedAt: now, documents: [],
+        pipelineHistory: [{ status: 'New', date: now, note: 'Lead captured' }],
+        assignedTo: oidOf(ids.bde), assignedAt: now, ...fields,
+      })).insertedId);
+    };
+    for (const key of ['without', 'with', 'edit', 'noCall', 'shared', 'amend', 'long']) await make(key);
+  });
+
+  const doc = (key) => leadsCol().findOne({ _id: oidOf(L[key]) });
+  const bdRow = async (key) => (await call('bde', 'GET', `/employee-portal/ess/lead-activity?limit=100&client=CALLNOTE%20${key}`)).body.data;
+
+  test('the note is optional: an outcome saves without one', async () => {
+    const r = await call('bde', 'PUT', `${ess}/${L.without}`, outcome);
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    const lead = await doc('without');
+    assert.equal(lead.callLogs.length, 1);
+    assert.equal(lead.callLogs[0].remark, '');
+    const rows = await bdRow('without');
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].remark, '', 'an empty note shows as an empty Remark / note cell');
+  });
+
+  test('a note typed with the outcome is saved on that call and shows in Lead Activity', async () => {
+    const r = await call('bde', 'PUT', `${ess}/${L.with}`, { ...outcome, callNote: '  Phone was off, will retry after lunch  ' });
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    const lead = await doc('with');
+    assert.equal(lead.callLogs[0].remark, 'Phone was off, will retry after lunch', 'trimmed');
+    assert.equal(lead.remark, undefined, 'and never saved as a lead-level remark');
+    // BD portal and Admin both see it in the Remark / note column
+    assert.equal((await bdRow('with'))[0].remark, 'Phone was off, will retry after lunch');
+    const admin = await call('super', 'GET', '/admin/activity/calls?limit=100&client=CALLNOTE%20with');
+    assert.equal(admin.body.data[0].remark, 'Phone was off, will retry after lunch');
+  });
+
+  test('a note added afterwards edits the latest call: no new call, same touch number', async () => {
+    await call('bde', 'PUT', `${ess}/${L.edit}`, outcome);
+    const before = await doc('edit');
+    const r = await call('bde', 'PUT', `${ess}/${L.edit}`, { callNote: 'Left a voicemail' });
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    const lead = await doc('edit');
+    assert.equal(lead.callLogs.length, 1, 'still one call');
+    assert.equal(lead.touchNumber, before.touchNumber);
+    assert.equal(lead.callLogs[0].remark, 'Left a voicemail');
+    assert.equal(lead.callLogs[0].connected, 'No', 'the outcome itself is untouched');
+    // and it can be changed or cleared again
+    await call('bde', 'PUT', `${ess}/${L.edit}`, { callNote: '' });
+    assert.equal((await doc('edit')).callLogs[0].remark, '');
+  });
+
+  test('it only changes the latest call; earlier calls keep their notes', async () => {
+    await call('bde', 'PUT', `${ess}/${L.edit}`, { connected: 'Yes', interestLevel: 'Cold', callNote: 'second call text', callStartTime: new Date(Date.now() - 3600e3).toISOString(), callEndTime: new Date(Date.now() - 3000e3).toISOString() });
+    const lead = await doc('edit');
+    assert.equal(lead.callLogs.length, 2);
+    await call('bde', 'PUT', `${ess}/${L.edit}`, { callNote: 'edited latest' });
+    const after = await doc('edit');
+    assert.equal(after.callLogs.length, 2);
+    assert.equal(after.callLogs[0].remark, '');
+    assert.equal(after.callLogs[1].remark, 'edited latest');
+  });
+
+  test('a note with no call logged yet is refused, with a clear reason', async () => {
+    const r = await call('bde', 'PUT', `${ess}/${L.noCall}`, { callNote: 'nothing to attach to' });
+    assert.equal(r.status, 400);
+    assert.match(r.body.message, /Log a call outcome first/);
+    assert.equal((await doc('noCall')).callLogs, undefined);
+  });
+
+  test('only the person who made the call (or a Super Admin) can change its note', async () => {
+    await call('bde', 'PUT', `${ess}/${L.shared}`, { ...outcome, callNote: 'owner call' });
+    assert.equal((await call('super', 'POST', `/leads/${L.shared}/share`, { adminId: ids[helper] })).status, 201);
+    const other = await call(helper, 'PUT', `${ess}/${L.shared}`, { callNote: 'overwritten' });
+    assert.equal(other.status, 403, JSON.stringify(other.body));
+    assert.match(other.body.message, /Only the person who made the call/);
+    assert.equal((await doc('shared')).callLogs[0].remark, 'owner call');
+    const admin = await call('super', 'PUT', `/leads/${L.shared}`, { callNote: 'admin edit' });
+    assert.equal(admin.status, 200, JSON.stringify(admin.body));
+    assert.equal((await doc('shared')).callLogs[0].remark, 'admin edit');
+  });
+
+  test('re-saving the same call without a note keeps the note it has', async () => {
+    const start = new Date(Date.now() - 600e3).toISOString();
+    const end = new Date(Date.now() - 300e3).toISOString();
+    await call('bde', 'PUT', `${ess}/${L.amend}`, { ...outcome, callStartTime: start, callEndTime: end, callNote: 'kept' });
+    const again = await call('bde', 'PUT', `${ess}/${L.amend}`, { connected: 'No', notConnectedReason: 'Number Busy', callStartTime: start, callEndTime: end });
+    assert.equal(again.status, 200, JSON.stringify(again.body));
+    const lead = await doc('amend');
+    assert.equal(lead.callLogs.length, 1, 'amended, not duplicated');
+    assert.equal(lead.callLogs[0].notConnectedReason, 'Number Busy');
+    assert.equal(lead.callLogs[0].remark, 'kept');
+  });
+
+  test('notes are capped at 1000 characters', async () => {
+    await call('bde', 'PUT', `${ess}/${L.long}`, { ...outcome, callNote: 'x'.repeat(1500) });
+    assert.equal((await doc('long')).callLogs[0].remark.length, 1000);
+  });
+
+  test('a call note is not an action by itself: it does not change what list the lead is on', async () => {
+    const lead = await doc('edit');
+    assert.equal(lead.lastActivityType, 'Call logged');
+    const stamp = String(lead.lastActivityAt);
+    await call('bde', 'PUT', `${ess}/${L.edit}`, { callNote: 'again' });
+    assert.equal(String((await doc('edit')).lastActivityAt), stamp, 'last-activity time is only moved by real activity');
   });
 });

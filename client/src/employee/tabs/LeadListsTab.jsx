@@ -1,13 +1,15 @@
 import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, Clock } from 'lucide-react';
+import { AlertTriangle, Clock, ChevronDown, ChevronUp } from 'lucide-react';
 import LeadCard from '../components/LeadCard';
 import LeadSearch from '../components/LeadSearch';
+import Pagination from '../components/Pagination';
+import { PAGE_SIZES } from '../lib/pagination';
 import { Spinner, EmptyCard, TabHeader } from '../components/PortalUI';
 import { useEssLeads, essKeys } from '../lib/ess';
 import { fmtDateTime, toDateInput } from '../lib/datetime';
-import { followUpBucket, isCallPending, needsNextAction, isPaymentPending, isWonThisMonth, mergeLead, CLOSED_OR_HOLD, DROPPED_OR_HOLD } from '../lib/leads';
+import { followUpBucket, isCallPending, needsNextAction, isPaymentPending, isWonThisMonth, mergeLead, leadListCounts, isWorkingLead, isDroppedHoldLead, hasFollowUp, CLOSED_OR_HOLD, DROPPED_OR_HOLD } from '../lib/leads';
 import { FOLLOW_UP_TYPES, INTEREST_LEVELS } from '../../shared/leadConstants';
 import { SERVICES_REQUIRED_OPTIONS, LEAD_PRIORITY_LEVELS } from '../../shared/serviceQualification';
 
@@ -19,9 +21,24 @@ const SOURCES = ['Google', 'Facebook', 'Instagram', 'LinkedIn', 'YouTube', 'Refe
 const NO_ATTR_FILTERS = { platform: 'All', source: 'All', form: 'All', service: 'All', priority: 'All', leadType: 'All', breached: false };
 const selectClass = 'bg-app-card border border-app-border rounded-lg px-3 py-1.5 text-sm text-app-text focus:outline-none focus:border-primary/50 cursor-pointer';
 
+// Lists are paged in the browser (the portal loads a BD's leads in one request); the size is remembered per device
+const PAGE_SIZE_KEY = 'employeeLeadPageSize';
+const DEFAULT_PAGE_SIZE = 20;
+const readPageSize = () => {
+  try {
+    const saved = Number(localStorage.getItem(PAGE_SIZE_KEY));
+    return PAGE_SIZES.includes(saved) ? saved : DEFAULT_PAGE_SIZE;
+  } catch {
+    return DEFAULT_PAGE_SIZE;
+  }
+};
+const writePageSize = (size) => {
+  try { localStorage.setItem(PAGE_SIZE_KEY, String(size)); } catch { /* storage unavailable — the choice just isn't remembered */ }
+};
+
 const VIEWS = {
-  raw: { title: 'Raw Leads', subtitle: 'Assigned to you, not connected yet — unanswered calls stay here with every attempt logged' },
-  working: { title: 'Working Leads', subtitle: "Leads you've connected with and are still working — Won, Lost, Dropped and Hold leads leave this list" },
+  raw: { title: 'Raw Leads', subtitle: 'Assigned to you, no action taken yet — log a call, message or note to move it to Working' },
+  working: { title: 'Working Leads', subtitle: "Leads you've acted on and are still working — Won, Lost, Dropped and Hold leads leave this list" },
   'dropped-hold': { title: 'Dropped & Hold', subtitle: 'Dropped and on-hold leads with their history — change the status to bring one back' },
   followups: { title: 'Follow-ups', subtitle: 'Every scheduled next action on your leads, with its type and exact due time' },
 };
@@ -63,6 +80,19 @@ function applyAttrFilters(list, f) {
     (!f.breached || l.followUpBreached));
 }
 
+/** "12" for the whole list, "5 of 12" once filters narrow it. */
+function CountChip({ shown, base }) {
+  const narrowed = base != null && shown !== base;
+  return (
+    <span
+      className="ml-2 align-middle inline-flex items-center px-2.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 text-xs font-bold"
+      title={narrowed ? `${shown} shown of ${base} in this list` : `${shown} in this list`}
+    >
+      {narrowed ? `${shown} of ${base}` : shown}
+    </span>
+  );
+}
+
 function FilterNotice({ children, onClear }) {
   return (
     <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl px-4 py-2.5 text-xs font-medium text-amber-500 flex items-center justify-between gap-3">
@@ -72,15 +102,33 @@ function FilterNotice({ children, onClear }) {
   );
 }
 
+// Rows shown before "Show all" — keeps a long overdue list from pushing the lead cards off screen
+const DUE_PREVIEW = 4;
+
 function DueList({ leads, tone, onOpen }) {
   const overdue = tone === 'overdue';
+  const [expanded, setExpanded] = useState(false);
+  const collapsible = leads.length > DUE_PREVIEW;
+  const visible = collapsible && !expanded ? leads.slice(0, DUE_PREVIEW) : leads;
   return (
     <div className={`${overdue ? 'bg-red-500/5 border-red-500/20' : 'bg-primary/5 border-primary/20'} border rounded-xl p-4`}>
-      <h3 className={`text-sm font-bold flex items-center gap-2 mb-3 ${overdue ? 'text-red-400' : 'text-primary'}`}>
-        {overdue ? <AlertTriangle size={16} /> : <Clock size={16} />} {overdue ? 'Overdue Follow-ups' : 'Follow-ups Today'} ({leads.length})
-      </h3>
-      <div className="space-y-2">
-        {leads.map((lead) => (
+      <div className="flex items-center justify-between gap-3 mb-3">
+        <h3 className={`text-sm font-bold flex items-center gap-2 ${overdue ? 'text-red-400' : 'text-primary'}`}>
+          {overdue ? <AlertTriangle size={16} /> : <Clock size={16} />} {overdue ? 'Overdue Follow-ups' : 'Follow-ups Today'} ({leads.length})
+        </h3>
+        {collapsible && (
+          <button
+            type="button"
+            onClick={() => setExpanded((open) => !open)}
+            aria-expanded={expanded}
+            className={`text-xs font-semibold flex items-center gap-1 hover:underline cursor-pointer ${overdue ? 'text-red-400' : 'text-primary'}`}
+          >
+            {expanded ? <>Show less <ChevronUp size={14} /></> : <>Show all {leads.length} <ChevronDown size={14} /></>}
+          </button>
+        )}
+      </div>
+      <div className={`space-y-2 ${expanded ? 'max-h-80 overflow-y-auto pr-1' : ''}`}>
+        {visible.map((lead) => (
           <button key={lead._id} onClick={() => onOpen(lead)}
             className={`w-full flex items-center justify-between gap-3 px-4 py-2.5 rounded-lg border text-left transition-colors bg-form-input-bg ${overdue ? 'border-red-500/10 hover:border-red-500/30' : 'border-primary/10 hover:border-primary/30'}`}>
             <div className="min-w-0">
@@ -91,6 +139,11 @@ function DueList({ leads, tone, onOpen }) {
           </button>
         ))}
       </div>
+      {collapsible && !expanded && (
+        <button type="button" onClick={() => setExpanded(true)} className="mt-2 w-full text-center text-xs text-app-text-muted hover:text-app-text cursor-pointer">
+          + {leads.length - DUE_PREVIEW} more, oldest first
+        </button>
+      )}
     </div>
   );
 }
@@ -101,6 +154,10 @@ export default function LeadListsTab({ view }) {
   const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
   const { data: leads = [], isLoading } = useEssLeads();
+  const counts = leadListCounts(leads);
+  const countOf = (list, match) => list.filter(match).length;
+  const workingLeads = leads.filter(isWorkingLead);
+  const followUpLeads = leads.filter(hasFollowUp);
   const [statusFilter, setStatusFilter] = useState(() => searchParams.get('status') || 'All');
   const [interestFilter, setInterestFilter] = useState(() => searchParams.get('interest') || 'All');
   const [bucket, setBucket] = useState(() => searchParams.get('bucket') || 'All');
@@ -113,6 +170,27 @@ export default function LeadListsTab({ view }) {
   const [sort, setSort] = useState('');
   const [attrs, setAttrs] = useState(NO_ATTR_FILTERS);
   const setAttr = (key) => (e) => setAttrs((a) => ({ ...a, [key]: e.target.value }));
+
+  // Back to page 1 whenever the tab, a filter or the search changes (state adjusted while rendering,
+  // React's pattern for resetting state from props — an effect would paint the stale page first).
+  const sig = JSON.stringify([view, statusFilter, interestFilter, bucket, followUpTypeFilter, dateField, dateFrom, dateTo, connected, sort, attrs, searchParams.toString()]);
+  const [pager, setPager] = useState(() => ({ sig, page: 1, size: readPageSize() }));
+  if (pager.sig !== sig) setPager((p) => ({ ...p, sig, page: 1 }));
+  const page = pager.sig === sig ? pager.page : 1;
+  const pageSize = pager.size;
+  const goToPage = (next) => {
+    setPager((p) => ({ ...p, sig, page: next }));
+    document.getElementById('lead-list-top')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+  const changePageSize = (size) => {
+    writePageSize(size);
+    setPager({ sig, page: 1, size });
+  };
+  const pageOf = (list) => {
+    const last = Math.max(1, Math.ceil(list.length / pageSize));
+    const current = Math.min(page, last);
+    return list.slice((current - 1) * pageSize, current * pageSize);
+  };
   const dateFilters = { dateField, dateFrom, dateTo, connected, sort };
   const attrsActive = Object.keys(NO_ATTR_FILTERS).some((k) => attrs[k] !== NO_ATTR_FILTERS[k]);
   const datesActive = Boolean(dateFrom || dateTo || connected !== 'All' || sort) || attrsActive;
@@ -132,10 +210,13 @@ export default function LeadListsTab({ view }) {
   const openLead = (lead) => navigate(`/employee/leads/${lead._id}`);
   const cards = (list) => (
     <div className="grid grid-cols-1 gap-4">
-      {list.map((lead) => <LeadCard key={lead._id} lead={lead} navigate={navigate} onUpdated={updateLead} />)}
+      {pageOf(list).map((lead) => <LeadCard key={lead._id} lead={lead} navigate={navigate} onUpdated={updateLead} />)}
     </div>
   );
 
+  // `shown` = rows in the list below; `base` = the whole list before filters (null when a drill-down looks past it)
+  let shown = null;
+  let base = null;
   let body;
   if (isLoading) {
     body = <Spinner />;
@@ -143,6 +224,8 @@ export default function LeadListsTab({ view }) {
     const urgentOnly = searchParams.get('urgent') === '1';
     let list = applyAttrFilters(applyDateFilters(leads.filter((l) => l.isRaw), dateFilters), attrs);
     if (urgentOnly) list = list.filter(isCallPending).sort((a, b) => new Date(a.assignedAt) - new Date(b.assignedAt));
+    shown = list.length;
+    base = counts.raw;
     body = (
       <>
         {urgentOnly && <FilterNotice onClear={() => clearTo('raw-leads')}>Showing leads overdue for a first call, oldest first</FilterNotice>}
@@ -151,7 +234,9 @@ export default function LeadListsTab({ view }) {
     );
   } else if (view === 'dropped-hold') {
     const list = applyAttrFilters(applyDateFilters(leads, dateFilters), attrs)
-      .filter((l) => DROPPED_OR_HOLD.includes(l.status) && (statusFilter === 'All' || l.status === statusFilter));
+      .filter((l) => isDroppedHoldLead(l) && (statusFilter === 'All' || l.status === statusFilter));
+    shown = list.length;
+    base = counts.droppedHold;
     body = list.length ? cards(list) : <EmptyCard>No dropped or on-hold leads.</EmptyCard>;
   } else if (view === 'working') {
     const scopeAll = searchParams.get('scope') === 'all';
@@ -162,13 +247,15 @@ export default function LeadListsTab({ view }) {
     // look past the Working rule on purpose, and say so in the notice below
     const closedDrill = CLOSED_OR_HOLD.includes(statusFilter) || Boolean(payment) || thisMonth;
     const list = applyAttrFilters(applyDateFilters(leads, dateFilters), attrs).filter((l) =>
-      (scopeAll || closedDrill || (!l.isRaw && !CLOSED_OR_HOLD.includes(l.status))) &&
+      (scopeAll || closedDrill || isWorkingLead(l)) &&
       (statusFilter === 'All' || l.status === statusFilter) &&
       (interestFilter === 'All' || l.interestLevel === interestFilter) &&
       (!noNext || needsNextAction(l)) &&
       (payment !== 'pending' || isPaymentPending(l)) &&
       (payment !== 'cleared' || !isPaymentPending(l)) &&
       (!thisMonth || isWonThisMonth(l)));
+    shown = list.length;
+    base = scopeAll || closedDrill ? null : counts.working;
     const overdue = list.filter((l) => followUpBucket(l) === 'overdue').sort((a, b) => new Date(a.nextFollowUpDate) - new Date(b.nextFollowUpDate));
     const today = list.filter((l) => followUpBucket(l) === 'today').sort((a, b) => new Date(a.nextFollowUpDate) - new Date(b.nextFollowUpDate));
     const notice = noNext ? 'Showing active leads with no next action scheduled'
@@ -189,49 +276,56 @@ export default function LeadListsTab({ view }) {
       </>
     );
   } else {
-    const withFollowUp = leads.filter((l) => followUpBucket(l) !== null);
+    const withFollowUp = followUpLeads;
     // Earliest due first (overdue on top); same due time → most recently updated first
     let list = (bucket === 'All' ? withFollowUp : withFollowUp.filter((l) => followUpBucket(l) === bucket.toLowerCase()))
       .filter((l) => followUpTypeFilter === 'All' || (followUpTypeFilter === 'Not set' ? !l.followUpType : l.followUpType === followUpTypeFilter))
       .sort((a, b) => (new Date(a.nextFollowUpDate) - new Date(b.nextFollowUpDate)) || (new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0)));
     list = applyDateFilters(list, dateFilters);
+    shown = list.length;
+    base = counts.followups;
     body = list.length ? cards(list) : <EmptyCard>No {bucket !== 'All' ? `${bucket.toLowerCase()} ` : ''}follow-ups right now.</EmptyCard>;
   }
 
   return (
-    <div className="space-y-6">
-      <TabHeader title={VIEWS[view].title} subtitle={VIEWS[view].subtitle}>
+    <div className="space-y-6" id="lead-list-top">
+      <TabHeader
+        title={<>{VIEWS[view].title}{shown != null && <CountChip shown={shown} base={base} />}</>}
+        subtitle={VIEWS[view].subtitle}
+      >
         {view === 'working' && (
           <>
             <select value={interestFilter} onChange={(e) => setInterestFilter(e.target.value)} className={selectClass} aria-label="Interest level">
-              <option value="All">All Interest Levels</option>
-              {INTEREST_LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
+              <option value="All">All Interest Levels ({counts.working})</option>
+              {INTEREST_LEVELS.map((l) => <option key={l} value={l}>{l} ({countOf(workingLeads, (x) => x.interestLevel === l)})</option>)}
             </select>
             <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className={selectClass} aria-label="Status">
-              <option value="All">All Statuses</option>
-              {[...WORKING_STATUSES, ...(WORKING_STATUSES.includes(statusFilter) || statusFilter === 'All' ? [] : [statusFilter])].map((s) => <option key={s} value={s}>{s}</option>)}
+              <option value="All">All Statuses ({counts.working})</option>
+              {[...WORKING_STATUSES, ...(WORKING_STATUSES.includes(statusFilter) || statusFilter === 'All' ? [] : [statusFilter])].map((s) => (
+                <option key={s} value={s}>{WORKING_STATUSES.includes(s) ? `${s} (${countOf(workingLeads, (x) => x.status === s)})` : s}</option>
+              ))}
             </select>
           </>
         )}
         {view === 'dropped-hold' && (
           <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className={selectClass} aria-label="Status">
-            <option value="All">Dropped &amp; Hold</option>
-            {DROPPED_OR_HOLD.map((s) => <option key={s} value={s}>{s}</option>)}
+            <option value="All">Dropped &amp; Hold ({counts.droppedHold})</option>
+            {DROPPED_OR_HOLD.map((s) => <option key={s} value={s}>{s} ({countOf(leads, (x) => x.status === s)})</option>)}
           </select>
         )}
         {view === 'followups' && (
           <select value={followUpTypeFilter} onChange={(e) => setFollowUpTypeFilter(e.target.value)} className={selectClass} aria-label="Follow-up type">
-            <option value="All">All follow-up types</option>
-            {FOLLOW_UP_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-            <option value="Not set">Type not set</option>
+            <option value="All">All follow-up types ({counts.followups})</option>
+            {FOLLOW_UP_TYPES.map((t) => <option key={t} value={t}>{t} ({countOf(followUpLeads, (x) => x.followUpType === t)})</option>)}
+            <option value="Not set">Type not set ({countOf(followUpLeads, (x) => !x.followUpType)})</option>
           </select>
         )}
         {view === 'followups' && (
           <div className="flex bg-app-card border border-app-border p-1 rounded-lg">
-            {['All', 'Overdue', 'Today', 'Upcoming'].map((tab) => (
+            {[['All', counts.followups], ['Overdue', counts.overdue], ['Today', counts.today], ['Upcoming', counts.upcoming]].map(([tab, n]) => (
               <button key={tab} onClick={() => setBucket(tab)}
                 className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer ${bucket === tab ? 'bg-primary text-white' : 'text-app-text-muted hover:text-app-text'}`}>
-                {tab}
+                {tab} ({n})
               </button>
             ))}
           </div>
@@ -294,6 +388,10 @@ export default function LeadListsTab({ view }) {
         {datesActive && <button onClick={clearDates} className="text-xs text-app-text-muted underline hover:text-primary cursor-pointer">Clear</button>}
       </div>
       {body}
+      {shown != null && (
+        <Pagination total={shown} page={page} pageSize={pageSize} onPage={goToPage} onPageSize={changePageSize}
+          label={view === 'followups' ? 'follow-ups' : 'leads'} />
+      )}
     </div>
   );
 }
