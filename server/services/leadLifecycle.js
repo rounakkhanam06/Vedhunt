@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const { actionStamp } = require('../utils/leadActivity');
+const { callDurationMinutes } = require('../utils/callOutcome');
 const { validateLeadTransition, normalizeDateFields, isSameInstant, TERMINAL_STATUSES } = require('../utils/leadStateMachine');
 const { findLeadRaw } = require('../utils/leadLookup');
 const { convertWonLeadToClient } = require('./clientProvisioning');
@@ -213,13 +214,22 @@ async function applyLeadUpdate(leadId, updates, actor, extraFilter = {}) {
     else if (resultingStage === 'Proposal Sent') callType = 'Proposal';
     else if (resultingStage === 'Negotiation') callType = 'Negotiation';
 
+    // Duration from this call's own timer only (utils/callOutcome.js) — an
+    // untimed call used to inherit the previous call's duration
+    const callStartTime = updates.callStartTime || existingLead.callStartTime;
+    const callEndTime = updates.callEndTime || existingLead.callEndTime;
+    const priorLog = amendsLastCall ? mergedCallLogs[mergedCallLogs.length - 2] : lastLog;
     const callLog = {
       touchNumber,
       calledBy: actor.id,
       callDate: callDateUsed,
-      callStartTime: updates.callStartTime || existingLead.callStartTime,
-      callEndTime: updates.callEndTime || existingLead.callEndTime,
-      callDuration: updates.callDuration ?? existingLead.callDuration,
+      callStartTime,
+      callEndTime,
+      callDuration: callDurationMinutes({ callStartTime, callEndTime }, priorLog?.loggedAt || priorLog?.callDate),
+      // The next action as it stood right after this call, for Lead Activity
+      nextFollowUpDate: 'nextFollowUpDate' in updates ? updates.nextFollowUpDate : existingLead.nextFollowUpDate,
+      nextActionType: 'nextActionType' in updates ? updates.nextActionType : existingLead.nextActionType,
+      followUpType: 'followUpType' in updates ? updates.followUpType : existingLead.followUpType,
       connected: updates.connected,
       notConnectedReason: resultingNotConnectedReason,
       interestLevel: updates.connected === 'Yes' ? (updates.interestLevel || existingLead.interestLevel || '') : '',
@@ -339,6 +349,7 @@ async function applyLeadUpdate(leadId, updates, actor, extraFilter = {}) {
           dueDate: updates.nextFollowUpDate,
           note: updates.remark || '',
           actionType: updatedLead?.nextActionType || '',
+          followUpType: updatedLead?.followUpType || '',
           type: 'Primary',
           status: 'Pending'
         });
@@ -346,11 +357,14 @@ async function applyLeadUpdate(leadId, updates, actor, extraFilter = {}) {
     } catch (err) {
       logger.error(`Primary FollowUpTask sync failed for lead ${existingLead._id}:`, err);
     }
-  } else if ('nextActionType' in updates && updates.nextActionType !== existingLead.nextActionType) {
+  } else if (
+    ('nextActionType' in updates && updates.nextActionType !== existingLead.nextActionType)
+    || ('followUpType' in updates && updates.followUpType !== existingLead.followUpType)
+  ) {
     // Same date, different kind of action — keep the open Primary task in step.
     await FollowUpTask.updateMany(
       { lead: existingLead._id, type: 'Primary', status: 'Pending' },
-      { $set: { actionType: updates.nextActionType || '' } }
+      { $set: { actionType: updatedLead?.nextActionType || '', followUpType: updatedLead?.followUpType || '' } }
     ).catch((err) => logger.error(`Primary FollowUpTask action sync failed for lead ${existingLead._id}:`, err));
   }
 
@@ -397,6 +411,7 @@ async function completeFollowUp(leadId, input, actor, extraFilter = {}) {
     remark: result.slice(0, 1000),
     nextFollowUpDate: input.nextFollowUpDate || null,
     nextActionType: input.nextFollowUpDate ? (input.nextActionType || '') : '',
+    followUpType: input.nextFollowUpDate ? (input.followUpType || '') : '',
     ...(input.connected === 'Yes' ? { interestLevel: input.interestLevel } : { notConnectedReason: input.notConnectedReason }),
   };
   return applyLeadUpdate(leadId, updates, actor, extraFilter);

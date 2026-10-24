@@ -8,7 +8,7 @@ import { Spinner, EmptyCard, TabHeader } from '../components/PortalUI';
 import { useEssLeads, essKeys } from '../lib/ess';
 import { fmtDateTime, toDateInput } from '../lib/datetime';
 import { followUpBucket, isCallPending, needsNextAction, isPaymentPending, isWonThisMonth, mergeLead, CLOSED_OR_HOLD, DROPPED_OR_HOLD } from '../lib/leads';
-import { INTEREST_LEVELS } from '../../shared/leadConstants';
+import { FOLLOW_UP_TYPES, INTEREST_LEVELS } from '../../shared/leadConstants';
 import { SERVICES_REQUIRED_OPTIONS, LEAD_PRIORITY_LEVELS } from '../../shared/serviceQualification';
 
 // Statuses a Working lead can have; closed/hold ones are only reached through a dashboard drill-down
@@ -27,7 +27,7 @@ const VIEWS = {
 };
 
 // Which lead date the From/To range applies to, and the list orderings.
-const DATE_FIELDS = { createdAt: 'Received', assignedAt: 'Assigned', lastCallAt: 'Last call', lastActivityAt: 'Last activity' };
+const DATE_FIELDS = { createdAt: 'Received', assignedAt: 'Assigned', lastCallAt: 'Last call', lastActivityAt: 'Last activity', nextFollowUpDate: 'Follow-up due' };
 const SORTS = {
   received: { label: 'Newest received', field: 'createdAt' },
   assigned: { label: 'Recently assigned', field: 'assignedAt' },
@@ -85,7 +85,7 @@ function DueList({ leads, tone, onOpen }) {
             className={`w-full flex items-center justify-between gap-3 px-4 py-2.5 rounded-lg border text-left transition-colors bg-form-input-bg ${overdue ? 'border-red-500/10 hover:border-red-500/30' : 'border-primary/10 hover:border-primary/30'}`}>
             <div className="min-w-0">
               <p className="text-sm font-medium text-app-text truncate">{lead.fullName}</p>
-              <p className="text-xs text-app-text-muted truncate">{lead.nextActionType || 'Follow-up'} · {lead.service}</p>
+              <p className="text-xs text-app-text-muted truncate">{lead.followUpType || lead.nextActionType || 'Follow-up'} · {lead.service}</p>
             </div>
             <span className={`text-xs font-mono shrink-0 ${overdue ? 'text-red-400' : 'text-primary'}`}>{fmtDateTime(lead.nextFollowUpDate)}</span>
           </button>
@@ -104,6 +104,7 @@ export default function LeadListsTab({ view }) {
   const [statusFilter, setStatusFilter] = useState(() => searchParams.get('status') || 'All');
   const [interestFilter, setInterestFilter] = useState(() => searchParams.get('interest') || 'All');
   const [bucket, setBucket] = useState(() => searchParams.get('bucket') || 'All');
+  const [followUpTypeFilter, setFollowUpTypeFilter] = useState('All');
   const [dateField, setDateField] = useState('lastCallAt');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
@@ -189,8 +190,10 @@ export default function LeadListsTab({ view }) {
     );
   } else {
     const withFollowUp = leads.filter((l) => followUpBucket(l) !== null);
+    // Earliest due first (overdue on top); same due time → most recently updated first
     let list = (bucket === 'All' ? withFollowUp : withFollowUp.filter((l) => followUpBucket(l) === bucket.toLowerCase()))
-      .sort((a, b) => new Date(a.nextFollowUpDate) - new Date(b.nextFollowUpDate));
+      .filter((l) => followUpTypeFilter === 'All' || (followUpTypeFilter === 'Not set' ? !l.followUpType : l.followUpType === followUpTypeFilter))
+      .sort((a, b) => (new Date(a.nextFollowUpDate) - new Date(b.nextFollowUpDate)) || (new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0)));
     list = applyDateFilters(list, dateFilters);
     body = list.length ? cards(list) : <EmptyCard>No {bucket !== 'All' ? `${bucket.toLowerCase()} ` : ''}follow-ups right now.</EmptyCard>;
   }
@@ -214,6 +217,13 @@ export default function LeadListsTab({ view }) {
           <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className={selectClass} aria-label="Status">
             <option value="All">Dropped &amp; Hold</option>
             {DROPPED_OR_HOLD.map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
+        )}
+        {view === 'followups' && (
+          <select value={followUpTypeFilter} onChange={(e) => setFollowUpTypeFilter(e.target.value)} className={selectClass} aria-label="Follow-up type">
+            <option value="All">All follow-up types</option>
+            {FOLLOW_UP_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+            <option value="Not set">Type not set</option>
           </select>
         )}
         {view === 'followups' && (

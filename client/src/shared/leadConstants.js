@@ -46,3 +46,16 @@ export const PAYMENT_STATUS_OPTIONS = ['Not Applicable', 'Pending', 'Partially P
 
 // What a scheduled follow-up is — mirrors NEXT_ACTION_TYPES in server/utils/leadStateMachine.js
 export const NEXT_ACTION_TYPES = ['Call', 'WhatsApp', 'Email', 'Meeting', 'Proposal', 'Payment Follow-up', 'Other'];
+
+// What a follow-up is for (server/utils/leadStateMachine.js FOLLOW_UP_TYPES);
+// NEXT_ACTION_TYPES above is the channel.
+export const FOLLOW_UP_TYPES = ['First Meeting', 'Technical / Strategy Discussion', 'Pricing Negotiation', 'Onboarding', 'Payment Follow-up', 'Other'];
+
+export const FOLLOW_UP_TYPE_BADGE = {
+  'First Meeting': 'bg-sky-500/10 text-sky-400 border-sky-500/30',
+  'Technical / Strategy Discussion': 'bg-indigo-500/10 text-indigo-400 border-indigo-500/30',
+  'Pricing Negotiation': 'bg-amber-500/10 text-amber-400 border-amber-500/30',
+  Onboarding: 'bg-teal-500/10 text-teal-400 border-teal-500/30',
+  'Payment Follow-up': 'bg-fuchsia-500/10 text-fuchsia-400 border-fuchsia-500/30',
+  Other: 'bg-slate-500/10 text-slate-300 border-slate-500/30',
+};

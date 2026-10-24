@@ -35,6 +35,13 @@ const assignmentLogSchema = new mongoose.Schema({
     enum: ['Manual', 'Auto-RoundRobin', 'Cross-Assign', 'Cross-Unassign'],
     required: true
   },
+  // Cross-Assign / Cross-Unassign: the lead's owner at that moment (unchanged
+  // by the share). Ownership changes carry it in fromAdmin / toAdmin instead.
+  leadOwner: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Admin',
+    default: null
+  },
   // Set when the change was part of a bulk reassignment (BulkAssignmentRun)
   bulkRun: {
     type: mongoose.Schema.Types.ObjectId,
@@ -49,5 +56,6 @@ const assignmentLogSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 assignmentLogSchema.index({ lead: 1, createdAt: -1 });
+assignmentLogSchema.index({ createdAt: -1 });
 
 module.exports = mongoose.model('AssignmentLog', assignmentLogSchema);

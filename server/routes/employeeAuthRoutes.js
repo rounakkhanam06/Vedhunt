@@ -40,7 +40,7 @@ router.post('/forgot-password', ...forgotLimiter, async (req, res) => {
     const resetToken = admin.getResetPasswordToken();
     await Admin.updateOne({ _id: admin._id }, { $set: { resetPasswordToken: admin.resetPasswordToken, resetPasswordExpire: admin.resetPasswordExpire } });
 
-    const resetUrl = `${(process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/$/, '')}/employee/reset-password/${resetToken}`;
+    const resetUrl = `${(process.env.FRONTEND_URL || process.env.CLIENT_ORIGIN || 'https://vedhunt.in').replace(/\/$/, '')}/employee/reset-password/${resetToken}`;
     try {
       await sendEmail({
         email: admin.email,

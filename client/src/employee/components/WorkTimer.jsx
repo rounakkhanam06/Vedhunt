@@ -273,12 +273,13 @@ export function TimerFloatingWidget() {
   return (
     <div className="fixed bottom-6 right-6 z-30 flex flex-col items-end">
       {t.state === 'idle' ? (
-        <button onClick={t.openStart}
-          className="bg-app-card hover:bg-app-border/10 border border-app-border text-app-text p-4 rounded-xl shadow-xl flex items-center gap-3 transition-colors cursor-pointer group">
-          <div className="bg-emerald-500/20 text-emerald-500 p-2 rounded-lg group-hover:bg-emerald-500 group-hover:text-white transition-colors">
-            <Play size={20} className="fill-current" />
+        // Compact pill when idle — it floats over the page, so it stays small
+        <button onClick={t.openStart} title="Start timer"
+          className="bg-app-card hover:bg-app-border/10 border border-app-border text-app-text pl-2 pr-4 py-2 rounded-full shadow-xl flex items-center gap-2 transition-colors cursor-pointer group">
+          <div className="bg-emerald-500/20 text-emerald-500 p-1.5 rounded-full group-hover:bg-emerald-500 group-hover:text-white transition-colors">
+            <Play size={14} className="fill-current" />
           </div>
-          <div className="font-bold">Start Timer</div>
+          <div className="font-semibold text-sm">Start Timer</div>
         </button>
       ) : (
         // Fixed brand-orange chip in both themes, so its text/icons stay white.

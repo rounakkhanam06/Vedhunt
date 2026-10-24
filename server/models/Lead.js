@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 const { normalizePhone, normalizeEmail } = require('../utils/normalize');
-const { NOT_CONNECTED_REASONS, INTEREST_LEVELS, LOST_DROPPED_REASONS, NEXT_ACTION_TYPES } = require('../utils/leadStateMachine');
+const { NOT_CONNECTED_REASONS, INTEREST_LEVELS, LOST_DROPPED_REASONS, NEXT_ACTION_TYPES, FOLLOW_UP_TYPES } = require('../utils/leadStateMachine');
 
 const leadSchema = new mongoose.Schema({
   // Full original submission payload, captured once at ingestion (before
@@ -231,6 +231,12 @@ const leadSchema = new mongoose.Schema({
     enum: [...NEXT_ACTION_TYPES, '', null],
     trim: true
   },
+  // What the scheduled follow-up is for (First Meeting, Pricing Negotiation...)
+  followUpType: {
+    type: String,
+    enum: [...FOLLOW_UP_TYPES, '', null],
+    trim: true
+  },
   leadAgeAtCall: {
     type: Number
   },
@@ -277,6 +283,10 @@ const leadSchema = new mongoose.Schema({
     callStartTime: Date,
     callEndTime: Date,
     callDuration: Number,
+    // Next action as scheduled right after this call (Lead Activity)
+    nextFollowUpDate: Date,
+    nextActionType: String,
+    followUpType: String,
     connected: {
       type: String,
       enum: ['Yes', 'No', '', null]
@@ -543,6 +553,7 @@ leadSchema.index({ assignedAt: -1 });
 leadSchema.index({ 'sharedWith.admin': 1 });
 leadSchema.index({ lastCallAt: -1 });
 leadSchema.index({ status: 1, assignedTo: 1, firstActionAt: 1 });
+leadSchema.index({ nextFollowUpDate: 1, updatedAt: -1 });
 
 // Duplicate-detection lookups (see server/services/leadDedup.js) filter by
 // these on every incoming lead, so they need real indexes rather than falling

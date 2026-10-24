@@ -4,6 +4,7 @@ import { Clock, Filter, ChevronDown, ChevronLeft, ChevronRight, Phone, AlertTria
 import toast from 'react-hot-toast';
 import { useLeadAccess } from '../../shared/crmAccess';
 import { formatMinutes } from '../../shared/formatDuration';
+import { FOLLOW_UP_TYPES, FOLLOW_UP_TYPE_BADGE } from '../../shared/leadConstants';
 
 const BUCKET_TABS = ['All', 'Overdue', 'Today', 'Upcoming', 'Action Missing'];
 
@@ -48,6 +49,9 @@ export default function FollowUpsManager() {
     return BUCKET_TABS.includes(fromUrl) ? fromUrl : 'All';
   });
   const [categoryFilter, setCategoryFilter] = useState('All');
+  const [typeFilter, setTypeFilter] = useState('All');
+  const [dueFrom, setDueFrom] = useState('');
+  const [dueTo, setDueTo] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
@@ -62,7 +66,7 @@ export default function FollowUpsManager() {
     try {
       const response = isActionMissing
         ? await http.get(`${root}/admin/activity/action-missing`, { params: { page: currentPage, limit: 20, by: bdFilter, category: categoryFilter } })
-        : await http.get(`${root}/admin/activity/followups`, { params: { page: currentPage, limit: 20, by: bdFilter, bucket: bucketFilter } });
+        : await http.get(`${root}/admin/activity/followups`, { params: { page: currentPage, limit: 20, by: bdFilter, bucket: bucketFilter, followUpType: typeFilter, dueFrom: dueFrom || undefined, dueTo: dueTo || undefined } });
       if (response.data.success) {
         setFollowUps(response.data.data);
         setTotalPages(response.data.totalPages);
@@ -74,7 +78,7 @@ export default function FollowUpsManager() {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, bdFilter, bucketFilter, categoryFilter, isActionMissing]);
+  }, [currentPage, bdFilter, bucketFilter, categoryFilter, typeFilter, dueFrom, dueTo, isActionMissing]);
 
   useEffect(() => {
     fetchFollowUps();
@@ -160,7 +164,7 @@ export default function FollowUpsManager() {
                   <td className="px-4 py-2 text-app-text font-medium">{displayName(row.bd)}</td>
                   <td className="px-4 py-2 text-app-text-muted">{row.assignedCount}</td>
                   <td className="px-4 py-2 text-app-text-muted">{row.callsMade}</td>
-                  <td className="px-4 py-2 text-app-text-muted">{row.connectRate}%</td>
+                  <td className="px-4 py-2 text-app-text-muted">{row.connectRate == null ? '—' : `${row.connectRate}%`}</td>
                   <td className="px-4 py-2 text-app-text-muted">{formatMinutes(row.avgResponseMinutes)}</td>
                   <td className="px-4 py-2">
                     <span className={row.breachCount > 0 ? 'text-red-400 font-bold' : 'text-app-text-muted'}>{row.breachCount}</span>
@@ -207,7 +211,7 @@ export default function FollowUpsManager() {
       )}
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4 bg-app-card p-4 rounded-xl border border-app-border">
+      <div className="flex flex-col sm:flex-row sm:flex-wrap gap-4 bg-app-card p-4 rounded-xl border border-app-border">
         <div className="relative min-w-[200px]">
           <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-app-text-muted w-4 h-4 pointer-events-none" />
           <select
@@ -224,6 +228,34 @@ export default function FollowUpsManager() {
           </select>
           <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-app-text-muted w-4 h-4 pointer-events-none" />
         </div>
+        {!isActionMissing && (
+          <>
+            <div className="relative min-w-[200px]">
+              <select
+                value={typeFilter}
+                onChange={(e) => { setTypeFilter(e.target.value); setCurrentPage(1); }}
+                className="w-full bg-app-bg border border-app-border rounded-lg px-3 pr-10 py-2.5 text-sm text-app-text focus:outline-none focus:border-primary transition-colors appearance-none cursor-pointer"
+                aria-label="Follow-up type"
+              >
+                <option className="bg-app-bg text-app-text" value="All">All follow-up types</option>
+                {FOLLOW_UP_TYPES.map((t) => <option key={t} className="bg-app-bg text-app-text" value={t}>{t}</option>)}
+                <option className="bg-app-bg text-app-text" value="Not set">Type not set</option>
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-app-text-muted w-4 h-4 pointer-events-none" />
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-app-text-muted whitespace-nowrap">Due</span>
+              <input type="date" value={dueFrom} onChange={(e) => { setDueFrom(e.target.value); setCurrentPage(1); }} aria-label="Due from"
+                className="bg-app-bg border border-app-border rounded-lg px-3 py-2 text-sm text-app-text focus:outline-none focus:border-primary" style={{ colorScheme: 'dark' }} />
+              <span className="text-xs text-app-text-muted">to</span>
+              <input type="date" value={dueTo} onChange={(e) => { setDueTo(e.target.value); setCurrentPage(1); }} aria-label="Due to"
+                className="bg-app-bg border border-app-border rounded-lg px-3 py-2 text-sm text-app-text focus:outline-none focus:border-primary" style={{ colorScheme: 'dark' }} />
+              {(dueFrom || dueTo) && (
+                <button onClick={() => { setDueFrom(''); setDueTo(''); setCurrentPage(1); }} className="text-xs text-app-text-muted hover:text-primary underline">Clear</button>
+              )}
+            </div>
+          </>
+        )}
         <div className="bg-primary/10 text-primary px-4 py-2.5 rounded-lg font-bold text-sm whitespace-nowrap text-center sm:ml-auto">
           Total: {total}
         </div>
@@ -234,6 +266,7 @@ export default function FollowUpsManager() {
           <div className="w-8 h-8 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
         </div>
       ) : (
+        !isActionMissing ? <FollowUpTable rows={followUps} bucketFilter={bucketFilter} onOpen={(id) => navigate(leadPath(id))} /> : (
         <div className="bg-app-card border border-app-border rounded-xl overflow-x-auto">
           <table className="w-full text-left text-sm min-w-[800px]">
             <thead className="bg-app-bg text-app-text-muted text-xs uppercase tracking-wider border-b border-app-border">
@@ -296,6 +329,7 @@ export default function FollowUpsManager() {
             </tbody>
           </table>
         </div>
+        )
       )}
 
       {totalPages > 1 && (
@@ -321,6 +355,81 @@ export default function FollowUpsManager() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+const fmtWhen = (d) => (d ? new Date(d).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—');
+
+/** Follow-ups: due first (overdue on top), type up front, everything needed to act on the row. */
+function FollowUpTable({ rows, bucketFilter, onOpen }) {
+  return (
+    <div className="bg-app-card border border-app-border rounded-xl overflow-x-auto">
+      <table className="w-full text-left text-sm min-w-[1100px]">
+        <thead className="bg-app-bg text-app-text-muted text-xs uppercase tracking-wider border-b border-app-border">
+          <tr>
+            <th className="px-4 py-3 font-semibold">Next follow-up</th>
+            <th className="px-4 py-3 font-semibold">Type</th>
+            <th className="px-4 py-3 font-semibold">Client</th>
+            <th className="px-4 py-3 font-semibold">Owner</th>
+            <th className="px-4 py-3 font-semibold">Stage</th>
+            <th className="px-4 py-3 font-semibold">Last contact</th>
+            <th className="px-4 py-3 font-semibold">Latest note</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-app-border">
+          {rows.length === 0 ? (
+            <tr>
+              <td colSpan={7} className="px-4 py-8 text-center text-app-text-muted">
+                No follow-ups found{bucketFilter !== 'All' ? ` for "${bucketFilter}"` : ''}.
+              </td>
+            </tr>
+          ) : rows.map((lead) => {
+            const overdue = lead.bucket === 'Overdue';
+            return (
+              <tr key={lead._id} className={`transition-colors ${overdue ? 'bg-red-500/[0.06] hover:bg-red-500/10 border-l-4 border-l-red-500' : 'hover:bg-app-bg'}`}>
+                <td className="px-4 py-3 whitespace-nowrap">
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider border ${BUCKET_BADGE[lead.bucket] || 'bg-app-bg text-app-text-muted border-app-border'}`}>
+                    {overdue && <AlertTriangle size={11} className="mr-1" />}{lead.bucket}
+                  </span>
+                  <p className={`text-sm mt-1 ${overdue ? 'text-red-400 font-semibold' : 'text-app-text'}`}>{fmtWhen(lead.nextFollowUpDate)}</p>
+                  {lead.nextActionType && <p className="text-[11px] text-app-text-muted">via {lead.nextActionType}</p>}
+                </td>
+                <td className="px-4 py-3">
+                  {lead.followUpType ? (
+                    <span className={`inline-flex px-2.5 py-1 rounded-md text-xs font-bold border ${FOLLOW_UP_TYPE_BADGE[lead.followUpType] || FOLLOW_UP_TYPE_BADGE.Other}`}>
+                      {lead.followUpType}
+                    </span>
+                  ) : <span className="text-xs text-app-text-muted italic">Type not set</span>}
+                </td>
+                <td className="px-4 py-3">
+                  <button onClick={() => onOpen(lead._id)} className="font-medium text-app-text hover:text-primary hover:underline text-left flex items-center gap-1.5">
+                    <Phone size={12} className="text-app-text-muted" /> {lead.fullName}
+                  </button>
+                  <p className="text-xs text-app-text-muted mt-0.5">{[lead.businessName, lead.phone].filter(Boolean).join(' · ')}</p>
+                </td>
+                <td className="px-4 py-3 text-app-text whitespace-nowrap">
+                  {displayName(lead.assignedTo)}
+                  {lead.sharedCount > 0 && <p className="text-[11px] text-purple-400">+{lead.sharedCount} shared</p>}
+                </td>
+                <td className="px-4 py-3 text-app-text-muted whitespace-nowrap">
+                  {lead.status}
+                  {lead.interestLevel && <p className="text-[11px]">{lead.interestLevel}</p>}
+                </td>
+                <td className="px-4 py-3 text-app-text-muted whitespace-nowrap">{fmtWhen(lead.lastContactAt)}</td>
+                <td className="px-4 py-3 text-app-text-muted max-w-[260px]">
+                  {lead.latestNote ? (
+                    <>
+                      <p className="text-app-text line-clamp-2" title={lead.latestNote.text}>{lead.latestNote.text}</p>
+                      <p className="text-[11px]">{lead.latestNote.source === 'remark' ? 'Remark' : `${lead.latestNote.author} · ${fmtWhen(lead.latestNote.createdAt)}`}</p>
+                    </>
+                  ) : '—'}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 }

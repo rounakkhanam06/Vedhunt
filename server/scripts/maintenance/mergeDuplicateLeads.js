@@ -80,7 +80,7 @@ const LAST_CALL = [
 ];
 // Taken together from the imported copy when it has a next follow-up.
 const FOLLOW_UP = [
-  'nextFollowUpDate', 'nextActionType', 'followUpReminderSentAt', 'followUpDueNotifiedAt',
+  'nextFollowUpDate', 'nextActionType', 'followUpType', 'followUpReminderSentAt', 'followUpDueNotifiedAt',
   'followUpOverdueBDNotifiedAt', 'followUpOverdueManagerNotifiedAt', 'followUpBreached', 'followUpBreachedAt',
 ];
 const SPECIAL = new Set([

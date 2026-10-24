@@ -7,6 +7,9 @@ const { directReportIds } = require('./approvalRouting');
 const { TERMINAL_STATUSES } = require('../utils/leadStateMachine');
 const { hasPermission } = require('../config/permissions');
 const { leadSearchFilter } = require('./employeeLeads');
+const FollowUpTask = require('../models/FollowUpTask');
+const { WITH_PREV_AT } = require('./callActivity');
+const { DURATION_EXPR } = require('../utils/callOutcome');
 
 /**
  * My Team Performance — per-BDE call and lead numbers for a manager's direct
@@ -19,7 +22,11 @@ const { leadSearchFilter } = require('./employeeLeads');
 const NON_ACTIVE_STATUSES = [...TERMINAL_STATUSES, 'Hold'];
 const PERIODS = ['today', 'week', 'month', 'custom'];
 
-/** `period` = today | week (Mon–now) | month | custom (`from`/`to` as YYYY-MM-DD). */
+// Every period boundary is a calendar day in the server's timezone —
+// APP_TIMEZONE, Asia/Kolkata (IST) by default (server.js sets process.env.TZ).
+const TIME_ZONE = process.env.TZ || 'Asia/Kolkata';
+
+/** `period` = today | week (Mon–now) | month | custom (`from`/`to` as YYYY-MM-DD, whole days). */
 function periodRange({ period = 'today', from, to } = {}) {
   const now = new Date();
   const start = new Date(now);
@@ -30,11 +37,12 @@ function periodRange({ period = 'today', from, to } = {}) {
   } else if (period === 'month') {
     start.setDate(1);
   } else if (period === 'custom') {
-    if (from) start.setTime(new Date(from).setHours(0, 0, 0, 0));
-    if (to) end = new Date(new Date(to).setHours(23, 59, 59, 999));
+    // `${day}T00:00:00` parses as a local (server-timezone) day, not UTC midnight
+    if (from) start.setTime(new Date(`${from}T00:00:00`).getTime());
+    if (to) end = new Date(`${to}T23:59:59.999`);
   }
   if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null;
-  return { start, end };
+  return { start, end, timeZone: TIME_ZONE };
 }
 
 const toObjectIds = (ids) => ids
@@ -78,6 +86,69 @@ const callInRange = ({ start, end }) => ({
   ],
 });
 
+/**
+ * Calling numbers per caller for `range`: calls, connected, unique leads,
+ * and talk time / average duration over the calls that were timed
+ * (utils/callOutcome.js — an untimed call has no duration).
+ */
+async function callStats(ids, range) {
+  return Lead.aggregate([
+    { $match: { 'callLogs.calledBy': { $in: ids } } },
+    WITH_PREV_AT,
+    { $unwind: '$callLogs' },
+    { $match: { 'callLogs.calledBy': { $in: ids }, ...callInRange(range) } },
+    { $addFields: { duration: DURATION_EXPR } },
+    {
+      $group: {
+        _id: '$callLogs.calledBy',
+        calls: { $sum: 1 },
+        connected: { $sum: { $cond: [{ $eq: ['$callLogs.connected', 'Yes'] }, 1, 0] } },
+        talkMinutes: { $sum: { $ifNull: ['$duration', 0] } },
+        timedCalls: { $sum: { $cond: [{ $ne: ['$duration', null] }, 1, 0] } },
+        leads: { $addToSet: '$_id' },
+      },
+    },
+  ]);
+}
+
+/** Follow-up tasks per assignee: due in `range`, and completed in `range`. */
+async function followUpStats(ids, range) {
+  const [due, completed] = await Promise.all([
+    FollowUpTask.aggregate([
+      { $match: { assignedTo: { $in: ids }, dueDate: { $gte: range.start, $lte: range.end }, status: { $ne: 'Cancelled' } } },
+      { $group: { _id: '$assignedTo', count: { $sum: 1 }, done: { $sum: { $cond: [{ $eq: ['$status', 'Completed'] }, 1, 0] } } } },
+    ]),
+    FollowUpTask.aggregate([
+      { $match: { assignedTo: { $in: ids }, status: 'Completed', completedAt: { $gte: range.start, $lte: range.end } } },
+      { $group: { _id: '$assignedTo', count: { $sum: 1 } } },
+    ]),
+  ]);
+  const dueBy = new Map(due.map((r) => [String(r._id), r]));
+  const completedBy = new Map(completed.map((r) => [String(r._id), r.count]));
+  return (id) => ({
+    followUpsDue: dueBy.get(String(id))?.count || 0,
+    followUpsDueCompleted: dueBy.get(String(id))?.done || 0,
+    followUpsCompleted: completedBy.get(String(id)) || 0,
+  });
+}
+
+/** The calling metrics for one caller's callStats row (or none). */
+function callMetrics(c) {
+  const calls = c?.calls || 0;
+  const connected = c?.connected || 0;
+  const timedCalls = c?.timedCalls || 0;
+  return {
+    calls,
+    connected,
+    notConnected: calls - connected,
+    connectRate: calls ? Math.round((connected / calls) * 100) : 0,
+    talkMinutes: c?.talkMinutes || 0,
+    timedCalls,
+    avgCallMinutes: timedCalls ? Math.round(((c?.talkMinutes || 0) / timedCalls) * 10) / 10 : null,
+    leadsWorked: c?.leads?.length || 0,
+  };
+}
+
 async function teamSummary(user, range) {
   const members = await visibleMembers(user);
   if (!members.length) return { members: [], totals: null };
@@ -86,20 +157,8 @@ async function teamSummary(user, range) {
   const todayEnd = new Date(now);
   todayEnd.setHours(23, 59, 59, 999);
 
-  const [calls, pipeline, followUps, won] = await Promise.all([
-    Lead.aggregate([
-      { $unwind: '$callLogs' },
-      { $match: { 'callLogs.calledBy': { $in: ids }, ...callInRange(range) } },
-      {
-        $group: {
-          _id: '$callLogs.calledBy',
-          calls: { $sum: 1 },
-          connected: { $sum: { $cond: [{ $eq: ['$callLogs.connected', 'Yes'] }, 1, 0] } },
-          talkMinutes: { $sum: { $ifNull: ['$callLogs.callDuration', 0] } },
-          leads: { $addToSet: '$_id' },
-        },
-      },
-    ]),
+  const [calls, pipeline, followUps, won, followUpsInPeriod] = await Promise.all([
+    callStats(ids, range),
     Lead.aggregate([
       { $match: { assignedTo: { $in: ids }, status: { $nin: TERMINAL_STATUSES } } },
       { $group: { _id: { bd: '$assignedTo', status: '$status' }, count: { $sum: 1 } } },
@@ -118,6 +177,7 @@ async function teamSummary(user, range) {
       { $match: { assignedTo: { $in: ids }, status: 'Won', closedDate: { $gte: range.start, $lte: range.end } } },
       { $group: { _id: '$assignedTo', count: { $sum: 1 }, value: { $sum: { $ifNull: ['$dealCloseValue', 0] } } } },
     ]),
+    followUpStats(ids, range),
   ]);
 
   const index = (rows) => new Map(rows.map((r) => [String(r._id), r]));
@@ -136,15 +196,10 @@ async function teamSummary(user, range) {
     const key = String(m.adminId);
     const c = callsBy.get(key);
     const stages = stagesBy.get(key) || {};
-    const callCount = c?.calls || 0;
     return {
       ...m,
-      calls: callCount,
-      connected: c?.connected || 0,
-      notConnected: callCount - (c?.connected || 0),
-      connectRate: callCount ? Math.round(((c?.connected || 0) / callCount) * 100) : 0,
-      talkMinutes: c?.talkMinutes || 0,
-      leadsWorked: c?.leads?.length || 0,
+      ...callMetrics(c),
+      ...followUpsInPeriod(m.adminId),
       activeLeads: Object.values(stages).reduce((a, b) => a + b, 0),
       stages,
       followUpsDueToday: followUpsBy.get(key)?.dueToday || 0,
@@ -155,13 +210,19 @@ async function teamSummary(user, range) {
   }).sort((a, b) => b.calls - a.calls || a.name.localeCompare(b.name));
 
   const sum = (field) => rows.reduce((t, r) => t + r[field], 0);
+  // Organisation totals. Unique leads are counted once across BDEs (a lead
+  // two BDEs called is one lead), so they aren't a sum of the rows.
+  const allLeads = new Set(calls.flatMap((c) => (c.leads || []).map(String)));
   const totals = {
-    calls: sum('calls'), connected: sum('connected'), notConnected: sum('notConnected'),
-    talkMinutes: sum('talkMinutes'), leadsWorked: sum('leadsWorked'), activeLeads: sum('activeLeads'),
+    ...callMetrics({
+      calls: sum('calls'), connected: sum('connected'), talkMinutes: sum('talkMinutes'), timedCalls: sum('timedCalls'),
+      leads: [...allLeads],
+    }),
+    activeLeads: sum('activeLeads'),
     followUpsDueToday: sum('followUpsDueToday'), followUpsOverdue: sum('followUpsOverdue'),
+    followUpsDue: sum('followUpsDue'), followUpsDueCompleted: sum('followUpsDueCompleted'), followUpsCompleted: sum('followUpsCompleted'),
     won: sum('won'), wonValue: sum('wonValue'),
   };
-  totals.connectRate = totals.calls ? Math.round((totals.connected / totals.calls) * 100) : 0;
   return { members: rows, totals };
 }
 
@@ -204,7 +265,7 @@ const CALL_LOG_PROJECTION = {
   calledBy: '$callLogs.calledBy',
   touchNumber: '$callLogs.touchNumber',
   at: { $ifNull: ['$callLogs.loggedAt', '$callLogs.callDate'] },
-  duration: '$callLogs.callDuration',
+  duration: DURATION_EXPR,
   connected: '$callLogs.connected',
   notConnectedReason: '$callLogs.notConnectedReason',
   interestLevel: '$callLogs.interestLevel',
@@ -227,6 +288,7 @@ async function pagedCalls(ids, range, { result, q, page, limit } = {}) {
   const [out] = await Lead.aggregate([
     // narrow to leads these BDEs called (and that match the search) before unwinding
     { $match: { 'callLogs.calledBy': { $in: ids }, ...leadSearchFilter(q) } },
+    WITH_PREV_AT,
     { $unwind: '$callLogs' },
     { $match: match },
     { $sort: { 'callLogs.loggedAt': -1, 'callLogs.callDate': -1 } },
@@ -266,33 +328,119 @@ async function myCalls(user, range, options = {}) {
   return pagedCalls(toObjectIds([user._id]), range, options);
 }
 
-/** Totals for a BDE's own calls in `range` (calls, connected, talk time, leads called). */
-async function myCallSummary(user, range) {
-  const [id] = toObjectIds([user._id]);
-  const [row] = await Lead.aggregate([
-    { $match: { 'callLogs.calledBy': id } },
+// Daily breakdown: at most this many days as columns
+const MAX_DAILY_DAYS = 62;
+
+/** Every calendar day (YYYY-MM-DD, server timezone) from range.start to range.end. */
+function daysIn(range) {
+  const days = [];
+  const d = new Date(range.start);
+  d.setHours(0, 0, 0, 0);
+  while (d <= range.end && days.length <= MAX_DAILY_DAYS) {
+    days.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
+    d.setDate(d.getDate() + 1);
+  }
+  return days;
+}
+
+// Connect % = connected ÷ total × 100, two decimals; null (shown as —) with no calls
+const rate = (connected, calls) => (calls ? Math.round((connected / calls) * 10000) / 100 : null);
+const dayCell = (calls = 0, connected = 0, uniqueLeads = 0, collaboratorCalls = 0) => ({
+  calls, connected, notConnected: calls - connected, connectRate: rate(connected, calls), uniqueLeads, collaboratorCalls,
+});
+
+/**
+ * Calls per caller per day in `range`. Every attempt counts (a lead called
+ * three times is three calls); unique leads are reported separately. A call
+ * belongs to whoever logged it (callLogs.calledBy), whoever owns the lead —
+ * so calls on cross-assigned leads count for the BDE who made them. Days are
+ * calendar days in TIME_ZONE (IST).
+ * Returns null when the range has more than MAX_DAILY_DAYS days.
+ */
+async function dailyCallStats(members, range) {
+  const days = daysIn(range);
+  if (days.length > MAX_DAILY_DAYS) return null;
+  const ids = toObjectIds(members.map((m) => m.adminId));
+  const at = { $ifNull: ['$callLogs.loggedAt', '$callLogs.callDate'] };
+  // A call on a lead someone else owns (collaborator activity) — still the caller's call
+  const COLLAB_CALL = { $cond: [{ $ne: ['$assignedTo', '$callLogs.calledBy'] }, 1, 0] };
+  const [out] = await Lead.aggregate([
+    { $match: { 'callLogs.calledBy': { $in: ids } } },
     { $unwind: '$callLogs' },
-    { $match: { 'callLogs.calledBy': id, ...callInRange(range) } },
+    { $match: { 'callLogs.calledBy': { $in: ids }, ...callInRange(range) } },
     {
-      $group: {
-        _id: null,
-        calls: { $sum: 1 },
-        connected: { $sum: { $cond: [{ $eq: ['$callLogs.connected', 'Yes'] }, 1, 0] } },
-        talkMinutes: { $sum: { $ifNull: ['$callLogs.callDuration', 0] } },
-        leads: { $addToSet: '$_id' },
+      $facet: {
+        perDay: [
+          {
+            $group: {
+              _id: { by: '$callLogs.calledBy', day: { $dateToString: { format: '%Y-%m-%d', date: { $toDate: at }, timezone: TIME_ZONE } } },
+              calls: { $sum: 1 },
+              connected: { $sum: { $cond: [{ $eq: ['$callLogs.connected', 'Yes'] }, 1, 0] } },
+              leads: { $addToSet: '$_id' },
+              collaboratorCalls: { $sum: COLLAB_CALL },
+            },
+          },
+        ],
+        perMember: [
+          { $group: { _id: '$callLogs.calledBy', calls: { $sum: 1 }, connected: { $sum: { $cond: [{ $eq: ['$callLogs.connected', 'Yes'] }, 1, 0] } }, leads: { $addToSet: '$_id' }, collaboratorCalls: { $sum: COLLAB_CALL } } },
+        ],
+        // organisation-wide distinct leads (a lead two BDEs called is one lead)
+        allLeads: [{ $group: { _id: null, leads: { $addToSet: '$_id' } } }],
+        allLeadsPerDay: [
+          { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: { $toDate: at }, timezone: TIME_ZONE } }, leads: { $addToSet: '$_id' } } },
+        ],
       },
     },
   ]);
-  const calls = row?.calls || 0;
-  const connected = row?.connected || 0;
+
+  const cells = new Map((out?.perDay || []).map((r) => [`${r._id.by}|${r._id.day}`, r]));
+  const totalsBy = new Map((out?.perMember || []).map((r) => [String(r._id), r]));
+  const orgLeadsPerDay = new Map((out?.allLeadsPerDay || []).map((r) => [r._id, r.leads.length]));
+
+  const rows = members.map((m) => {
+    const key = String(m.adminId);
+    const byDay = {};
+    for (const day of days) {
+      const c = cells.get(`${key}|${day}`);
+      byDay[day] = dayCell(c?.calls, c?.connected, c?.leads?.length, c?.collaboratorCalls);
+    }
+    const t = totalsBy.get(key);
+    return { adminId: m.adminId, name: m.name, employeeId: m.employeeId, days: byDay, total: dayCell(t?.calls, t?.connected, t?.leads?.length, t?.collaboratorCalls) };
+  }).sort((a, b) => b.total.calls - a.total.calls || a.name.localeCompare(b.name));
+
+  const orgDays = {};
+  for (const day of days) {
+    const calls = rows.reduce((s, r) => s + r.days[day].calls, 0);
+    const connected = rows.reduce((s, r) => s + r.days[day].connected, 0);
+    const collaborator = rows.reduce((s, r) => s + r.days[day].collaboratorCalls, 0);
+    orgDays[day] = dayCell(calls, connected, orgLeadsPerDay.get(day) || 0, collaborator);
+  }
+  const calls = rows.reduce((s, r) => s + r.total.calls, 0);
+  const connected = rows.reduce((s, r) => s + r.total.connected, 0);
+  const collaborator = rows.reduce((s, r) => s + r.total.collaboratorCalls, 0);
   return {
-    calls,
-    connected,
-    notConnected: calls - connected,
-    connectRate: calls ? Math.round((connected / calls) * 100) : 0,
-    talkMinutes: row?.talkMinutes || 0,
-    leadsWorked: row?.leads?.length || 0,
+    days,
+    members: rows,
+    totals: { days: orgDays, total: dayCell(calls, connected, out?.allLeads?.[0]?.leads?.length || 0, collaborator) },
   };
 }
 
-module.exports = { PERIODS, periodRange, visibleMembers, teamSummary, memberDetail, teamCalls, myCalls, myCallSummary };
+/** Daily breakdown for everyone `user` may see (same people as teamSummary). */
+async function teamDaily(user, range) {
+  return dailyCallStats(await visibleMembers(user), range);
+}
+
+/** A BDE's own daily breakdown. */
+async function myDaily(user, range) {
+  const me = await Admin.findById(user._id, { firstName: 1, lastName: 1, email: 1 }).lean();
+  return dailyCallStats([{ adminId: user._id, name: nameOf(me), employeeId: '' }], range);
+}
+
+/** A BDE's own calling performance in `range` — the same metrics as one teamSummary row. */
+async function myCallSummary(user, range) {
+  const [id] = toObjectIds([user._id]);
+  const [[row], followUps] = await Promise.all([callStats([id], range), followUpStats([id], range)]);
+  return { ...callMetrics(row), ...followUps(id) };
+}
+
+module.exports = { PERIODS, periodRange, visibleMembers, teamSummary, memberDetail, teamCalls, myCalls, myCallSummary, teamDaily, myDaily, MAX_DAILY_DAYS };

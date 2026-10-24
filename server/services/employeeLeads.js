@@ -7,13 +7,14 @@ const FollowUpTask = require('../models/FollowUpTask');
 const { normalizePhone } = require('../utils/normalize');
 const { accessibleTo, hasLeadAccess, oid } = require('../utils/leadScope');
 const { rawLeadFilter } = require('../utils/leadActivity');
+const { latestNotes } = require('./leadCollaboration');
 
 // Everything the Raw/Working/Follow-up cards and the BD dashboard read.
 // Heavy arrays (rawPayload, callLogs, pipelineHistory, documents) stay out.
 const LIST_FIELDS = [
   'leadId', 'fbLeadId', 'fullName', 'phone', 'email', 'service', 'platform', 'status', 'interestLevel',
   'lastActivityAt', 'lastActivityType',
-  'nextFollowUpDate', 'nextActionType', 'assignedAt', 'createdAt', 'updatedAt', 'closedDate',
+  'nextFollowUpDate', 'nextActionType', 'followUpType', 'assignedAt', 'createdAt', 'updatedAt', 'closedDate',
   'dealValue', 'dealCloseValue', 'proposalValue', 'paymentStatus', 'amountPaid', 'userSource', 'remark',
   'businessName', 'website', 'leadPriority', 'connected', 'touchNumber',
   // Raw/Working list filters (platform, source, form, lead type, breached).
@@ -42,7 +43,10 @@ async function listAssignedLeads(adminId) {
   // Raw = assigned + not connected yet (utils/leadActivity.js); the portal's
   // Raw/Working tabs read this flag instead of re-deriving it
   const raw = new Set((await Lead.find({ ...accessibleTo(adminId), ...rawLeadFilter() }, { _id: 1 }).lean()).map((l) => String(l._id)));
-  return leads.map((l) => ({ ...l, isRaw: raw.has(String(l._id)) }));
+  // Latest note this BD may read (shared, or their own private one) — the
+  // portal's Follow-ups list shows it on each row
+  const notes = await latestNotes(leads.filter((l) => l.nextFollowUpDate).map((l) => l._id), { _id: adminId, permissions: [] });
+  return leads.map((l) => ({ ...l, isRaw: raw.has(String(l._id)), latestNote: notes.get(String(l._id)) || null }));
 }
 
 const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

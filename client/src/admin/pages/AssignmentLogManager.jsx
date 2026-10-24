@@ -1,23 +1,76 @@
 import { useState, useEffect, useCallback } from 'react';
 import api from '../../services/api';
-import { UserCheck, Search, ChevronLeft, ChevronRight, Calendar, User, ArrowRight, Tag, HelpCircle, LayoutList } from 'lucide-react';
-import { useSearchParams, Link } from 'react-router-dom';
+import { UserCheck, Search, ChevronLeft, ChevronRight, Calendar, User, ArrowRight, Tag, HelpCircle, Layers, X } from 'lucide-react';
+import { Link } from 'react-router-dom';
+
+// Matches ASSIGNMENT_EVENTS in server/controllers/leadController.js
+const EVENTS = [
+  { key: 'assigned', label: 'Assigned' },
+  { key: 'reassigned', label: 'Reassigned' },
+  { key: 'unassigned', label: 'Unassigned' },
+  { key: 'cross-assigned', label: 'Cross-assigned' },
+  { key: 'access-removed', label: 'Access removed' },
+];
+
+const EVENT_BADGE = {
+  Assigned: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+  Reassigned: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+  Unassigned: 'bg-slate-500/10 text-slate-400 border-slate-500/20',
+  'Cross-assigned': 'bg-purple-500/10 text-purple-400 border-purple-500/20',
+  'Access removed': 'bg-red-500/10 text-red-400 border-red-500/20',
+};
+
+const ROLES = [
+  { key: 'any', label: 'in any role' },
+  { key: 'from', label: 'as previous owner / removed' },
+  { key: 'to', label: 'as new owner / collaborator' },
+  { key: 'actor', label: 'as the one who made the change' },
+];
+
+const toDateInput = (d) => {
+  const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 10);
+};
+const PRESETS = [
+  { key: 'today', label: 'Today', range: () => ({ dateFrom: toDateInput(new Date()), dateTo: toDateInput(new Date()) }) },
+  { key: '7d', label: 'Last 7 days', range: () => ({ dateFrom: toDateInput(new Date(Date.now() - 6 * 864e5)), dateTo: toDateInput(new Date()) }) },
+  { key: 'month', label: 'This month', range: () => { const t = new Date(); return { dateFrom: toDateInput(new Date(t.getFullYear(), t.getMonth(), 1)), dateTo: toDateInput(t) }; } },
+  { key: 'all', label: 'All time', range: () => ({ dateFrom: '', dateTo: '' }) },
+];
+
+const inputClass = 'bg-app-bg border border-app-border rounded-lg px-3 py-2 text-sm text-app-text focus:outline-none focus:border-primary transition-colors';
+
+const displayName = (user, empty = '—') => {
+  if (!user) return empty;
+  const name = `${user.firstName || ''} ${user.lastName || ''}`.trim();
+  return name || user.name || user.email || 'Unknown User';
+};
+
+/** Who the change was from / to, worded for its kind of event. */
+function changeSides(log) {
+  if (log.event === 'Cross-assigned') return { from: null, to: displayName(log.toAdmin), toLabel: 'Collaborator' };
+  if (log.event === 'Access removed') return { from: displayName(log.fromAdmin), fromLabel: 'Removed', to: null };
+  return { from: displayName(log.fromAdmin, 'Unassigned'), to: displayName(log.toAdmin, 'Unassigned') };
+}
 
 export default function AssignmentLogManager() {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [totalLogs, setTotalLogs] = useState(0);
   const [bds, setBds] = useState([]);
-  
-  const [searchParams, setSearchParams] = useSearchParams();
-  
-  // Filters
-  const [userIdFilter, setUserIdFilter] = useState('All');
-  const [leadIdFilter, setLeadIdFilter] = useState('');
-  const [debouncedLeadId, setDebouncedLeadId] = useState('');
 
-  // Fetch BD roster for the user filter
+  // Filters
+  const [employee, setEmployee] = useState('All');
+  const [role, setRole] = useState('any');
+  const [event, setEvent] = useState('All');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [leadFilter, setLeadFilter] = useState('');
+  const [debouncedLead, setDebouncedLead] = useState('');
+
+  // Employee roster for the filter
   useEffect(() => {
     api.get('/admin/assignment/bds')
       .then((res) => setBds(res.data?.data || []))
@@ -26,11 +79,11 @@ export default function AssignmentLogManager() {
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      setDebouncedLeadId(leadIdFilter);
+      setDebouncedLead(leadFilter.trim());
       setCurrentPage(1);
     }, 500);
     return () => clearTimeout(timer);
-  }, [leadIdFilter]);
+  }, [leadFilter]);
 
   const fetchLogs = useCallback(async () => {
     setLoading(true);
@@ -39,29 +92,35 @@ export default function AssignmentLogManager() {
         params: {
           page: currentPage,
           limit: 15,
-          userId: userIdFilter,
-          leadId: debouncedLeadId
+          employee,
+          role: employee !== 'All' ? role : undefined,
+          event: event !== 'All' ? event : undefined,
+          lead: debouncedLead || undefined,
+          dateFrom: dateFrom || undefined,
+          dateTo: dateTo || undefined,
         }
       });
       if (response.data.success) {
         setLogs(response.data.data);
         setTotalPages(response.data.totalPages);
+        setTotalLogs(response.data.totalLogs);
       }
     } catch (error) {
       console.error('Error fetching assignment logs:', error);
     } finally {
       setLoading(false);
     }
-  }, [currentPage, userIdFilter, debouncedLeadId]);
+  }, [currentPage, employee, role, event, debouncedLead, dateFrom, dateTo]);
 
   useEffect(() => {
     fetchLogs();
   }, [fetchLogs]);
 
-  const displayName = (user) => {
-    if (!user) return 'System / Unassigned';
-    const name = `${user.firstName || ''} ${user.lastName || ''}`.trim();
-    return name || user.name || user.email || 'Unknown User';
+  const set = (setter) => (value) => { setter(value); setCurrentPage(1); };
+  const activePreset = PRESETS.find((p) => { const r = p.range(); return r.dateFrom === dateFrom && r.dateTo === dateTo; })?.key;
+  const filtered = employee !== 'All' || event !== 'All' || dateFrom || dateTo || leadFilter;
+  const clearAll = () => {
+    setEmployee('All'); setRole('any'); setEvent('All'); setDateFrom(''); setDateTo(''); setLeadFilter(''); setCurrentPage(1);
   };
 
   return (
@@ -72,36 +131,59 @@ export default function AssignmentLogManager() {
           Lead Assignment Logs
         </h1>
         <p className="text-sm text-app-text-muted">
-          Complete trail of all lead assignments, reassignments, and ownership changes.
+          Every assignment, reassignment, cross-assignment and removal of access — who it moved from and to, who did it, when, and why.
         </p>
       </div>
 
       <div className="bg-app-card border border-app-border rounded-xl p-4 shadow-sm">
-        <div className="flex flex-wrap items-center gap-4 mb-4">
+        <div className="flex flex-wrap items-center gap-3 mb-3">
           <div className="relative w-full max-w-xs">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-app-text-muted w-4 h-4" />
             <input
               type="text"
-              placeholder="Filter by Lead ID (e.g. L-1002)..."
-              value={leadIdFilter}
-              onChange={(e) => setLeadIdFilter(e.target.value)}
-              className="w-full bg-app-bg border border-app-border rounded-lg pl-9 pr-4 py-2 text-sm text-app-text focus:outline-none focus:border-primary transition-colors"
+              placeholder="Lead ID or name…"
+              value={leadFilter}
+              onChange={(e) => setLeadFilter(e.target.value)}
+              className={`${inputClass} w-full pl-9`}
             />
           </div>
 
-          <select
-            value={userIdFilter}
-            onChange={(e) => {
-              setUserIdFilter(e.target.value);
-              setCurrentPage(1);
-            }}
-            className="bg-app-bg border border-app-border rounded-lg px-3 py-2 text-sm text-app-text focus:outline-none focus:border-primary transition-colors min-w-[200px]"
-          >
-            <option value="All">All Users</option>
-            {bds.map(bd => (
-              <option key={bd._id} value={bd._id}>{displayName(bd)}</option>
-            ))}
+          <select value={employee} onChange={(e) => set(setEmployee)(e.target.value)} className={`${inputClass} min-w-[180px]`} aria-label="Employee">
+            <option value="All">All employees</option>
+            {bds.map((bd) => <option key={bd._id} value={bd._id}>{displayName(bd)}</option>)}
           </select>
+          {employee !== 'All' && (
+            <select value={role} onChange={(e) => set(setRole)(e.target.value)} className={inputClass} aria-label="Employee's role in the change">
+              {ROLES.map((r) => <option key={r.key} value={r.key}>{r.label}</option>)}
+            </select>
+          )}
+
+          <select value={event} onChange={(e) => set(setEvent)(e.target.value)} className={inputClass} aria-label="Event">
+            <option value="All">All events</option>
+            {EVENTS.map((ev) => <option key={ev.key} value={ev.key}>{ev.label}</option>)}
+          </select>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+          <input type="date" value={dateFrom} max={dateTo || undefined} onChange={(e) => set(setDateFrom)(e.target.value)} className={inputClass} aria-label="From date" style={{ colorScheme: 'dark' }} />
+          <span className="text-xs text-app-text-muted">to</span>
+          <input type="date" value={dateTo} min={dateFrom || undefined} onChange={(e) => set(setDateTo)(e.target.value)} className={inputClass} aria-label="To date" style={{ colorScheme: 'dark' }} />
+          {PRESETS.map((p) => (
+            <button
+              key={p.key}
+              type="button"
+              onClick={() => { const r = p.range(); setDateFrom(r.dateFrom); setDateTo(r.dateTo); setCurrentPage(1); }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors cursor-pointer ${activePreset === p.key ? 'bg-primary text-black border-primary' : 'border-app-border text-app-text hover:border-primary'}`}
+            >
+              {p.label}
+            </button>
+          ))}
+          {filtered && (
+            <button type="button" onClick={clearAll} className="flex items-center gap-1 text-xs text-app-text-muted hover:text-primary cursor-pointer ml-1">
+              <X size={12} /> Clear filters
+            </button>
+          )}
+          <span className="ml-auto text-sm text-app-text-muted"><span className="font-bold text-app-text">{totalLogs}</span> entr{totalLogs === 1 ? 'y' : 'ies'}</span>
         </div>
 
         {loading ? (
@@ -113,76 +195,80 @@ export default function AssignmentLogManager() {
             <table className="w-full text-left text-sm whitespace-nowrap">
               <thead className="bg-app-bg border-b border-app-border text-app-text-muted text-[11px] uppercase tracking-wider">
                 <tr>
-                  <th className="px-4 py-3 font-semibold">Date/Time</th>
-                  <th className="px-4 py-3 font-semibold">Lead ID</th>
+                  <th className="px-4 py-3 font-semibold">Date / time</th>
+                  <th className="px-4 py-3 font-semibold">Lead</th>
+                  <th className="px-4 py-3 font-semibold">Event</th>
                   <th className="px-4 py-3 font-semibold">Change</th>
-                  <th className="px-4 py-3 font-semibold">Assigned By</th>
-                  <th className="px-4 py-3 font-semibold">Mode</th>
-                  <th className="px-4 py-3 font-semibold max-w-[200px]">Reason</th>
+                  <th className="px-4 py-3 font-semibold">By</th>
+                  <th className="px-4 py-3 font-semibold max-w-[220px]">Reason</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-app-border/70 text-[13px]">
                 {logs.length === 0 ? (
                   <tr>
                     <td colSpan="6" className="px-4 py-12 text-center text-app-text-muted">
-                      No assignment logs found.
+                      No assignment logs found{filtered ? ' for these filters' : ''}.
                     </td>
                   </tr>
                 ) : (
-                  logs.map((log) => (
-                    <tr key={log._id} className="hover:bg-app-bg/50 transition-colors">
-                      <td className="px-4 py-3 text-app-text">
-                        <div className="flex items-center gap-2">
-                          <Calendar className="w-3.5 h-3.5 text-app-text-muted opacity-50" />
-                          {new Date(log.createdAt).toLocaleString('en-IN', {
-                            day: '2-digit', month: 'short', year: 'numeric',
-                            hour: '2-digit', minute: '2-digit', hour12: true
-                          })}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 font-mono font-semibold text-primary">
-                        {log.lead ? (
-                          <Link to={`/admin/leads?search=${log.lead.leadId}`} className="hover:underline flex items-center gap-1.5">
-                            <Tag className="w-3.5 h-3.5" />
-                            {log.lead.leadId || 'Unknown'}
-                          </Link>
-                        ) : (
-                          <span className="text-red-400">Deleted Lead</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2 text-app-text">
-                          <span className="px-2 py-1 rounded bg-slate-500/10 text-slate-400 border border-slate-500/20 text-xs">
-                            {displayName(log.fromAdmin)}
-                          </span>
-                          <ArrowRight className="w-3 h-3 text-app-text-muted" />
-                          <span className="px-2 py-1 rounded bg-primary/10 text-primary border border-primary/20 text-xs font-medium">
-                            {displayName(log.toAdmin)}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-app-text flex items-center gap-1.5">
-                        <User className="w-3.5 h-3.5 text-app-text-muted opacity-50" />
-                        {displayName(log.assignedBy)}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium ${
-                          log.mode === 'Auto-RoundRobin' 
-                            ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
-                            : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
-                        }`}>
-                          <LayoutList className="w-3 h-3" />
-                          {log.mode}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-app-text-muted max-w-[200px] truncate" title={log.reason || '-'}>
-                        <div className="flex items-center gap-1.5">
-                          <HelpCircle className="w-3.5 h-3.5 opacity-50 flex-shrink-0" />
-                          <span className="truncate">{log.reason || '-'}</span>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
+                  logs.map((log) => {
+                    const sides = changeSides(log);
+                    return (
+                      <tr key={log._id} className="hover:bg-app-bg/50 transition-colors align-top">
+                        <td className="px-4 py-3 text-app-text">
+                          <div className="flex items-center gap-2">
+                            <Calendar className="w-3.5 h-3.5 text-app-text-muted opacity-50" />
+                            {new Date(log.createdAt).toLocaleString('en-IN', {
+                              day: '2-digit', month: 'short', year: 'numeric',
+                              hour: '2-digit', minute: '2-digit', hour12: true
+                            })}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          {log.lead ? (
+                            <Link to={`/admin/leads/${log.lead._id}`} className="hover:underline">
+                              <span className="font-mono font-semibold text-primary flex items-center gap-1.5"><Tag className="w-3.5 h-3.5" />{log.lead.leadId || 'Lead'}</span>
+                              <span className="block text-[11px] text-app-text-muted">{log.lead.fullName}</span>
+                            </Link>
+                          ) : (
+                            <span className="text-red-400">Deleted lead</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className={`inline-flex px-2 py-0.5 rounded text-xs font-semibold border ${EVENT_BADGE[log.event] || EVENT_BADGE.Unassigned}`}>{log.event}</span>
+                          {log.bulkRun && <div className="text-[11px] text-app-text-muted mt-1 flex items-center gap-1"><Layers className="w-3 h-3" /> Bulk reassignment</div>}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2 text-app-text">
+                            {sides.from && (
+                              <span className="px-2 py-1 rounded bg-slate-500/10 text-slate-400 border border-slate-500/20 text-xs">
+                                {sides.fromLabel && <span className="opacity-70">{sides.fromLabel}: </span>}{sides.from}
+                              </span>
+                            )}
+                            {sides.from && sides.to && <ArrowRight className="w-3 h-3 text-app-text-muted" />}
+                            {sides.to && (
+                              <span className="px-2 py-1 rounded bg-primary/10 text-primary border border-primary/20 text-xs font-medium">
+                                {sides.toLabel && <span className="opacity-70">{sides.toLabel}: </span>}{sides.to}
+                              </span>
+                            )}
+                          </div>
+                          {log.leadOwner && <div className="text-[11px] text-app-text-muted mt-1">Owner: {displayName(log.leadOwner)} (unchanged)</div>}
+                        </td>
+                        <td className="px-4 py-3 text-app-text">
+                          <div className="flex items-center gap-1.5">
+                            <User className="w-3.5 h-3.5 text-app-text-muted opacity-50" />
+                            {log.mode === 'Auto-RoundRobin' ? 'Round-robin (automatic)' : displayName(log.assignedBy, 'System')}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-app-text-muted max-w-[220px] truncate" title={log.reason || ''}>
+                          <div className="flex items-center gap-1.5">
+                            <HelpCircle className="w-3.5 h-3.5 opacity-50 flex-shrink-0" />
+                            <span className="truncate">{log.reason || '—'}</span>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>

@@ -6,5 +6,5 @@ const leadHref = (leadRef) => `/admin/leads/${leadRef}`;
 
 /** Super Admin: every BDE's calls, leads and follow-ups (managers use the Employee Portal tab). */
 export default function TeamPerformancePage() {
-  return <TeamPerformance scope="admin" fetchData={fetchData} leadHref={leadHref} title="BDE Team Performance" subtitle="Every BDE" showBackButton={false} />;
+  return <TeamPerformance scope="admin" fetchData={fetchData} leadHref={leadHref} title="BDE Calling Performance" subtitle="Every BDE · organisation totals" showBackButton={false} />;
 }

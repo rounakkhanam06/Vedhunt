@@ -2,7 +2,8 @@ const Lead = require('../models/Lead');
 const Admin = require('../models/Admin');
 const mongoose = require('mongoose');
 const logger = require('../utils/logger');
-const { TERMINAL_STATUSES, FOLLOWUP_TRIGGER_INTEREST_LEVELS, FOLLOWUP_TRIGGER_STATUSES } = require('../utils/leadStateMachine');
+const { TERMINAL_STATUSES, FOLLOWUP_TRIGGER_INTEREST_LEVELS, FOLLOWUP_TRIGGER_STATUSES, FOLLOW_UP_TYPES } = require('../utils/leadStateMachine');
+const { latestNotes } = require('../services/leadCollaboration');
 
 // A lead on Hold has no active follow-up requirement — it's paused, not overdue.
 const NON_ACTIVE_STATUSES = [...TERMINAL_STATUSES, 'Hold'];
@@ -26,17 +27,21 @@ function dateRangeFromQuery({ dateFrom, dateTo }) {
 // loggedAt existed.
 const CALL_AT = { $ifNull: ['$callLogs.loggedAt', '$callLogs.callDate'] };
 
-// @desc    Cross-BD call log — every call outcome any BD logged (the lead's
-//          append-only callLogs, credited to whoever made the call), newest
-//          first. Filters: ?by=<adminId>, ?result=Connected|Not Connected,
-//          ?dateFrom/dateTo. Also returns per-BD counts for the same filters
-//          (ignoring ?by) so the page can show "who made how many".
+// @desc    Lead Activity — every call logged on the leads in the viewer's
+//          scope (the lead's append-only callLogs, credited to whoever made
+//          the call), newest first; services/callActivity.js. Filters:
+//          ?by=<caller>, ?result=Connected|Not Connected, ?stage, ?client,
+//          ?dateFrom/dateTo. Also returns per-caller counts for the same
+//          filters (ignoring ?by) so the page can show "who made how many".
 // @route   GET /api/admin/activity/calls
 // @access  Private (leads.assign or dashboard.management)
 // Every report is limited to the BDs in the person's lead scope
 // (req.pageScope from requirePageAccess; null = every BD). Returns the
 // Admin ids as ObjectIds, or null for no limit.
-const { assigneeIds, oid } = require('../utils/leadScope');
+const { assigneeIds, leadFilter, oid } = require('../utils/leadScope');
+const { listCallActivity } = require('../services/callActivity');
+const { assignableAdminFilter } = require('../services/leadAssignment');
+const displayNameOf = (a) => `${a.firstName || ''} ${a.lastName || ''}`.trim() || a.email || '';
 const scopeIds = async (req) => {
   const ids = await assigneeIds(req);
   return ids && ids.map(oid);
@@ -51,88 +56,15 @@ const bdFilter = (req, ids) => {
 
 exports.getCallActivity = async (req, res, next) => {
   try {
-    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
-    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 20, 1), 100);
-    const skip = (page - 1) * limit;
-
-    const ids = await scopeIds(req);
-    const base = { 'callLogs.calledBy': ids ? { $in: ids } : { $ne: null } };
-    if (req.query.result === 'Connected') base['callLogs.connected'] = 'Yes';
-    else if (req.query.result === 'Not Connected') base['callLogs.connected'] = { $ne: 'Yes' };
-    const period = dateRangeFromQuery(req.query);
-    const inPeriod = period ? [{ $match: { $expr: { $and: [
-      ...(period.$gte ? [{ $gte: [CALL_AT, period.$gte] }] : []),
-      ...(period.$lte ? [{ $lte: [CALL_AT, period.$lte] }] : []),
-    ] } } }] : [];
-
-    const byId = bdFilter(req, ids);
-    const onlyBd = byId ? [{ $match: { 'callLogs.calledBy': byId } }] : [];
-
-    const [result] = await Lead.aggregate([
-      { $unwind: '$callLogs' },
-      { $match: base },
-      ...inPeriod,
-      {
-        $facet: {
-          perBd: [
-            { $group: { _id: '$callLogs.calledBy', calls: { $sum: 1 }, connected: { $sum: { $cond: [{ $eq: ['$callLogs.connected', 'Yes'] }, 1, 0] } }, leads: { $addToSet: '$_id' } } },
-            { $lookup: { from: 'admins', localField: '_id', foreignField: '_id', as: 'admin' } },
-            { $project: {
-              _id: 0, bdId: '$_id', calls: 1, connected: 1, leads: { $size: '$leads' },
-              name: { $let: { vars: { a: { $arrayElemAt: ['$admin', 0] } }, in: { $trim: { input: { $concat: [{ $ifNull: ['$$a.firstName', ''] }, ' ', { $ifNull: ['$$a.lastName', ''] }] } } } } },
-              email: { $arrayElemAt: ['$admin.email', 0] },
-            } },
-            { $sort: { calls: -1 } },
-          ],
-          data: [
-            ...onlyBd,
-            { $sort: { 'callLogs.loggedAt': -1, 'callLogs.callDate': -1 } },
-            { $skip: skip },
-            { $limit: limit },
-            { $lookup: { from: 'admins', localField: 'callLogs.calledBy', foreignField: '_id', as: 'byAdmin' } },
-            {
-              $project: {
-                _id: 0,
-                leadId: '$_id',
-                leadDisplayId: '$leadId',
-                leadName: '$fullName',
-                leadPhone: '$phone',
-                date: CALL_AT,
-                connected: '$callLogs.connected',
-                notConnectedReason: '$callLogs.notConnectedReason',
-                interestLevel: '$callLogs.interestLevel',
-                duration: '$callLogs.callDuration',
-                touchNumber: '$callLogs.touchNumber',
-                callType: '$callLogs.callType',
-                leadStage: '$callLogs.leadStage',
-                remark: '$callLogs.remark',
-                by: {
-                  $let: {
-                    vars: { a: { $arrayElemAt: ['$byAdmin', 0] } },
-                    // firstName/lastName aren't guaranteed on the legacy
-                    // admin seed account — email is the display fallback.
-                    in: { _id: '$$a._id', firstName: '$$a.firstName', lastName: '$$a.lastName', email: '$$a.email' }
-                  }
-                }
-              }
-            }
-          ],
-          totalCount: [...onlyBd, { $count: 'count' }],
-          leadCount: [...onlyBd, { $group: { _id: '$_id' } }, { $count: 'count' }],
-        }
-      }
-    ]);
-
-    const total = result?.totalCount?.[0]?.count || 0;
-    res.status(200).json({
-      success: true,
-      data: result?.data || [],
-      total,
-      leadCount: result?.leadCount?.[0]?.count || 0,
-      perBd: result?.perBd || [],
-      totalPages: Math.max(Math.ceil(total / limit), 1),
-      currentPage: page
+    // Calls on the leads the viewer can see (owned or cross-assigned inside
+    // their scope; everything for full access), filtered by caller/date/etc.
+    const by = req.query.by && req.query.by !== 'All' && mongoose.Types.ObjectId.isValid(req.query.by) ? oid(req.query.by) : null;
+    const data = await listCallActivity(await leadFilter(req), {
+      ...req.query,
+      by,
+      period: dateRangeFromQuery(req.query),
     });
+    res.status(200).json({ success: true, ...data });
   } catch (error) {
     logger.error('Error fetching call activity:', error);
     next(error);
@@ -226,29 +158,32 @@ exports.getFollowUpsList = async (req, res, next) => {
     const todayEnd = new Date(now);
     todayEnd.setHours(23, 59, 59, 999);
 
+    // Owned by, or cross-assigned to, someone in the scope (or the one ?by= BD)
     const ids = await scopeIds(req);
-    const query = {
-      assignedTo: ids ? { $in: ids } : { $ne: null },
-      nextFollowUpDate: { $ne: null },
-      status: { $nin: NON_ACTIVE_STATUSES }
-    };
     const by = bdFilter(req, ids);
-    if (by) query.assignedTo = by;
+    const query = {
+      nextFollowUpDate: { $ne: null },
+      status: { $nin: NON_ACTIVE_STATUSES },
+      $or: by ? [{ assignedTo: by }, { 'sharedWith.admin': by }] : [{ assignedTo: { $ne: null } }],
+    };
+    if (FOLLOW_UP_TYPES.includes(req.query.followUpType)) query.followUpType = req.query.followUpType;
+    else if (req.query.followUpType === 'Not set') query.followUpType = { $in: [null, ''] };
 
-    // Bucketed in JS, not via Mongo $gt/$lt — some legacy leads have
+    // Bucketed and ranged in JS, not via Mongo $gt/$lt — some legacy leads have
     // nextFollowUpDate stored as a plain string (raw-driver writes bypass
     // schema casting; see utils/leadLookup.js), and Mongo's date comparison
     // operators silently exclude cross-type values rather than coercing
     // them, so DB-level date filtering would miss those leads entirely.
     let leads = await Lead.find(query)
-      .select('leadId fullName phone service platform status interestLevel nextFollowUpDate assignedTo')
+      .select('leadId fullName businessName phone service platform status interestLevel nextFollowUpDate nextActionType followUpType assignedTo sharedWith lastCallAt callDate callLogs.callDate lastActivityAt remark updatedAt')
       .populate('assignedTo', 'firstName lastName email')
       .lean();
 
-    leads = leads.filter((l) => l.nextFollowUpDate);
+    leads = leads.filter((l) => l.nextFollowUpDate && !Number.isNaN(new Date(l.nextFollowUpDate).getTime()));
 
     const bucketOf = (dateVal) => {
       const due = new Date(dateVal);
+      // Same day-based buckets as the Employee Portal (employee/lib/leads.js)
       if (due < todayStart) return 'Overdue';
       if (due <= todayEnd) return 'Today';
       return 'Upcoming';
@@ -257,12 +192,32 @@ exports.getFollowUpsList = async (req, res, next) => {
     if (req.query.bucket && req.query.bucket !== 'All') {
       leads = leads.filter((l) => bucketOf(l.nextFollowUpDate) === req.query.bucket);
     }
+    const from = req.query.dueFrom ? new Date(`${req.query.dueFrom}T00:00:00`) : null;
+    const to = req.query.dueTo ? new Date(`${req.query.dueTo}T23:59:59.999`) : null;
+    if (from || to) {
+      leads = leads.filter((l) => {
+        const due = new Date(l.nextFollowUpDate);
+        return (!from || due >= from) && (!to || due <= to);
+      });
+    }
 
-    leads.sort((a, b) => new Date(a.nextFollowUpDate) - new Date(b.nextFollowUpDate));
+    // Earliest due first (so overdue rises to the top); same due time → most
+    // recently updated first
+    leads.sort((a, b) => (new Date(a.nextFollowUpDate) - new Date(b.nextFollowUpDate))
+      || (new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0)));
 
     const total = leads.length;
     const skip = (page - 1) * limit;
-    const pageData = leads.slice(skip, skip + limit).map((l) => ({ ...l, bucket: bucketOf(l.nextFollowUpDate) }));
+    const pageLeads = leads.slice(skip, skip + limit);
+    const notes = await latestNotes(pageLeads.map((l) => l._id), req.user);
+
+    const pageData = pageLeads.map(({ callLogs, sharedWith, remark, ...l }) => ({
+      ...l,
+      bucket: bucketOf(l.nextFollowUpDate),
+      lastContactAt: l.lastCallAt || (callLogs || []).reduce((max, c) => (c.callDate && (!max || c.callDate > max) ? c.callDate : max), null) || l.callDate || null,
+      latestNote: notes.get(String(l._id)) || (remark ? { text: remark, source: 'remark' } : null),
+      sharedCount: (sharedWith || []).length,
+    }));
 
     res.status(200).json({
       success: true,
@@ -400,9 +355,13 @@ exports.getPipelineSummary = async (req, res, next) => {
   }
 };
 
-// @desc    Per-BD accountability — assigned load, call outcomes, response
-//          time, and follow-up breaches. Feeds the Management Visibility
-//          dashboard's BD accountability table.
+// @desc    Per-BD accountability — assigned load, calls and connect rate,
+//          response time, and follow-up breaches. Feeds the Management
+//          Visibility dashboard's BD accountability table. Every active BD
+//          in the scope is listed (the live assignable roster), with zeros
+//          when they had no activity; anyone else with activity is added.
+//          Connect rate = connected calls ÷ calls made, credited to the BD who
+//          made each call — the same definition as BDE Calling Performance.
 // @route   GET /api/admin/activity/bd-accountability
 // @access  Private (leads.assign)
 exports.getBDAccountability = async (req, res, next) => {
@@ -423,7 +382,6 @@ exports.getBDAccountability = async (req, res, next) => {
           $group: {
             _id: '$assignedTo',
             assignedCount: { $sum: 1 },
-            connectedCount: { $sum: { $cond: [{ $eq: ['$connected', 'Yes'] }, 1, 0] } },
             breachCount: { $sum: { $cond: [{ $eq: ['$followUpBreached', true] }, 1, 0] } },
             totalResponseMs: {
               $sum: {
@@ -445,7 +403,7 @@ exports.getBDAccountability = async (req, res, next) => {
         { $unwind: '$callLogs' },
         { $match: { 'callLogs.calledBy': ids ? { $in: ids } : { $ne: null } } },
         ...callPeriod,
-        { $group: { _id: '$callLogs.calledBy', callsMade: { $sum: 1 } } }
+        { $group: { _id: '$callLogs.calledBy', callsMade: { $sum: 1 }, connectedCalls: { $sum: { $cond: [{ $eq: ['$callLogs.connected', 'Yes'] }, 1, 0] } } } }
       ]),
       // Start Call pressed but no outcome ever saved for that call — the
       // lead's latest callStartTime has no matching callLogs entry. Credited
@@ -464,11 +422,14 @@ exports.getBDAccountability = async (req, res, next) => {
     const byBd = new Map();
     const row = (id) => {
       const key = String(id);
-      if (!byBd.has(key)) byBd.set(key, { _id: id, assignedCount: 0, connectedCount: 0, breachCount: 0, totalResponseMs: 0, respondedCount: 0, callsMade: 0, noOutcomeCount: 0 });
+      if (!byBd.has(key)) byBd.set(key, { _id: id, assignedCount: 0, breachCount: 0, totalResponseMs: 0, respondedCount: 0, callsMade: 0, connectedCalls: 0, noOutcomeCount: 0 });
       return byBd.get(key);
     };
+    // Every active BD in the scope, straight from the roster — no fixed list
+    const roster = await Admin.find({ ...(await assignableAdminFilter()), ...(ids && { _id: { $in: ids } }) }, { _id: 1 }).lean();
+    for (const a of roster) row(a._id);
     for (const r of leadRows) Object.assign(row(r._id), r);
-    for (const r of callRows) row(r._id).callsMade = r.callsMade;
+    for (const r of callRows) Object.assign(row(r._id), { callsMade: r.callsMade, connectedCalls: r.connectedCalls });
     for (const r of noOutcomeRows) row(r._id).noOutcomeCount = r.noOutcomeCount;
 
     const admins = await Admin.find({ _id: { $in: [...byBd.values()].map((r) => r._id) } }, { firstName: 1, lastName: 1, email: 1 }).lean();
@@ -482,13 +443,16 @@ exports.getBDAccountability = async (req, res, next) => {
           bd: { _id: a._id, firstName: a.firstName, lastName: a.lastName, email: a.email },
           assignedCount: r.assignedCount,
           callsMade: r.callsMade,
+          connectedCalls: r.connectedCalls,
           noOutcomeCount: r.noOutcomeCount,
-          connectRate: r.assignedCount > 0 ? Math.round((r.connectedCount / r.assignedCount) * 100) : 0,
+          // null (shown as —) when no calls were made
+          connectRate: r.callsMade > 0 ? Math.round((r.connectedCalls / r.callsMade) * 100) : null,
           breachCount: r.breachCount,
           avgResponseMinutes: r.respondedCount > 0 ? Math.round(r.totalResponseMs / r.respondedCount / 60000) : null
         };
       })
-      .sort((x, y) => y.breachCount - x.breachCount || y.assignedCount - x.assignedCount || y.callsMade - x.callsMade);
+      .sort((x, y) => y.breachCount - x.breachCount || y.assignedCount - x.assignedCount || y.callsMade - x.callsMade
+        || displayNameOf(x.bd).localeCompare(displayNameOf(y.bd)));
 
     res.status(200).json({ success: true, data: rows });
   } catch (error) {

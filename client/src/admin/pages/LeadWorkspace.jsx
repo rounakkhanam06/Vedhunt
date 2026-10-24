@@ -8,7 +8,7 @@ import FollowUpTasksPanel from '../components/FollowUpTasksPanel';
 import LeadCollaborationPanel from '../../shared/LeadCollaborationPanel';
 import ProposalWorkflow from '../../employee/components/ProposalWorkflow';
 import { isCallInProgress, lastCallLog, startedNewCall, isSameOutcome, fmtClock } from '../../shared/callHandling';
-import { NOT_CONNECTED_REASONS, INTEREST_LEVELS, LOST_DROPPED_REASONS, FOLLOWUP_TRIGGER_INTEREST_LEVELS, PAYMENT_STATUS_OPTIONS } from '../../shared/leadConstants';
+import { NOT_CONNECTED_REASONS, INTEREST_LEVELS, LOST_DROPPED_REASONS, FOLLOWUP_TRIGGER_INTEREST_LEVELS, PAYMENT_STATUS_OPTIONS, FOLLOW_UP_TYPES } from '../../shared/leadConstants';
 import {
   SERVICES_REQUIRED_OPTIONS, MARKETING_TYPE_SERVICES, TIMELINE_OPTIONS, DECISION_MAKER_OPTIONS,
   PROJECT_BUDGET_OPTIONS, MONTHLY_MARKETING_BUDGET_OPTIONS, LEAD_PRIORITY_BADGE_CLASSES
@@ -726,6 +726,15 @@ export default function LeadWorkspace() {
               className="mt-2 w-full bg-app-card border border-app-border rounded-lg px-3 py-2 text-sm text-app-text focus:outline-none focus:border-primary"
               style={{ colorScheme: 'dark' }}
             />
+            <select
+              value={lead.followUpType || ''}
+              onChange={(e) => handleFieldChange('followUpType', e.target.value)}
+              className="mt-2 w-full bg-app-card border border-app-border rounded-lg px-3 py-2 text-sm text-app-text focus:outline-none focus:border-primary cursor-pointer"
+              aria-label="Follow-up type"
+            >
+              <option className="bg-app-bg text-app-text" value="">Follow-up type…</option>
+              {FOLLOW_UP_TYPES.map((t) => <option key={t} className="bg-app-bg text-app-text" value={t}>{t}</option>)}
+            </select>
           </div>
 
           <FollowUpTasksPanel leadId={lead._id} canManage={canAssign} bds={bds} myAdminId={me?._id} />

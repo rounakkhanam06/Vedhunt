@@ -630,38 +630,78 @@ exports.getAssignmentHistory = async (req, res, next) => {
   }
 };
 
-// @desc    Global assignment/reassignment audit trail (all leads)
+// What happened, from the stored fields (one label for the page and filters)
+const OWNERSHIP_MODES = ['Manual', 'Auto-RoundRobin'];
+const ASSIGNMENT_EVENTS = {
+  assigned: { mode: { $in: OWNERSHIP_MODES }, fromAdmin: null, toAdmin: { $ne: null } },
+  reassigned: { mode: { $in: OWNERSHIP_MODES }, fromAdmin: { $ne: null }, toAdmin: { $ne: null } },
+  unassigned: { mode: { $in: OWNERSHIP_MODES }, toAdmin: null },
+  'cross-assigned': { mode: 'Cross-Assign' },
+  'access-removed': { mode: 'Cross-Unassign' },
+};
+function assignmentEvent(log) {
+  if (log.mode === 'Cross-Assign') return 'Cross-assigned';
+  if (log.mode === 'Cross-Unassign') return 'Access removed';
+  if (!log.toAdmin) return 'Unassigned';
+  return log.fromAdmin ? 'Reassigned' : 'Assigned';
+}
+
+// Which side of the change ?employee is on
+const EMPLOYEE_ROLES = {
+  from: (id) => [{ fromAdmin: id }],
+  to: (id) => [{ toAdmin: id }],
+  actor: (id) => [{ assignedBy: id }],
+  any: (id) => [{ fromAdmin: id }, { toAdmin: id }, { assignedBy: id }, { leadOwner: id }],
+};
+
+// @desc    Lead Assignment Logs — every assignment, reassignment, unassignment,
+//          cross-assignment and access removal. Filters: ?dateFrom/dateTo
+//          (whole days, server timezone — IST), ?employee + ?role
+//          (from | to | actor | any), ?event, ?lead (lead ID or name).
 // @route   GET /api/leads/assignments/all
-// @access  Private (Super Admin)
+// @access  Private (audit.view)
 exports.getAllAssignmentLogs = async (req, res, next) => {
   try {
     const page = parseInt(req.query.page, 10) || 1;
-    const limit = parseInt(req.query.limit, 10) || 20;
+    const limit = Math.min(parseInt(req.query.limit, 10) || 20, 100);
     const startIndex = (page - 1) * limit;
+    const empty = () => res.status(200).json({ success: true, count: 0, totalLogs: 0, totalPages: 0, currentPage: page, data: [] });
 
-    const query = {};
+    const and = [];
 
-    if (req.query.leadId) {
-      // Find lead by leadId to get its ObjectId
-      const lead = await Lead.findOne({ leadId: req.query.leadId });
-      if (lead) {
-        query.lead = lead._id;
-      } else {
-        // Return empty if leadId filter doesn't match anything
-        return res.status(200).json({
-          success: true, count: 0, totalLogs: 0, totalPages: 0, currentPage: page, data: []
-        });
+    // Lead: ID prefix, or name (older callers send ?leadId)
+    const leadTerm = String(req.query.lead || req.query.leadId || '').trim().slice(0, 100);
+    if (leadTerm) {
+      const escaped = leadTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const leads = await Lead.find(
+        { $or: [{ leadId: new RegExp(`^${escaped}`, 'i') }, { fullName: new RegExp(escaped, 'i') }] },
+        { _id: 1 }
+      ).limit(500).lean();
+      if (!leads.length) return empty();
+      and.push({ lead: { $in: leads.map((l) => l._id) } });
+    }
+
+    const employee = req.query.employee || req.query.userId;
+    if (employee && employee !== 'All') {
+      if (!mongoose.isValidObjectId(employee)) return empty();
+      const id = new mongoose.Types.ObjectId(String(employee));
+      and.push({ $or: (EMPLOYEE_ROLES[req.query.role] || EMPLOYEE_ROLES.any)(id) });
+    }
+
+    if (ASSIGNMENT_EVENTS[req.query.event]) and.push(ASSIGNMENT_EVENTS[req.query.event]);
+    if (req.query.bulk === 'true') and.push({ bulkRun: { $ne: null } });
+
+    if (req.query.dateFrom || req.query.dateTo) {
+      const range = {};
+      if (req.query.dateFrom) range.$gte = new Date(`${req.query.dateFrom}T00:00:00`);
+      if (req.query.dateTo) range.$lte = new Date(`${req.query.dateTo}T23:59:59.999`);
+      if (Object.values(range).some((d) => Number.isNaN(d.getTime()))) {
+        return res.status(400).json({ success: false, message: 'Pick a valid date range.' });
       }
+      and.push({ createdAt: range });
     }
 
-    if (req.query.userId && req.query.userId !== 'All') {
-      query.$or = [
-        { fromAdmin: req.query.userId },
-        { toAdmin: req.query.userId },
-        { assignedBy: req.query.userId }
-      ];
-    }
-
+    const query = and.length ? { $and: and } : {};
     const totalLogs = await AssignmentLog.countDocuments(query);
     const logs = await AssignmentLog.find(query)
       .sort({ createdAt: -1 })
@@ -670,7 +710,9 @@ exports.getAllAssignmentLogs = async (req, res, next) => {
       .populate('lead', 'leadId fullName email phone')
       .populate('fromAdmin', 'firstName lastName email')
       .populate('toAdmin', 'firstName lastName email')
-      .populate('assignedBy', 'firstName lastName email');
+      .populate('assignedBy', 'firstName lastName email')
+      .populate('leadOwner', 'firstName lastName email')
+      .lean();
 
     res.status(200).json({
       success: true,
@@ -678,7 +720,7 @@ exports.getAllAssignmentLogs = async (req, res, next) => {
       totalLogs,
       totalPages: Math.ceil(totalLogs / limit),
       currentPage: page,
-      data: logs
+      data: logs.map((log) => ({ ...log, event: assignmentEvent(log) }))
     });
   } catch (error) {
     logger.error('Error fetching all assignment logs:', error);

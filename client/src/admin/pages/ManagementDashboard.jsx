@@ -186,7 +186,10 @@ export default function ManagementDashboard() {
 
   /** Every drill-down funnels through here — builds the /admin/leads/all URL. */
   // Calls Made → the Lead Activity log for that BD and this date range.
-  const goToCalls = (bdId) => navigate(`/admin/lead-activity?${new URLSearchParams({ by: bdId, dateFrom, dateTo })}`);
+  // Lead Activity for the period, optionally one BD / one result
+  const goToCalls = (bdId, result) => navigate(`/admin/lead-activity?${new URLSearchParams(
+    Object.entries({ by: bdId, result, dateFrom, dateTo }).filter(([, v]) => v)
+  )}`);
 
   const goToLeads = (params) => {
     const qs = new URLSearchParams(
@@ -197,10 +200,10 @@ export default function ManagementDashboard() {
 
   // Company-wide speed metrics — derived client-side from the per-BD
   // accountability rows already fetched, no new backend endpoint needed.
-  const totalAssigned = bdAccountability.reduce((s, r) => s + (r.assignedCount || 0), 0);
-  const avgConnectRate = totalAssigned > 0
-    ? Math.round(bdAccountability.reduce((s, r) => s + (r.connectRate || 0) * (r.assignedCount || 0), 0) / totalAssigned)
-    : 0;
+  // Connected calls ÷ calls made across every BD (not an average of rounded rates)
+  const totalCalls = bdAccountability.reduce((s, r) => s + (r.callsMade || 0), 0);
+  const totalConnected = bdAccountability.reduce((s, r) => s + (r.connectedCalls || 0), 0);
+  const avgConnectRate = totalCalls > 0 ? Math.round((totalConnected / totalCalls) * 100) : null;
   const respondedBds = bdAccountability.filter((r) => r.avgResponseMinutes != null);
   const avgResponseMinutes = respondedBds.length > 0
     ? Math.round(respondedBds.reduce((s, r) => s + r.avgResponseMinutes, 0) / respondedBds.length)
@@ -461,14 +464,14 @@ export default function ManagementDashboard() {
 
       {/* Ownership & Speed */}
       <div className={sectionClass}>
-        <h2 className={sectionTitleClass}><Users size={16} /> Ownership &amp; BD Speed <span className="normal-case font-medium text-app-text-muted">· leads assigned in the period</span></h2>
+        <h2 className={sectionTitleClass}><Users size={16} /> Ownership &amp; BD Speed <span className="normal-case font-medium text-app-text-muted">· every active BD · leads assigned and calls made in the period</span></h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
           <StatCard
             icon={PhoneCall}
-            label="Avg. Connect Rate"
-            value={`${avgConnectRate}%`}
-            sub="Click to see connected leads"
-            onClick={() => goToLeads({ connected: 'Yes', dateField: 'assigned', dateFrom, dateTo })}
+            label="Connect Rate"
+            value={avgConnectRate == null ? '—' : `${avgConnectRate}%`}
+            sub={`${totalConnected} connected of ${totalCalls} calls · click to see them`}
+            onClick={() => goToCalls(undefined, 'Connected')}
           />
           <StatCard
             icon={Clock}
@@ -493,7 +496,7 @@ export default function ManagementDashboard() {
                 <th className="px-4 py-2 font-semibold">Assigned</th>
                 <th className="px-4 py-2 font-semibold" title="Calls this BD made in the period (click to see which leads)">Calls Made</th>
                 <th className="px-4 py-2 font-semibold" title="Start Call pressed but no outcome saved">No Outcome</th>
-                <th className="px-4 py-2 font-semibold">Connect Rate</th>
+                <th className="px-4 py-2 font-semibold" title="Connected calls ÷ calls made in the period, credited to whoever made each call">Connect Rate</th>
                 <th className="px-4 py-2 font-semibold">Avg. Response</th>
                 <th className="px-4 py-2 font-semibold">Breaches</th>
               </tr>
@@ -522,7 +525,10 @@ export default function ManagementDashboard() {
                   <td className="px-4 py-2">
                     <span className={row.noOutcomeCount > 0 ? 'text-amber-500 font-bold' : 'text-app-text-muted'}>{row.noOutcomeCount || 0}</span>
                   </td>
-                  <td className="px-4 py-2 text-app-text-muted">{row.connectRate}%</td>
+                  <td className="px-4 py-2 text-app-text-muted">
+                    {row.connectRate == null ? '—' : `${row.connectRate}%`}
+                    {row.callsMade > 0 && <div className="text-[11px]">{row.connectedCalls} of {row.callsMade}</div>}
+                  </td>
                   <td className="px-4 py-2 text-app-text-muted">{formatMinutes(row.avgResponseMinutes)}</td>
                   <td className="px-4 py-2">
                     <span className={row.breachCount > 0 ? 'text-red-400 font-bold' : 'text-app-text-muted'}>{row.breachCount}</span>
@@ -530,7 +536,7 @@ export default function ManagementDashboard() {
                 </tr>
               ))}
               {bdAccountability.length === 0 && (
-                <tr><td colSpan={7} className="px-4 py-6 text-center text-app-text-muted">No leads were assigned in this period.</td></tr>
+                <tr><td colSpan={7} className="px-4 py-6 text-center text-app-text-muted">No active BDs found.</td></tr>
               )}
             </tbody>
           </table>

@@ -4,7 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import employeeApi from '../../services/employeeApi';
 import toast from 'react-hot-toast';
 import { ArrowLeft, Phone, Mail, Play, Square, Clock, FileText, Upload, Trash2, PhoneCall, CalendarClock, ListChecks, FileSignature } from 'lucide-react';
-import { NOT_CONNECTED_REASONS, INTEREST_LEVELS, LOST_DROPPED_REASONS, FOLLOWUP_TRIGGER_INTEREST_LEVELS, PAYMENT_STATUS_OPTIONS, NEXT_ACTION_TYPES } from '../../shared/leadConstants';
+import { NOT_CONNECTED_REASONS, INTEREST_LEVELS, LOST_DROPPED_REASONS, FOLLOWUP_TRIGGER_INTEREST_LEVELS, PAYMENT_STATUS_OPTIONS, NEXT_ACTION_TYPES, FOLLOW_UP_TYPES } from '../../shared/leadConstants';
 import {
   SERVICES_REQUIRED_OPTIONS, MARKETING_TYPE_SERVICES, TIMELINE_OPTIONS, DECISION_MAKER_OPTIONS,
   PROJECT_BUDGET_OPTIONS, MONTHLY_MARKETING_BUDGET_OPTIONS, LEAD_PRIORITY_BADGE_CLASSES
@@ -111,6 +111,7 @@ export default function EmployeeLeadWorkspace() {
   const [followUpOpen, setFollowUpOpen] = useState(false);
   // What the follow-up picked in the Call Outcome section will be.
   const [outcomeActionType, setOutcomeActionType] = useState('');
+  const [outcomeFollowUpType, setOutcomeFollowUpType] = useState('');
   const scrollToRef = (ref) => {
     ref.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     ref.current?.focus();
@@ -155,6 +156,7 @@ export default function EmployeeLeadWorkspace() {
       if (res.data?.success) {
         syncLead(res.data.lead);
         setOutcomeActionType(res.data.lead.nextActionType || 'Call');
+        setOutcomeFollowUpType(res.data.lead.followUpType || 'Other');
       }
     } catch {
       toast.error('That lead could not be found');
@@ -255,7 +257,7 @@ export default function EmployeeLeadWorkspace() {
       return;
     }
 
-    const followUp = merged.nextFollowUpDate ? { nextFollowUpDate: merged.nextFollowUpDate, nextActionType: outcomeActionType || 'Call' } : {};
+    const followUp = merged.nextFollowUpDate ? { nextFollowUpDate: merged.nextFollowUpDate, nextActionType: outcomeActionType || 'Call', followUpType: outcomeFollowUpType || 'Other' } : {};
     const fields = merged.connected === 'Yes'
       ? { connected: 'Yes', interestLevel: merged.interestLevel, ...followUp }
       : { connected: 'No', notConnectedReason: merged.notConnectedReason, ...followUp };
@@ -613,7 +615,10 @@ export default function EmployeeLeadWorkspace() {
               <label className={fieldLabelClass}>
                 Next Follow-Up Date &amp; Time <span className="text-primary">*required</span>
               </label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <select value={outcomeFollowUpType} onChange={(e) => setOutcomeFollowUpType(e.target.value)} className={selectClass} aria-label="Follow-up type">
+                  {FOLLOW_UP_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+                </select>
                 <select value={outcomeActionType} onChange={(e) => setOutcomeActionType(e.target.value)} className={selectClass} aria-label="Next action type">
                   {NEXT_ACTION_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
                 </select>

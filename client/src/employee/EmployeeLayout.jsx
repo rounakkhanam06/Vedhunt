@@ -216,7 +216,8 @@ const EmployeeLayout = () => {
             <NotificationBell />
           </div>
         </header>
-        <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6 lg:p-8 bg-app-bg min-w-0 max-w-full">
+        {/* pb-28: room under the last row for the floating timer, so it never covers content */}
+        <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6 lg:p-8 pb-28 sm:pb-28 lg:pb-28 bg-app-bg min-w-0 max-w-full">
           <Outlet />
         </div>
       </main>

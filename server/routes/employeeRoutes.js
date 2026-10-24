@@ -364,7 +364,7 @@ router.post('/', requirePermission('employees.manage'), async (req, res) => {
     }
 
     // 6. Send Welcome Email
-    const loginUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/admin/login`;
+    const loginUrl = `${(process.env.FRONTEND_URL || process.env.CLIENT_ORIGIN || 'https://vedhunt.in').replace(/\/$/, '')}/admin/login`;
     const message = `Welcome to Vedhunt, ${strFirstName.trim()} ${strLastName.trim()}!\n\nYour employee account has been created.\n\nLogin Credentials:\nEmail: ${strEmail.trim().toLowerCase()}\nTemporary Password: ${tempPassword}\n\nLogin & reset your password: ${loginUrl}`;
     try {
       await sendEmail({ email: strEmail.trim().toLowerCase(), subject: 'Welcome to Vedhunt — Your Employee Credentials', message });

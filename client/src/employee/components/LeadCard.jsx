@@ -6,7 +6,7 @@ import WhatsAppAction from './WhatsAppAction';
 import FollowUpForm from './FollowUpForm';
 import { essPut, apiError } from '../lib/ess';
 import { fmtDate, fmtDateTime, timeAgo } from '../lib/datetime';
-import { INTEREST_LEVELS, NON_ACTIVE_FOLLOWUP_STATUSES } from '../../shared/leadConstants';
+import { INTEREST_LEVELS, NON_ACTIVE_FOLLOWUP_STATUSES, FOLLOW_UP_TYPE_BADGE } from '../../shared/leadConstants';
 
 const STATUS_BADGE_CLASSES = {
   Won: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
@@ -120,6 +120,20 @@ export default function LeadCard({ lead, onUpdated, navigate }) {
             : active ? 'None scheduled' : '—'}
         </InfoCell>
       </div>
+
+      {active && lead.nextFollowUpDate && (
+        <div className="flex flex-wrap items-center gap-2 mt-3">
+          {lead.followUpType
+            ? <span className={`px-2.5 py-1 rounded-md text-xs font-bold border ${FOLLOW_UP_TYPE_BADGE[lead.followUpType] || FOLLOW_UP_TYPE_BADGE.Other}`}>{lead.followUpType}</span>
+            : <span className="text-xs italic text-app-text-muted">Follow-up type not set</span>}
+          {overdue && <span className="px-2 py-1 rounded-md text-[10px] uppercase font-bold tracking-wider bg-red-500/10 text-red-400 border border-red-500/30">Overdue</span>}
+        </div>
+      )}
+      {lead.latestNote && (
+        <p className="mt-3 text-xs text-app-text-muted line-clamp-2" title={lead.latestNote.text}>
+          <span className="font-semibold text-app-text">Latest note:</span> {lead.latestNote.text} <span className="opacity-70">— {lead.latestNote.author}</span>
+        </p>
+      )}
 
       {/* Quick actions */}
       <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-app-border">

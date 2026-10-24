@@ -671,7 +671,8 @@ const EmployeeManager = () => {
           employees={employees}
           canManage={canManage}
           canSalary={canSalary}
-          onBack={closeProfile}
+          // The Admin panel layout already has a Back button; the portal doesn't
+          onBack={inPortal ? closeProfile : null}
           onEdit={canManage ? handleOpenEditModal : null}
           access={{
             account: (<>

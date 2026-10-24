@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Phone, PhoneCall, Clock, AlertTriangle, Trophy, Target, Search } from 'lucide-react';
-import { fmtDateTime, fmtDate, fmtMinutes, fmtINR, toDateInput } from '../../employee/lib/datetime';
+import { ArrowLeft, Phone, PhoneCall, PhoneOff, Clock, AlertTriangle, Trophy, Target, Search, CalendarCheck, Users, X } from 'lucide-react';
+import { fmtDateTime, fmtMinutes, fmtINR, toDateInput } from '../../employee/lib/datetime';
 import RemarkCell from './RemarkCell';
 
 /**
@@ -29,8 +29,64 @@ const PERIODS = [
 
 const VIEWS = [
   { key: 'members', label: 'By BDE' },
+  { key: 'daily', label: 'Daily calls' },
+  { key: 'status', label: 'Lead status' },
+  { key: 'pending', label: 'Pending calls' },
   { key: 'calls', label: 'Team call log' },
 ];
+
+const MY_VIEWS = [
+  { key: 'calls', label: 'My calls' },
+  { key: 'daily', label: 'Daily calls' },
+  { key: 'status', label: 'Lead status' },
+  { key: 'pending', label: 'Pending calls' },
+];
+
+/** The open tab, kept in the URL (?view=) so refresh and Back keep it. */
+function useViewParam(views) {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const fromUrl = searchParams.get('view');
+  const view = views.some((v) => v.key === fromUrl) ? fromUrl : views[0].key;
+  const setView = (key) => setSearchParams((prev) => {
+    const next = new URLSearchParams(prev);
+    if (key === views[0].key) next.delete('view'); else next.set('view', key);
+    return next;
+  }, { replace: true });
+  return [view, setView];
+}
+
+function Tabs({ views, view, setView }) {
+  return (
+    <div className="flex gap-1 border-b border-app-border overflow-x-auto">
+      {views.map((v) => (
+        <button key={v.key} type="button" onClick={() => setView(v.key)}
+          className={`px-4 py-2 text-sm font-semibold border-b-2 -mb-px whitespace-nowrap transition-colors cursor-pointer ${view === v.key ? 'border-primary text-primary' : 'border-transparent text-app-text-muted hover:text-app-text'}`}>
+          {v.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** Client-side paging over an already-loaded list; back to page 1 when the list changes. */
+function usePaged(list, size) {
+  const [page, setPage] = useState(1);
+  const pages = Math.max(1, Math.ceil(list.length / size));
+  useEffect(() => { setPage(1); }, [list.length, size]);
+  const current = Math.min(page, pages);
+  return { items: list.slice((current - 1) * size, current * size), page: current, pages, setPage, from: list.length ? (current - 1) * size + 1 : 0, to: Math.min(current * size, list.length), total: list.length };
+}
+
+/** "Showing 11–20 of 34 BDEs" + Previous / Next */
+function PageFooter({ paged, noun }) {
+  if (paged.pages <= 1) return null;
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-2">
+      <span className="text-xs text-app-text-muted">Showing {paged.from}–{paged.to} of {paged.total} {noun}</span>
+      <Pager page={paged.page} pages={paged.pages} onPage={paged.setPage} />
+    </div>
+  );
+}
 
 const STAGE_ORDER = ['New', 'Contacted', 'Qualified', 'Proposal Sent', 'Negotiation', 'Hold'];
 
@@ -39,6 +95,24 @@ const th = 'py-3 px-3 font-semibold';
 const td = 'py-3 px-3';
 
 const errorOf = (err, fallback) => err?.response?.data?.message || fallback;
+
+// The reporting period exactly as the server counted it — in its timezone
+// (IST for Vedhunt), whatever the viewer's browser is set to.
+function PeriodLabel({ period, range }) {
+  if (!range) return null;
+  const timeZone = range.timeZone || 'Asia/Kolkata';
+  const fmt = (d) => new Date(d).toLocaleString('en-IN', { timeZone, day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  const zone = timeZone === 'Asia/Kolkata' ? 'IST' : timeZone;
+  const name = PERIODS.find((p) => p.key === period)?.label || 'Period';
+  return (
+    <span className="inline-flex flex-wrap items-center gap-1.5 px-2.5 py-1 rounded-lg bg-primary/10 text-primary text-xs font-semibold">
+      {name}: {fmt(range.start)} – {fmt(range.end)} {zone}
+      <span className="font-normal opacity-80">· weeks start Monday · custom ranges include both dates</span>
+    </span>
+  );
+}
+
+const fmtAvg = (m) => (m == null ? '—' : `${m} min`);
 
 function Tile({ icon: Icon, label, value, sub, tone = 'text-primary bg-primary/10' }) {
   return (
@@ -63,63 +137,87 @@ function Empty({ children }) {
   return <div className={`${card} p-8 text-center text-sm text-app-text-muted`}>{children}</div>;
 }
 
+/** The calling metrics for a period — organisation totals or one BDE's own. */
+function CallingTiles({ t }) {
+  return (
+    <>
+      <Tile icon={Phone} label="Total calls" value={t.calls} />
+      <Tile icon={PhoneCall} label="Connected" value={t.connected} sub={`${t.connectRate}% connect rate`} tone="text-emerald-400 bg-emerald-500/10" />
+      <Tile icon={PhoneOff} label="Not connected" value={t.notConnected} tone="text-red-400 bg-red-500/10" />
+      <Tile icon={Users} label="Unique leads called" value={t.leadsWorked} />
+      <Tile icon={Clock} label="Avg call duration" value={fmtAvg(t.avgCallMinutes)} sub={`${t.timedCalls} timed · ${fmtMinutes(t.talkMinutes)} total`} tone="text-sky-400 bg-sky-500/10" />
+      <Tile icon={CalendarCheck} label="Follow-ups due" value={t.followUpsDue} sub={`${t.followUpsDueCompleted} of them completed`} />
+      <Tile icon={CalendarCheck} label="Follow-ups completed" value={t.followUpsCompleted} sub="in this period" tone="text-emerald-400 bg-emerald-500/10" />
+    </>
+  );
+}
+
 function Totals({ totals }) {
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-      <Tile icon={Phone} label="Calls made" value={totals.calls} sub={`${totals.leadsWorked} leads called`} />
-      <Tile icon={PhoneCall} label="Connected" value={totals.connected} sub={`${totals.connectRate}% connect rate`} tone="text-emerald-400 bg-emerald-500/10" />
-      <Tile icon={Clock} label="Talk time" value={fmtMinutes(totals.talkMinutes)} tone="text-sky-400 bg-sky-500/10" />
-      <Tile icon={Target} label="Active leads" value={totals.activeLeads} sub={`${totals.followUpsDueToday} follow-ups due today`} />
-      <Tile icon={AlertTriangle} label="Overdue follow-ups" value={totals.followUpsOverdue} tone="text-red-400 bg-red-500/10" />
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+      <CallingTiles t={totals} />
+      <Tile icon={Target} label="Active leads" value={totals.activeLeads} sub={`${totals.followUpsDueToday} due today · ${totals.followUpsOverdue} overdue (now)`} />
+      <Tile icon={AlertTriangle} label="Overdue follow-ups" value={totals.followUpsOverdue} sub="as of now" tone="text-red-400 bg-red-500/10" />
       <Tile icon={Trophy} label="Won" value={totals.won} sub={fmtINR(totals.wonValue)} tone="text-amber-500 bg-amber-500/10" />
     </div>
   );
 }
 
-function MemberTable({ members, onOpen }) {
+function MemberTable({ members: all, onOpen }) {
+  const paged = usePaged(all, 10);
+  const members = paged.items;
   return (
-    <div className={`${card} overflow-x-auto`}>
-      <table className="w-full text-left min-w-[900px] text-sm">
-        <thead>
-          <tr className="border-b border-app-border text-xs text-app-text-muted uppercase">
-            <th className={th}>BDE</th>
-            <th className={`${th} text-right`}>Calls</th>
-            <th className={`${th} text-right`}>Connected</th>
-            <th className={`${th} text-right`}>Not conn.</th>
-            <th className={`${th} text-right`}>Rate</th>
-            <th className={`${th} text-right`}>Talk time</th>
-            <th className={`${th} text-right`}>Leads called</th>
-            <th className={`${th} text-right`}>Active leads</th>
-            <th className={`${th} text-right`}>Due today</th>
-            <th className={`${th} text-right`}>Overdue</th>
-            <th className={`${th} text-right`}>Won</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-app-border">
-          {members.map((m) => (
-            <tr key={m.adminId} onClick={() => onOpen(m)} className="cursor-pointer hover:bg-primary/5 transition-colors">
-              <td className={td}>
-                <div className="font-semibold text-app-text">{m.name}</div>
-                <div className="text-xs text-app-text-muted">{[m.employeeId, m.designation].filter(Boolean).join(' · ')}</div>
-                <div className="text-[11px] font-semibold text-primary mt-0.5">View calls &amp; leads →</div>
-              </td>
-              <td className={`${td} text-right font-bold text-app-text`}>{m.calls}</td>
-              <td className={`${td} text-right text-emerald-400`}>{m.connected}</td>
-              <td className={`${td} text-right text-red-400`}>{m.notConnected}</td>
-              <td className={`${td} text-right`}>{m.calls ? `${m.connectRate}%` : '—'}</td>
-              <td className={`${td} text-right`}>{fmtMinutes(m.talkMinutes)}</td>
-              <td className={`${td} text-right`}>{m.leadsWorked}</td>
-              <td className={`${td} text-right`}>{m.activeLeads}</td>
-              <td className={`${td} text-right`}>{m.followUpsDueToday}</td>
-              <td className={`${td} text-right ${m.followUpsOverdue ? 'text-red-400 font-bold' : ''}`}>{m.followUpsOverdue}</td>
-              <td className={`${td} text-right`}>
-                {m.won}
-                {m.won > 0 && <div className="text-[11px] text-app-text-muted">{fmtINR(m.wonValue)}</div>}
-              </td>
+    <div className="space-y-2">
+      <div className={`${card} overflow-x-auto`}>
+        <table className="w-full text-left min-w-[1150px] text-sm">
+          <thead>
+            <tr className="border-b border-app-border text-xs text-app-text-muted uppercase">
+              <th className={th}>BDE</th>
+              <th className={`${th} text-right`}>Calls</th>
+              <th className={`${th} text-right`}>Connected</th>
+              <th className={`${th} text-right`}>Not conn.</th>
+              <th className={`${th} text-right`}>Rate</th>
+              <th className={`${th} text-right`}>Avg dur.</th>
+              <th className={`${th} text-right`}>Talk time</th>
+              <th className={`${th} text-right`}>Unique leads</th>
+              <th className={`${th} text-right`}>FU due</th>
+              <th className={`${th} text-right`}>FU done</th>
+              <th className={`${th} text-right`}>Active leads</th>
+              <th className={`${th} text-right`}>Due today</th>
+              <th className={`${th} text-right`}>Overdue</th>
+              <th className={`${th} text-right`}>Won</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody className="divide-y divide-app-border">
+            {members.map((m) => (
+              <tr key={m.adminId} onClick={() => onOpen(m)} className="cursor-pointer hover:bg-primary/5 transition-colors">
+                <td className={td}>
+                  <div className="font-semibold text-app-text">{m.name}</div>
+                  <div className="text-xs text-app-text-muted">{[m.employeeId, m.designation].filter(Boolean).join(' · ')}</div>
+                  <div className="text-[11px] font-semibold text-primary mt-0.5">View calls &amp; leads →</div>
+                </td>
+                <td className={`${td} text-right font-bold text-app-text`}>{m.calls}</td>
+                <td className={`${td} text-right text-emerald-400`}>{m.connected}</td>
+                <td className={`${td} text-right text-red-400`}>{m.notConnected}</td>
+                <td className={`${td} text-right`}>{m.calls ? `${m.connectRate}%` : '—'}</td>
+                <td className={`${td} text-right`}>{fmtAvg(m.avgCallMinutes)}</td>
+                <td className={`${td} text-right`}>{fmtMinutes(m.talkMinutes)}</td>
+                <td className={`${td} text-right`}>{m.leadsWorked}</td>
+                <td className={`${td} text-right`}>{m.followUpsDue}</td>
+                <td className={`${td} text-right`}>{m.followUpsCompleted}</td>
+                <td className={`${td} text-right`}>{m.activeLeads}</td>
+                <td className={`${td} text-right`}>{m.followUpsDueToday}</td>
+                <td className={`${td} text-right ${m.followUpsOverdue ? 'text-red-400 font-bold' : ''}`}>{m.followUpsOverdue}</td>
+                <td className={`${td} text-right`}>
+                  {m.won}
+                  {m.won > 0 && <div className="text-[11px] text-app-text-muted">{fmtINR(m.wonValue)}</div>}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <PageFooter paged={paged} noun="BDEs" />
     </div>
   );
 }
@@ -359,6 +457,281 @@ function MemberDetail({ member, leadHref, onBack, scope, fetchData, params, show
   );
 }
 
+// Rows of the daily table, top to bottom, for each BDE
+const DAILY_METRICS = [
+  { key: 'connected', label: 'Connected Calls', tone: 'text-emerald-400' },
+  { key: 'notConnected', label: 'Not Connected Calls', tone: 'text-red-400' },
+  { key: 'calls', label: 'Total Calls', tone: 'text-app-text font-bold' },
+  { key: 'connectRate', label: 'Connect %', fmt: (v) => (v == null ? '—' : `${v.toFixed(2)}%`) },
+  { key: 'uniqueLeads', label: 'Unique Leads Called', tone: 'text-app-text-muted' },
+  { key: 'collaboratorCalls', label: '…of calls, on shared leads', tone: 'text-purple-400' },
+];
+
+const fmtDay = (day) => new Date(`${day}T12:00:00`).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
+const fmtWeekday = (day) => new Date(`${day}T12:00:00`).toLocaleDateString('en-IN', { weekday: 'short' });
+
+function DailyGroup({ title, sub, row, days, highlight }) {
+  return DAILY_METRICS.map((metric, i) => (
+    <tr key={`${title}-${metric.key}`} className={`${i === 0 ? 'border-t-2 border-app-border' : ''} ${highlight ? 'bg-primary/5' : ''}`}>
+      {i === 0 && (
+        <td rowSpan={DAILY_METRICS.length} className={`${td} align-top sticky left-0 z-10 ${highlight ? 'bg-app-bg' : 'bg-app-card'} border-r border-app-border min-w-[160px]`}>
+          <div className="font-semibold text-app-text">{title}</div>
+          {sub && <div className="text-xs text-app-text-muted">{sub}</div>}
+        </td>
+      )}
+      <td className={`${td} whitespace-nowrap text-xs text-app-text-muted`}>{metric.label}</td>
+      {days.map((day) => {
+        const v = row.days[day][metric.key];
+        return <td key={day} className={`${td} text-right tabular-nums ${metric.tone || ''}`}>{metric.fmt ? metric.fmt(v) : v}</td>;
+      })}
+      <td className={`${td} text-right tabular-nums font-bold border-l border-app-border ${metric.tone || ''}`}>
+        {metric.fmt ? metric.fmt(row.total[metric.key]) : row.total[metric.key]}
+      </td>
+    </tr>
+  ));
+}
+
+/**
+ * BD-wise Daily Call Performance — dates as columns, metrics as rows, one
+ * group per BDE (plus organisation totals for a team). Same period as the
+ * dashboard above; days are IST calendar days. Every call attempt counts;
+ * each call belongs to the BDE who made it.
+ */
+function DailyCallPerformance({ scope, fetchData, params, showTotals }) {
+  const { data, error, isLoading } = useQuery({
+    queryKey: [scope, 'daily-calls', params],
+    queryFn: () => fetchData('/daily', params),
+    placeholderData: keepPreviousData,
+  });
+  const days = data?.days || [];
+  const paged = usePaged(data?.members || [], 5);
+  const members = paged.items;
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <h3 className="text-lg font-bold text-app-text">BD-wise Daily Call Performance</h3>
+        <p className="text-xs text-app-text-muted">
+          Every call attempt counts, including repeat calls to the same lead (unique leads shown separately). A call counts for the BDE who made it; calls on leads someone else owns (collaborator activity) are also shown on their own row. Connect % = connected ÷ total calls × 100 (— when there are no calls). Days are IST.
+        </p>
+      </div>
+      {error && <div className="text-sm text-red-400">{errorOf(error, 'Could not load the daily call performance.')}</div>}
+      {isLoading ? <Loader /> : data && (
+        members.length === 0 ? <Empty>No BDEs to show.</Empty> : (
+          <div className={`${card} overflow-x-auto`}>
+            <table className="text-sm min-w-full">
+              <thead>
+                <tr className="border-b border-app-border text-xs text-app-text-muted uppercase">
+                  <th className={`${th} text-left sticky left-0 z-10 bg-app-card border-r border-app-border`}>BDE</th>
+                  <th className={`${th} text-left`}>Metric</th>
+                  {days.map((day) => (
+                    <th key={day} className={`${th} text-right whitespace-nowrap`}>
+                      <div>{fmtDay(day)}</div>
+                      <div className="text-[10px] font-normal normal-case">{fmtWeekday(day)}</div>
+                    </th>
+                  ))}
+                  <th className={`${th} text-right border-l border-app-border`}>Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {members.map((m) => (
+                  <DailyGroup key={m.adminId} title={m.name} sub={m.employeeId} row={m} days={days} />
+                ))}
+                {showTotals && paged.total > 1 && (
+                  <DailyGroup title="All BDEs" sub="Organisation total (every page)" row={data.totals} days={days} highlight />
+                )}
+              </tbody>
+            </table>
+          </div>
+        )
+      )}
+      <PageFooter paged={paged} noun="BDEs" />
+    </div>
+  );
+}
+
+const fmtCount = (n) => (n ? n.toLocaleString('en-IN') : '0');
+
+/** The leads behind a count, in a dialog — same scope as the table it came from. */
+function DrillDown({ query, title, scope, fetchData, leadHref, onClose }) {
+  const { data, error, isLoading } = useQuery({
+    queryKey: [scope, 'board-leads', query],
+    queryFn: () => fetchData('/board-leads', query),
+  });
+  const leads = data?.leads || [];
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={onClose}>
+      <div role="dialog" aria-modal="true" className={`${card} w-full max-w-4xl max-h-[85vh] flex flex-col overflow-hidden`} onClick={(e) => e.stopPropagation()}>
+        <div className="shrink-0 flex items-center justify-between px-5 py-3 border-b border-app-border">
+          <h3 className="font-semibold text-app-text">{title} <span className="text-app-text-muted font-normal">· {leads.length}{leads.length === 500 ? '+' : ''} lead{leads.length === 1 ? '' : 's'}</span></h3>
+          <button type="button" onClick={onClose} className="p-1.5 text-app-text-muted hover:text-app-text cursor-pointer" aria-label="Close"><X size={18} /></button>
+        </div>
+        <div className="flex-1 min-h-0 overflow-auto overscroll-contain">
+          {error && <div className="p-4 text-sm text-red-400">{errorOf(error, 'Could not load these leads.')}</div>}
+          {isLoading ? <Loader /> : (
+            <table className="w-full text-left text-sm min-w-[720px]">
+              <thead className="sticky top-0 bg-app-card">
+                <tr className="border-b border-app-border text-xs text-app-text-muted uppercase">
+                  <th className={th}>Lead</th><th className={th}>Owner</th><th className={th}>Status</th><th className={th}>Assigned</th><th className={th}>Last call</th><th className={`${th} text-right`}>Value</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-app-border">
+                {leads.map((l) => (
+                  <tr key={l._id}>
+                    <td className={td}><LeadName leadRef={l._id} name={l.fullName} leadId={l.leadId} leadHref={leadHref} /></td>
+                    <td className={`${td} text-app-text-muted`}>{l.owner || 'Unassigned'}</td>
+                    <td className={td}>{l.status}{l.interestLevel ? <div className="text-[11px] text-app-text-muted">{l.interestLevel}</div> : null}</td>
+                    <td className={`${td} text-app-text-muted whitespace-nowrap`}>{fmtDateTime(l.assignedAt || l.createdAt)}</td>
+                    <td className={`${td} text-app-text-muted whitespace-nowrap`}>{l.lastCallAt ? fmtDateTime(l.lastCallAt) : '—'}</td>
+                    <td className={`${td} text-right`}>{fmtINR(l.dealCloseValue || l.proposalValue || l.dealValue || 0)}</td>
+                  </tr>
+                ))}
+                {!leads.length && <tr><td colSpan={6} className="p-6 text-center text-app-text-muted">No leads.</td></tr>}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const STATUS_COLUMNS = [
+  { key: 'open', label: 'Open', hint: 'Every non-terminal status, Hold included' },
+  { key: 'hold', label: 'of which Hold' },
+  { key: 'won', label: 'Won' },
+  { key: 'lost', label: 'Lost' },
+  { key: 'dropped', label: 'Dropped' },
+  { key: 'total', label: 'Total' },
+];
+
+/**
+ * BDE-wise Lead Status (as of now). Counted by primary owner, so a lead
+ * shared between BDs is one lead in every total; the leads someone
+ * collaborates on are a separate column that never adds into totals.
+ */
+function LeadStatusTable({ scope, fetchData, leadHref }) {
+  const [drill, setDrill] = useState(null);
+  const { data, error, isLoading } = useQuery({ queryKey: [scope, 'lead-status'], queryFn: () => fetchData('/lead-status', {}) });
+  const allRows = data?.rows || [];
+  const team = allRows.some((r) => 'collaborating' in r);
+  const paged = usePaged(allRows, 15);
+  const rows = paged.items;
+  const open = (row, key, label) => setDrill({ query: { owner: row.owner, bucket: key }, title: `${row.name} — ${label}` });
+  const Count = ({ row, k, label, className = '' }) => (
+    <td className={`${td} text-right tabular-nums ${className}`}>
+      {row[k] ? <button type="button" onClick={() => open(row, k, label)} className="hover:text-primary hover:underline cursor-pointer">{fmtCount(row[k])}</button> : <span className="text-app-text-muted">0</span>}
+    </td>
+  );
+  return (
+    <div className="space-y-3">
+      <div>
+        <h3 className="text-lg font-bold text-app-text">BDE-wise Lead Status</h3>
+        <p className="text-xs text-app-text-muted">
+          All Sales leads as of now, by primary owner. Open = every status except Won, Lost and Dropped (Hold is included, and also shown on its own). A shared lead counts once, for its owner{team ? '; "Collaborating" lists leads shared with a BDE and is not added into totals' : ''}. Click a number to see the leads.
+        </p>
+      </div>
+      {error && <div className="text-sm text-red-400">{errorOf(error, 'Could not load the lead status table.')}</div>}
+      {isLoading ? <Loader /> : (
+        <div className={`${card} overflow-x-auto`}>
+          <table className="w-full text-left text-sm min-w-[820px]">
+            <thead>
+              <tr className="border-b border-app-border text-xs text-app-text-muted uppercase">
+                <th className={th}>Lead owner</th>
+                {STATUS_COLUMNS.map((c) => <th key={c.key} className={`${th} text-right`} title={c.hint}>{c.label}</th>)}
+                <th className={`${th} text-right`}>Open pipeline</th>
+                {team && <th className={`${th} text-right`}>Collaborating</th>}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-app-border">
+              {rows.map((r) => (
+                <tr key={r.owner} className={r.collaborator ? 'bg-purple-500/5' : ''}>
+                  <td className={td}>
+                    <div className={`font-semibold ${r.unassigned ? 'text-amber-400' : 'text-app-text'}`}>{r.name}</div>
+                    {r.other && <div className="text-[11px] text-app-text-muted">Not a BDE</div>}
+                    {r.collaborator && <div className="text-[11px] text-purple-400">Not included in your totals</div>}
+                  </td>
+                  {STATUS_COLUMNS.map((c) => <Count key={c.key} row={r} k={c.key} label={c.label} className={c.key === 'total' ? 'font-bold' : ''} />)}
+                  <td className={`${td} text-right`}>{fmtINR(r.openValue)}</td>
+                  {team && <Count row={r} k="collaborating" label="leads shared with them" className="text-purple-400" />}
+                </tr>
+              ))}
+              {data?.totals && (
+                <tr className="border-t-2 border-app-border bg-primary/5 font-bold">
+                  <td className={td}>{team ? 'Total (distinct leads)' : 'My total (owned)'}</td>
+                  {STATUS_COLUMNS.map((c) => <td key={c.key} className={`${td} text-right tabular-nums`}>{fmtCount(data.totals[c.key])}</td>)}
+                  <td className={`${td} text-right`}>{fmtINR(data.totals.openValue)}</td>
+                  {team && <td className={td} />}
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <PageFooter paged={paged} noun="owners" />
+      {drill && <DrillDown {...drill} scope={scope} fetchData={fetchData} leadHref={leadHref} onClose={() => setDrill(null)} />}
+    </div>
+  );
+}
+
+/** Pending Call — assigned, not yet called or acted on; owner × IST assignment date. */
+function PendingCallsTable({ scope, fetchData, leadHref }) {
+  const [drill, setDrill] = useState(null);
+  const { data, error, isLoading } = useQuery({ queryKey: [scope, 'pending-calls'], queryFn: () => fetchData('/pending-calls', {}) });
+  const days = data?.days || [];
+  const allOwners = (data?.owners || []).filter((o) => o.total > 0 || !o.collaborator);
+  const paged = usePaged(allOwners, 15);
+  const owners = paged.items;
+  const open = (o, day) => setDrill({
+    query: { owner: o.owner, bucket: 'pending', ...(day && { day }) },
+    title: `${o.name} — not yet called${day ? `, assigned ${fmtDay(day)}` : ''}`,
+  });
+  return (
+    <div className="space-y-3">
+      <div>
+        <h3 className="text-lg font-bold text-app-text">Pending Calls</h3>
+        <p className="text-xs text-app-text-muted">Leads assigned but not yet called or acted on (open leads only), by owner and assignment date (IST), as of now. Click a number to see the leads.</p>
+      </div>
+      {error && <div className="text-sm text-red-400">{errorOf(error, 'Could not load pending calls.')}</div>}
+      {isLoading ? <Loader /> : !data?.total && !allOwners.some((o) => o.total) ? <Empty>Nothing pending — every assigned lead has been called.</Empty> : (
+        <div className={`${card} overflow-x-auto`}>
+          <table className="text-sm min-w-full">
+            <thead>
+              <tr className="border-b border-app-border text-xs text-app-text-muted uppercase">
+                <th className={`${th} text-left sticky left-0 z-10 bg-app-card border-r border-app-border`}>Lead owner</th>
+                {days.map((d) => <th key={d} className={`${th} text-right whitespace-nowrap`}>{fmtDay(d)}<div className="text-[10px] font-normal normal-case">{fmtWeekday(d)}</div></th>)}
+                <th className={`${th} text-right border-l border-app-border`}>Total</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-app-border">
+              {owners.map((o) => (
+                <tr key={o.owner} className={o.collaborator ? 'bg-purple-500/5' : ''}>
+                  <td className={`${td} sticky left-0 z-10 bg-app-card border-r border-app-border whitespace-nowrap font-semibold text-app-text`}>{o.name}</td>
+                  {days.map((d) => (
+                    <td key={d} className={`${td} text-right tabular-nums`}>
+                      {o.days[d] ? <button type="button" onClick={() => open(o, d)} className="hover:text-primary hover:underline cursor-pointer">{o.days[d]}</button> : <span className="text-app-text-muted">·</span>}
+                    </td>
+                  ))}
+                  <td className={`${td} text-right font-bold border-l border-app-border`}>
+                    {o.total ? <button type="button" onClick={() => open(o)} className="hover:text-primary hover:underline cursor-pointer">{o.total}</button> : 0}
+                  </td>
+                </tr>
+              ))}
+              <tr className="border-t-2 border-app-border bg-primary/5 font-bold">
+                <td className={`${td} sticky left-0 z-10 bg-app-bg border-r border-app-border`}>Total</td>
+                {days.map((d) => <td key={d} className={`${td} text-right`}>{data.totals[d] || 0}</td>)}
+                <td className={`${td} text-right border-l border-app-border`}>{data.total}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      )}
+      <PageFooter paged={paged} noun="owners" />
+      {drill && <DrillDown {...drill} scope={scope} fetchData={fetchData} leadHref={leadHref} onClose={() => setDrill(null)} />}
+    </div>
+  );
+}
+
 function usePeriod() {
   const [period, setPeriod] = useState('today');
   const [from, setFrom] = useState(toDateInput());
@@ -369,7 +742,7 @@ function usePeriod() {
 
 function PeriodPicker({ period, setPeriod, from, setFrom, to, setTo }) {
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex flex-wrap items-center gap-2" title="Weeks start on Monday. Custom ranges include both the start and end dates. All days are IST.">
       {PERIODS.map((p) => (
         <button
           key={p.key}
@@ -399,8 +772,9 @@ function PeriodPicker({ period, setPeriod, from, setFrom, to, setTo }) {
  * totals and `fetchData('/calls')` a page of calls, both scoped server-side
  * to the signed-in user.
  */
-export function MyCallLog({ scope, fetchData, leadHref, title = 'My Call Log' }) {
+export function MyCallLog({ scope, fetchData, leadHref, title = 'My Calling Performance' }) {
   const periodState = usePeriod();
+  const [view, setView] = useViewParam(MY_VIEWS);
   const { params } = periodState;
   const { data: summary, error } = useQuery({
     queryKey: [scope, 'my-calls', params],
@@ -414,24 +788,24 @@ export function MyCallLog({ scope, fetchData, leadHref, title = 'My Call Log' })
       <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-3">
         <div>
           <h2 className="text-xl font-bold text-app-text">{title}</h2>
-          <p className="text-xs text-app-text-muted mt-1">
-            Every call you logged{range && ` · ${fmtDate(range.start)} – ${fmtDate(range.end)}`}
-          </p>
+          <p className="text-xs text-app-text-muted mt-1 mb-1.5">Your calls and follow-ups for the period, then every call you logged.</p>
+          <PeriodLabel period={periodState.period} range={range} />
         </div>
         <PeriodPicker {...periodState} />
       </div>
 
       {error && <div className="text-sm text-red-400">{errorOf(error, 'Could not load your calls.')}</div>}
       {summary && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <Tile icon={Phone} label="Calls made" value={summary.calls} sub={`${summary.leadsWorked} leads called`} />
-          <Tile icon={PhoneCall} label="Connected" value={summary.connected} sub={`${summary.connectRate}% connect rate`} tone="text-emerald-400 bg-emerald-500/10" />
-          <Tile icon={AlertTriangle} label="Not connected" value={summary.notConnected} tone="text-red-400 bg-red-500/10" />
-          <Tile icon={Clock} label="Talk time" value={fmtMinutes(summary.talkMinutes)} tone="text-sky-400 bg-sky-500/10" />
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+          <CallingTiles t={summary} />
         </div>
       )}
 
-      <TeamCallLog scope={scope} fetchData={fetchData} params={params} leadHref={leadHref} self />
+      <Tabs views={MY_VIEWS} view={view} setView={setView} />
+      {view === 'daily' && <DailyCallPerformance scope={scope} fetchData={fetchData} params={params} />}
+      {view === 'status' && <LeadStatusTable scope={scope} fetchData={fetchData} leadHref={leadHref} />}
+      {view === 'pending' && <PendingCallsTable scope={scope} fetchData={fetchData} leadHref={leadHref} />}
+      {view === 'calls' && <TeamCallLog scope={scope} fetchData={fetchData} params={params} leadHref={leadHref} self />}
     </div>
   );
 }
@@ -447,7 +821,7 @@ export default function TeamPerformance({ scope, fetchData, leadHref, title = 'M
     if (adminId) next.set('bde', adminId); else next.delete('bde');
     return next;
   });
-  const [view, setView] = useState('members'); // members | calls
+  const [view, setView] = useViewParam(VIEWS);
 
   const summaryQuery = useQuery({
     queryKey: [scope, 'team-performance', params],
@@ -468,8 +842,8 @@ export default function TeamPerformance({ scope, fetchData, leadHref, title = 'M
           <h2 className="text-xl font-bold text-app-text">{title}</h2>
           <p className="text-xs text-app-text-muted mt-1">
             {subtitle || `${members.length} BDE${members.length === 1 ? '' : 's'}`}
-            {range && ` · ${fmtDate(range.start)} – ${fmtDate(range.end)}`}
           </p>
+          <div className="mt-1.5"><PeriodLabel period={periodState.period} range={range} /></div>
         </div>
         <PeriodPicker {...periodState} />
       </div>
@@ -486,24 +860,19 @@ export default function TeamPerformance({ scope, fetchData, leadHref, title = 'M
       ) : (
         <>
           <Totals totals={summary.totals} />
-          <div className="flex gap-1 border-b border-app-border">
-            {VIEWS.map((v) => (
-              <button key={v.key} type="button" onClick={() => setView(v.key)}
-                className={`px-4 py-2 text-sm font-semibold border-b-2 -mb-px transition-colors cursor-pointer ${view === v.key ? 'border-primary text-primary' : 'border-transparent text-app-text-muted hover:text-app-text'}`}>
-                {v.label}
-              </button>
-            ))}
-          </div>
-          {view === 'calls' ? (
-            <TeamCallLog scope={scope} fetchData={fetchData} params={params} members={members} leadHref={leadHref} />
-          ) : (
+          <Tabs views={VIEWS} view={view} setView={setView} />
+          {view === 'members' && (
             <>
               <MemberTable members={members} onOpen={(m) => setSelected(String(m.adminId))} />
               <p className="text-[11px] text-app-text-muted">
-                Calls count every outcome a BDE logged in the period. Active leads, follow-ups and stages are as of now. Click a BDE to see their call log and leads.
+                Calls count every outcome a BDE logged in the period; average duration covers timed calls only. FU due / done are follow-ups due in, and completed in, the period. Active leads, due today and overdue are as of now. Click a BDE to see their call log and leads.
               </p>
             </>
           )}
+          {view === 'daily' && <DailyCallPerformance scope={scope} fetchData={fetchData} params={params} showTotals />}
+          {view === 'status' && <LeadStatusTable scope={scope} fetchData={fetchData} leadHref={leadHref} />}
+          {view === 'pending' && <PendingCallsTable scope={scope} fetchData={fetchData} leadHref={leadHref} />}
+          {view === 'calls' && <TeamCallLog scope={scope} fetchData={fetchData} params={params} members={members} leadHref={leadHref} />}
         </>
       )}
     </div>

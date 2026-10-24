@@ -55,7 +55,7 @@ async function shareLead(lead, adminId, actorId, reason = '') {
   );
   if (!result.modifiedCount) return { ok: false, status: 409, message: 'The lead is already shared with this BD.' };
 
-  await AssignmentLog.create({ lead: lead._id, fromAdmin: null, toAdmin: adminId, assignedBy: actorId, mode: 'Cross-Assign', reason });
+  await AssignmentLog.create({ lead: lead._id, fromAdmin: null, toAdmin: adminId, assignedBy: actorId, mode: 'Cross-Assign', reason, leadOwner: lead.assignedTo || null });
 
   try {
     const title = 'Lead shared with you';
@@ -84,7 +84,7 @@ async function unshareLead(lead, adminId, actorId, reason = '') {
   );
   if (!result.modifiedCount) return { ok: false, status: 404, message: 'The lead is not shared with this BD.' };
 
-  await AssignmentLog.create({ lead: lead._id, fromAdmin: adminId, toAdmin: null, assignedBy: actorId, mode: 'Cross-Unassign', reason });
+  await AssignmentLog.create({ lead: lead._id, fromAdmin: adminId, toAdmin: null, assignedBy: actorId, mode: 'Cross-Unassign', reason, leadOwner: lead.assignedTo || null });
   return { ok: true };
 }
 
@@ -124,4 +124,22 @@ async function addNote(lead, user, { text, visibility }) {
   return { ok: true, note: { _id: note._id, text: note.text, visibility: note.visibility, createdAt: note.createdAt, author: { _id: user._id, name: fullName(user) }, isMine: true } };
 }
 
-module.exports = { sharedWithDetails, shareLead, unshareLead, listNotes, addNote };
+/**
+ * Newest note `user` may read on each lead, as Map(leadId → { text, author, createdAt, visibility }).
+ * Same visibility rule as listNotes.
+ */
+async function latestNotes(leadIds, user) {
+  if (!leadIds.length) return new Map();
+  const match = { lead: { $in: leadIds } };
+  if (!seesAllLeadNotes(user)) match.$or = [{ visibility: 'shared' }, { author: user._id }];
+  const rows = await LeadNote.aggregate([
+    { $match: match },
+    { $sort: { createdAt: -1 } },
+    { $group: { _id: '$lead', text: { $first: '$text' }, author: { $first: '$author' }, createdAt: { $first: '$createdAt' }, visibility: { $first: '$visibility' } } },
+  ]);
+  const authors = await Admin.find({ _id: { $in: rows.map((r) => r.author) } }, { firstName: 1, lastName: 1, email: 1 }).lean();
+  const nameOf = new Map(authors.map((a) => [String(a._id), fullName(a)]));
+  return new Map(rows.map((r) => [String(r._id), { text: r.text, author: nameOf.get(String(r.author)) || 'Unknown', createdAt: r.createdAt, visibility: r.visibility }]));
+}
+
+module.exports = { sharedWithDetails, shareLead, unshareLead, listNotes, addNote, latestNotes };

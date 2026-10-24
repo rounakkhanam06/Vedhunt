@@ -2,7 +2,7 @@ import { useState } from 'react';
 import toast from 'react-hot-toast';
 import { essPost, essPut, apiError } from '../lib/ess';
 import { toDateTimeInput, fromLocalInput, fmtDateTime } from '../lib/datetime';
-import { INTEREST_LEVELS, NOT_CONNECTED_REASONS, NEXT_ACTION_TYPES, NON_ACTIVE_FOLLOWUP_STATUSES } from '../../shared/leadConstants';
+import { INTEREST_LEVELS, NOT_CONNECTED_REASONS, NEXT_ACTION_TYPES, FOLLOW_UP_TYPES, NON_ACTIVE_FOLLOWUP_STATUSES } from '../../shared/leadConstants';
 
 // Outcomes after which the lead needs a stage decision, not another follow-up
 const CLOSING_INTEREST = ['Not Interested', 'Wrong / Junk Lead'];
@@ -25,6 +25,7 @@ export default function FollowUpForm({ lead, onSaved, onCancel }) {
   const [notConnectedReason, setNotConnectedReason] = useState('');
   const [result, setResult] = useState('');
   const [nextActionType, setNextActionType] = useState(completing ? '' : lead.nextActionType || 'Call');
+  const [followUpType, setFollowUpType] = useState(completing ? '' : lead.followUpType || '');
   const [nextAt, setNextAt] = useState(completing ? '' : toDateTimeInput(lead.nextFollowUpDate));
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -41,6 +42,7 @@ export default function FollowUpForm({ lead, onSaved, onCancel }) {
       if (connected === 'No' && !notConnectedReason) missing.push('reason');
       if (!result.trim()) missing.push('result');
     }
+    if (needsNext && !followUpType) missing.push('follow-up type');
     if (needsNext && !nextActionType) missing.push('next action');
     if (needsNext && !nextAt) missing.push('date & time');
     if (missing.length) { setError(`Please add: ${missing.join(', ')}.`); return; }
@@ -53,9 +55,10 @@ export default function FollowUpForm({ lead, onSaved, onCancel }) {
         ? await essPost(`/leads/${lead._id}/follow-up/complete`, {
           connected, interestLevel, notConnectedReason, result,
           nextActionType: needsNext ? nextActionType : '',
+          followUpType: needsNext ? followUpType : '',
           nextFollowUpDate: needsNext ? fromLocalInput(nextAt) : '',
         })
-        : await essPut(`/leads/${lead._id}`, { nextFollowUpDate: fromLocalInput(nextAt), nextActionType });
+        : await essPut(`/leads/${lead._id}`, { nextFollowUpDate: fromLocalInput(nextAt), nextActionType, followUpType });
       toast.success(completing ? 'Follow-up completed' : 'Next action scheduled', { duration: 1500, position: 'bottom-right' });
       onSaved?.(res.lead);
     } catch (err) {
@@ -96,7 +99,14 @@ export default function FollowUpForm({ lead, onSaved, onCancel }) {
         </>
       )}
       {needsNext ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <div>
+            <label className={labelClass}>Follow-up type</label>
+            <select value={followUpType} onChange={(e) => setFollowUpType(e.target.value)} className={fieldClass}>
+              <option value="">Select…</option>
+              {FOLLOW_UP_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </div>
           <div>
             <label className={labelClass}>Next action</label>
             <select value={nextActionType} onChange={(e) => setNextActionType(e.target.value)} className={fieldClass}>

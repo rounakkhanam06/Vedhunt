@@ -1,9 +1,13 @@
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { Activity, Filter, ChevronDown, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { useLeadAccess } from '../../shared/crmAccess';
 import RemarkCell from '../../components/common/RemarkCell';
+import employeeApi from '../../services/employeeApi';
+import { FOLLOW_UP_TYPE_BADGE } from '../../shared/leadConstants';
+
+const STAGES = ['New', 'Contacted', 'Qualified', 'Proposal Sent', 'Negotiation', 'Hold', 'Won', 'Lost', 'Dropped'];
 
 // firstName/lastName aren't guaranteed on every Admin account (the original
 // legacy seed account predates those fields being required) — fall back
@@ -39,17 +43,28 @@ const dateClass = 'bg-app-bg border border-app-border rounded-lg px-3 py-2.5 tex
 const fmtWhen = (d) => new Date(d).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 
 /**
- * Every call any BD logged (from each lead's call log, credited to whoever
- * made the call), filterable by BD, result and date. Filters live in the URL
- * so the Management Dashboard's "Calls Made" links straight to one BD's calls.
+ * Every call logged on the leads the viewer can see (from each lead's call
+ * log, credited to whoever made the call), filterable by caller, result,
+ * stage, client and date. Filters live in the URL so the Management
+ * Dashboard's "Calls Made" links straight to one BD's calls.
+ *
+ * `portal`: the BD's own Lead Activity tab in the Employee Portal — calls on
+ * their assigned and cross-assigned leads (server: /ess/lead-activity).
  */
-export default function LeadActivity() {
+export default function LeadActivity({ portal = false }) {
   // Admin panel (role) or Employee Portal (person-wise grant) — shared/crmAccess.js
-  const { http, root, leadPath } = useLeadAccess();
+  const access = useLeadAccess();
+  const http = portal ? employeeApi : access.http;
+  const endpoint = portal ? '/employee-portal/ess/lead-activity' : `${access.root}/admin/activity/calls`;
+  const leadPath = portal ? (id) => `/employee/leads/${id}` : access.leadPath;
+  const root = access.root;
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const by = params.get('by') || 'All';
   const result = params.get('result') || 'All';
+  const stage = params.get('stage') || 'All';
+  const client = params.get('client') || '';
+  const [clientInput, setClientInput] = useState(client);
   const dateFrom = params.get('dateFrom') || '';
   const dateTo = params.get('dateTo') || '';
   const page = Math.max(Number(params.get('page')) || 1, 1);
@@ -62,10 +77,18 @@ export default function LeadActivity() {
     setParams(next, { replace: true });
   };
 
-  const query = { page, limit: 20, by, result, dateFrom: dateFrom || undefined, dateTo: dateTo || undefined };
+  // Client search: applied once typing pauses
+  useEffect(() => {
+    if (clientInput === client) return undefined;
+    const t = setTimeout(() => update({ client: clientInput.trim() }), 400);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientInput]);
+
+  const query = { page, limit: 20, by, result, stage, client: client || undefined, dateFrom: dateFrom || undefined, dateTo: dateTo || undefined };
   const { data, isLoading, isFetching, error } = useQuery({
-    queryKey: ['admin', 'call-activity', query],
-    queryFn: () => http.get(`${root}/admin/activity/calls`, { params: query }).then((r) => r.data),
+    queryKey: [portal ? 'ess' : 'admin', 'call-activity', query],
+    queryFn: () => http.get(endpoint, { params: query }).then((r) => r.data),
     placeholderData: keepPreviousData,
   });
 
@@ -75,6 +98,7 @@ export default function LeadActivity() {
     queryKey: ['admin', 'assignable-bds'],
     queryFn: () => http.get(`${root}/admin/assignment/bds`).then((r) => r.data?.data || []),
     retry: false,
+    enabled: !portal,
   });
   const perBd = data?.perBd;
   const bdOptions = useMemo(() => {
@@ -98,7 +122,11 @@ export default function LeadActivity() {
         <h1 className="text-2xl font-bold text-app-text font-heading flex items-center gap-2">
           <Activity className="text-primary" size={24} /> Lead Activity
         </h1>
-        <p className="text-sm text-app-text-muted mt-1">Every call your BD team logged, credited to whoever made it. Pick a BD and a date range to see exactly which leads they called.</p>
+        <p className="text-sm text-app-text-muted mt-1">
+          {portal
+            ? 'Every call logged on your assigned and shared leads, by whoever made it.'
+            : 'Every call logged on your leads, credited to whoever made it. Filter by caller, result, stage, client and date.'}
+        </p>
       </div>
 
       {/* Filters */}
@@ -107,7 +135,7 @@ export default function LeadActivity() {
           <div className="relative min-w-[200px]">
             <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-app-text-muted w-4 h-4 pointer-events-none" />
             <select value={by} onChange={(e) => update({ by: e.target.value })} className={selectClass}>
-              <option className="bg-app-bg text-app-text" value="All">All BDs</option>
+              <option className="bg-app-bg text-app-text" value="All">{portal ? 'Anyone' : 'All BDs'}</option>
               {bdOptions.map(([id, name]) => (
                 <option key={id} className="bg-app-bg text-app-text" value={id}>{name}</option>
               ))}
@@ -123,6 +151,22 @@ export default function LeadActivity() {
             </select>
             <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-app-text-muted w-4 h-4 pointer-events-none" />
           </div>
+          <div className="relative min-w-[170px]">
+            <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-app-text-muted w-4 h-4 pointer-events-none" />
+            <select value={stage} onChange={(e) => update({ stage: e.target.value })} className={selectClass} aria-label="Lead stage">
+              <option className="bg-app-bg text-app-text" value="All">All Stages</option>
+              {STAGES.map((s) => <option key={s} className="bg-app-bg text-app-text" value={s}>{s}</option>)}
+            </select>
+            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-app-text-muted w-4 h-4 pointer-events-none" />
+          </div>
+          <input
+            type="search"
+            value={clientInput}
+            onChange={(e) => setClientInput(e.target.value)}
+            placeholder="Client name, phone or lead ID"
+            className="min-w-[220px] bg-app-bg border border-app-border rounded-lg px-3 py-2.5 text-sm text-app-text focus:outline-none focus:border-primary"
+            aria-label="Client"
+          />
           <div className="flex items-center gap-2">
             <input type="date" value={dateFrom} max={dateTo || undefined} onChange={(e) => update({ dateFrom: e.target.value })} className={dateClass} aria-label="From date" />
             <span className="text-xs text-app-text-muted">to</span>
@@ -140,8 +184,8 @@ export default function LeadActivity() {
               {p.label}
             </button>
           ))}
-          {(by !== 'All' || result !== 'All' || dateFrom || dateTo) && (
-            <button type="button" onClick={() => setParams({}, { replace: true })} className="flex items-center gap-1 text-xs text-app-text-muted hover:text-primary cursor-pointer ml-1">
+          {(by !== 'All' || result !== 'All' || stage !== 'All' || client || dateFrom || dateTo) && (
+            <button type="button" onClick={() => { setClientInput(''); update({ by: '', result: '', stage: '', client: '', dateFrom: '', dateTo: '' }); }} className="flex items-center gap-1 text-xs text-app-text-muted hover:text-primary cursor-pointer ml-1">
               <X size={12} /> Clear filters
             </button>
           )}
@@ -187,17 +231,17 @@ export default function LeadActivity() {
         </div>
       ) : (
         <div className="bg-app-card border border-app-border rounded-xl overflow-x-auto">
-          <table className="w-full text-left text-sm min-w-[980px]">
+          <table className="w-full text-left text-sm min-w-[1100px]">
             <thead className="bg-app-bg text-app-text-muted text-xs uppercase tracking-wider border-b border-app-border">
               <tr>
-                <th className="px-4 py-3 font-semibold">When</th>
+                <th className="px-4 py-3 font-semibold">Calling date / time</th>
                 <th className="px-4 py-3 font-semibold">Called by</th>
-                <th className="px-4 py-3 font-semibold">Lead</th>
-                <th className="px-4 py-3 font-semibold">Result</th>
-                <th className="px-4 py-3 font-semibold">Type</th>
-                <th className="px-4 py-3 font-semibold">Stage after</th>
-                <th className="px-4 py-3 font-semibold text-right">Duration</th>
-                <th className="px-4 py-3 font-semibold">Remark</th>
+                <th className="px-4 py-3 font-semibold">Client name</th>
+                <th className="px-4 py-3 font-semibold">Call / contact status</th>
+                <th className="px-4 py-3 font-semibold">Next action</th>
+                <th className="px-4 py-3 font-semibold">Lead stage</th>
+                <th className="px-4 py-3 font-semibold text-right">Call duration</th>
+                <th className="px-4 py-3 font-semibold">Remark / note</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-app-border">
@@ -210,7 +254,7 @@ export default function LeadActivity() {
                   <tr key={`${entry.leadId}-${entry.touchNumber}-${idx}`} className="hover:bg-app-bg transition-colors align-top">
                     <td className="px-4 py-3 text-app-text-muted whitespace-nowrap">
                       {fmtWhen(entry.date)}
-                      {entry.touchNumber != null && <div className="text-[11px]">Touch #{entry.touchNumber}</div>}
+                      {entry.touchNumber != null && <div className="text-[11px]">Touch #{entry.touchNumber}{entry.callType ? ` · ${entry.callType}` : ''}</div>}
                     </td>
                     <td className="px-4 py-3 text-app-text font-medium">{displayName(entry.by)}</td>
                     <td className="px-4 py-3">
@@ -220,17 +264,30 @@ export default function LeadActivity() {
                       >
                         {entry.leadName || '—'}
                       </button>
-                      <div className="text-[11px] text-app-text-muted">{[entry.leadDisplayId, entry.leadPhone].filter(Boolean).join(' · ')}</div>
+                      <div className="text-[11px] text-app-text-muted">{[entry.businessName, entry.leadDisplayId, entry.leadPhone].filter(Boolean).join(' · ')}</div>
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`px-2 py-1 rounded text-[10px] uppercase font-bold tracking-wider border ${entry.connected === 'Yes' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}`}>
-                        {entry.connected === 'Yes' ? 'Connected' : 'Not connected'}
+                      <span className={`px-2 py-1 rounded text-[10px] uppercase font-bold tracking-wider border ${entry.outcome === 'Connected' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}`}>
+                        {entry.outcome}
                       </span>
-                      <div className="text-[11px] text-app-text-muted mt-1">{entry.connected === 'Yes' ? entry.interestLevel : entry.notConnectedReason}</div>
+                      <div className="text-[11px] text-app-text-muted mt-1">{entry.outcomeDetail}</div>
                     </td>
-                    <td className="px-4 py-3 text-app-text-muted">{entry.callType || 'Call'}</td>
-                    <td className="px-4 py-3 text-app-text-muted">{entry.leadStage || '—'}</td>
-                    <td className="px-4 py-3 text-app-text-muted text-right">{entry.duration ? `${entry.duration} min` : '—'}</td>
+                    <td className="px-4 py-3 text-app-text-muted whitespace-nowrap">
+                      {entry.nextAction ? (
+                        <>
+                          {entry.nextAction.followUpType && (
+                            <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-bold border ${FOLLOW_UP_TYPE_BADGE[entry.nextAction.followUpType] || FOLLOW_UP_TYPE_BADGE.Other}`}>{entry.nextAction.followUpType}</span>
+                          )}
+                          <div className="text-xs mt-0.5">{fmtWhen(entry.nextAction.date)}</div>
+                          {entry.nextAction.actionType && <div className="text-[11px]">via {entry.nextAction.actionType}</div>}
+                        </>
+                      ) : '—'}
+                    </td>
+                    <td className="px-4 py-3 text-app-text-muted">
+                      {entry.leadStage || '—'}
+                      {entry.currentStage && entry.currentStage !== entry.leadStage && <div className="text-[11px]">now {entry.currentStage}</div>}
+                    </td>
+                    <td className="px-4 py-3 text-app-text-muted text-right" title={entry.duration ? '' : 'Call timer not used for this call'}>{entry.duration ? `${entry.duration} min` : 'Not timed'}</td>
                     <td className="px-4 py-3 w-[280px] min-w-[220px] max-w-[280px]"><RemarkCell text={entry.remark} /></td>
                   </tr>
                 ))

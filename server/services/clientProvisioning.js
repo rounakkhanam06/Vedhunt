@@ -32,11 +32,12 @@ async function provisionClientAccount({ businessName, contactName, email, phone,
 
   const client = await Client.create(clientData);
 
+  const frontendUrl = (process.env.FRONTEND_URL || process.env.CLIENT_ORIGIN || 'https://vedhunt.in').replace(/\/$/, '');
   try {
     await sendEmail({
       email: client.email,
       subject: 'Welcome to Vedhunt Client Portal',
-      message: `Hello ${client.contactName},\n\nYour client portal account has been created.\n\nLogin at: ${process.env.FRONTEND_URL || 'http://localhost:5173'}/client/login\nEmail: ${client.email}\nTemporary Password: ${finalPassword}\n\nPlease change your password upon first login.\n\n— Vedhunt Team`
+      message: `Hello ${client.contactName},\n\nYour client portal account has been created.\n\nLogin at: ${frontendUrl}/client/login\nEmail: ${client.email}\nTemporary Password: ${finalPassword}\n\nPlease change your password upon first login.\n\n— Vedhunt Team`
     });
   } catch (emailErr) {
     logger.warn('Welcome email failed for new client:', emailErr.message);

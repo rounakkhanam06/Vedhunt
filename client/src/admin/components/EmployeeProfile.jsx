@@ -85,10 +85,12 @@ export default function EmployeeProfile({
 
   return (
     <div className="space-y-6 text-app-text">
-      <button type="button" onClick={onBack}
-        className="inline-flex items-center gap-1.5 text-sm text-app-text-muted hover:text-primary transition-colors cursor-pointer">
-        <ArrowLeft size={16} /> All employees
-      </button>
+      {onBack && (
+        <button type="button" onClick={onBack}
+          className="inline-flex items-center gap-1.5 text-sm text-app-text-muted hover:text-primary transition-colors cursor-pointer">
+          <ArrowLeft size={16} /> All employees
+        </button>
+      )}
 
       {/* Header */}
       <div className="bg-app-card border border-app-border rounded-2xl p-4 sm:p-6 flex flex-col md:flex-row md:items-center gap-5">

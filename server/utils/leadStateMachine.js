@@ -29,6 +29,10 @@ const PAYMENT_STATUS_OPTIONS = ['Not Applicable', 'Pending', 'Partially Paid', '
 // What the scheduled follow-up (nextFollowUpDate) actually is.
 const NEXT_ACTION_TYPES = ['Call', 'WhatsApp', 'Email', 'Meeting', 'Proposal', 'Payment Follow-up', 'Other'];
 
+// What a scheduled follow-up is for (the client's list), shown on the
+// Follow-ups page. NEXT_ACTION_TYPES above stays the channel (Call, WhatsApp...).
+const FOLLOW_UP_TYPES = ['First Meeting', 'Technical / Strategy Discussion', 'Pricing Negotiation', 'Onboarding', 'Payment Follow-up', 'Other'];
+
 // Final-outcome reasons only — a lead only reaches this list once it's
 // actually Lost/Dropped (see the `nextStatus === 'Lost' || 'Dropped'` check
 // below, and the frontend only renders/enables this field for those two
@@ -90,7 +94,7 @@ const REOPEN_STATUSES = ['Contacted', 'Qualified', 'Proposal Sent', 'Negotiation
 const LEAD_UPDATE_FIELDS = [
   'status', 'city', 'country', 'callStartTime', 'callEndTime', 'callDuration',
   'callDate', 'connected', 'notConnectedReason', 'interestLevel',
-  'notConvertedReason', 'remark', 'nextFollowUpDate', 'nextActionType', 'leadAgeAtCall', 'touchNumber',
+  'notConvertedReason', 'remark', 'nextFollowUpDate', 'nextActionType', 'followUpType', 'leadAgeAtCall', 'touchNumber',
   'dealValue', 'proposalValue', 'proposalSentDate', 'proposalReference', 'holdReason', 'holdUntil',
   'dealCloseValue', 'expectedCloseDate', 'paymentStatus', 'amountPaid',
   'budget', 'timeline', 'decisionMaker', 'currentVendor', 'requirementSummary',
@@ -145,6 +149,9 @@ function validateLeadTransition(existingLead, updates, { isSuperAdmin = false, c
   }
   if ('notConnectedReason' in updates && updates.notConnectedReason && !NOT_CONNECTED_REASONS.includes(updates.notConnectedReason)) {
     return `Invalid not-connected reason: ${updates.notConnectedReason}`;
+  }
+  if ('followUpType' in updates && updates.followUpType && !FOLLOW_UP_TYPES.includes(updates.followUpType)) {
+    return `Invalid follow-up type: ${updates.followUpType}`;
   }
   if ('nextActionType' in updates && updates.nextActionType && !NEXT_ACTION_TYPES.includes(updates.nextActionType)) {
     return `Invalid next action type: ${updates.nextActionType}`;
@@ -298,6 +305,7 @@ function validateLeadTransition(existingLead, updates, { isSuperAdmin = false, c
 }
 
 module.exports = {
+  FOLLOW_UP_TYPES,
   NOT_CONNECTED_REASONS,
   INTEREST_LEVELS,
   LOST_DROPPED_REASONS,

@@ -25,6 +25,8 @@ const followUpTaskSchema = new mongoose.Schema(
     note: { type: String, trim: true },
     // Call / WhatsApp / Meeting / Proposal ... (utils/leadStateMachine.js NEXT_ACTION_TYPES)
     actionType: { type: String, trim: true },
+    // First Meeting / Pricing Negotiation ... (utils/leadStateMachine.js FOLLOW_UP_TYPES)
+    followUpType: { type: String, trim: true },
     type: { type: String, enum: ['Primary', 'Parallel'], default: 'Primary' },
     status: { type: String, enum: ['Pending', 'Completed', 'Rescheduled', 'Cancelled'], default: 'Pending', index: true },
     result: { type: String, trim: true },

@@ -3,7 +3,13 @@
 // every BDE) and at /api/admin/activity/team-performance by activityRoutes.js
 // (Super Admin only). Who is visible is decided in services/teamPerformance.js.
 const express = require('express');
-const { PERIODS, periodRange, teamSummary, memberDetail, teamCalls } = require('../services/teamPerformance');
+const { PERIODS, periodRange, teamSummary, memberDetail, teamCalls, teamDaily, visibleMembers, MAX_DAILY_DAYS } = require('../services/teamPerformance');
+const { leadStatusBoard, pendingCallBoard, leadsFor } = require('../services/leadBoards');
+const { hasPermission } = require('../config/permissions');
+
+// Who the lead tables cover: the visible BDEs; with team.performance (Admin)
+// also every other owner and Unassigned, so totals reconcile to all leads.
+const teamScope = async (user) => ({ members: await visibleMembers(user), admin: hasPermission(user.permissions, 'team.performance') });
 const logger = require('../utils/logger');
 
 const router = express.Router();
@@ -27,6 +33,52 @@ router.get('/', async (req, res) => {
   } catch (err) {
     logger.error('Team performance summary failed:', err);
     res.status(500).json({ success: false, message: 'Could not load team performance.' });
+  }
+});
+
+
+// Lead Status / Pending Call tables and their drill-down (services/leadBoards.js)
+router.get('/lead-status', async (req, res) => {
+  try {
+    res.json({ success: true, asOf: new Date(), ...(await leadStatusBoard(await teamScope(req.user))) });
+  } catch (err) {
+    logger.error('Team lead status failed:', err);
+    res.status(500).json({ success: false, message: 'Could not load the lead status table.' });
+  }
+});
+
+router.get('/pending-calls', async (req, res) => {
+  try {
+    res.json({ success: true, asOf: new Date(), ...(await pendingCallBoard(await teamScope(req.user))) });
+  } catch (err) {
+    logger.error('Team pending calls failed:', err);
+    res.status(500).json({ success: false, message: 'Could not load pending calls.' });
+  }
+});
+
+router.get('/board-leads', async (req, res) => {
+  try {
+    const { owner, bucket, day } = req.query;
+    const leads = await leadsFor(await teamScope(req.user), { owner, bucket, day });
+    if (!leads) return res.status(404).json({ success: false, message: 'Not in your view.' });
+    res.json({ success: true, leads });
+  } catch (err) {
+    logger.error('Team board leads failed:', err);
+    res.status(500).json({ success: false, message: 'Could not load these leads.' });
+  }
+});
+
+// BD-wise daily call performance — per BDE per IST day. Declared before /:adminId.
+router.get('/daily', async (req, res) => {
+  try {
+    const range = rangeFrom(req, res);
+    if (!range) return;
+    const data = await teamDaily(req.user, range);
+    if (!data) return res.status(400).json({ success: false, message: `Pick ${MAX_DAILY_DAYS} days or fewer for the daily breakdown.` });
+    res.json({ success: true, range, ...data });
+  } catch (err) {
+    logger.error('Team daily call performance failed:', err);
+    res.status(500).json({ success: false, message: 'Could not load the daily call performance.' });
   }
 });
 

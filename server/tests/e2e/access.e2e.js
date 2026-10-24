@@ -1501,3 +1501,725 @@ describe('Raw / Working / Dropped & Hold — connected-based rules', () => {
     assert.ok((await page('working')).includes(L.dropped));
   });
 });
+
+describe('Follow-ups — due order, type, row details, filters, scope', () => {
+  const ess = '/employee-portal/ess/leads';
+  const g = '/employee-portal/grants';
+  const oidOf = (id) => new mongoose.Types.ObjectId(id);
+  const leadsCol = () => mongoose.connection.db.collection('leads');
+  const F = {};
+  const at = (dayOffset, h, m = 0) => { const d = new Date(); d.setDate(d.getDate() + dayOffset); d.setHours(h, m, 0, 0); return d; };
+  const mine = (rows) => rows.filter((r) => Object.values(F).includes(String(r._id)));
+  const keyOf = (id) => Object.keys(F).find((k) => F[k] === String(id));
+  const list = async (who, qs = '', base = '') => {
+    const r = await call(who, 'GET', `${base}/admin/activity/followups?limit=500${qs}`);
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    return mine(r.body.data);
+  };
+
+  before(async () => {
+    const make = async (key, owner, due, fields = {}) => {
+      F[key] = String((await leadsCol().insertOne({
+        fullName: `FUT ${key}`, businessName: `${key} Pvt Ltd`, phone: '9855555555', email: `fut-${key}@lead.test`,
+        status: 'Qualified', leadType: 'Sales', connected: 'Yes', interestLevel: 'Interested',
+        assignedTo: oidOf(ids[owner]), nextFollowUpDate: due, createdAt: new Date(), updatedAt: new Date(),
+        lastCallAt: at(-2, 10), documents: [], pipelineHistory: [], ...fields,
+      })).insertedId);
+    };
+    await make('pricingToday', 'bde', at(0, 11), { followUpType: 'Pricing Negotiation', nextActionType: 'Call' });
+    await make('meetingTomorrow', 'bde', at(1, 10), { followUpType: 'First Meeting', remark: 'Wants a demo first' });
+    await make('overduePayment', 'bde', at(-1, 15), { followUpType: 'Payment Follow-up', status: 'Negotiation' });
+    await make('tieOlder', 'bde', at(2, 12), { followUpType: 'Onboarding', updatedAt: new Date(Date.now() - 864e5) });
+    await make('tieNewer', 'bde', at(2, 12), { followUpType: 'Other', updatedAt: new Date() });
+    await make('sharedFromOther', 'outsider', at(3, 9), { followUpType: 'Technical / Strategy Discussion', sharedWith: [{ admin: oidOf(ids.bde), grantedBy: oidOf(ids.super), grantedAt: new Date() }] });
+    await make('otherOnly', 'outsider', at(3, 10), { followUpType: 'First Meeting' });
+    await make('noType', 'bde', at(4, 10));
+    await make('wonWithDate', 'bde', at(1, 9), { status: 'Won', followUpType: 'Onboarding' });
+    const LeadNote = require('../../models/LeadNote');
+    await LeadNote.create({ lead: F.pricingToday, author: ids.bde, text: 'Bring the revised rate card', visibility: 'shared' });
+    await LeadNote.create({ lead: F.sharedFromOther, author: ids.outsider, text: 'OUTSIDER-PRIVATE', visibility: 'private' });
+    await mongoose.connection.db.collection('admins').updateMany(
+      { _id: { $in: ['bde', 'outsider', 'teamLead'].map((k) => oidOf(ids[k])) } }, { $set: { isTemporaryPassword: false } });
+  });
+
+  test('order: overdue first, then by due time; a pricing call today is above a first meeting tomorrow; ties → most recently updated', async () => {
+    const order = (await list('super')).map((r) => keyOf(r._id));
+    assert.deepEqual(order, ['overduePayment', 'pricingToday', 'meetingTomorrow', 'tieNewer', 'tieOlder', 'sharedFromOther', 'otherOnly', 'noType']);
+  });
+
+  test('each row: client, owner, stage, last contact, due, type, latest note, overdue/upcoming status', async () => {
+    const rows = await list('super');
+    const by = Object.fromEntries(rows.map((r) => [keyOf(r._id), r]));
+    assert.equal(by.overduePayment.bucket, 'Overdue');
+    assert.equal(by.overduePayment.followUpType, 'Payment Follow-up');
+    assert.equal(by.pricingToday.bucket, 'Today');
+    assert.equal(by.meetingTomorrow.bucket, 'Upcoming');
+    const p = by.pricingToday;
+    assert.equal(p.fullName, 'FUT pricingToday');
+    assert.equal(p.businessName, 'pricingToday Pvt Ltd');
+    assert.equal(p.assignedTo.firstName, 'bde');
+    assert.equal(p.status, 'Qualified');
+    assert.ok(p.lastContactAt);
+    assert.equal(p.nextActionType, 'Call');
+    assert.equal(p.latestNote.text, 'Bring the revised rate card');
+    assert.equal(by.meetingTomorrow.latestNote.text, 'Wants a demo first'); // falls back to the remark
+    assert.equal(by.sharedFromOther.sharedCount, 1);
+    assert.equal(by.noType.followUpType ?? '', '');
+    // Admin (all-leads) may read the private note
+    assert.equal(by.sharedFromOther.latestNote.text, 'OUTSIDER-PRIVATE');
+  });
+
+  test('filters: BD (own + cross-assigned), type, due-date range, status', async () => {
+    const keys = (rows) => rows.map((r) => keyOf(r._id));
+    assert.deepEqual(keys(await list('super', `&by=${ids.bde}`)), ['overduePayment', 'pricingToday', 'meetingTomorrow', 'tieNewer', 'tieOlder', 'sharedFromOther', 'noType']);
+    assert.deepEqual(keys(await list('super', '&followUpType=Payment%20Follow-up')), ['overduePayment']);
+    assert.deepEqual(keys(await list('super', '&followUpType=Not%20set')), ['noType']);
+    const tomorrow = at(1, 0).toLocaleDateString('en-CA');
+    assert.deepEqual(keys(await list('super', `&dueFrom=${tomorrow}&dueTo=${tomorrow}`)), ['meetingTomorrow']);
+    assert.deepEqual(keys(await list('super', '&bucket=Overdue')), ['overduePayment']);
+    assert.deepEqual(keys(await list('super', '&bucket=Today')), ['pricingToday']);
+  });
+
+  test('scope: a team grant sees its team (incl. leads shared into it), not other BDs; private notes stay hidden', async () => {
+    const rows = await list('teamLead', '', g);
+    const keys = rows.map((r) => keyOf(r._id));
+    assert.ok(keys.includes('pricingToday'));
+    assert.ok(keys.includes('sharedFromOther'));
+    assert.ok(!keys.includes('otherOnly'));
+    assert.equal(rows.find((r) => keyOf(r._id) === 'sharedFromOther').latestNote, null);
+    assert.equal((await call('bde', 'GET', '/admin/activity/followups')).status, 403);
+  });
+
+  test('BD portal list carries type and the latest note they may read', async () => {
+    const leads = (await call('bde', 'GET', '/employee-portal/ess/leads')).body.leads;
+    const row = (k) => leads.find((l) => String(l._id) === F[k]);
+    assert.equal(row('pricingToday').followUpType, 'Pricing Negotiation');
+    assert.equal(row('pricingToday').latestNote.text, 'Bring the revised rate card');
+    assert.equal(row('sharedFromOther').latestNote, null);
+    assert.equal(row('otherOnly'), undefined);
+  });
+
+  test('scheduling saves the type on the lead and its follow-up task; invalid types are refused', async () => {
+    const due = at(5, 16).toISOString();
+    // a lead with nothing scheduled yet (moving an existing date needs an outcome first)
+    F.scheduleMe = String((await leadsCol().insertOne({
+      fullName: 'FUT scheduleMe', phone: '9855555556', status: 'Contacted', leadType: 'Sales', connected: 'Yes', interestLevel: 'Cold',
+      assignedTo: oidOf(ids.bde), createdAt: new Date(), updatedAt: new Date(), documents: [], pipelineHistory: [],
+    })).insertedId);
+    const r = await call('bde', 'PUT', `${ess}/${F.scheduleMe}`, { nextFollowUpDate: due, nextActionType: 'Meeting', followUpType: 'Onboarding' });
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    assert.equal((await leadsCol().findOne({ _id: oidOf(F.scheduleMe) })).followUpType, 'Onboarding');
+    const FollowUpTask = require('../../models/FollowUpTask');
+    const task = await FollowUpTask.findOne({ lead: F.scheduleMe, type: 'Primary', status: 'Pending' }).lean();
+    assert.equal(task.followUpType, 'Onboarding');
+    // same date, new type → the open task follows
+    assert.equal((await call('bde', 'PUT', `${ess}/${F.scheduleMe}`, { followUpType: 'Pricing Negotiation' })).status, 200);
+    assert.equal((await FollowUpTask.findById(task._id).lean()).followUpType, 'Pricing Negotiation');
+    assert.equal((await call('bde', 'PUT', `${ess}/${F.scheduleMe}`, { followUpType: 'Coffee' })).status, 400);
+  });
+
+  test('completing a follow-up records the next one with its type', async () => {
+    const r = await call('bde', 'POST', `${ess}/${F.pricingToday}/follow-up/complete`, {
+      connected: 'Yes', interestLevel: 'Interested', result: 'Agreed the price, sending onboarding pack',
+      nextFollowUpDate: at(6, 11).toISOString(), nextActionType: 'Meeting', followUpType: 'Onboarding',
+    });
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    const lead = await leadsCol().findOne({ _id: oidOf(F.pricingToday) });
+    assert.equal(lead.followUpType, 'Onboarding');
+    assert.equal(lead.remark, 'Agreed the price, sending onboarding pack');
+  });
+});
+
+describe('Lead Activity — Admin and BD, consistent duration and outcome', () => {
+  const ess = '/employee-portal/ess/leads';
+  const g = '/employee-portal/grants';
+  const oidOf = (id) => new mongoose.Types.ObjectId(id);
+  const leadsCol = () => mongoose.connection.db.collection('leads');
+  const A = {};
+  const min = 60000;
+  const t0 = new Date(Date.now() - 2 * 864e5);
+  const rowsFor = async (who, url) => {
+    const r = await call(who, 'GET', url);
+    assert.equal(r.status, 200, `${url} ${JSON.stringify(r.body)}`);
+    return r.body.data.filter((row) => Object.values(A).includes(String(row.leadId)));
+  };
+  const adminRows = (qs = '') => rowsFor('super', `/admin/activity/calls?limit=100${qs}`);
+  const bdRows = (who, qs = '') => rowsFor(who, `/employee-portal/ess/lead-activity?limit=100${qs}`);
+  const key = (row) => Object.keys(A).find((k) => A[k] === String(row.leadId));
+
+  before(async () => {
+    const make = async (k, owner, callLogs, fields = {}) => {
+      A[k] = String((await leadsCol().insertOne({
+        fullName: `LAT ${k}`, businessName: `${k} Traders`, phone: `98666${String(Object.keys(A).length).padStart(5, '0')}`, email: `lat-${k}@lead.test`,
+        status: 'Contacted', leadType: 'Sales', assignedTo: oidOf(ids[owner]), createdAt: t0, updatedAt: t0, documents: [], pipelineHistory: [], callLogs, ...fields,
+      })).insertedId);
+    };
+    const start = t0;
+    const end = new Date(t0.getTime() + 5 * min);
+    await make('own', 'bde', [
+      { touchNumber: 1, calledBy: oidOf(ids.bde), callDate: start, callStartTime: start, callEndTime: end, callDuration: 5, loggedAt: new Date(t0.getTime() + 6 * min),
+        connected: 'Yes', interestLevel: 'Warm', leadStage: 'Contacted', remark: 'Asked for a proposal',
+        nextFollowUpDate: new Date(t0.getTime() + 864e5), nextActionType: 'Call', followUpType: 'Pricing Negotiation' },
+      // legacy: an untimed call that copied the previous timer and duration
+      { touchNumber: 2, calledBy: oidOf(ids.bde), callDate: new Date(t0.getTime() + 60 * min), callStartTime: start, callEndTime: end, callDuration: 5,
+        loggedAt: new Date(t0.getTime() + 60 * min), connected: 'No', notConnectedReason: 'Number Busy', leadStage: 'Contacted', remark: 'Busy' },
+    ]);
+    await make('shared', 'outsider', [
+      { touchNumber: 1, calledBy: oidOf(ids.outsider), callDate: t0, loggedAt: t0, connected: 'Yes', interestLevel: 'Hot Lead', leadStage: 'Qualified', remark: 'Hot one' },
+    ], { status: 'Qualified', sharedWith: [{ admin: oidOf(ids.bde), grantedBy: oidOf(ids.super), grantedAt: new Date() }] });
+    await make('other', 'outsider', [
+      { touchNumber: 1, calledBy: oidOf(ids.outsider), callDate: t0, loggedAt: t0, connected: 'No', notConnectedReason: 'Switched Off', leadStage: 'Contacted', remark: 'Off' },
+    ]);
+    await make('live', 'bde', [], { status: 'New' });
+    await mongoose.connection.db.collection('admins').updateMany(
+      { _id: { $in: ['bde', 'outsider', 'teamLead'].map((k) => oidOf(ids[k])) } }, { $set: { isTemporaryPassword: false } });
+  });
+
+  test('rows carry every required column, linked to the lead', async () => {
+    const rows = await adminRows();
+    const first = rows.find((r) => key(r) === 'own' && r.touchNumber === 1);
+    assert.ok(first.date);
+    assert.equal(first.by.firstName, 'bde');
+    assert.equal(first.leadName, 'LAT own');
+    assert.equal(first.businessName, 'own Traders');
+    assert.equal(first.outcome, 'Connected');
+    assert.equal(first.outcomeDetail, 'Warm');
+    assert.equal(first.nextAction.followUpType, 'Pricing Negotiation');
+    assert.equal(first.nextAction.actionType, 'Call');
+    assert.equal(first.leadStage, 'Contacted');
+    assert.equal(first.duration, 5);
+    assert.equal(first.remark, 'Asked for a proposal');
+    assert.equal(String(first.leadId), A.own);
+  });
+
+  test('duration: an untimed call never repeats the previous call\'s duration', async () => {
+    const second = (await adminRows()).find((r) => key(r) === 'own' && r.touchNumber === 2);
+    assert.equal(second.outcome, 'Not connected');
+    assert.equal(second.outcomeDetail, 'Number Busy');
+    assert.equal(second.duration, null);
+    assert.equal(second.nextAction, null);
+  });
+
+  test('Admin sees all; BD sees own + cross-assigned; team grant sees its team', async () => {
+    assert.deepEqual([...new Set((await adminRows()).map(key))].sort(), ['other', 'own', 'shared']);
+    assert.deepEqual([...new Set((await bdRows('bde')).map(key))].sort(), ['own', 'shared']);
+    assert.deepEqual([...new Set((await bdRows('outsider')).map(key))].sort(), ['other', 'shared']);
+    assert.deepEqual([...new Set((await rowsFor('teamLead', `${g}/admin/activity/calls?limit=100`)).map(key))].sort(), ['own', 'shared']);
+  });
+
+  test('filters: date range, caller, status, stage, client', async () => {
+    const keys = (rows) => rows.map((r) => `${key(r)}#${r.touchNumber}`).sort();
+    assert.deepEqual(keys(await adminRows(`&by=${ids.outsider}`)), ['other#1', 'shared#1']);
+    assert.deepEqual(keys(await adminRows('&result=Connected')), ['own#1', 'shared#1']);
+    assert.deepEqual(keys(await adminRows('&result=Not%20Connected')), ['other#1', 'own#2']);
+    assert.deepEqual(keys(await adminRows('&stage=Qualified')), ['shared#1']);
+    assert.deepEqual(keys(await adminRows('&client=own%20Traders')), ['own#1', 'own#2']);
+    assert.deepEqual(keys(await bdRows('bde', '&client=LAT%20shared')), ['shared#1']);
+    const day = t0.toLocaleDateString('en-CA');
+    assert.deepEqual(keys(await adminRows(`&dateFrom=${day}&dateTo=${day}`)), ['other#1', 'own#1', 'own#2', 'shared#1']);
+    const tomorrow = new Date(t0.getTime() + 864e5).toLocaleDateString('en-CA');
+    assert.deepEqual(keys(await adminRows(`&dateFrom=${tomorrow}&dateTo=${tomorrow}`)), []);
+    assert.deepEqual(keys(await bdRows('bde', `&by=${ids.outsider}`)), ['shared#1']);
+  });
+
+  test('logging calls live: a timed call gets its duration; the next untimed one does not inherit it', async () => {
+    const started = new Date(Date.now() - 4 * min);
+    assert.equal((await call('bde', 'PUT', `${ess}/${A.live}`, { callStartTime: started, callDate: started })).status, 200);
+    assert.equal((await call('bde', 'PUT', `${ess}/${A.live}`, { callEndTime: new Date(), callDuration: 4 })).status, 200);
+    const later = new Date(Date.now() + 2 * 864e5).toISOString();
+    const r1 = await call('bde', 'PUT', `${ess}/${A.live}`, { connected: 'Yes', interestLevel: 'Interested', nextFollowUpDate: later, nextActionType: 'Meeting', followUpType: 'First Meeting', remark: 'Connected — requested a strategy discussion' });
+    assert.equal(r1.status, 200, JSON.stringify(r1.body));
+    let lead = await leadsCol().findOne({ _id: oidOf(A.live) });
+    assert.equal(lead.callLogs[0].callDuration, 4);
+    assert.equal(lead.callLogs[0].followUpType, 'First Meeting');
+
+    // outcome logged outside the same-call window, with no new timer
+    // (move that whole call into the past: timer 40–36 min ago, logged 30 min ago)
+    const past = (m) => new Date(Date.now() - m * min);
+    await leadsCol().updateOne({ _id: oidOf(A.live) }, { $set: {
+      callStartTime: past(40), callEndTime: past(36),
+      'callLogs.0.callStartTime': past(40), 'callLogs.0.callEndTime': past(36), 'callLogs.0.loggedAt': past(30),
+    } });
+    const r2 = await call('bde', 'PUT', `${ess}/${A.live}`, { connected: 'No', notConnectedReason: 'Number Busy' });
+    assert.equal(r2.status, 200, JSON.stringify(r2.body));
+    lead = await leadsCol().findOne({ _id: oidOf(A.live) });
+    assert.equal(lead.callLogs.length, 2);
+    assert.equal(lead.callLogs[1].callDuration, null);
+
+    const rows = (await bdRows('bde')).filter((r) => key(r) === 'live').sort((a, b) => a.touchNumber - b.touchNumber);
+    assert.deepEqual(rows.map((r) => [r.outcome, r.duration]), [['Connected', 4], ['Not connected', null]]);
+    assert.equal(rows[0].remark, 'Connected — requested a strategy discussion');
+  });
+
+  test('access: no portal login on the admin API; BD needs leads.view', async () => {
+    assert.equal((await call('bde', 'GET', '/admin/activity/calls')).status, 403);
+    assert.equal((await call('payrollAdmin', 'GET', '/employee-portal/ess/lead-activity')).status === 200, false);
+  });
+});
+
+describe('BDE Calling Performance — metrics, IST periods, BD and Admin views', () => {
+  const D = '2026-09-15';
+  const ist = (day, hm) => new Date(`${day}T${hm}:00+05:30`);
+  const oidOf = (id) => new mongoose.Types.ObjectId(id);
+  const leadsCol = () => mongoose.connection.db.collection('leads');
+  const qs = `?period=custom&from=${D}&to=${D}`;
+
+  before(async () => {
+    const bde = oidOf(ids.bde);
+    const log = (hm, fields) => ({ calledBy: bde, callDate: ist(D, hm), loggedAt: ist(D, hm), ...fields });
+    await leadsCol().insertOne({
+      fullName: 'PERF one', phone: '9877700001', status: 'Contacted', leadType: 'Sales', assignedTo: bde, createdAt: new Date(), updatedAt: new Date(), documents: [],
+      callLogs: [
+        { ...log('10:05', { connected: 'Yes', interestLevel: 'Warm' }), touchNumber: 1, callStartTime: ist(D, '10:00'), callEndTime: ist(D, '10:04') },
+        // untimed: copied the previous timer — no duration
+        { ...log('11:00', { connected: 'No', notConnectedReason: 'Number Busy' }), touchNumber: 2, callStartTime: ist(D, '10:00'), callEndTime: ist(D, '10:04') },
+        { ...log('12:07', { connected: 'Yes', interestLevel: 'Hot Lead' }), touchNumber: 3, callStartTime: ist(D, '12:00'), callEndTime: ist(D, '12:06') },
+      ],
+    });
+    await leadsCol().insertOne({
+      fullName: 'PERF two', phone: '9877700002', status: 'Contacted', leadType: 'Sales', assignedTo: bde, createdAt: new Date(), updatedAt: new Date(), documents: [],
+      callLogs: [
+        { calledBy: bde, callDate: ist('2026-09-14', '23:50'), loggedAt: ist('2026-09-14', '23:50'), connected: 'Yes', interestLevel: 'Warm', touchNumber: 1 }, // day before (IST)
+        { ...log('13:00', { connected: 'Yes', interestLevel: 'Cold' }), touchNumber: 2 },
+        { ...log('23:50', { connected: 'No', notConnectedReason: 'Switched Off' }), touchNumber: 3 }, // still D in IST (18:20 UTC)
+        { calledBy: bde, callDate: ist('2026-09-16', '00:10'), loggedAt: ist('2026-09-16', '00:10'), connected: 'No', touchNumber: 4 }, // next day (IST)
+      ],
+    });
+    const FollowUpTask = require('../../models/FollowUpTask');
+    const lead = (await leadsCol().findOne({ fullName: 'PERF one' }))._id;
+    await FollowUpTask.collection.insertMany([
+      { lead, assignedTo: bde, createdBy: bde, dueDate: ist(D, '11:00'), status: 'Completed', completedAt: ist(D, '11:30'), type: 'Primary' },
+      { lead, assignedTo: bde, createdBy: bde, dueDate: ist(D, '17:00'), status: 'Pending', type: 'Parallel' },
+      { lead, assignedTo: bde, createdBy: bde, dueDate: ist('2026-09-20', '10:00'), status: 'Completed', completedAt: ist(D, '15:00'), type: 'Parallel' },
+      { lead, assignedTo: bde, createdBy: bde, dueDate: ist(D, '18:00'), status: 'Cancelled', type: 'Parallel' },
+    ]);
+    await mongoose.connection.db.collection('admins').updateOne({ _id: bde }, { $set: { isTemporaryPassword: false } });
+  });
+
+  const expected = {
+    calls: 5, connected: 3, notConnected: 2, connectRate: 60, leadsWorked: 2,
+    timedCalls: 2, talkMinutes: 10, avgCallMinutes: 5,
+    followUpsDue: 2, followUpsDueCompleted: 1, followUpsCompleted: 2,
+  };
+  const pick = (o) => Object.fromEntries(Object.keys(expected).map((k) => [k, o[k]]));
+
+  test('BD sees their own metrics for the period; the range is that IST day', async () => {
+    const r = await call('bde', 'GET', `/employee-portal/ess/my-calls${qs}`);
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    assert.deepEqual(pick(r.body), expected);
+    assert.equal(r.body.range.timeZone, 'Asia/Kolkata');
+    assert.equal(new Date(r.body.range.start).toISOString(), '2026-09-14T18:30:00.000Z');
+    assert.equal(new Date(r.body.range.end).toISOString(), '2026-09-15T18:29:59.999Z');
+  });
+
+  test('Admin sees every BDE row plus organisation totals for the same period', async () => {
+    const r = await call('super', 'GET', `/admin/activity/team-performance${qs}`);
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    const row = r.body.members.find((m) => String(m.adminId) === ids.bde);
+    assert.deepEqual(pick(row), expected);
+    assert.ok(r.body.members.length >= 2);
+    assert.deepEqual(pick(r.body.totals), expected); // nobody else called that day
+    assert.equal(r.body.range.timeZone, 'Asia/Kolkata');
+  });
+
+  test('daily / weekly / monthly presets and validation', async () => {
+    for (const period of ['today', 'week', 'month']) {
+      const r = await call('bde', 'GET', `/employee-portal/ess/my-calls?period=${period}`);
+      assert.equal(r.status, 200);
+      assert.ok(new Date(r.body.range.start) <= new Date(r.body.range.end));
+    }
+    assert.equal((await call('bde', 'GET', '/employee-portal/ess/my-calls?period=custom&from=2026-09-20&to=2026-09-10')).status, 400);
+  });
+
+  test('BD view is always their own; the team view needs Admin access', async () => {
+    const other = await call('outsider', 'GET', `/employee-portal/ess/my-calls${qs}`);
+    assert.equal(other.body.calls, 0);
+    assert.equal((await call('bde', 'GET', `/admin/activity/team-performance${qs}`)).status, 403);
+  });
+
+  test('call log rows use the same duration rule', async () => {
+    const r = await call('bde', 'GET', `/employee-portal/ess/my-calls/calls${qs}`);
+    const durations = r.body.calls.filter((c) => c.fullName === 'PERF one').map((c) => [c.touchNumber, c.duration]).sort();
+    assert.deepEqual(durations, [[1, 4], [2, null], [3, 6]]);
+  });
+});
+
+describe('Lead Assignment Logs — events, people, dates, filters', () => {
+  const D = '2026-08-10';
+  const ist = (day, hm) => new Date(`${day}T${hm}:00+05:30`);
+  const oidOf = (id) => new mongoose.Types.ObjectId(id);
+  const L = {};
+  const logs = async (qs) => {
+    const r = await call('super', 'GET', `/leads/assignments/all?limit=100&lead=LOGT${qs}`);
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    return r.body.data;
+  };
+  const events = (rows) => rows.map((r) => r.event);
+
+  before(async () => {
+    const leads = mongoose.connection.db.collection('leads');
+    L.lead = (await leads.insertOne({ leadId: 'VH-LOGT-1', fullName: 'LOGT Alpha', phone: '9888800001', status: 'Contacted', leadType: 'Sales',
+      assignedTo: oidOf(ids.pm), createdAt: new Date(), updatedAt: new Date(), documents: [], pipelineHistory: [] })).insertedId;
+    const entry = (when, fields) => ({ lead: L.lead, assignedBy: oidOf(ids.super), mode: 'Manual', reason: '', fromAdmin: null, toAdmin: null, createdAt: when, updatedAt: when, ...fields });
+    await mongoose.connection.db.collection('assignmentlogs').insertMany([
+      entry(ist('2026-08-09', '23:50'), { toAdmin: oidOf(ids.bde) }), // day before (IST)
+      entry(ist(D, '10:00'), { toAdmin: oidOf(ids.bde), mode: 'Auto-RoundRobin', assignedBy: null }),
+      entry(ist(D, '11:00'), { fromAdmin: oidOf(ids.bde), toAdmin: oidOf(ids.pm), reason: 'BD on leave' }),
+      entry(ist(D, '12:00'), { fromAdmin: oidOf(ids.pm), toAdmin: oidOf(ids.pm) }),
+      entry(ist(D, '13:00'), { mode: 'Cross-Assign', toAdmin: oidOf(ids.outsider), leadOwner: oidOf(ids.pm), reason: 'Second caller' }),
+      entry(ist(D, '14:00'), { mode: 'Cross-Unassign', fromAdmin: oidOf(ids.outsider), leadOwner: oidOf(ids.pm) }),
+      entry(ist(D, '23:50'), { fromAdmin: oidOf(ids.pm), toAdmin: null, reason: 'Back to pool' }), // still D (18:20 UTC)
+      entry(ist('2026-08-11', '00:10'), { toAdmin: oidOf(ids.bde) }), // next day (IST)
+    ]);
+  });
+
+  test('date range covers whole IST days; every event is labelled, newest first', async () => {
+    const rows = await logs(`&dateFrom=${D}&dateTo=${D}`);
+    assert.deepEqual(events(rows), ['Unassigned', 'Access removed', 'Cross-assigned', 'Reassigned', 'Reassigned', 'Assigned']);
+    assert.equal((await logs('')).length, 8);
+  });
+
+  test('each entry carries lead, previous owner, new owner / collaborator, actor, time and reason', async () => {
+    const rows = await logs(`&dateFrom=${D}&dateTo=${D}`);
+    const re = rows.find((r) => r.reason === 'BD on leave');
+    assert.equal(re.lead.leadId, 'VH-LOGT-1');
+    assert.equal(re.lead.fullName, 'LOGT Alpha');
+    assert.equal(re.fromAdmin.firstName, 'bde');
+    assert.equal(re.toAdmin.firstName, 'pm');
+    assert.equal(re.assignedBy.firstName, 'super');
+    assert.ok(re.createdAt);
+    const cross = rows.find((r) => r.event === 'Cross-assigned');
+    assert.equal(cross.toAdmin.firstName, 'outsider');
+    assert.equal(cross.leadOwner.firstName, 'pm');
+    assert.equal(cross.reason, 'Second caller');
+    const removed = rows.find((r) => r.event === 'Access removed');
+    assert.equal(removed.fromAdmin.firstName, 'outsider');
+    assert.equal(rows.find((r) => r.mode === 'Auto-RoundRobin').assignedBy, null);
+  });
+
+  test('employee filter by role: previous owner, new owner / collaborator, actor, any', async () => {
+    const q = (emp, role) => logs(`&dateFrom=${D}&dateTo=${D}&employee=${ids[emp]}&role=${role}`).then(events);
+    assert.deepEqual(await q('outsider', 'any'), ['Access removed', 'Cross-assigned']);
+    assert.deepEqual(await q('outsider', 'from'), ['Access removed']);
+    assert.deepEqual(await q('outsider', 'to'), ['Cross-assigned']);
+    assert.deepEqual(await q('pm', 'from'), ['Unassigned', 'Reassigned']);
+    assert.deepEqual(await q('pm', 'to'), ['Reassigned', 'Reassigned']);
+    assert.equal((await q('pm', 'any')).length, 5); // incl. as owner of the shared lead
+    assert.equal((await q('super', 'actor')).length, 5); // round-robin had no actor
+  });
+
+  test('event and lead filters; bad dates refused; audit permission required', async () => {
+    assert.deepEqual(events(await logs(`&event=cross-assigned`)), ['Cross-assigned']);
+    assert.deepEqual(events(await logs(`&event=access-removed`)), ['Access removed']);
+    assert.equal((await logs(`&event=assigned`)).length, 3);
+    const byId = await call('super', 'GET', '/leads/assignments/all?lead=VH-LOGT');
+    assert.equal(byId.body.totalLogs, 8);
+    assert.equal((await call('super', 'GET', '/leads/assignments/all?lead=nobody-like-this')).body.totalLogs, 0);
+    assert.equal((await call('super', 'GET', '/leads/assignments/all?dateFrom=not-a-date')).status, 400);
+    assert.equal((await call('pm', 'GET', '/leads/assignments/all')).status, 403);
+  });
+
+  test('a live cross-assignment and removal record the lead owner', async () => {
+    assert.equal((await call('super', 'POST', `/leads/${L.lead}/share`, { adminId: ids.bde, reason: 'Help close' })).status, 201);
+    assert.equal((await call('super', 'DELETE', `/leads/${L.lead}/share/${ids.bde}`)).status, 200);
+    const today = new Date().toLocaleDateString('en-CA');
+    const rows = await logs(`&dateFrom=${today}&dateTo=${today}`);
+    assert.deepEqual(events(rows), ['Access removed', 'Cross-assigned']);
+    for (const r of rows) assert.equal(r.leadOwner.firstName, 'pm');
+    assert.equal(rows[1].reason, 'Help close');
+  });
+});
+
+describe('BD-wise Daily Call Performance', () => {
+  const ist = (day, hm) => new Date(`${day}T${hm}:00+05:30`);
+  const oidOf = (id) => new mongoose.Types.ObjectId(id);
+  const leadsCol = () => mongoose.connection.db.collection('leads');
+  const DAYS = ['2026-07-06', '2026-07-07', '2026-07-08'];
+  const qs = '?period=custom&from=2026-07-06&to=2026-07-08';
+  const L = {};
+
+  before(async () => {
+    const callBy = (who, day, hm, connected) => ({ calledBy: oidOf(ids[who]), callDate: ist(day, hm), loggedAt: ist(day, hm), connected, ...(connected === 'Yes' ? { interestLevel: 'Warm' } : { notConnectedReason: 'Number Busy' }) });
+    const make = async (key, owner, callLogs, extra = {}) => {
+      L[key] = (await leadsCol().insertOne({ fullName: `DAILY ${key}`, phone: '9899900000', status: 'Contacted', leadType: 'Sales',
+        assignedTo: oidOf(ids[owner]), createdAt: new Date(), updatedAt: new Date(), documents: [], callLogs, ...extra })).insertedId;
+    };
+    await make('X', 'bde', [
+      callBy('bde', '2026-07-05', '23:50', 'Yes'), // day before the range (IST)
+      callBy('bde', '2026-07-06', '10:00', 'Yes'),
+      callBy('bde', '2026-07-06', '11:00', 'No'), // same lead again — still a call
+      callBy('bde', '2026-07-06', '23:50', 'Yes'), // 18:20 UTC — still 6 Jul in IST
+      callBy('bde', '2026-07-07', '00:10', 'No'), // 6 Jul 18:40 UTC — 7 Jul in IST
+    ]);
+    // the outsider's lead, shared with the BDE: each call counts for whoever made it
+    await make('Y', 'outsider', [
+      callBy('bde', '2026-07-07', '12:00', 'Yes'),
+      callBy('outsider', '2026-07-07', '13:00', 'No'),
+    ], { sharedWith: [{ admin: oidOf(ids.bde), grantedBy: oidOf(ids.super), grantedAt: new Date() }] });
+    // the BDE's lead, called by the outsider: counts for the outsider
+    await make('Z', 'bde', [callBy('outsider', '2026-07-08', '09:00', 'Yes')]);
+    await mongoose.connection.db.collection('admins').updateMany(
+      { _id: { $in: ['bde', 'outsider', 'teamLead'].map((k) => oidOf(ids[k])) } }, { $set: { isTemporaryPassword: false } });
+  });
+
+  const cell = (calls, connected, uniqueLeads, connectRate, collaboratorCalls = 0) => ({ calls, connected, notConnected: calls - connected, connectRate, uniqueLeads, collaboratorCalls });
+
+  test('Admin: per BDE per IST day — every attempt counted, credited to the caller', async () => {
+    const r = await call('super', 'GET', `/admin/activity/team-performance/daily${qs}`);
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    assert.deepEqual(r.body.days, DAYS);
+    const row = (who) => r.body.members.find((m) => String(m.adminId) === ids[who]);
+    assert.deepEqual(row('bde').days, {
+      '2026-07-06': cell(3, 2, 1, 66.67),
+      '2026-07-07': cell(2, 1, 2, 50, 1),
+      '2026-07-08': cell(0, 0, 0, null),
+    });
+    assert.deepEqual(row('bde').total, cell(5, 3, 2, 60, 1));
+    assert.deepEqual(row('outsider').days, {
+      '2026-07-06': cell(0, 0, 0, null),
+      '2026-07-07': cell(1, 0, 1, 0),
+      '2026-07-08': cell(1, 1, 1, 100, 1),
+    });
+    // organisation: calls add up; unique leads are distinct across BDEs
+    assert.deepEqual(r.body.totals.days, {
+      '2026-07-06': cell(3, 2, 1, 66.67),
+      '2026-07-07': cell(3, 1, 2, 33.33, 1),
+      '2026-07-08': cell(1, 1, 1, 100, 1),
+    });
+    assert.deepEqual(r.body.totals.total, cell(7, 4, 3, 57.14, 2));
+    assert.equal(r.body.range.timeZone, 'Asia/Kolkata');
+  });
+
+  test('daily cells match the raw call logs exactly', async () => {
+    const r = await call('super', 'GET', `/admin/activity/team-performance/daily${qs}`);
+    const istDay = (d) => new Date(d).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+    const leads = await leadsCol().find({ 'callLogs.0': { $exists: true } }, { callLogs: 1 }).toArray();
+    for (const m of r.body.members) {
+      for (const day of DAYS) {
+        const logs = leads.flatMap((l) => (l.callLogs || []).map((c) => ({ ...c, lead: String(l._id) })))
+          .filter((c) => String(c.calledBy) === String(m.adminId) && istDay(c.loggedAt || c.callDate) === day);
+        const connected = logs.filter((c) => c.connected === 'Yes').length;
+        assert.equal(m.days[day].calls, logs.length, `${m.name} ${day} calls`);
+        assert.equal(m.days[day].connected, connected, `${m.name} ${day} connected`);
+        assert.equal(m.days[day].uniqueLeads, new Set(logs.map((c) => c.lead)).size, `${m.name} ${day} unique`);
+      }
+    }
+  });
+
+  test('BDE sees only their own daily numbers, identical to the Admin view of them', async () => {
+    const mine = await call('bde', 'GET', `/employee-portal/ess/my-calls/daily${qs}`);
+    assert.equal(mine.status, 200, JSON.stringify(mine.body));
+    assert.equal(mine.body.members.length, 1);
+    assert.equal(String(mine.body.members[0].adminId), ids.bde);
+    const admin = (await call('super', 'GET', `/admin/activity/team-performance/daily${qs}`)).body.members.find((m) => String(m.adminId) === ids.bde);
+    assert.deepEqual(mine.body.members[0].days, admin.days);
+    assert.deepEqual(mine.body.members[0].total, admin.total);
+  });
+
+  test('permissions: no team view for a BDE; a manager sees only direct reports', async () => {
+    assert.equal((await call('bde', 'GET', `/admin/activity/team-performance/daily${qs}`)).status, 403);
+    const own = await call('bde', 'GET', `/employee-portal/ess/team-performance/daily${qs}`);
+    assert.equal(own.status, 200);
+    assert.deepEqual(own.body.members, []);
+    const team = await call('teamLead', 'GET', `/employee-portal/ess/team-performance/daily${qs}`);
+    assert.equal(team.status, 200);
+    assert.deepEqual(team.body.members.map((m) => String(m.adminId)), [ids.bde]);
+  });
+
+  test('periods: presets work; today is one IST day; long or reversed ranges are refused', async () => {
+    const today = await call('super', 'GET', '/admin/activity/team-performance/daily?period=today');
+    assert.equal(today.status, 200);
+    assert.deepEqual(today.body.days, [new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })]);
+    for (const period of ['week', 'month']) assert.equal((await call('super', 'GET', `/admin/activity/team-performance/daily?period=${period}`)).status, 200);
+    assert.equal((await call('super', 'GET', '/admin/activity/team-performance/daily?period=custom&from=2026-01-01&to=2026-06-30')).status, 400);
+    assert.equal((await call('super', 'GET', '/admin/activity/team-performance/daily?period=custom&from=2026-07-08&to=2026-07-06')).status, 400);
+  });
+
+  test('the existing dashboard is unchanged for the same period', async () => {
+    const r = await call('super', 'GET', `/admin/activity/team-performance${qs}`);
+    assert.equal(r.status, 200);
+    const bde = r.body.members.find((m) => String(m.adminId) === ids.bde);
+    assert.equal(bde.calls, 5);
+    assert.equal(bde.connected, 3);
+    assert.equal(bde.notConnected, 2);
+    assert.equal(bde.connectRate, 60);
+    assert.equal(bde.leadsWorked, 2);
+    assert.equal(r.body.totals.calls, 7);
+  });
+});
+
+describe('BDE-wise Lead Status and Pending Calls (PRD 6.1)', () => {
+  const ist = (day, hm) => new Date(`${day}T${hm}:00+05:30`);
+  const oidOf = (id) => new mongoose.Types.ObjectId(id);
+  const leadsCol = () => mongoose.connection.db.collection('leads');
+  const team = '/admin/activity/team-performance';
+  const mine = '/employee-portal/ess/my-calls';
+  const L = {};
+  const call1 = { touchNumber: 1, callDate: new Date(), loggedAt: new Date(), connected: 'Yes', interestLevel: 'Warm' };
+
+  before(async () => {
+    const Role = require('../../models/Role');
+    const Admin = require('../../models/Admin');
+    const bdeRole = await Role.findOne({ name: 'BDE' });
+    for (const key of ['boardA', 'boardB']) {
+      ids[key] = String((await Admin.create({ firstName: key, lastName: 'BD', email: `${key}@e2e.test`, password: PASSWORD, roles: [bdeRole._id], employeeId: `VH-E2E-${key}` }))._id);
+      await mongoose.connection.db.collection('employees').insertOne({
+        employeeId: `VH-E2E-${key}`, adminId: oidOf(ids[key]), firstName: key, lastName: 'BD', email: `${key}@e2e.test`,
+        phone: '9800000000', roleDept: 'Test', joinDate: new Date(), salaryCTC: 1, employmentStatus: 'Permanent',
+      });
+    }
+    const make = async (key, owner, fields = {}) => {
+      L[key] = String((await leadsCol().insertOne({
+        fullName: `BOARD ${key}`, phone: '9811100000', status: 'New', leadType: 'Sales', assignedTo: owner ? oidOf(ids[owner]) : null,
+        assignedAt: ist('2026-10-01', '10:00'), createdAt: ist('2026-10-01', '09:00'), updatedAt: new Date(), documents: [], pipelineHistory: [], ...fields,
+      })).insertedId);
+    };
+    await make('pending1', 'boardA');
+    await make('pending2', 'boardA', { assignedAt: ist('2026-10-01', '23:50') }); // still 1 Oct in IST
+    await make('pending3', 'boardA', { assignedAt: ist('2026-10-02', '00:10') }); // 2 Oct in IST
+    await make('called', 'boardA', { status: 'Contacted', callLogs: [{ ...call1, calledBy: oidOf(ids.boardA) }] });
+    await make('hold', 'boardA', { status: 'Hold' });
+    await make('qualified', 'boardA', { status: 'Qualified', proposalValue: 20000, callLogs: [{ ...call1, calledBy: oidOf(ids.boardA) }] });
+    await make('won', 'boardA', { status: 'Won', dealCloseValue: 5000 });
+    await make('lost', 'boardA', { status: 'Lost' });
+    await make('dropped', 'boardA', { status: 'Dropped' });
+    await make('hiring', 'boardA', { leadType: 'Hiring' }); // not a Sales lead
+    await make('bShared', 'boardB', { assignedAt: ist('2026-10-01', '12:00'), sharedWith: [{ admin: oidOf(ids.boardA), grantedBy: oidOf(ids.super), grantedAt: new Date() }] });
+    await make('bLost', 'boardB', { status: 'Lost' });
+  });
+
+  const counts = (r) => ({ open: r.open, hold: r.hold, won: r.won, lost: r.lost, dropped: r.dropped, total: r.total });
+
+  test('Admin lead status: per owner, Open includes Hold, shared lead counted once (for its owner)', async () => {
+    const r = await call('super', 'GET', `${team}/lead-status`);
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    const row = (k) => r.body.rows.find((x) => x.owner === ids[k]);
+    assert.deepEqual(counts(row('boardA')), { open: 6, hold: 1, won: 1, lost: 1, dropped: 1, total: 9 });
+    assert.equal(row('boardA').openValue, 20000);
+    assert.equal(row('boardA').wonValue, 5000);
+    assert.equal(row('boardA').collaborating, 1);
+    assert.deepEqual(counts(row('boardB')), { open: 1, hold: 0, won: 0, lost: 1, dropped: 0, total: 2 });
+    assert.equal(row('boardB').collaborating, 0);
+  });
+
+  test('Admin totals reconcile to every Sales lead (owners + non-BDE owners + Unassigned)', async () => {
+    const r = await call('super', 'GET', `${team}/lead-status`);
+    const sum = (k) => r.body.rows.reduce((s, x) => s + x[k], 0);
+    const salesLeads = await leadsCol().countDocuments({ leadType: { $in: ['Sales', null] } });
+    assert.equal(r.body.totals.total, salesLeads);
+    assert.equal(sum('total'), salesLeads);
+    for (const k of ['open', 'won', 'lost', 'dropped']) assert.equal(r.body.totals[k], sum(k));
+    assert.ok(r.body.rows.some((x) => x.unassigned));
+  });
+
+  test('BD lead status: own leads, and shared leads separately (not in their totals)', async () => {
+    const r = await call('boardA', 'GET', `${mine}/lead-status`);
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    const [own, shared] = r.body.rows;
+    assert.deepEqual(counts(own), { open: 6, hold: 1, won: 1, lost: 1, dropped: 1, total: 9 });
+    assert.deepEqual(counts(shared), { open: 1, hold: 0, won: 0, lost: 0, dropped: 0, total: 1 });
+    assert.equal(r.body.totals.total, 9);
+  });
+
+  test('Pending calls: owner × IST assignment date, called / closed / Hold leads excluded', async () => {
+    const r = await call('super', 'GET', `${team}/pending-calls`);
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    const owner = (k) => r.body.owners.find((o) => o.owner === ids[k]);
+    assert.deepEqual(owner('boardA').days, { '2026-10-01': 2, '2026-10-02': 1 });
+    assert.equal(owner('boardA').total, 3);
+    assert.deepEqual(owner('boardB').days, { '2026-10-01': 1 });
+
+    const bd = await call('boardA', 'GET', `${mine}/pending-calls`);
+    const [own, shared] = bd.body.owners;
+    assert.deepEqual(own.days, { '2026-10-01': 2, '2026-10-02': 1 });
+    assert.deepEqual(shared.days, { '2026-10-01': 1 });
+    assert.equal(bd.body.total, 3); // shared lead is its owner's pending call
+  });
+
+  test('drill-down: every count opens exactly those leads, within scope', async () => {
+    const ids_ = (r) => r.body.leads.map((l) => String(l._id)).sort();
+    const open = await call('super', 'GET', `${team}/board-leads?owner=${ids.boardA}&bucket=open`);
+    assert.deepEqual(ids_(open), ['pending1', 'pending2', 'pending3', 'called', 'hold', 'qualified'].map((k) => L[k]).sort());
+    const day = await call('super', 'GET', `${team}/board-leads?owner=${ids.boardA}&bucket=pending&day=2026-10-01`);
+    assert.deepEqual(ids_(day), [L.pending1, L.pending2].sort());
+    const collab = await call('super', 'GET', `${team}/board-leads?owner=${ids.boardA}&bucket=collaborating`);
+    assert.deepEqual(ids_(collab), [L.bShared]);
+    assert.equal((await call('super', 'GET', `${team}/board-leads?owner=unassigned&bucket=total`)).status, 200);
+
+    const bdShared = await call('boardA', 'GET', `${mine}/board-leads?owner=shared&bucket=pending`);
+    assert.deepEqual(ids_(bdShared), [L.bShared]);
+    const bdWon = await call('boardA', 'GET', `${mine}/board-leads?owner=own&bucket=won`);
+    assert.deepEqual(ids_(bdWon), [L.won]);
+    // a BD can't drill into another BD's leads; a BD has no team view
+    assert.equal((await call('boardA', 'GET', `${mine}/board-leads?owner=${ids.boardB}&bucket=total`)).status, 404);
+    assert.equal((await call('boardA', 'GET', `${team}/lead-status`)).status, 403);
+    // a manager only sees their reports
+    const mgr = await call('teamLead', 'GET', '/employee-portal/ess/team-performance/lead-status');
+    assert.deepEqual(mgr.body.rows.map((x) => x.owner), [ids.bde]);
+    assert.equal((await call('teamLead', 'GET', `/employee-portal/ess/team-performance/board-leads?owner=${ids.boardA}&bucket=total`)).status, 404);
+  });
+
+  test('calling a pending lead takes it off the Pending view at once', async () => {
+    const r = await call('boardA', 'PUT', `/employee-portal/ess/leads/${L.pending3}`, { connected: 'No', notConnectedReason: 'Number Busy' });
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    const bd = await call('boardA', 'GET', `${mine}/pending-calls`);
+    assert.deepEqual(bd.body.owners[0].days, { '2026-10-01': 2 });
+  });
+});
+
+describe('Management dashboard — BD accountability connect rate', () => {
+  // Same days as the BD-wise daily fixtures: bde made 5 calls (3 connected),
+  // one on the outsider's shared lead; outsider made 2 (1 connected), one on bde's lead
+  const qs = '?dateFrom=2026-07-06&dateTo=2026-07-08';
+  const get = async () => {
+    const r = await call('super', 'GET', `/admin/activity/bd-accountability${qs}`);
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    return r.body.data;
+  };
+  const rowOf = (rows, id) => rows.find((r) => String(r.bd._id) === String(id));
+
+  test('connect rate = connected calls ÷ calls made, credited to the caller', async () => {
+    const rows = await get();
+    const bde = rowOf(rows, ids.bde);
+    assert.equal(bde.callsMade, 5);
+    assert.equal(bde.connectedCalls, 3);
+    assert.equal(bde.connectRate, 60);
+    const outsider = rowOf(rows, ids.outsider);
+    assert.equal(outsider.callsMade, 2);
+    assert.equal(outsider.connectedCalls, 1);
+    assert.equal(outsider.connectRate, 50);
+  });
+
+  test('matches BDE Calling Performance for the same BD and period', async () => {
+    const perf = await call('super', 'GET', '/admin/activity/team-performance?period=custom&from=2026-07-06&to=2026-07-08');
+    const rows = await get();
+    for (const who of ['bde', 'outsider']) {
+      const p = perf.body.members.find((m) => String(m.adminId) === ids[who]);
+      const a = rowOf(rows, ids[who]);
+      assert.equal(a.callsMade, p.calls, who);
+      assert.equal(a.connectedCalls, p.connected, who);
+      assert.equal(a.connectRate, p.connectRate, who);
+    }
+  });
+
+  test('every active BD is listed from the live roster — zeros and "no calls" included', async () => {
+    const rows = await get();
+    const idle = rowOf(rows, ids.boardB);
+    assert.ok(idle, 'a BD with no activity in the period is still listed');
+    assert.equal(idle.callsMade, 0);
+    assert.equal(idle.connectRate, null);
+
+    // add a BD: appears without any code change; deactivate: drops off
+    const Role = require('../../models/Role');
+    const Admin = require('../../models/Admin');
+    const bdeRole = await Role.findOne({ name: 'BDE' });
+    const fresh = await Admin.create({ firstName: 'Newly', lastName: 'Hired', email: 'newly.hired@e2e.test', password: PASSWORD, roles: [bdeRole._id] });
+    assert.ok(rowOf(await get(), fresh._id));
+    await Admin.updateOne({ _id: fresh._id }, { $set: { isActive: false } });
+    assert.equal(rowOf(await get(), fresh._id), undefined);
+  });
+
+  test('still Admin-only', async () => {
+    assert.equal((await call('bde', 'GET', `/admin/activity/bd-accountability${qs}`)).status, 403);
+  });
+});

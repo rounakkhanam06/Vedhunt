@@ -31,6 +31,7 @@ const { getActivityTypes } = require('../services/activityMaster');
 const { listAssignedLeads, searchLeads, todayAgenda } = require('../services/employeeLeads');
 const { accessibleTo } = require('../utils/leadScope');
 const collaboration = require('../services/leadCollaboration');
+const { listCallActivity } = require('../services/callActivity');
 const { completeFollowUp, appendLeadActivity } = require('../services/leadLifecycle');
 const { buildScorecard } = require('../services/employeeKpis');
 const { payslipPaymentStatus } = require('../services/payslipGenerator');
@@ -701,6 +702,23 @@ router.get('/ess/leads', requirePermission('leads.view'), async (req, res) => {
   res.json({ success: true, leads: await listAssignedLeads(req.user._id) });
 });
 
+// Lead Activity — every call logged on this BD's own and cross-assigned leads
+// (by anyone), same rows and filters as the Admin panel (services/callActivity.js)
+router.get('/ess/lead-activity', requirePermission('leads.view'), async (req, res) => {
+  try {
+    const { dateFrom, dateTo } = req.query;
+    const period = {};
+    if (dateFrom) period.$gte = new Date(`${dateFrom}T00:00:00`);
+    if (dateTo) period.$lte = new Date(`${dateTo}T23:59:59.999`);
+    const by = req.query.by && req.query.by !== 'All' && mongoose.Types.ObjectId.isValid(req.query.by) ? new mongoose.Types.ObjectId(req.query.by) : null;
+    const data = await listCallActivity(accessibleTo(req.user._id), { ...req.query, by, period: dateFrom || dateTo ? period : null });
+    res.json({ success: true, ...data });
+  } catch (error) {
+    logger.error('Error fetching employee lead activity:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
 // Global lead search (own leads; all leads for roles with leads.viewAll —
 // someone else's lead comes back masked and read-only).
 router.get('/ess/leads/search', requirePermission('leads.view'), async (req, res) => {
@@ -743,10 +761,10 @@ router.get('/ess/leads/:id', requirePermission('leads.view'), async (req, res) =
 // Complete the scheduled follow-up: outcome + result, and the next action
 // when the lead stays active (see services/leadLifecycle.js completeFollowUp).
 router.post('/ess/leads/:id/follow-up/complete', requirePermission('followups.view'), async (req, res) => {
-  const { connected, interestLevel, notConnectedReason, result, nextFollowUpDate, nextActionType } = req.body;
+  const { connected, interestLevel, notConnectedReason, result, nextFollowUpDate, nextActionType, followUpType } = req.body;
   const outcome = await completeFollowUp(
     req.params.id,
-    { connected, interestLevel, notConnectedReason, result, nextFollowUpDate, nextActionType },
+    { connected, interestLevel, notConnectedReason, result, nextFollowUpDate, nextActionType, followUpType },
     { id: req.user._id },
     accessibleTo(req.user._id)
   );

@@ -67,7 +67,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
         { name: 'Unassigned Leads', path: '/admin/leads/unassigned' },
         { name: 'All Leads', path: '/admin/leads/all', requiredPermission: 'leads.viewAll' },
         { name: 'Lead Activity', path: '/admin/lead-activity', requiredPermission: 'leads.assign' },
-        { name: 'BDE Team Performance', path: '/admin/team-performance', requiredPermission: 'team.performance' },
+        { name: 'BDE Calling Performance', path: '/admin/team-performance', requiredPermission: 'team.performance' },
         { name: 'Follow-ups', path: '/admin/follow-ups', requiredPermission: 'leads.assign' }
       ]
     },

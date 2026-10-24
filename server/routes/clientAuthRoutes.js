@@ -308,7 +308,7 @@ router.post('/forgot-password', async (req, res) => {
     const resetToken = client.getResetPasswordToken();
     await client.save({ validateBeforeSave: false });
 
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const frontendUrl = (process.env.FRONTEND_URL || process.env.CLIENT_ORIGIN || 'https://vedhunt.in').replace(/\/$/, '');
     const resetUrl = `${frontendUrl}/client/reset-password/${resetToken}`;
 
     try {

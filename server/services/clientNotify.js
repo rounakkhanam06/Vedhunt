@@ -7,7 +7,7 @@ const { sendEmail } = require('../utils/sendEmail');
 const logger = require('../utils/logger');
 
 const portalUrl = (link = '/client/dashboard') =>
-  `${(process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/$/, '')}${link}`;
+  `${(process.env.FRONTEND_URL || process.env.CLIENT_ORIGIN || 'https://vedhunt.in').replace(/\/$/, '')}${link}`;
 
 const escapeHtml = (s) =>
   String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));

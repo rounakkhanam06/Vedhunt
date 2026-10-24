@@ -21,6 +21,7 @@ import TeamPerformanceTab from '../tabs/TeamPerformanceTab';
 import MyCallLogTab from '../tabs/MyCallLogTab';
 import ProjectsTab from '../tabs/ProjectsTab';
 import CrmTab from '../tabs/CrmTab';
+import LeadActivity from '../../admin/pages/LeadActivity';
 
 const TABS = {
   dashboard: HomeTab,
@@ -29,6 +30,7 @@ const TABS = {
   'dropped-hold-leads': (props) => <LeadListsTab view="dropped-hold" {...props} />,
   followups: (props) => <LeadListsTab view="followups" {...props} />,
   'my-calls': MyCallLogTab,
+  'lead-activity': () => <LeadActivity portal />,
   tickets: TicketsTab,
   attendance: AttendanceTab,
   tasks: TasksTab,
