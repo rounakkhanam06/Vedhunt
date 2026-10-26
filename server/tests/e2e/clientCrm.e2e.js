@@ -636,6 +636,168 @@ describe('client overview — the landing page', () => {
   });
 });
 
+describe('client notifications — the bell', () => {
+  const list = async (who = 'beta') => (await asClient(who, 'GET', '/client/notifications')).body;
+  const ofType = (body, type) => body.notifications.filter((n) => n.type === type);
+  let baseline;
+
+  before(async () => { baseline = (await list()).notifications.length; });
+
+  test('a new invoice from staff reaches the client bell, unread, with a link to billing', async () => {
+    const res = await admin('POST', '/admin/invoices', {
+      client_ref: ids.beta, dueDate: new Date(Date.now() + 10 * DAY).toISOString(), totalAmount: 5000,
+      lineItems: [{ description: 'Retainer', qty: 1, unitPrice: 5000, amount: 5000 }],
+    });
+    assert.equal(res.status, 201, JSON.stringify(res.body));
+    const body = await list();
+    const n = ofType(body, 'invoice_created')[0];
+    assert.ok(n, 'invoice_created notification exists');
+    assert.match(n.title, /VH-INV-/);
+    assert.equal(n.read, false);
+    assert.equal(n.link, '/client/dashboard?tab=billing');
+    assert.equal(body.unreadCount, body.notifications.filter((x) => !x.read).length);
+    assert.equal(body.notifications.length, baseline + 1);
+    ids.notifInvoice = res.body.data._id;
+  });
+
+  test('approving and rejecting a payment proof each notify the client', async () => {
+    const ok = await proof(ids.notifInvoice, ids.beta, 1000, 'UTRNOTIFY0000001');
+    const bad = await proof(ids.notifInvoice, ids.beta, 500, 'UTRNOTIFY0000002');
+    assert.equal((await admin('PUT', `/admin/payments/${ok._id}/approve`)).status, 200);
+    assert.equal((await admin('PUT', `/admin/payments/${bad._id}/reject`, { rejectionReason: 'Screenshot unreadable' })).status, 200);
+    const body = await list();
+    assert.equal(ofType(body, 'payment_approved').length, 1);
+    const rejected = ofType(body, 'payment_rejected')[0];
+    assert.match(rejected.message, /Screenshot unreadable/);
+  });
+
+  test('a staff reply and a status change on a ticket notify the client', async () => {
+    const SupportTicket = require('../../models/SupportTicket');
+    const ticket = await SupportTicket.create({ client_ref: ids.beta, subject: 'Pixel not firing', description: 'Help', category: 'Bug Report' });
+    assert.equal((await admin('POST', `/admin/tickets/${ticket._id}/messages`, { text: 'We are looking into it.' })).status, 200);
+    assert.equal((await admin('PUT', `/admin/tickets/${ticket._id}`, { status: 'Pending Client' })).status, 200);
+    const body = await list();
+    assert.match(ofType(body, 'ticket_reply')[0].message, /We are looking into it/);
+    assert.match(ofType(body, 'ticket_status')[0].title, /Pending Client/);
+    // an internal status the client does not need (In Progress) stays silent
+    const before = (await list()).notifications.length;
+    await admin('PUT', `/admin/tickets/${ticket._id}`, { status: 'In Progress' });
+    assert.equal((await list()).notifications.length, before);
+  });
+
+  test('changing the agreement terms asks the client to re-sign', async () => {
+    const res = await admin('PUT', `/admin/clients/${ids.beta}`, { agreementDetails: { monthlyFee: 21000, gstAmount: 3780, totalPayable: 24780 } });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.equal(res.body.agreementResignRequired, true);
+    assert.equal(ofType(await list(), 'agreement_updated').length, 1);
+  });
+
+  test('marking one read lowers the unread count; mark-all clears it', async () => {
+    const before = await list();
+    const first = before.notifications.find((n) => !n.read);
+    const one = await asClient('beta', 'PUT', `/client/notifications/${first._id}/read`);
+    assert.equal(one.status, 200);
+    const mid = await list();
+    assert.equal(mid.unreadCount, before.unreadCount - 1);
+    assert.equal((await asClient('beta', 'PUT', '/client/notifications/read-all')).status, 200);
+    const after = await list();
+    assert.equal(after.unreadCount, 0);
+    assert.ok(after.notifications.every((n) => n.read));
+  });
+
+  test("a client sees only their own notifications and cannot mark someone else's", async () => {
+    const mine = (await list('beta')).notifications[0];
+    const gammaList = (await list('gamma')).notifications;
+    assert.ok(gammaList.every((n) => String(n._id) !== String(mine._id)));
+    assert.equal((await asClient('gamma', 'PUT', `/client/notifications/${mine._id}/read`)).status, 404);
+    assert.equal((await asClient('beta', 'PUT', '/client/notifications/not-an-id/read')).status, 400);
+    assert.equal((await request(null, 'GET', '/client/notifications')).status, 401);
+  });
+
+  test('a suspended client is not sent notifications', async () => {
+    const ClientNotification = require('../../models/ClientNotification');
+    const before = await ClientNotification.countDocuments({ client: ids.delta });
+    const res = await admin('POST', '/admin/invoices', {
+      client_ref: ids.delta, dueDate: new Date(Date.now() + 5 * DAY).toISOString(), totalAmount: 100,
+      lineItems: [{ description: 'x', qty: 1, unitPrice: 100, amount: 100 }],
+    });
+    assert.equal(res.status, 201);
+    assert.equal(await ClientNotification.countDocuments({ client: ids.delta }), before);
+    // leave Delta as it was — later tests expect it to have no invoices
+    await require('../../models/Invoice').deleteMany({ client_ref: ids.delta });
+  });
+});
+
+describe('client notification emails — only the switched-on events are emailed', () => {
+  const sent = [];
+  let notify;
+  const ClientNotification = () => require('../../models/ClientNotification');
+
+  before(async () => {
+    // Capture outgoing mail instead of sending it; clientNotify calls mailer.sendEmail at send time
+    require('../../utils/sendEmail').sendEmail = async (o) => { sent.push(o); };
+    notify = require('../../services/clientNotify');
+    // Make sure the clients this block uses are active and have an email
+    await require('../../models/Client').updateOne({ _id: ids.beta }, { $set: { isActive: true } });
+  });
+  const tick = () => new Promise((r) => setTimeout(r, 30)); // mail is fired in the background
+  const fresh = async (fn) => { sent.length = 0; await fn(); await tick(); return [...sent]; };
+  const ticket = (status) => ({ client_ref: ids.beta, ticketId: 'VH-TK-9999', subject: 'Pixel', status });
+
+  test('defaults: an invoice email goes out, and the bell notification is stored too', async () => {
+    const before = await ClientNotification().countDocuments({ client: ids.beta });
+    const mail = await fresh(() => notify.notifyInvoiceCreated({ client_ref: ids.beta, invoiceId: 'VH-INV-X', totalAmount: 100, dueDate: new Date() }));
+    assert.equal(mail.length, 1);
+    assert.match(mail[0].subject, /New invoice/);
+    assert.equal(await ClientNotification().countDocuments({ client: ids.beta }), before + 1);
+  });
+
+  test('defaults: confirmations and replies are bell-only — notification stored, no email', async () => {
+    const before = await ClientNotification().countDocuments({ client: ids.beta });
+    const mail = await fresh(async () => {
+      await notify.notifyPaymentApproved({ client_ref: ids.beta, amountPaid: 100, utrNumber: 'U' }, { invoiceId: 'VH-INV-X', paymentStatus: 'Paid' });
+      await notify.notifyTicketReply(ticket('Open'), 'Support', 'We fixed it');
+      await notify.notifyTicketStatus(ticket('Resolved'));
+    });
+    assert.equal(mail.length, 0);
+    assert.equal(await ClientNotification().countDocuments({ client: ids.beta }), before + 3);
+  });
+
+  test('a ticket waiting for the client is emailed, a resolved one is not', async () => {
+    assert.equal((await fresh(() => notify.notifyTicketStatus(ticket('Pending Client')))).length, 1);
+    assert.equal((await fresh(() => notify.notifyTicketStatus(ticket('Closed')))).length, 0);
+  });
+
+  test('a rejected payment and an agreement to sign are emailed', async () => {
+    assert.equal((await fresh(() => notify.notifyPaymentRejected({ client_ref: ids.beta, amountPaid: 1, rejectionReason: 'Blurry' }, { invoiceId: 'X' }))).length, 1);
+    assert.equal((await fresh(() => notify.notifyAgreementUpdated(ids.beta))).length, 1);
+  });
+
+  test('the switches can be read and changed by an admin, and take effect immediately', async () => {
+    const got = await admin('GET', '/admin/settings/client-email-notifications');
+    assert.equal(got.status, 200);
+    assert.equal(got.body.events.length, 7);
+    assert.equal(got.body.policy.payment_approved, false);
+
+    const put = await admin('PUT', '/admin/settings/client-email-notifications', { policy: { payment_approved: true, invoice_created: false } });
+    assert.equal(put.status, 200, JSON.stringify(put.body));
+    assert.equal(put.body.policy.payment_approved, true);
+
+    const approved = await fresh(() => notify.notifyPaymentApproved({ client_ref: ids.beta, amountPaid: 1, utrNumber: 'U' }, { invoiceId: 'X', paymentStatus: 'Paid' }));
+    assert.equal(approved.length, 1, 'now emailed');
+    const invoice = await fresh(() => notify.notifyInvoiceCreated({ client_ref: ids.beta, invoiceId: 'X', totalAmount: 1, dueDate: new Date() }));
+    assert.equal(invoice.length, 0, 'now bell-only');
+    assert.equal((await ClientNotification().countDocuments({ client: ids.beta, type: 'invoice_created' })) > 0, true, 'the bell still gets it');
+  });
+
+  test('bad input is refused and nobody without a staff login can change the switches', async () => {
+    assert.equal((await admin('PUT', '/admin/settings/client-email-notifications', { policy: { invoice_created: 'yes' } })).status, 400);
+    assert.equal((await admin('PUT', '/admin/settings/client-email-notifications', { policy: 'all' })).status, 400);
+    assert.equal((await request(null, 'PUT', '/admin/settings/client-email-notifications', { policy: {} })).status, 401);
+    assert.equal((await asClient('beta', 'PUT', '/admin/settings/client-email-notifications', { policy: { invoice_created: true } })).status, 401);
+  });
+});
+
 describe('portfolio — KPIs and ordering come from the linked records', () => {
   test('default order is highest monthly recurring fee first, quarterly plans compared per month', async () => {
     const res = await admin('GET', '/admin/portfolio');

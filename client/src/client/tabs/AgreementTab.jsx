@@ -82,8 +82,8 @@ const AgreementTab = () => {
   };
 
   return (
-    <div className="bg-bg-card border border-border-default rounded-xl p-6">
-      <div className="flex flex-wrap gap-4 justify-between items-center mb-6 pb-6 border-b border-border-default">
+    <div className="bg-bg-card border border-border-default rounded-xl p-3 sm:p-6">
+      <div className="flex flex-wrap gap-4 justify-between items-center mb-4 sm:mb-6 pb-4 sm:pb-6 border-b border-border-default px-1 sm:px-0">
         <div>
           <h2 className="text-xl font-bold text-white">Service Agreement</h2>
           <p className="text-[#9CA3AF] text-sm mt-1 flex items-center gap-1.5">
@@ -94,7 +94,7 @@ const AgreementTab = () => {
         </div>
         <button
           onClick={handleDownloadPdf}
-          className="flex items-center gap-2 px-4 py-2 bg-primary/10 text-primary border border-primary/20 rounded-lg hover:bg-primary/20 transition-colors cursor-pointer"
+          className="w-full sm:w-auto justify-center flex items-center gap-2 px-4 py-2.5 sm:py-2 bg-primary/10 text-primary border border-primary/20 rounded-lg hover:bg-primary/20 transition-colors cursor-pointer"
         >
           <Download size={16} />
           <span>Download PDF</span>

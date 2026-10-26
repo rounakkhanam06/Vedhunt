@@ -51,8 +51,15 @@ const ClientNotificationBell = () => {
     const handleClickOutside = (e) => {
       if (wrapperRef.current && !wrapperRef.current.contains(e.target)) setOpen(false);
     };
+    const handleKey = (e) => { if (e.key === 'Escape') setOpen(false); };
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside, { passive: true });
+    document.addEventListener('keydown', handleKey);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+      document.removeEventListener('keydown', handleKey);
+    };
   }, [open]);
 
   const handleClick = (n) => {
@@ -72,9 +79,14 @@ const ClientNotificationBell = () => {
   };
 
   return (
-    <div className="relative" ref={wrapperRef}>
+    // On phones the wrapper is NOT positioned, so the panel anchors to the header and spans the
+    // screen; from sm up it hangs under the bell. (A fixed panel can't be used here: the header's
+    // backdrop-blur makes it the containing block for fixed children.)
+    <div className="sm:relative" ref={wrapperRef}>
       <button
         onClick={() => setOpen((o) => !o)}
+        aria-haspopup="dialog"
+        aria-expanded={open}
         className="relative w-9 h-9 flex items-center justify-center rounded-lg bg-bg-surface/50 border border-border-default text-[#9CA3AF] hover:text-white transition-all cursor-pointer"
         title="Notifications"
         aria-label={unreadCount ? `Notifications (${unreadCount} unread)` : 'Notifications'}
@@ -88,7 +100,11 @@ const ClientNotificationBell = () => {
       </button>
 
       {open && (
-        <div className="absolute right-0 mt-2 w-[calc(100vw-2rem)] max-w-sm max-h-[460px] flex flex-col bg-bg-card border border-border-default rounded-2xl shadow-2xl z-[60] overflow-hidden">
+        <div
+          role="dialog"
+          aria-label="Notifications"
+          className="absolute left-3 right-3 top-full mt-2 sm:left-auto sm:right-0 sm:w-96 max-h-[min(460px,calc(100dvh-9rem))] flex flex-col bg-bg-card border border-border-default rounded-2xl shadow-2xl z-[60] overflow-hidden"
+        >
           <div className="px-4 py-3 border-b border-border-default flex items-center justify-between shrink-0">
             <div className="flex items-center gap-2">
               <span className="text-sm font-bold text-white">Notifications</span>

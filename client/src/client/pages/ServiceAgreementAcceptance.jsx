@@ -41,15 +41,15 @@ const ServiceAgreementAcceptance = ({ agreement, onAccept }) => {
   };
 
   return (
-    <div className="min-h-screen bg-bg-primary flex items-center justify-center p-4">
-      <div className="bg-bg-card border border-border-default rounded-xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl">
-        <div className="p-6 border-b border-border-default flex items-center gap-4 shrink-0">
-          <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+    <div className="min-h-[100dvh] bg-bg-primary flex items-center justify-center sm:p-4">
+      <div className="bg-bg-card sm:border border-border-default sm:rounded-xl w-full max-w-4xl h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[90vh] flex flex-col shadow-2xl">
+        <div className="p-4 sm:p-6 border-b border-border-default flex items-center gap-3 sm:gap-4 shrink-0">
+          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
             <FileText size={24} />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-white">Service Agreement</h1>
-            <p className="text-[#9CA3AF] text-sm mt-1">
+            <h1 className="text-xl sm:text-2xl font-bold text-white">Service Agreement</h1>
+            <p className="text-[#9CA3AF] text-xs sm:text-sm mt-1">
               {(agreement.client?.acceptedAgreementVersion || 0) > 0
                 ? 'Your service agreement has been updated. Please review and accept it to continue.'
                 : 'Please review and accept the service agreement to continue.'}
@@ -57,13 +57,13 @@ const ServiceAgreementAcceptance = ({ agreement, onAccept }) => {
           </div>
         </div>
 
-        <div className="p-0 overflow-y-auto flex-1 bg-[#1A1F2B]">
+        <div className="p-0 overflow-y-auto overscroll-contain flex-1 min-h-0 bg-[#1A1F2B]">
           <div className="bg-white max-w-4xl mx-auto shadow-sm">
             <AgreementTemplate client={draftClient} />
           </div>
         </div>
 
-        <div className="p-6 border-t border-border-default shrink-0 bg-bg-card rounded-b-xl space-y-4">
+        <div className="p-4 sm:p-6 border-t border-border-default shrink-0 bg-bg-card sm:rounded-b-xl space-y-4" style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))' }}>
           <label className="flex items-center gap-3 cursor-pointer group">
             <div className={`
               w-6 h-6 rounded border flex items-center justify-center transition-colors
@@ -82,11 +82,11 @@ const ServiceAgreementAcceptance = ({ agreement, onAccept }) => {
             </span>
           </label>
 
-          <div className="flex justify-end">
+          <div className="flex sm:justify-end">
             <button
               onClick={handleAccept}
               disabled={!accepted || submitting}
-              className="px-8 py-3 bg-primary text-white font-bold rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              className="w-full sm:w-auto justify-center px-8 py-3 bg-primary text-white font-bold rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
               {submitting ? 'Accepting...' : 'I Accept & Continue'}
             </button>

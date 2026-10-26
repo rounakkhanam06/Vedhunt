@@ -3,7 +3,8 @@
 // the admin/employee action that triggered it.
 const Client = require('../models/Client');
 const ClientNotification = require('../models/ClientNotification');
-const { sendEmail } = require('../utils/sendEmail');
+const mailer = require('../utils/sendEmail');
+const { shouldEmail } = require('./clientEmailPolicy');
 const logger = require('../utils/logger');
 
 const portalUrl = (link = '/client/dashboard') =>
@@ -39,19 +40,22 @@ function emailHtml({ contactName, heading, lines, ctaLabel, link }) {
  * @param {string} opts.message     bell text (plain)
  * @param {string} opts.link        portal path the bell/email opens
  * @param {string[]} opts.emailLines  email paragraphs — MUST already be HTML-escaped
+ * @param {string} [opts.emailEvent] policy key (services/clientEmailPolicy.js): the email is sent only if
+ *                                    that event is switched on; the bell notification is always stored
  * @param {string} [opts.ctaLabel]
  * @returns {Promise<object|null>} the stored notification (null on failure)
  */
-async function notifyClient({ clientId, type, title, message, link, emailLines, ctaLabel = 'Open Client Portal' }) {
+async function notifyClient({ clientId, type, title, message, link, emailLines, emailEvent, ctaLabel = 'Open Client Portal' }) {
   try {
     const client = await Client.findById(clientId).select('email contactName isActive').lean();
     if (!client || !client.isActive) return null;
 
     const notification = await ClientNotification.create({ client: client._id, type, title, message, link });
 
-    // Email in the background — Resend latency/outages never slow or fail the request
-    if (client.email) {
-      sendEmail({
+    // Email in the background — Resend latency/outages never slow or fail the request.
+    // Only events switched on in the email policy are emailed; the rest stay in the bell.
+    if (client.email && emailEvent && await shouldEmail(emailEvent)) {
+      mailer.sendEmail({
         email: client.email,
         subject: `${title} — Vedhunt`,
         html: emailHtml({ contactName: client.contactName, heading: title, lines: emailLines || [escapeHtml(message)], ctaLabel, link }),
@@ -70,6 +74,7 @@ const notifyInvoiceCreated = (invoice) =>
   notifyClient({
     clientId: invoice.client_ref,
     type: 'invoice_created',
+    emailEvent: 'invoice_created',
     title: `New invoice ${invoice.invoiceId || ''}`.trim(),
     message: `${money(invoice.totalAmount)} due by ${date(invoice.dueDate)}.`,
     link: '/client/dashboard?tab=billing',
@@ -85,6 +90,7 @@ const notifyPaymentApproved = (payment, invoice) =>
   notifyClient({
     clientId: payment.client_ref,
     type: 'payment_approved',
+    emailEvent: 'payment_approved',
     title: `Payment received${invoice?.invoiceId ? ` for ${invoice.invoiceId}` : ''}`,
     message: invoice?.paymentStatus === 'Paid'
       ? `${money(payment.amountPaid)} verified. The invoice is now fully paid.`
@@ -103,6 +109,7 @@ const notifyPaymentRejected = (payment, invoice) =>
   notifyClient({
     clientId: payment.client_ref,
     type: 'payment_rejected',
+    emailEvent: 'payment_rejected',
     title: `Payment proof not accepted${invoice?.invoiceId ? ` for ${invoice.invoiceId}` : ''}`,
     message: `Reason: ${clip(payment.rejectionReason, 200)}`,
     link: '/client/dashboard?tab=billing',
@@ -118,6 +125,7 @@ const notifyTicketReply = (ticket, senderName, text) =>
   notifyClient({
     clientId: ticket.client_ref,
     type: 'ticket_reply',
+    emailEvent: 'ticket_reply',
     title: `New reply on ${ticket.ticketId || 'your ticket'}`,
     message: `${senderName || 'Vedhunt Support'}: ${clip(text, 140)}`,
     link: '/client/dashboard?tab=support',
@@ -139,6 +147,7 @@ const notifyTicketStatus = (ticket) =>
     ? notifyClient({
       clientId: ticket.client_ref,
       type: 'ticket_status',
+      emailEvent: ticket.status === 'Pending Client' ? 'ticket_pending_client' : 'ticket_closed',
       title: `${ticket.ticketId || 'Ticket'} is now ${ticket.status}`,
       message: STATUS_TEXT[ticket.status],
       link: '/client/dashboard?tab=support',
@@ -154,6 +163,7 @@ const notifyAgreementUpdated = (clientId) =>
   notifyClient({
     clientId,
     type: 'agreement_updated',
+    emailEvent: 'agreement_updated',
     title: 'Your service agreement is ready to review',
     message: 'Please review and accept your service agreement to continue using the portal.',
     link: '/client/dashboard?tab=agreement',

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import HolidayCalendar from '../components/HolidayCalendar';
+import ClientEmailSettings from '../components/ClientEmailSettings';
 import { User, Plug, BarChart2, Database, Save, Mail, Lock, Smartphone, DownloadCloud, AlertCircle, Phone, MapPin, Share2, Clock, CreditCard, QrCode, UploadCloud, LifeBuoy, Gauge, Key, ShieldCheck } from 'lucide-react';
 import { useAdminStore } from '../../store/useAdminStore';
 import { authService } from '../../services/authService';
@@ -643,6 +644,7 @@ const SettingsPage = () => {
     { id: 'integrations', label: 'Integrations', icon: Plug },
     { id: 'campaigns', label: 'Campaign Control', icon: BarChart2 },
     { id: 'payment', label: 'Payment Settings', icon: CreditCard },
+    ...(can('settings.manage') || can('cms.manage') ? [{ id: 'clientEmails', label: 'Client Emails', icon: Mail }] : []),
   ];
 
   const inputClasses = "w-full bg-form-input-bg border border-app-border rounded-lg px-4 py-2 text-app-text placeholder-app-text-muted focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all duration-300";
@@ -1366,6 +1368,7 @@ const SettingsPage = () => {
 
         {/* Holidays Tab */}
         {activeTab === 'holidays' && <HolidayCalendar />}
+        {activeTab === 'clientEmails' && <ClientEmailSettings />}
 
         {/* Assignment Rules Tab */}
         {activeTab === 'assignmentRules' && (
@@ -1665,7 +1668,7 @@ const SettingsPage = () => {
       </div>
 
       {/* Sticky Floating Action Button (for global config tabs) */}
-      {activeTab !== 'profile' && activeTab !== 'holidays' && (
+      {activeTab !== 'profile' && activeTab !== 'holidays' && activeTab !== 'clientEmails' && (
         <div className="absolute bottom-6 right-6 z-10">
           <button 
             onClick={() => {

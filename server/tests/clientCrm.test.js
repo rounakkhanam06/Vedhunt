@@ -5,6 +5,7 @@ const { usageWindow, monthBounds } = require('../services/retainerUsage');
 const { sanitizeProfile, profileDateErrors } = require('../services/clientProfile');
 const { monthlyEquivalent, clientState } = require('../services/portfolio');
 const { buildActions, nextMilestone, dailyHoursSeries, monthlyTotals } = require('../services/clientOverview');
+const { EVENTS, mergePolicy } = require('../services/clientEmailPolicy');
 
 const NOW = new Date('2026-10-26T10:00:00Z');
 const keys = (scope) => onboarding.applicableTemplate(scope).map((t) => t.key);
@@ -214,5 +215,24 @@ describe('client overview — chart data', () => {
   test('activity older than the window is ignored', () => {
     const months = monthlyTotals([{ date: at(2024, 1, 1), amount: 999 }], 6, now);
     assert.equal(months.reduce((s, m) => s + m.total, 0), 0);
+  });
+});
+
+describe('client email policy — which notifications are also emailed', () => {
+  test('by default only action-needed events are emailed', () => {
+    const p = mergePolicy(undefined);
+    const on = Object.keys(p).filter((k) => p[k]).sort();
+    assert.deepEqual(on, ['agreement_updated', 'invoice_created', 'payment_rejected', 'ticket_pending_client']);
+  });
+  test('every event has a switch, a label and a default', () => {
+    assert.equal(Object.keys(mergePolicy({})).length, EVENTS.length);
+    assert.ok(EVENTS.every((e) => e.label && typeof e.default === 'boolean'));
+  });
+  test('saved switches override defaults; unknown keys and non-booleans are ignored', () => {
+    const p = mergePolicy({ payment_approved: true, invoice_created: false, ticket_reply: 'yes', made_up: true });
+    assert.equal(p.payment_approved, true);
+    assert.equal(p.invoice_created, false);
+    assert.equal(p.ticket_reply, false);
+    assert.equal('made_up' in p, false);
   });
 });

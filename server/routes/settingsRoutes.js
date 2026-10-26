@@ -5,6 +5,7 @@ const authMiddleware = require('../middleware/authMiddleware');
 const requirePermission = require('../middleware/requirePermission');
 const portalLegalController = require('../controllers/portalLegalController');
 const activityMaster = require('../services/activityMaster');
+const clientEmailPolicy = require('../services/clientEmailPolicy');
 
 // Public route to get contact info
 router.get('/settings/contact', settingsController.getContactInfo);
@@ -172,6 +173,17 @@ router.put('/admin/settings/activity-master', authMiddleware, requirePermission(
   const { types, error } = await activityMaster.saveActivityTypes(req.body.types);
   if (error) return res.status(400).json({ success: false, message: error });
   res.json({ success: true, types });
+});
+
+// Which client notifications are also emailed (the bell always gets all of them)
+router.get('/admin/settings/client-email-notifications', authMiddleware, requirePermission(['settings.manage', 'cms.manage']), async (req, res) => {
+  res.json({ success: true, events: clientEmailPolicy.EVENTS, policy: await clientEmailPolicy.getEmailPolicy() });
+});
+
+router.put('/admin/settings/client-email-notifications', authMiddleware, requirePermission(['settings.manage', 'cms.manage']), async (req, res) => {
+  const { policy, error } = await clientEmailPolicy.saveEmailPolicy(req.body.policy);
+  if (error) return res.status(400).json({ success: false, message: error });
+  res.json({ success: true, events: clientEmailPolicy.EVENTS, policy });
 });
 
 module.exports = router;
