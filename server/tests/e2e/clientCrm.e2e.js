@@ -445,11 +445,11 @@ describe('onboarding — the go-live gate', () => {
     assert.ok(res.body.blockers.some((b) => b.key === 'contract_signed'));
   });
 
-  test('a step needing evidence cannot be completed without it; Not Applicable needs a reason', async () => {
+  test('a step needing evidence cannot be completed without remarks; Not Applicable needs a reason', async () => {
     const put = (key, body) => admin('PUT', `/admin/clients/${ids.alpha}/onboarding/items/${key}`, body);
     assert.equal((await put('contract_signed', { status: 'Completed' })).status, 400);
     assert.equal((await put('meta_access', { status: 'Not Applicable' })).status, 400);
-    assert.equal((await put('contract_signed', { status: 'Completed', evidenceLink: 'https://drive.test/signed.pdf' })).status, 200);
+    assert.equal((await put('contract_signed', { status: 'Completed', remarks: 'Signed copy received by email on 12 Oct' })).status, 200);
   });
 
   test('an exception is allowed only with a written reason, and is recorded', async () => {
@@ -474,7 +474,7 @@ describe('onboarding — the go-live gate', () => {
     const put = (key, body) => admin('PUT', `/admin/clients/${ids.beta}/onboarding/items/${key}`, body);
     assert.equal((await admin('GET', `/admin/clients/${ids.beta}/onboarding`)).body.data.items.length, 3);
     await put('contract_signed', { status: 'Completed', remarks: 'Signed copy emailed 12-Oct' });
-    await put('advance_payment', { status: 'Completed', evidenceLink: 'https://pay.test/utr' });
+    await put('advance_payment', { status: 'Completed', remarks: 'UTR verified in the bank statement' });
     await put('website_access', { status: 'Not Applicable', naReason: 'Static site hosted by us' });
     const res = await admin('POST', `/admin/clients/${ids.beta}/onboarding/go-live`, {});
     assert.equal(res.status, 200, JSON.stringify(res.body));
@@ -1609,7 +1609,7 @@ describe('onboarding — the client can follow progress and see shared proof', (
   });
 
   test('the client sees every step as a plain status, with nothing internal', async () => {
-    await step('upsilon', 'contract_signed', { status: 'Completed', evidenceLink: 'https://drive.test/signed-contract.pdf', remarks: 'SECRET internal remark' });
+    await step('upsilon', 'contract_signed', { status: 'Completed', remarks: 'SECRET internal remark' });
     await step('upsilon', 'advance_payment', { status: 'In Progress', remarks: 'SECRET chasing finance' });
     await step('upsilon', 'meta_access', { status: 'Blocked', blocker: 'SECRET client ignoring emails' });
     const d = await mine('upsilon');
@@ -1618,18 +1618,7 @@ describe('onboarding — the client can follow progress and see shared proof', (
     assert.equal(find(d, 'meta_access').state, 'blocked');
     assert.equal(find(d, 'website_access').state, 'not_started');
     const raw = JSON.stringify(d);
-    for (const s of ['SECRET', 'drive.test', 'remarks', 'blocker', 'owner', 'exception']) assert.equal(raw.includes(s), false, `leaked ${s}`);
-  });
-
-  test('a proof link is hidden until staff share it, and only a real https link can be shared', async () => {
-    assert.equal(find(await mine('upsilon'), 'contract_signed').proofUrl, null);
-    assert.equal((await step('upsilon', 'advance_payment', { shareProof: true })).status, 400, 'no link to share');
-    assert.equal((await step('upsilon', 'contract_signed', { evidenceLink: 'javascript:alert(1)', shareProof: true })).status, 400);
-    assert.equal((await step('upsilon', 'contract_signed', { evidenceLink: 'http://plain.test/x', shareProof: true })).status, 400);
-    assert.equal((await step('upsilon', 'contract_signed', { shareProof: true })).status, 200);
-    assert.equal(find(await mine('upsilon'), 'contract_signed').proofUrl, 'https://drive.test/signed-contract.pdf');
-    assert.equal((await step('upsilon', 'contract_signed', { shareProof: false })).status, 200);
-    assert.equal(find(await mine('upsilon'), 'contract_signed').proofUrl, null, 'unsharing hides it again');
+    for (const s of ['SECRET', 'remarks', 'blocker', 'owner', 'exception', 'proof']) assert.equal(raw.includes(s), false, `leaked ${s}`);
   });
 
   test('a message for the client turns a step into "waiting on you", notifies them, and shows on their Overview', async () => {
@@ -1669,10 +1658,175 @@ describe('onboarding — the client can follow progress and see shared proof', (
     assert.equal((await request(null, 'GET', '/client/onboarding')).status, 401);
   });
 
-  test('every sharing change is in the audit trail', async () => {
+  test('every message change is in the audit trail', async () => {
     const AuditLog = require('../../models/AuditLog');
     const entries = await AuditLog.find({ action: 'ONBOARDING_ITEM_UPDATE' }).lean();
-    assert.ok(entries.some((e) => e.afterSnapshot?.shareProof === true));
     assert.ok(entries.some((e) => /business@vedhunt\.in/.test(e.afterSnapshot?.clientMessage || '')));
+  });
+});
+
+describe('Won leads whose client account could not be created are recorded for an admin', () => {
+  process.env.RESEND_API_KEY = ''; // this process must never send a real welcome email
+  const Lead = () => require('../../models/Lead');
+  const Client = () => require('../../models/Client');
+  const Issue = () => require('../../models/ClientCreationIssue');
+  const convert = (lead) => require('../../services/clientProvisioning').convertWonLeadToClient(lead, new mongoose.Types.ObjectId(ids.super));
+  const wonLead = async (key, fields) => {
+    const r = await mongoose.connection.db.collection('leads').insertOne({
+      fullName: 'Won Person', phone: '9811100000', email: `${key}@lead.test`, status: 'Won', businessName: `${key} Biz`, dealCloseValue: 50000,
+      createdAt: new Date(), updatedAt: new Date(), documents: [], pipelineHistory: [], ...fields,
+    });
+    ids[`lead_${key}`] = String(r.insertedId);
+    return Lead().findById(r.insertedId).lean();
+  };
+  const issueOf = (key) => Issue().findOne({ lead_ref: ids[`lead_${key}`] }).lean();
+  // notices received by one staff member (each holder of the client-desk permission gets their own copy)
+  const noticeCount = () => require('../../models/Notification').countDocuments({ type: 'client_creation_issue', recipient: ids.super });
+  const historyOf = async (key) => (await Lead().findById(ids[`lead_${key}`]).lean()).pipelineHistory.map((h) => h.status);
+
+  test('a good lead gets an account and no issue is recorded', async () => {
+    const lead = await wonLead('good');
+    const client = await convert(lead);
+    assert.ok(client?.clientId);
+    assert.equal(await issueOf('good'), null);
+    assert.ok((await historyOf('good')).includes('Converted to Client'));
+  });
+
+  test('a bad phone number is recorded with the exact cause, on the lead, and staff are told once', async () => {
+    const before = await noticeCount();
+    const lead = await wonLead('badphone', { phone: '12345' });
+    assert.equal(await convert(lead), null, 'no account, and no thrown error');
+    const issue = await issueOf('badphone');
+    assert.equal(issue.status, 'Open');
+    assert.equal(issue.reasons[0].code, 'invalid_phone');
+    assert.match(issue.reasons[0].message, /Phone: .*10-15 digits/);
+    assert.equal(await Client().exists({ leadRef: lead._id }), null);
+    assert.ok((await historyOf('badphone')).includes('Client account not created'));
+    assert.equal(await noticeCount(), before + 1);
+
+    // the same failure again does not pile up notes, notices or records
+    await convert(lead);
+    const again = await issueOf('badphone');
+    assert.equal(again.attempts, 2);
+    assert.equal(await Issue().countDocuments({ lead_ref: lead._id }), 1);
+    assert.equal((await historyOf('badphone')).filter((s) => s === 'Client account not created').length, 1);
+    assert.equal(await noticeCount(), before + 1);
+  });
+
+  test('several problems are all listed (missing email, short name)', async () => {
+    const lead = await wonLead('multi', { email: '', fullName: 'A', businessName: '' });
+    await convert(lead);
+    const codes = (await issueOf('multi')).reasons.map((r) => r.code).sort();
+    assert.ok(codes.includes('invalid_email'));
+    assert.ok(codes.includes('invalid_name') || codes.includes('invalid_business_name'));
+    assert.ok(codes.length >= 2);
+  });
+
+  test('an email already used by a live client is a skip that needs a person, naming that client', async () => {
+    const lead = await wonLead('dupe', { email: 'alpha@example.com' });
+    assert.equal(await convert(lead), null);
+    const issue = await issueOf('dupe');
+    assert.equal(issue.reasons[0].code, 'email_in_use');
+    assert.match(issue.reasons[0].message, /VH-CL-/);
+    assert.equal(String(issue.existingClient), ids.alpha);
+  });
+
+  test('an email used by a DELETED client says to restore it', async () => {
+    await Client().updateOne({ _id: ids.delta }, { $set: { deletedAt: new Date() } });
+    const lead = await wonLead('archived', { email: 'delta@example.com' });
+    await convert(lead);
+    assert.equal((await issueOf('archived')).reasons[0].code, 'client_archived');
+    await Client().updateOne({ _id: ids.delta }, { $unset: { deletedAt: 1 } });
+  });
+
+  test('the list shows the open issues with lead details; clients and anonymous callers cannot see them', async () => {
+    const res = await admin('GET', '/admin/client-creation-issues');
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.ok(res.body.openCount >= 4);
+    const row = res.body.data.find((r) => r.lead._id === ids.lead_badphone);
+    assert.equal(row.lead.phone, '12345');
+    assert.equal(row.reasons[0].code, 'invalid_phone');
+    assert.equal((await asClient('alpha', 'GET', '/admin/client-creation-issues')).status, 401);
+    assert.equal((await request(null, 'GET', '/admin/client-creation-issues')).status, 401);
+  });
+
+  test('retry still fails while the lead is wrong, and succeeds once the lead is corrected', async () => {
+    const issue = await issueOf('badphone');
+    const still = await admin('POST', `/admin/client-creation-issues/${issue._id}/retry`);
+    assert.equal(still.status, 200);
+    assert.equal(still.body.created, false);
+    await Lead().updateOne({ _id: ids.lead_badphone }, { $set: { phone: '9811100001' } });
+    const ok = await admin('POST', `/admin/client-creation-issues/${issue._id}/retry`);
+    assert.equal(ok.body.created, true, JSON.stringify(ok.body));
+    const closed = await issueOf('badphone');
+    assert.equal(closed.status, 'Resolved');
+    assert.ok(closed.client_ref);
+    assert.equal(await Client().countDocuments({ leadRef: ids.lead_badphone }), 1);
+    assert.equal((await admin('POST', `/admin/client-creation-issues/${issue._id}/retry`)).status, 409, 'a closed issue cannot be retried');
+  });
+
+  test('create with corrected details: bad values are refused with the reason; good ones create the account', async () => {
+    const issue = await issueOf('multi');
+    const bad = await admin('POST', `/admin/client-creation-issues/${issue._id}/create`, { email: 'not-an-email', contactName: 'Multi Person', businessName: 'Multi Biz' });
+    assert.equal(bad.status, 400);
+    assert.match(bad.body.message, /Email/);
+    const ok = await admin('POST', `/admin/client-creation-issues/${issue._id}/create`, { email: 'multi-fixed@example.com', contactName: 'Multi Person', businessName: 'Multi Biz' });
+    assert.equal(ok.status, 201, JSON.stringify(ok.body));
+    const made = await Client().findOne({ email: 'multi-fixed@example.com' }).lean();
+    assert.equal(String(made.leadRef), ids.lead_multi);
+    assert.equal((await issueOf('multi')).status, 'Resolved');
+    assert.ok((await historyOf('multi')).includes('Converted to Client'));
+    assert.ok(await require('../../models/AuditLog').findOne({ action: 'CLIENT_CREATION_MANUAL' }).lean());
+    assert.equal((await admin('POST', `/admin/client-creation-issues/${issue._id}/create`, { email: 'second@example.com' })).status, 409, 'closed issues cannot create a second account');
+  });
+
+  test('link to an existing account: refuses a bad id, links, and refuses an account linked to another lead', async () => {
+    const issue = await issueOf('dupe');
+    const link = (client_id) => admin('POST', `/admin/client-creation-issues/${issue._id}/link`, { client_id });
+    assert.equal((await link('nope')).status, 400);
+    assert.equal((await link(ids.beta)).status, 200, 'beta has no lead link, so it can be linked');
+    assert.equal(String((await Client().findById(ids.beta).lean()).leadRef), ids.lead_dupe);
+    assert.equal((await issueOf('dupe')).status, 'Resolved');
+    const other = await issueOf('archived');
+    const clash = await admin('POST', `/admin/client-creation-issues/${other._id}/link`, { client_id: ids.beta });
+    assert.equal(clash.status, 409, 'beta is now linked to a different lead');
+  });
+
+  test('dismissing needs a reason and is recorded', async () => {
+    const issue = await issueOf('archived');
+    assert.equal((await admin('POST', `/admin/client-creation-issues/${issue._id}/dismiss`, { reason: 'no' })).status, 400);
+    assert.equal((await admin('POST', `/admin/client-creation-issues/${issue._id}/dismiss`, { reason: 'Customer did not go ahead' })).status, 200);
+    const d = await issueOf('archived');
+    assert.equal(d.status, 'Dismissed');
+    assert.equal(d.resolution, 'Customer did not go ahead');
+    assert.ok((await admin('GET', '/admin/client-creation-issues?status=Dismissed')).body.data.length >= 1);
+  });
+
+  test('scan finds Won leads that never got an account, ignores others, and does not duplicate on a second run', async () => {
+    await wonLead('old1', { phone: '99' }); // imported as Won, bad phone
+    await wonLead('old2'); // imported as Won, perfectly fine data: the conversion simply never ran
+    const open = await mongoose.connection.db.collection('leads').insertOne({ fullName: 'Still Open', phone: '9811100077', email: 'open@lead.test', status: 'Working', createdAt: new Date(), updatedAt: new Date(), documents: [] });
+    const first = await admin('POST', '/admin/client-creation-issues/scan');
+    assert.equal(first.status, 200, JSON.stringify(first.body));
+    assert.ok((await issueOf('old1')).reasons.some((r) => r.code === 'invalid_phone'));
+    assert.equal((await issueOf('old2')).reasons[0].code, 'not_attempted');
+    assert.equal(await Issue().countDocuments({ lead_ref: open.insertedId }), 0, 'a lead that is not Won is ignored');
+    const issuesBefore = await Issue().countDocuments();
+    await admin('POST', '/admin/client-creation-issues/scan');
+    assert.equal(await Issue().countDocuments(), issuesBefore);
+    const old2 = await issueOf('old2');
+    assert.equal((await admin('POST', `/admin/client-creation-issues/${old2._id}/retry`)).body.created, true, 'the never-ran lead is fixed by a retry');
+  });
+
+  test('a person limited to some clients cannot use these tools', async () => {
+    const Role = require('../../models/Role');
+    const Admin = require('../../models/Admin');
+    const Employee = require('../../models/Employee');
+    const role = await Role.create({ name: 'BDE_CCI', permissions: ['ess.access'], isEmployeeRole: true });
+    const a = await Admin.create({ firstName: 'Cci', lastName: 'Limited', email: 'cci-limited@e2e.test', password: 'Passw0rd!e2e', roles: [role._id], employeeId: 'VH-CCI-1', accessGrants: [{ page: 'clients', actions: ['view', 'edit', 'create'], scope: { mode: 'clients', clients: [ids.alpha] } }] });
+    await Employee.collection.insertOne({ employeeId: 'VH-CCI-1', adminId: a._id, firstName: 'Cci', lastName: 'Limited', email: 'cci-limited@e2e.test', phone: '9800000000', roleDept: 'Test', joinDate: new Date(), salaryCTC: 1, employmentStatus: 'Permanent' });
+    const token = jwt.sign({ id: a._id }, JWT_SECRET, { expiresIn: '1h' });
+    assert.equal((await request(token, 'GET', '/employee-portal/crm/client-creation-issues')).status, 403);
+    assert.equal((await request(token, 'POST', '/employee-portal/crm/client-creation-issues/scan')).status, 403);
   });
 });

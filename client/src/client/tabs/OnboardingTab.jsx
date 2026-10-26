@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { CheckCircle2, Clock, CircleDashed, AlertTriangle, MinusCircle, Hand, Rocket, ExternalLink } from 'lucide-react';
+import { CheckCircle2, Clock, CircleDashed, AlertTriangle, MinusCircle, Hand, Rocket } from 'lucide-react';
 import clientApi from '../../services/clientApi';
 
 const STATE = {
@@ -12,7 +12,7 @@ const STATE = {
 };
 const fmt = (d) => (d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '');
 
-/** The client's view of their launch setup: what is done, what we need from them, and proof we chose to share. */
+/** The client's view of their launch setup: what is done, and what we need from them. */
 const OnboardingTab = () => {
   const [data, setData] = useState(undefined); // undefined = loading, null = no checklist yet
   const [failed, setFailed] = useState(false);
@@ -77,16 +77,7 @@ const OnboardingTab = () => {
                 <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full border ${s.cls}`}><Icon size={12} /> {s.label}</span>
               </div>
               {item.message && <p className="text-[#E5E7EB] text-sm mt-2 leading-relaxed"><span className="text-[#F59E0B] font-semibold">We need: </span>{item.message}</p>}
-              {(item.completedAt || item.proofUrl) && (
-                <p className="text-xs text-[#9CA3AF] mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
-                  {item.completedAt && <span>Completed {fmt(item.completedAt)}</span>}
-                  {item.proofUrl && (
-                    <a href={item.proofUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-primary font-medium hover:underline">
-                      <ExternalLink size={12} /> View proof
-                    </a>
-                  )}
-                </p>
-              )}
+              {item.completedAt && <p className="text-xs text-[#9CA3AF] mt-2">Completed {fmt(item.completedAt)}</p>}
             </li>
           );
         })}

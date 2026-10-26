@@ -3,7 +3,7 @@ const Client = require('../models/Client');
 const Lead = require('../models/Lead');
 const logger = require('../utils/logger');
 const { sendEmail } = require('../utils/sendEmail');
-const { normalizePhone } = require('../utils/normalize');
+const issues = require('./clientCreationIssues');
 
 /**
  * Creates a Client Portal account and emails the temporary credentials.
@@ -58,41 +58,37 @@ async function noteArchivedClient(lead, client, actorAdminId) {
   );
 }
 
-async function convertWonLeadToClient(lead, actorAdminId) {
+async function convertWonLeadToClient(lead, actorAdminId, { source = 'won' } = {}) {
   const existingByLead = await Client.findOne({ leadRef: lead._id }).lean();
   if (existingByLead) {
+    await issues.resolveIssue(lead._id, existingByLead, { resolution: 'An account is linked to this lead' });
     if (existingByLead.deletedAt) await noteArchivedClient(lead, existingByLead, actorAdminId);
     return existingByLead;
   }
 
-  const existingByEmail = await Client.findOne({ email: String(lead.email || '').toLowerCase().trim() }).lean();
-  if (existingByEmail?.deletedAt) {
-    await noteArchivedClient(lead, existingByEmail, actorAdminId);
-    return existingByEmail;
-  }
-  if (existingByEmail) {
-    logger.info(`Won lead ${lead._id} matches existing client ${existingByEmail._id} by email — not creating a duplicate account.`);
-    await Lead.updateOne(
-      { _id: lead._id },
-      { $push: { pipelineHistory: { status: 'Client link skipped', date: new Date(), updatedBy: actorAdminId, note: `A client account already exists for ${lead.email} — link it manually if this is the same customer.` } } }
-    );
-    return existingByEmail;
+  // Anything that stops the account being created is recorded for an admin — never only logged
+  const details = issues.detailsFromLead(lead);
+  const { reasons, existingClient } = await issues.diagnose(details);
+  if (reasons.length) {
+    logger.warn(`Won lead ${lead._id}: client account not created — ${reasons.map((r) => r.message).join(' | ')}`);
+    await issues.recordIssue(lead, reasons, { existingClient, source, actorAdminId });
+    return null;
   }
 
-  const client = await provisionClientAccount({
-    businessName: lead.businessName || lead.fullName,
-    contactName: lead.fullName,
-    email: lead.email,
-    phone: normalizePhone(lead.phone),
-    leadRef: lead._id,
-    createdBy: actorAdminId
-  });
+  let client;
+  try {
+    client = await provisionClientAccount({ ...details, leadRef: lead._id, createdBy: actorAdminId });
+  } catch (err) {
+    logger.error(`Won->Client conversion failed for lead ${lead._id}:`, err);
+    await issues.recordIssue(lead, [issues.unexpected(err)], { source, actorAdminId });
+    return null;
+  }
 
   await Lead.updateOne(
     { _id: lead._id },
     { $push: { pipelineHistory: { status: 'Converted to Client', date: new Date(), updatedBy: actorAdminId, note: `Client account ${client.clientId} created` } } }
   );
-
+  await issues.resolveIssue(lead._id, client, { resolution: 'Client account created' });
   return client;
 }
 

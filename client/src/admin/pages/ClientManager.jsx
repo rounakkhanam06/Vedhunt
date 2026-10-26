@@ -14,6 +14,7 @@ import OnboardingPanel from '../components/clients/OnboardingPanel';
 import StrategyPanel from '../components/clients/StrategyPanel';
 import KycPanel from '../components/clients/KycPanel';
 import BillingSchedulePanel from '../components/clients/BillingSchedulePanel';
+import ClientCreationIssuesPanel from '../components/clients/ClientCreationIssuesPanel';
 import AdPerformancePanel from '../components/clients/AdPerformancePanel';
 
 const STATUS_TABS = [
@@ -87,6 +88,8 @@ export default function ClientManager() {
   const [serviceFilter, setServiceFilter] = useState('');
   const [portfolio, setPortfolio] = useState({ kpis: null, topByRevenue: [], revenuePeriod: null, filterOptions: { sectors: [], services: [] } });
   const [previewTab, setPreviewTab] = useState('overview');
+  const [issueCount, setIssueCount] = useState(0);
+  const [showIssues, setShowIssues] = useState(false);
   // { type: 'suspend' | 'archive' | 'permanent', client }
   const [action, setAction] = useState(null);
   const [actionReason, setActionReason] = useState('');
@@ -128,6 +131,13 @@ export default function ClientManager() {
   }, [http, base, page, dSearch, statusFilter, billingFilter, sort, sectorFilter, serviceFilter]);
 
   useEffect(() => { fetchClients(); }, [fetchClients]);
+
+  // Won leads with no client account (only people with access to every client see this)
+  const loadIssueCount = useCallback(() => {
+    if (!full) return;
+    http.get(`${base}/client-creation-issues`, { params: { status: 'Open' } }).then((r) => setIssueCount(r.data.openCount || 0)).catch(() => {});
+  }, [http, base, full]);
+  useEffect(() => { loadIssueCount(); }, [loadIssueCount]);
 
   // Lock scroll when modal or preview is open
   useEffect(() => {
@@ -303,6 +313,13 @@ export default function ClientManager() {
           <div className="bg-secondary/10 text-secondary px-4 py-2 rounded-lg font-bold text-sm">
             Showing: {total}
           </div>
+          {full && canCrm('clients', 'create') && (<button
+            onClick={() => setShowIssues(true)}
+            title="Find Won leads that never got a client account and see why"
+            className="flex items-center gap-2 px-3 py-2 border border-outline-variant text-on-surface-variant hover:text-on-surface rounded-lg text-sm font-medium transition-colors cursor-pointer"
+          >
+            <AlertTriangle size={15} /> Check Won leads
+          </button>)}
           {canCrm('clients', 'create') && (<button
             onClick={openCreate}
             className="flex items-center gap-2 px-4 py-2 bg-secondary text-white rounded-lg text-sm font-medium hover:bg-secondary/90 transition-colors cursor-pointer"
@@ -311,6 +328,18 @@ export default function ClientManager() {
           </button>)}
         </div>
       </div>
+
+      {full && (issueCount > 0 || showIssues) && (
+        <button type="button" onClick={() => setShowIssues(true)} className="w-full flex items-center gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-left cursor-pointer hover:bg-amber-500/15 transition-colors">
+          <AlertTriangle size={18} className="text-amber-400 shrink-0" />
+          <span className="flex-1 min-w-0">
+            <span className="block text-on-surface text-sm font-semibold">{issueCount} Won lead{issueCount === 1 ? '' : 's'} {issueCount === 1 ? 'has' : 'have'} no client account</span>
+            <span className="block text-on-surface-variant text-xs mt-0.5">See why each one failed and fix it.</span>
+          </span>
+          <span className="text-amber-400 text-sm font-medium shrink-0">Review</span>
+        </button>
+      )}
+      {showIssues && <ClientCreationIssuesPanel http={http} base={base} onClose={() => setShowIssues(false)} onChanged={() => { loadIssueCount(); fetchClients(); }} />}
 
       <PortfolioKpis
         kpis={portfolio.kpis}

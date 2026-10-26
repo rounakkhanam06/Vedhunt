@@ -10,19 +10,16 @@ const itemSchema = new mongoose.Schema(
     // Launch-critical steps must be Completed (or Not Applicable, with a reason)
     // before the campaign can go live — unless an authorised exception is logged.
     launchCritical: { type: Boolean, default: true },
-    // Steps that must carry evidence (a link or a note) before they can be Completed
+    // Steps that must say what was done (remarks) before they can be Completed
     needsEvidence: { type: Boolean, default: false },
     status: { type: String, enum: ITEM_STATUSES, default: 'Not Started' },
     owner: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin' },
     dueDate: { type: Date },
     completedAt: { type: Date },
     remarks: { type: String, trim: true, maxlength: 1000 },
-    evidenceLink: { type: String, trim: true, maxlength: 500 }, // document / approval / validation link
     blocker: { type: String, trim: true, maxlength: 500 },
     // What the CLIENT is allowed to see (everything else on a step is internal):
-    // a step with a clientMessage shows as "Waiting on you"; the proof link is shown
-    // only when shareProof is on (and the link is a plain https URL).
-    shareProof: { type: Boolean, default: false },
+    // a step with a clientMessage shows as "Waiting on you".
     clientMessage: { type: String, trim: true, maxlength: 300 },
     naReason: { type: String, trim: true, maxlength: 500 },
     updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin' },

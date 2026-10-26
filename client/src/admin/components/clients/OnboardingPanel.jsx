@@ -26,8 +26,8 @@ function StepRow({ step, staff, canEdit, onSave }) {
   const begin = () => {
     setF({
       status: step.status, owner: step.owner || '', dueDate: toDateInput(step.dueDate),
-      evidenceLink: step.evidenceLink || '', remarks: step.remarks || '', blocker: step.blocker || '', naReason: step.naReason || '',
-      shareProof: !!step.shareProof, clientMessage: step.clientMessage || '',
+      remarks: step.remarks || '', blocker: step.blocker || '', naReason: step.naReason || '',
+      clientMessage: step.clientMessage || '',
     });
     setOpen(true);
   };
@@ -81,22 +81,12 @@ function StepRow({ step, staff, canEdit, onSave }) {
             </div>
           </div>
           <div>
-            <label className="block text-on-surface-variant text-[10px] uppercase font-bold tracking-wider mb-1">
-              Evidence / document link{step.needsEvidence && <span className="text-amber-400 normal-case font-normal"> · needed to complete (or add remarks)</span>}
-            </label>
-            <input disabled={!canEdit} className={inputCls} value={f.evidenceLink} onChange={set('evidenceLink')} placeholder="https://…" />
-            <label className={`flex items-start gap-2 text-xs mt-2 text-on-surface-variant ${canEdit ? 'cursor-pointer' : ''}`}>
-              <input type="checkbox" disabled={!canEdit} checked={f.shareProof} onChange={set('shareProof')} className="mt-0.5" />
-              <span>Show this proof to the client in their portal<span className="block text-[11px]">Off by default. Needs a link starting with https:// — anyone with the link can open it, so only share documents that are safe for the client to see.</span></span>
-            </label>
-          </div>
-          <div>
             <label className="block text-on-surface-variant text-[10px] uppercase font-bold tracking-wider mb-1">Message for the client <span className="normal-case font-normal">· shown in their portal; makes this step &quot;Waiting on you&quot;</span></label>
             <input disabled={!canEdit} className={inputCls} maxLength={300} value={f.clientMessage} onChange={set('clientMessage')} placeholder="e.g. Please add business@vedhunt.in as an admin on your Meta Business Manager" />
             <p className="text-[11px] text-on-surface-variant mt-1">The client is notified when you add or change this. Remarks and blockers stay internal. Clear it when it is no longer needed.</p>
           </div>
           <div>
-            <label className="block text-on-surface-variant text-[10px] uppercase font-bold tracking-wider mb-1">Remarks</label>
+            <label className="block text-on-surface-variant text-[10px] uppercase font-bold tracking-wider mb-1">Remarks{step.needsEvidence && <span className="text-amber-400 normal-case font-normal"> · needed to complete — say what was done or where the proof is kept</span>}</label>
             <textarea disabled={!canEdit} rows={2} className={`${inputCls} resize-none`} value={f.remarks} onChange={set('remarks')} />
           </div>
           {f.status === 'Blocked' && (

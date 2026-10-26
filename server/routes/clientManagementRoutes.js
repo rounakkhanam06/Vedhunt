@@ -38,6 +38,10 @@ const strategy = require('../services/strategy');
 const kyc = require('../services/kyc');
 const extraHoursBilling = require('../services/extraHoursBilling');
 const billingSchedule = require('../services/billingSchedule');
+const clientCreationIssues = require('../services/clientCreationIssues');
+const ClientCreationIssue = require('../models/ClientCreationIssue');
+const Lead = require('../models/Lead');
+const { convertWonLeadToClient } = require('../services/clientProvisioning');
 const clientPolicies = require('../services/clientPolicies');
 const BillingSchedule = require('../models/BillingSchedule');
 const InvoiceDraft = require('../models/InvoiceDraft');
@@ -786,7 +790,7 @@ router.put('/clients/:id/onboarding/items/:key', crm('clients', 'edit'), async (
     const { value, errors } = onboarding.validateItemUpdate(item.toObject(), req.body);
     if (errors.length) return res.status(400).json({ success: false, message: errors.join('. ') });
 
-    const snap = () => ({ status: item.status, owner: item.owner ? String(item.owner) : null, dueDate: item.dueDate || null, remarks: item.remarks || '', shareProof: !!item.shareProof, clientMessage: item.clientMessage || '' });
+    const snap = () => ({ status: item.status, owner: item.owner ? String(item.owner) : null, dueDate: item.dueDate || null, remarks: item.remarks || '', clientMessage: item.clientMessage || '' });
     const before = snap();
     item.set(value);
     if (value.status === 'Completed' && !item.completedAt) item.completedAt = new Date();
@@ -1182,6 +1186,151 @@ router.post('/invoice-drafts-run', crm('invoices', 'create'), async (req, res) =
     res.json({ success: true, ...(await billingSchedule.generateDrafts()) });
   } catch (error) {
     logger.error('Admin generate invoice drafts error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// WON LEADS WITHOUT A CLIENT ACCOUNT — why creation failed, and the ways to fix it
+// ══════════════════════════════════════════════════════════════════════════════
+
+const issueView = (i) => ({
+  _id: i._id, status: i.status, reasons: i.reasons, attempts: i.attempts, lastAttemptAt: i.lastAttemptAt, source: i.source,
+  lead: i.lead_ref && { _id: i.lead_ref._id, fullName: i.lead_ref.fullName, businessName: i.lead_ref.businessName, email: i.lead_ref.email, phone: i.lead_ref.phone, dealCloseValue: i.lead_ref.dealCloseValue },
+  existingClient: i.existingClient && { _id: i.existingClient._id, clientId: i.existingClient.clientId, businessName: i.existingClient.businessName, deleted: !!i.existingClient.deletedAt, linkedToLead: !!i.existingClient.leadRef },
+  resolvedAt: i.resolvedAt || null, resolvedByName: i.resolvedByName || null, resolution: i.resolution || '',
+});
+
+// Creating accounts needs access to every client, like creating one by hand
+const needAllClients = (req, res) => {
+  if (!isScoped(req)) return true;
+  res.status(403).json({ success: false, message: 'This needs access to all clients.' });
+  return false;
+};
+
+async function loadIssue(req, res) {
+  if (!isValidId(req.params.id)) { res.status(400).json({ success: false, message: 'Invalid ID' }); return null; }
+  const issue = await ClientCreationIssue.findById(req.params.id);
+  if (!issue) { res.status(404).json({ success: false, message: 'Not found' }); return null; }
+  return issue;
+}
+const populateIssue = (q) => q.populate('lead_ref', 'fullName businessName email phone dealCloseValue').populate('existingClient', 'clientId businessName deletedAt leadRef');
+
+router.get('/client-creation-issues', crm('clients', 'view'), async (req, res) => {
+  try {
+    if (!needAllClients(req, res)) return;
+    const status = ['Open', 'Resolved', 'Dismissed'].includes(req.query.status) ? req.query.status : 'Open';
+    const [rows, openCount] = await Promise.all([
+      populateIssue(ClientCreationIssue.find({ status }).sort({ lastAttemptAt: -1 }).limit(200)).lean(),
+      ClientCreationIssue.countDocuments({ status: 'Open' }),
+    ]);
+    res.json({ success: true, data: rows.map(issueView), openCount });
+  } catch (error) {
+    logger.error('Admin list client creation issues error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// Find Won leads that never got an account (e.g. from before this existed) and record why
+router.post('/client-creation-issues/scan', crm('clients', 'create'), async (req, res) => {
+  try {
+    if (!needAllClients(req, res)) return;
+    const result = await clientCreationIssues.scanWonLeads();
+    await recordAudit(req, 'CLIENT_CREATION_SCAN', 'ClientCreationIssue', 'scan', null, result);
+    res.json({ success: true, ...result, openCount: await ClientCreationIssue.countDocuments({ status: 'Open' }) });
+  } catch (error) {
+    logger.error('Admin scan won leads error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// Try again with the lead's current details (after someone corrected the lead)
+router.post('/client-creation-issues/:id/retry', crm('clients', 'create'), async (req, res) => {
+  try {
+    if (!needAllClients(req, res)) return;
+    const issue = await loadIssue(req, res);
+    if (!issue) return;
+    if (issue.status !== 'Open') return res.status(409).json({ success: false, message: `This issue is already ${issue.status.toLowerCase()}.` });
+    const lead = await Lead.findById(issue.lead_ref).lean();
+    if (!lead || lead.status !== 'Won') return res.status(409).json({ success: false, message: 'This lead is no longer Won.' });
+    const client = await convertWonLeadToClient(lead, req.user._id, { source: 'retry' });
+    await recordAudit(req, 'CLIENT_CREATION_RETRY', 'ClientCreationIssue', String(issue.lead_ref), null, { created: !!client, clientId: client?.clientId });
+    const fresh = await populateIssue(ClientCreationIssue.findById(issue._id)).lean();
+    if (client) return res.json({ success: true, created: true, message: `Client account ${client.clientId} created`, data: issueView(fresh) });
+    res.json({ success: true, created: false, message: 'Still not possible — see the reasons below.', data: issueView(fresh) });
+  } catch (error) {
+    logger.error('Admin retry client creation error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// Create the account with corrected details (the lead's own record is left as it is)
+router.post('/client-creation-issues/:id/create', crm('clients', 'create'), async (req, res) => {
+  try {
+    if (!needAllClients(req, res)) return;
+    const issue = await loadIssue(req, res);
+    if (!issue) return;
+    if (issue.status !== 'Open') return res.status(409).json({ success: false, message: `This issue is already ${issue.status.toLowerCase()}.` });
+    const lead = await Lead.findById(issue.lead_ref).lean();
+    if (!lead) return res.status(404).json({ success: false, message: 'Lead not found' });
+    if (await Client.exists({ leadRef: lead._id })) return res.status(409).json({ success: false, message: 'This lead already has a client account.' });
+
+    const details = clientCreationIssues.detailsFromLead(lead, req.body || {});
+    const { reasons } = await clientCreationIssues.diagnose(details);
+    if (reasons.length) return res.status(400).json({ success: false, message: reasons.map((r) => r.message).join(' '), reasons });
+
+    const client = await provisionClientAccount({ ...details, leadRef: lead._id, createdBy: req.user._id });
+    await Lead.updateOne({ _id: lead._id }, { $push: { pipelineHistory: { status: 'Converted to Client', date: new Date(), updatedBy: req.user._id, note: `Client account ${client.clientId} created by ${clientCreationIssues.nameOf(req.user)} with corrected details` } } });
+    await clientCreationIssues.resolveIssue(lead._id, client, { resolution: `Account ${client.clientId} created with corrected details`, user: req.user });
+    await recordAudit(req, 'CLIENT_CREATION_MANUAL', 'ClientCreationIssue', String(lead._id), null, { clientId: client.clientId, email: details.email });
+    res.status(201).json({ success: true, message: `Client account ${client.clientId} created and the login details were emailed`, data: { _id: client._id, clientId: client.clientId } });
+  } catch (error) {
+    logger.error('Admin create client from issue error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// The customer already has an account: attach this lead to it
+router.post('/client-creation-issues/:id/link', crm('clients', 'edit'), async (req, res) => {
+  try {
+    if (!needAllClients(req, res)) return;
+    const issue = await loadIssue(req, res);
+    if (!issue) return;
+    if (issue.status !== 'Open') return res.status(409).json({ success: false, message: `This issue is already ${issue.status.toLowerCase()}.` });
+    if (!isValidId(req.body.client_id)) return res.status(400).json({ success: false, message: 'Choose the client to link.' });
+    const client = await Client.findById(req.body.client_id);
+    if (!client || client.deletedAt) return res.status(404).json({ success: false, message: 'That client account was not found (or is deleted — restore it first).' });
+    if (client.leadRef && String(client.leadRef) !== String(issue.lead_ref)) return res.status(409).json({ success: false, message: 'That account is already linked to a different lead.' });
+    client.leadRef = issue.lead_ref;
+    await client.save();
+    await Lead.updateOne({ _id: issue.lead_ref }, { $push: { pipelineHistory: { status: 'Converted to Client', date: new Date(), updatedBy: req.user._id, note: `Linked to existing client account ${client.clientId} by ${clientCreationIssues.nameOf(req.user)}` } } });
+    await clientCreationIssues.resolveIssue(issue.lead_ref, client, { resolution: `Linked to existing account ${client.clientId}`, user: req.user });
+    await recordAudit(req, 'CLIENT_CREATION_LINK', 'ClientCreationIssue', String(issue.lead_ref), null, { clientId: client.clientId });
+    res.json({ success: true, message: `Linked to ${client.clientId}` });
+  } catch (error) {
+    logger.error('Admin link client from issue error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+router.post('/client-creation-issues/:id/dismiss', crm('clients', 'edit'), async (req, res) => {
+  try {
+    if (!needAllClients(req, res)) return;
+    const issue = await loadIssue(req, res);
+    if (!issue) return;
+    const reason = String(req.body.reason || '').trim();
+    if (reason.length < 5) return res.status(400).json({ success: false, message: 'Say why no account is needed (at least 5 characters).' });
+    if (issue.status !== 'Open') return res.status(409).json({ success: false, message: `This issue is already ${issue.status.toLowerCase()}.` });
+    issue.status = 'Dismissed';
+    issue.resolvedAt = new Date();
+    issue.resolvedBy = req.user._id;
+    issue.resolvedByName = clientCreationIssues.nameOf(req.user);
+    issue.resolution = reason.slice(0, 500);
+    await issue.save();
+    await recordAudit(req, 'CLIENT_CREATION_DISMISS', 'ClientCreationIssue', String(issue.lead_ref), null, { reason: issue.resolution });
+    res.json({ success: true, message: 'Dismissed' });
+  } catch (error) {
+    logger.error('Admin dismiss client creation issue error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
