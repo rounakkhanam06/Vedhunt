@@ -159,6 +159,29 @@ const clientService = {
     return data;
   },
 
+  // ─── KYC (advertiser verification) ───────────────────────────────────────
+  getKyc: async () => {
+    const { data } = await clientApi.get('/client/kyc');
+    return data.data;
+  },
+
+  // `value` = the GSTIN / PAN / Aadhaar / brand name; `file` = the document
+  submitKyc: async (item, { value, file }) => {
+    const formData = new FormData();
+    if (value !== undefined) formData.append('value', value);
+    formData.append('file', file);
+    const { data } = await clientApi.put(`/client/kyc/${item}`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return data;
+  },
+
+  // The client's own uploaded document as a Blob (the endpoint needs the login token)
+  getKycFile: async (item) => {
+    const res = await clientApi.get(`/client/kyc/${item}/file`, { responseType: 'blob' });
+    return res.data;
+  },
+
   uploadPublicImage: async (formData) => {
     // Assuming /api/upload/public doesn't require clientAuth, but we can use clientApi
     const { data } = await clientApi.post('/upload/public', formData, {

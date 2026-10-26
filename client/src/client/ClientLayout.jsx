@@ -10,6 +10,7 @@ import {
   RefreshCcw,
   LifeBuoy,
   Target,
+  ShieldCheck,
   UserCircle,
   LogOut,
   MoreHorizontal,
@@ -27,6 +28,7 @@ const TABS = [
   { id: 'retainers', label: 'Retainers',  icon: RefreshCcw,    path: '/client/dashboard?tab=retainers' },
   { id: 'support',   label: 'Support',    icon: LifeBuoy,      path: '/client/dashboard?tab=support' },
   { id: 'strategy',  label: 'Strategy',   icon: Target,        path: '/client/dashboard?tab=strategy' },
+  { id: 'kyc',       label: 'KYC',        icon: ShieldCheck,   path: '/client/dashboard?tab=kyc' },
   { id: 'agreement', label: 'Agreement',  icon: FileText,      path: '/client/dashboard?tab=agreement' },
   { id: 'account',   label: 'Account',    icon: UserCircle,    path: '/client/dashboard?tab=account' },
 ];

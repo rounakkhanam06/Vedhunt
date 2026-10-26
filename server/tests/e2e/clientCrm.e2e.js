@@ -776,7 +776,7 @@ describe('client notification emails — only the switched-on events are emailed
   test('the switches can be read and changed by an admin, and take effect immediately', async () => {
     const got = await admin('GET', '/admin/settings/client-email-notifications');
     assert.equal(got.status, 200);
-    assert.equal(got.body.events.length, 7);
+    assert.equal(got.body.events.length, 9);
     assert.equal(got.body.policy.payment_approved, false);
 
     const put = await admin('PUT', '/admin/settings/client-email-notifications', { policy: { payment_approved: true, invoice_created: false } });
@@ -795,6 +795,179 @@ describe('client notification emails — only the switched-on events are emailed
     assert.equal((await admin('PUT', '/admin/settings/client-email-notifications', { policy: 'all' })).status, 400);
     assert.equal((await request(null, 'PUT', '/admin/settings/client-email-notifications', { policy: {} })).status, 401);
     assert.equal((await asClient('beta', 'PUT', '/admin/settings/client-email-notifications', { policy: { invoice_created: true } })).status, 401);
+  });
+});
+
+describe('KYC — GST, PAN, Aadhaar, photo and brand authorisation', () => {
+  const GSTIN = '27AALCV0172E1ZD';
+  const PAN = 'AALCV0172E';
+  const AADHAAR = '234567890124'; // passes the Verhoeff check
+  const jpg = (n = 200, fill = 1) => Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(n, fill)]);
+  const png = () => Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(100, 2)]);
+  const pdf = () => Buffer.from(`%PDF-1.4\n${'x'.repeat(120)}`);
+  const exe = () => Buffer.concat([Buffer.from('MZ'), Buffer.alloc(200, 3)]);
+
+  const put = async (who, item, { value, bytes, name = 'document.jpg' } = {}) => {
+    const form = new FormData();
+    if (value !== undefined) form.append('value', value);
+    if (bytes) form.append('file', new Blob([bytes]), name);
+    const res = await fetch(`${base}/client/kyc/${item}`, { method: 'PUT', headers: { authorization: `Bearer ${clientToken(who)}` }, body: form });
+    return { status: res.status, body: await res.json().catch(() => null) };
+  };
+  const mine = async (who) => (await asClient(who, 'GET', '/client/kyc')).body.data;
+  const item = (data, key) => data.items.find((i) => i.key === key);
+  const review = (client, key, body) => admin('PUT', `/admin/clients/${client}/kyc/${key}/review`, body);
+
+  test('a new client starts with nothing submitted: four required items and one optional', async () => {
+    const d = await mine('alpha');
+    assert.equal(d.overall.status, 'not_started');
+    assert.deepEqual(d.items.map((i) => [i.key, i.required]), [['gst', true], ['pan', true], ['aadhaar', true], ['photo', true], ['brand_authorisation', false]]);
+    assert.ok(d.items.every((i) => i.status === 'Not Submitted' && !i.hasFile));
+  });
+
+  test('bad numbers, missing files and disguised files are all refused', async () => {
+    assert.equal((await put('alpha', 'gst', { value: '27AALCV0172E1ZE', bytes: jpg() })).status, 400, 'wrong GSTIN check digit');
+    assert.equal((await put('alpha', 'gst', { value: GSTIN })).status, 400, 'no document');
+    const disguised = await put('alpha', 'gst', { value: GSTIN, bytes: exe(), name: 'certificate.jpg' });
+    assert.equal(disguised.status, 400, 'an executable renamed to .jpg');
+    assert.equal((await put('alpha', 'pan', { value: 'NOTAPAN', bytes: jpg() })).status, 400);
+    assert.equal((await put('alpha', 'aadhaar', { value: '234567890123', bytes: jpg() })).status, 400, 'wrong Aadhaar check digit');
+    assert.equal((await put('alpha', 'photo', { bytes: pdf(), name: 'me.pdf' })).status, 400, 'a photo must be an image');
+    assert.equal((await put('alpha', 'gst', { value: GSTIN, bytes: Buffer.alloc(6 * 1024 * 1024, 7) })).status, 400, 'over 5MB');
+    assert.equal((await mine('alpha')).overall.status, 'not_started', 'nothing was saved by the failures');
+  });
+
+  test('GST, PAN, Aadhaar, photo are accepted; staff are alerted', async () => {
+    assert.equal((await put('alpha', 'gst', { value: ` ${GSTIN.toLowerCase()} `, bytes: pdf(), name: 'gst.pdf' })).status, 200);
+    assert.equal((await put('alpha', 'pan', { value: PAN, bytes: jpg(300), name: 'pan.jpg' })).status, 200);
+    assert.equal((await put('alpha', 'aadhaar', { value: '2345 6789 0124', bytes: png(), name: 'aadhaar.png' })).status, 200);
+    const photo = await put('alpha', 'photo', { bytes: jpg(400, 9), name: 'me.jpg' });
+    assert.equal(photo.status, 200, JSON.stringify(photo.body));
+    const d = await mine('alpha');
+    assert.equal(d.overall.status, 'in_review');
+    assert.deepEqual(d.overall.missing, []);
+    assert.ok(await require('../../models/Notification').findOne({ type: 'kyc_submitted' }).lean(), 'a reviewer was notified');
+  });
+
+  test('the client sees masked numbers only — and the database holds no full Aadhaar or plain PAN', async () => {
+    const d = await mine('alpha');
+    assert.equal(item(d, 'gst').displayValue, GSTIN);
+    assert.equal(item(d, 'pan').displayValue, 'XXXXX0172E');
+    assert.equal(item(d, 'aadhaar').displayValue, 'XXXX XXXX 0124');
+    // (A GSTIN contains the PAN by design and the client typed it, so the PAN is checked on its own item)
+    assert.equal(JSON.stringify(item(d, 'pan')).includes(PAN), false, 'the PAN item shows only the masked PAN');
+    const raw = JSON.stringify(d);
+    for (const secret of [AADHAAR, '2345 6789', '567890124', 'valueEnc']) assert.equal(raw.includes(secret), false, `response leaked ${secret}`);
+
+    const record = await require('../../models/ClientKyc').findOne({ client_ref: ids.alpha }).select('+items.pan.valueEnc').lean();
+    const stored = JSON.stringify(record);
+    assert.ok(record.items.pan.valueEnc && !record.items.pan.valueEnc.includes(PAN), 'PAN is stored encrypted');
+    assert.equal(JSON.stringify(record.items.pan).includes(PAN), false, 'no plain PAN on the PAN item');
+    assert.equal(stored.includes('234567890124'), false, 'the full Aadhaar number is never stored');
+    assert.equal(stored.includes('567890124'), false);
+    assert.match(stored, /"last4":"0124"/);
+  });
+
+  test('uploaded documents are private: the owner and reviewers get the exact bytes, never cached', async () => {
+    const own = await fetch(`${base}/client/kyc/photo/file`, { headers: { authorization: `Bearer ${clientToken('alpha')}` } });
+    assert.equal(own.status, 200);
+    assert.equal(own.headers.get('content-type'), 'image/jpeg');
+    assert.match(own.headers.get('cache-control'), /no-store/);
+    assert.equal(own.headers.get('x-content-type-options'), 'nosniff');
+    assert.deepEqual(Buffer.from(await own.arrayBuffer()), jpg(400, 9));
+
+    const staff = await fetch(`${base}/admin/clients/${ids.alpha}/kyc/pan/file`, { headers: { authorization: `Bearer ${adminToken()}` } });
+    assert.equal(staff.status, 200);
+    assert.deepEqual(Buffer.from(await staff.arrayBuffer()), jpg(300));
+    assert.ok(await require('../../models/AuditLog').findOne({ action: 'KYC_DOCUMENT_VIEW' }).lean(), 'viewing an identity document is audited');
+
+    // another client has uploaded nothing, so there is nothing of Alpha's they can reach; no login = no access
+    assert.equal((await asClient('beta', 'GET', '/client/kyc/photo/file')).status, 404);
+    assert.equal((await request(null, 'GET', '/client/kyc/photo/file')).status, 401);
+    assert.equal((await request(null, 'GET', `/admin/clients/${ids.alpha}/kyc/pan/file`)).status, 401);
+    assert.equal((await asClient('beta', 'GET', `/admin/clients/${ids.alpha}/kyc/pan/file`)).status, 401, 'a client token is not staff access');
+  });
+
+  test('staff see the PAN in full and the Aadhaar masked; a PAN that disagrees with the GSTIN is flagged', async () => {
+    const d = (await admin('GET', `/admin/clients/${ids.alpha}/kyc`)).body.data;
+    assert.equal(item(d, 'pan').fullValue, PAN);
+    assert.equal(item(d, 'pan').holderType, 'Company');
+    assert.equal(item(d, 'aadhaar').displayValue, 'XXXX XXXX 0124');
+    assert.equal(JSON.stringify(d).includes('567890124'), false);
+    assert.deepEqual(d.flags, [], 'PAN matches the GSTIN');
+
+    // Beta submits the same GSTIN with a different PAN
+    assert.equal((await put('beta', 'gst', { value: GSTIN, bytes: pdf() })).status, 200);
+    assert.equal((await put('beta', 'pan', { value: 'ABCPE1234F', bytes: jpg() })).status, 200);
+    const flags = (await admin('GET', `/admin/clients/${ids.beta}/kyc`)).body.data.flags.map((f) => f.key).sort();
+    assert.deepEqual(flags, ['gst_reused', 'pan_gst_mismatch']);
+  });
+
+  test('rejecting needs a reason; the client is told, sees the reason, and can resubmit', async () => {
+    assert.equal((await review(ids.alpha, 'photo', { decision: 'reject' })).status, 400);
+    assert.equal((await review(ids.alpha, 'photo', { decision: 'maybe' })).status, 400);
+    const rej = await review(ids.alpha, 'photo', { decision: 'reject', reason: 'Face is cut off — retake it' });
+    assert.equal(rej.status, 200, JSON.stringify(rej.body));
+
+    const d = await mine('alpha');
+    assert.equal(d.overall.status, 'action_needed');
+    assert.equal(item(d, 'photo').status, 'Rejected');
+    assert.equal(item(d, 'photo').rejectionReason, 'Face is cut off — retake it');
+    const bell = (await asClient('alpha', 'GET', '/client/notifications')).body.notifications;
+    assert.ok(bell.some((n) => n.type === 'kyc_rejected' && /Face is cut off/.test(n.message)), 'bell notification');
+
+    const overview = (await asClient('alpha', 'GET', '/client/overview')).body.data;
+    assert.equal(overview.actions[0].key === 'kyc-rejected' || overview.actions.some((a) => a.key === 'kyc-rejected'), true);
+    assert.equal(overview.kyc.status, 'action_needed');
+
+    const ClientKycFile = require('../../models/ClientKycFile');
+    const before = await ClientKycFile.countDocuments({ client_ref: ids.alpha, item: 'photo' });
+    const again = await put('alpha', 'photo', { bytes: jpg(500, 5), name: 'retake.jpg' });
+    assert.equal(again.status, 200);
+    assert.equal(item(again.body.data, 'photo').status, 'Submitted');
+    assert.equal(item(again.body.data, 'photo').rejectionReason, '', 'the old reason is cleared');
+    assert.equal(await ClientKycFile.countDocuments({ client_ref: ids.alpha, item: 'photo' }), before, 'the replaced document is deleted, not piled up');
+  });
+
+  test('verifying all four required items completes KYC; verified items are locked', async () => {
+    for (const key of ['gst', 'pan', 'aadhaar']) assert.equal((await review(ids.alpha, key, { decision: 'verify' })).status, 200);
+    assert.equal((await mine('alpha')).overall.status, 'in_review', 'the photo is still waiting');
+    assert.equal((await review(ids.alpha, 'photo', { decision: 'verify' })).status, 200);
+
+    const d = await mine('alpha');
+    assert.equal(d.overall.status, 'verified');
+    assert.equal(d.overall.requiredVerified, 4);
+    const bell = (await asClient('alpha', 'GET', '/client/notifications')).body.notifications;
+    assert.ok(bell.some((n) => n.type === 'kyc_verified' && /KYC complete/.test(n.title)), 'a completion notification');
+
+    assert.equal((await put('alpha', 'pan', { value: PAN, bytes: jpg() })).status, 409, 'a verified item cannot be changed by the client');
+    assert.equal((await review(ids.alpha, 'pan', { decision: 'reject', reason: 'changed my mind' })).status, 409, 'and cannot be re-reviewed');
+    assert.equal((await mine('alpha')).overall.status, 'verified');
+  });
+
+  test('the optional brand authorisation does not hold up verification', async () => {
+    const brand = await put('alpha', 'brand_authorisation', { value: 'Mudgarvale', bytes: pdf(), name: 'letter.pdf' });
+    assert.equal(brand.status, 200);
+    assert.equal((await mine('alpha')).overall.status, 'verified');
+    assert.equal(item(await mine('alpha'), 'brand_authorisation').displayValue, 'Mudgarvale');
+  });
+
+  test('reviewing needs staff access; the audit trail records who decided, without the numbers', async () => {
+    assert.equal((await asClient('beta', 'PUT', `/admin/clients/${ids.beta}/kyc/gst/review`, { decision: 'verify' })).status, 401);
+    const AuditLog = require('../../models/AuditLog');
+    const verify = await AuditLog.findOne({ action: 'KYC_VERIFY' }).lean();
+    assert.equal(verify.actorName, 'Super Admin');
+    const trail = JSON.stringify(await AuditLog.find({ resource: 'ClientKyc' }).lean());
+    for (const secret of [PAN, '234567890124', 'ABCPE1234F']) assert.equal(trail.includes(secret), false, `audit log leaked ${secret}`);
+    assert.ok(await AuditLog.findOne({ action: 'KYC_SUBMIT', actorType: 'Client' }).lean(), 'client submissions are audited too');
+  });
+
+  test('a client who has done nothing is nudged on the Overview', async () => {
+    const o = (await asClient('gamma', 'GET', '/client/overview')).body.data;
+    assert.equal(o.kyc.status, 'not_started');
+    assert.ok(o.actions.some((a) => a.key === 'kyc-missing' && a.tab === 'kyc'));
+    assert.equal((await mine('alpha')).overall.status, 'verified');
+    assert.equal((await asClient('alpha', 'GET', '/client/overview')).body.data.actions.some((a) => a.key.startsWith('kyc')), false, 'verified clients are not nudged');
   });
 });
 

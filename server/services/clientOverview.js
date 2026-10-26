@@ -11,6 +11,7 @@ const finance = require('./finance');
 const WorkLog = require('../models/WorkLog');
 const { attachUsage, usageWindow, monthBounds } = require('./retainerUsage');
 const { latestSharedFor } = require('./strategy');
+const kycService = require('./kyc');
 
 const OPEN_TICKET = ['Open', 'In Progress', 'Pending Client'];
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -79,10 +80,14 @@ function monthlyTotals(rows, count = 6, now = new Date()) {
  * Things that need the client's attention, most urgent first. Pure so the
  * rules can be tested without a database.
  */
-function buildActions({ billing, tickets, retainer }) {
+function buildActions({ billing, tickets, retainer, kyc }) {
   const actions = [];
   if (billing.overdueInvoices > 0) {
     actions.push({ key: 'overdue', tone: 'danger', tab: 'billing', title: `${billing.overdueInvoices} overdue invoice${billing.overdueInvoices > 1 ? 's' : ''}`, detail: `${billing.overdueAmount} overdue — please arrange payment` });
+  }
+  if (kyc?.status === 'action_needed') {
+    const n = kyc.rejected.length;
+    actions.push({ key: 'kyc-rejected', tone: 'danger', tab: 'kyc', title: `${n} KYC document${n > 1 ? 's' : ''} need${n > 1 ? '' : 's'} changes`, detail: 'Upload them again to finish verifying your business' });
   }
   if (tickets.awaitingClient > 0) {
     actions.push({ key: 'ticket-reply', tone: 'warn', tab: 'support', title: `${tickets.awaitingClient} support ticket${tickets.awaitingClient > 1 ? 's' : ''} waiting for your reply`, detail: 'Our team needs your input to continue' });
@@ -92,6 +97,13 @@ function buildActions({ billing, tickets, retainer }) {
   }
   if (billing.pendingProofs > 0) {
     actions.push({ key: 'proof-pending', tone: 'info', tab: 'billing', title: `${billing.pendingProofs} payment proof${billing.pendingProofs > 1 ? 's' : ''} awaiting verification`, detail: 'We will confirm as soon as it is checked' });
+  }
+  if (kyc && kyc.status !== 'action_needed' && kyc.missing.length > 0) {
+    actions.push({
+      key: 'kyc-missing', tone: 'info', tab: 'kyc',
+      title: kyc.status === 'not_started' ? 'Complete your KYC' : `${kyc.missing.length} KYC item${kyc.missing.length > 1 ? 's' : ''} still to submit`,
+      detail: 'GST, PAN, Aadhaar and a photo are needed to verify your business',
+    });
   }
   if (retainer?.hoursOverage > 0) {
     actions.push({ key: 'hours-over', tone: 'warn', tab: 'retainers', title: `${retainer.hoursOverage}h over your included hours this month`, detail: retainer.packageName });
@@ -103,7 +115,7 @@ function buildActions({ billing, tickets, retainer }) {
 }
 
 async function buildOverview(clientId, now = new Date()) {
-  const [{ perClient }, unpaid, pendingProofs, projects, retainers, tickets, strategy] = await Promise.all([
+  const [{ perClient }, unpaid, pendingProofs, projects, retainers, tickets, strategy, kycDoc] = await Promise.all([
     finance.portfolioFinance({ clientIds: [clientId], now }),
     Invoice.find({ client_ref: clientId, paymentStatus: { $ne: 'Paid' }, $expr: { $gt: ['$totalAmount', '$paidAmount'] } })
       .select('-notes').sort({ dueDate: 1 }).limit(20).lean(),
@@ -115,6 +127,7 @@ async function buildOverview(clientId, now = new Date()) {
     SupportTicket.find({ client_ref: clientId, status: { $in: OPEN_TICKET } })
       .select('ticketId subject status priority slaDeadline updatedAt').sort({ updatedAt: -1 }).limit(20).lean(),
     latestSharedFor(clientId),
+    kycService.findOrBlank(clientId),
   ]);
 
   const fin = perClient.get(String(clientId)) || { outstanding: 0, overdueAmount: 0, overdueInvoices: 0, received: 0, billed: 0, collectionPercent: null };
@@ -170,6 +183,8 @@ async function buildOverview(clientId, now = new Date()) {
       : null,
   };
 
+  const kycSummary = kycService.overall(kycDoc);
+
   return {
     charts,
     billing,
@@ -182,7 +197,8 @@ async function buildOverview(clientId, now = new Date()) {
     retainer,
     tickets: ticketSummary,
     strategy: strategy ? { version: strategy.version, sharedAt: strategy.sharedAt || strategy.updatedAt } : null,
-    actions: buildActions({ billing: { ...billing, overdueAmount: formatInr(billing.overdueAmount), nextDue: billing.nextDue && { ...billing.nextDue, balance: formatInr(billing.nextDue.balance) } }, tickets: ticketSummary, retainer }),
+    kyc: kycSummary,
+    actions: buildActions({ kyc: kycSummary, billing: { ...billing, overdueAmount: formatInr(billing.overdueAmount), nextDue: billing.nextDue && { ...billing.nextDue, balance: formatInr(billing.nextDue.balance) } }, tickets: ticketSummary, retainer }),
   };
 }
 

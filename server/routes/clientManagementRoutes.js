@@ -22,7 +22,7 @@ const AuditLog = require('../models/AuditLog');
 const PaymentProof = require('../models/PaymentProof');
 const ClientNotification = require('../models/ClientNotification');
 const {
-  notifyInvoiceCreated, notifyAgreementUpdated, notifyTicketReply, notifyTicketStatus,
+  notifyInvoiceCreated, notifyAgreementUpdated, notifyTicketReply, notifyTicketStatus, notifyKycRejected, notifyKycVerified,
 } = require('../services/clientNotify');
 
 const { PAGE_CATALOG, pageScope, hasBaseAccess } = require('../config/pageAccess');
@@ -35,6 +35,7 @@ const { attachUsage } = require('../services/retainerUsage');
 const { buildPortfolio } = require('../services/portfolio');
 const onboarding = require('../services/onboarding');
 const strategy = require('../services/strategy');
+const kyc = require('../services/kyc');
 const CampaignStrategy = require('../models/CampaignStrategy');
 const WorkLog = require('../models/WorkLog');
 const { sanitizeProfile, profileDateErrors, profileAuditSnapshot } = require('../services/clientProfile');
@@ -844,6 +845,74 @@ router.put('/clients/:id/strategy/:version/share', crm('clients', 'edit'), async
     res.json({ success: true, message: share ? `Version ${version} is now visible to the client` : `Version ${version} hidden from the client`, data: doc });
   } catch (error) {
     logger.error('Admin share strategy error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// KYC REVIEW (GST, PAN, Aadhaar, photo, brand authorisation)
+// ══════════════════════════════════════════════════════════════════════════════
+
+const kycRequest = (req, res) => {
+  if (!isValidId(req.params.id)) { res.status(400).json({ success: false, message: 'Invalid client ID' }); return false; }
+  if (!clientAllowed(req, req.params.id)) { outOfScope(res, 'Client'); return false; }
+  if (req.params.item && !kyc.ITEMS.some((i) => i.key === req.params.item)) { res.status(404).json({ success: false, message: 'Unknown KYC item' }); return false; }
+  return true;
+};
+
+router.get('/clients/:id/kyc', crm('clients', 'view'), async (req, res) => {
+  try {
+    if (!kycRequest(req, res)) return;
+    if (!(await Client.exists({ _id: req.params.id }))) return outOfScope(res, 'Client');
+    res.json({ success: true, data: await kyc.adminView(await kyc.getOrCreate(req.params.id)) });
+  } catch (error) {
+    logger.error('Admin get KYC error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// Identity documents need edit access (the people who review them), not just view
+router.get('/clients/:id/kyc/:item/file', crm('clients', 'edit'), async (req, res) => {
+  try {
+    if (!kycRequest(req, res)) return;
+    const file = await kyc.readFile(req.params.id, req.params.item);
+    if (!file) return res.status(404).json({ success: false, message: 'No document uploaded' });
+    await recordAudit(req, 'KYC_DOCUMENT_VIEW', 'ClientKyc', `${req.params.id}:${req.params.item}`, null, { item: req.params.item });
+    res.set({
+      'Content-Type': file.mimeType,
+      'Content-Length': file.size,
+      'Content-Disposition': `inline; filename="${encodeURIComponent(file.originalName || 'document')}"`,
+      'Cache-Control': 'private, no-store',
+      'X-Content-Type-Options': 'nosniff',
+      'Content-Security-Policy': "default-src 'none'; sandbox",
+    });
+    res.send(file.data);
+  } catch (error) {
+    logger.error('Admin KYC file error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+router.put('/clients/:id/kyc/:item/review', crm('clients', 'edit'), async (req, res) => {
+  try {
+    if (!kycRequest(req, res)) return;
+    if (!(await Client.exists({ _id: req.params.id }))) return outOfScope(res, 'Client');
+    const result = await kyc.reviewItem(req.params.id, req.params.item, { decision: req.body.decision, reason: req.body.reason }, req.user);
+    if (!result.ok) return res.status(result.status).json({ success: false, message: result.message });
+
+    const verified = req.body.decision === 'verify';
+    await recordAudit(req, verified ? 'KYC_VERIFY' : 'KYC_REJECT', 'ClientKyc', `${req.params.id}:${req.params.item}`,
+      { status: 'Submitted' }, { status: verified ? 'Verified' : 'Rejected', reason: verified ? undefined : String(req.body.reason).trim().slice(0, 500) });
+    if (verified) await notifyKycVerified(req.params.id, result.item.label, result.becameVerified);
+    else await notifyKycRejected(req.params.id, result.item.label, String(req.body.reason).trim());
+
+    res.json({
+      success: true,
+      message: verified ? `${result.item.label} verified` : `${result.item.label} rejected - the client has been asked to resubmit`,
+      data: await kyc.adminView(result.doc),
+    });
+  } catch (error) {
+    logger.error('Admin review KYC error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });

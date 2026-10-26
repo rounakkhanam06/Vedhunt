@@ -12,6 +12,7 @@ import { inr, pct } from '../components/clients/format';
 import ClientProfilePanel from '../components/clients/ClientProfilePanel';
 import OnboardingPanel from '../components/clients/OnboardingPanel';
 import StrategyPanel from '../components/clients/StrategyPanel';
+import KycPanel from '../components/clients/KycPanel';
 
 const STATUS_TABS = [
   { id: '', label: 'All' },
@@ -38,6 +39,7 @@ const PREVIEW_TABS = [
   { id: 'overview', label: 'Overview' },
   { id: 'profile', label: 'Profile' },
   { id: 'strategy', label: 'Strategy' },
+  { id: 'kyc', label: 'KYC' },
   { id: 'onboarding', label: 'Onboarding' },
 ];
 
@@ -624,10 +626,10 @@ export default function ClientManager() {
               </button>
             </div>
 
-            <div role="tablist" aria-label="Client sections" className="shrink-0 flex gap-1 px-6 border-b border-outline-variant">
+            <div role="tablist" aria-label="Client sections" className="shrink-0 flex gap-1 px-4 sm:px-6 border-b border-outline-variant overflow-x-auto">
               {PREVIEW_TABS.map((t) => (
                 <button key={t.id} role="tab" aria-selected={previewTab === t.id} onClick={() => setPreviewTab(t.id)}
-                  className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px cursor-pointer transition-colors ${
+                  className={`px-3 sm:px-4 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 -mb-px cursor-pointer transition-colors ${
                     previewTab === t.id ? 'border-secondary text-secondary' : 'border-transparent text-on-surface-variant hover:text-on-surface'
                   }`}>
                   {t.label}
@@ -647,6 +649,9 @@ export default function ClientManager() {
               )}
               {previewTab === 'strategy' && (
                 <StrategyPanel clientId={previewClient._id} http={http} base={base} canEdit={canCrm('clients', 'edit')} />
+              )}
+              {previewTab === 'kyc' && (
+                <KycPanel clientId={previewClient._id} http={http} base={base} canReview={canCrm('clients', 'edit')} />
               )}
               {previewTab === 'onboarding' && (
                 <OnboardingPanel

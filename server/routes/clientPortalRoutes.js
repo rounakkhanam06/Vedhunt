@@ -11,7 +11,10 @@ const logger = require('../utils/logger');
 const { getClientAgreement, acceptAgreement } = require('../controllers/agreementController');
 const { buildInvoicePdfBuffer, loadInvoiceContext } = require('../services/invoicePdf');
 const { uploadTicketAttachment, deleteFromCloudinary } = require('../utils/cloudinary');
-const { notifyTicketStaff } = require('../services/staffNotify');
+const { notifyTicketStaff, notifyPermissionHolders } = require('../services/staffNotify');
+const multer = require('multer');
+const kyc = require('../services/kyc');
+const { recordAudit } = require('../services/audit');
 const finance = require('../services/finance');
 const { attachUsage } = require('../services/retainerUsage');
 const strategy = require('../services/strategy');
@@ -334,6 +337,90 @@ router.get('/strategy', async (req, res) => {
     res.json({ success: true, data: doc ? strategy.clientView(doc) : null });
   } catch (error) {
     logger.error('Client get strategy error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// KYC — advertiser identity and business verification
+// ══════════════════════════════════════════════════════════════════════════════
+
+// Held in memory, size-capped, one file per request; the content is checked by its bytes in services/kyc.js
+const kycUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: kyc.MAX_FILE_BYTES, files: 1, fields: 4 } });
+
+const kycItem = (req, res, next) => {
+  if (!kyc.ITEMS.some((i) => i.key === req.params.item)) return res.status(404).json({ success: false, message: 'Unknown KYC item' });
+  next();
+};
+
+/**
+ * @route  GET /api/client/kyc
+ * @desc   The client's own KYC status per item: masked numbers, review status and rejection reasons
+ * @access Client Private
+ */
+router.get('/kyc', async (req, res) => {
+  try {
+    res.json({ success: true, data: kyc.clientView(await kyc.getOrCreate(req.client._id)) });
+  } catch (error) {
+    logger.error('Client get KYC error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+/**
+ * @route  PUT /api/client/kyc/:item   (multipart: file + value)
+ * @desc   Submit or re-submit one KYC item. A verified item is locked.
+ * @access Client Private
+ */
+router.put('/kyc/:item', kycItem, (req, res, next) => {
+  kycUpload.single('file')(req, res, (err) => {
+    if (!err) return next();
+    const message = err.code === 'LIMIT_FILE_SIZE' ? 'The file must be 5MB or smaller.' : 'The upload could not be read. Please try again.';
+    return res.status(400).json({ success: false, message });
+  });
+}, async (req, res) => {
+  try {
+    const result = await kyc.submitItem(req.client._id, req.params.item, { value: req.body.value, file: req.file });
+    if (!result.ok) return res.status(result.status).json({ success: false, message: result.message });
+
+    const label = kyc.ITEMS.find((i) => i.key === req.params.item).label;
+    // The audit entry records that and when, never the numbers or the document
+    await recordAudit(null, 'KYC_SUBMIT', 'ClientKyc', `${req.client._id}:${req.params.item}`, null,
+      { item: req.params.item, status: 'Submitted', attempts: result.doc.items[req.params.item].attempts },
+      { actor: { actorType: 'Client', actorId: req.client._id, actorName: req.client.businessName || req.client.contactName }, source: 'client-portal' });
+    await notifyPermissionHolders('cms.manage', {
+      type: 'kyc_submitted',
+      title: `KYC submitted - ${req.client.businessName || 'a client'}`,
+      message: `${label} is waiting for review.`,
+      link: '/admin/clients',
+    });
+    res.json({ success: true, message: `${label} submitted for review.`, data: kyc.clientView(result.doc) });
+  } catch (error) {
+    logger.error('Client submit KYC error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+/**
+ * @route  GET /api/client/kyc/:item/file
+ * @desc   The client's own uploaded document (private, never cached)
+ * @access Client Private
+ */
+router.get('/kyc/:item/file', kycItem, async (req, res) => {
+  try {
+    const file = await kyc.readFile(req.client._id, req.params.item);
+    if (!file) return res.status(404).json({ success: false, message: 'No document uploaded yet' });
+    res.set({
+      'Content-Type': file.mimeType,
+      'Content-Length': file.size,
+      'Content-Disposition': `inline; filename="${encodeURIComponent(file.originalName || 'document')}"`,
+      'Cache-Control': 'private, no-store',
+      'X-Content-Type-Options': 'nosniff',
+      'Content-Security-Policy': "default-src 'none'; sandbox",
+    });
+    res.send(file.data);
+  } catch (error) {
+    logger.error('Client KYC file error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });

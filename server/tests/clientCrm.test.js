@@ -222,7 +222,7 @@ describe('client email policy — which notifications are also emailed', () => {
   test('by default only action-needed events are emailed', () => {
     const p = mergePolicy(undefined);
     const on = Object.keys(p).filter((k) => p[k]).sort();
-    assert.deepEqual(on, ['agreement_updated', 'invoice_created', 'payment_rejected', 'ticket_pending_client']);
+    assert.deepEqual(on, ['agreement_updated', 'invoice_created', 'kyc_rejected', 'payment_rejected', 'ticket_pending_client']);
   });
   test('every event has a switch, a label and a default', () => {
     assert.equal(Object.keys(mergePolicy({})).length, EVENTS.length);

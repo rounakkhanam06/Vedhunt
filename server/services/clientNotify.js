@@ -174,8 +174,42 @@ const notifyAgreementUpdated = (clientId) =>
     ctaLabel: 'Review agreement',
   });
 
+const notifyKycRejected = (clientId, label, reason) =>
+  notifyClient({
+    clientId,
+    type: 'kyc_rejected',
+    emailEvent: 'kyc_rejected',
+    title: `KYC: ${label} needs changes`,
+    message: `Reason: ${clip(reason, 200)}`,
+    link: '/client/dashboard?tab=kyc',
+    emailLines: [
+      `We could not accept your <strong>${escapeHtml(label)}</strong> for verification.`,
+      `Reason: ${escapeHtml(clip(reason, 500))}`,
+      'Please upload it again from the KYC section of your portal.',
+    ],
+    ctaLabel: 'Update KYC',
+  });
+
+const notifyKycVerified = (clientId, label, complete) =>
+  notifyClient({
+    clientId,
+    type: 'kyc_verified',
+    emailEvent: 'kyc_verified',
+    title: complete ? 'KYC complete — you are verified' : `KYC: ${label} verified`,
+    message: complete ? 'All required identity and business documents have been verified.' : `Your ${label} has been verified.`,
+    link: '/client/dashboard?tab=kyc',
+    emailLines: [
+      complete
+        ? 'All of your required KYC documents have been verified. Thank you!'
+        : `Your <strong>${escapeHtml(label)}</strong> has been verified.`,
+    ],
+    ctaLabel: 'View KYC',
+  });
+
 module.exports = {
   notifyClient,
+  notifyKycRejected,
+  notifyKycVerified,
   notifyInvoiceCreated,
   notifyPaymentApproved,
   notifyPaymentRejected,

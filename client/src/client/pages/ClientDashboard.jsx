@@ -8,6 +8,7 @@ const ProjectsTab   = lazy(() => import('../tabs/ProjectsTab'));
 const RetainersTab  = lazy(() => import('../tabs/RetainersTab'));
 const SupportTab    = lazy(() => import('../tabs/SupportTab'));
 const StrategyTab   = lazy(() => import('../tabs/StrategyTab'));
+const KycTab        = lazy(() => import('../tabs/KycTab'));
 const AgreementTab  = lazy(() => import('../tabs/AgreementTab'));
 const AccountTab    = lazy(() => import('../tabs/AccountTab'));
 
@@ -18,6 +19,7 @@ const TAB_COMPONENTS = {
   retainers: RetainersTab,
   support:   SupportTab,
   strategy:  StrategyTab,
+  kyc:       KycTab,
   agreement: AgreementTab,
   account:   AccountTab,
 };
