@@ -54,6 +54,10 @@ const supportTicketSchema = new mongoose.Schema(
     slaDeadline: { type: Date },
     // Internal team notes — NEVER sent to client
     resolution: { type: String, trim: true, select: false },
+    // Internal root-cause analysis — NEVER sent to client
+    rootCause: { type: String, trim: true, maxlength: 1000, select: false },
+    // Optional link to the project the issue belongs to (must be the same client's)
+    project_ref: { type: mongoose.Schema.Types.ObjectId, ref: 'Project' },
     // File attachment URLs (uploaded via upload route)
     attachments: [{ type: String, trim: true }],
     // When was ticket resolved / closed

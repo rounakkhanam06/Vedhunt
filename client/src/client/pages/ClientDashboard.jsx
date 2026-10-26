@@ -2,18 +2,22 @@ import { lazy, Suspense } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useClientStore } from '../../store/useClientStore';
 
+const OverviewTab   = lazy(() => import('../tabs/OverviewTab'));
 const BillingTab    = lazy(() => import('../tabs/BillingTab'));
 const ProjectsTab   = lazy(() => import('../tabs/ProjectsTab'));
 const RetainersTab  = lazy(() => import('../tabs/RetainersTab'));
 const SupportTab    = lazy(() => import('../tabs/SupportTab'));
+const StrategyTab   = lazy(() => import('../tabs/StrategyTab'));
 const AgreementTab  = lazy(() => import('../tabs/AgreementTab'));
 const AccountTab    = lazy(() => import('../tabs/AccountTab'));
 
 const TAB_COMPONENTS = {
+  overview:  OverviewTab,
   billing:   BillingTab,
   projects:  ProjectsTab,
   retainers: RetainersTab,
   support:   SupportTab,
+  strategy:  StrategyTab,
   agreement: AgreementTab,
   account:   AccountTab,
 };
@@ -27,8 +31,8 @@ const TabLoader = () => (
 const ClientDashboard = () => {
   const location = useLocation();
   const { client } = useClientStore();
-  const currentTab = new URLSearchParams(location.search).get('tab') || 'billing';
-  const ActiveTab = TAB_COMPONENTS[currentTab] || BillingTab;
+  const currentTab = new URLSearchParams(location.search).get('tab') || 'overview';
+  const ActiveTab = TAB_COMPONENTS[currentTab] || OverviewTab;
 
   return (
     <div>

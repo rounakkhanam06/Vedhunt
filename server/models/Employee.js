@@ -201,6 +201,11 @@ const employeeSchema = new mongoose.Schema(
       task: { type: String },
       // The assigned task this session is for, when picked from My Tasks
       taskId: { type: mongoose.Schema.Types.ObjectId },
+      // Optional links so the logged time counts toward a client's work history
+      // and retainer usage (copied onto each WorkLog the timer produces)
+      client_ref: { type: mongoose.Schema.Types.ObjectId, ref: 'Client' },
+      project_ref: { type: mongoose.Schema.Types.ObjectId, ref: 'Project' },
+      ticket_ref: { type: mongoose.Schema.Types.ObjectId, ref: 'SupportTicket' },
       startTime: { type: Date },
       activityType: { type: String },
       // Paused: the running segment was logged and startTime cleared; the

@@ -24,6 +24,7 @@ const AuditLog = require('../models/AuditLog');
 const bank = require('../services/bankDetails');
 const Settings = require('../models/Settings');
 const workTimer = require('../services/workTimer');
+const { linkableClientsFor } = require('../services/employeeClients');
 const employeeTasks = require('../services/employeeTasks');
 const { getActivityTypes } = require('../services/activityMaster');
 const { listAssignedLeads, searchLeads, todayAgenda } = require('../services/employeeLeads');
@@ -309,6 +310,16 @@ router.get('/ess/activity-types', async (req, res) => {
   res.json({ success: true, types: await getActivityTypes() });
 });
 
+// Clients (with their projects and open tickets) this person can link a timer session to
+router.get('/ess/timer/clients', async (req, res) => {
+  try {
+    res.json({ success: true, data: await linkableClientsFor(req.user._id) });
+  } catch (err) {
+    logger.error('Timer client options error:', err.message);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
 router.post('/ess/timer/start', async (req, res) => {
   const result = await workTimer.startTimer(req.user._id, req.body);
   if (result.ok) await employeeTasks.startTaskIfPending(req.user, result.activeTimer.taskId);
@@ -327,8 +338,8 @@ router.post('/ess/timer/resume', async (req, res) => {
 });
 
 router.post('/ess/timer/stop', async (req, res) => {
-  const { remarks, isProductive, isBillable, meetingWith, clientName, teamMemberName, markTaskCompleted } = req.body;
-  const result = await workTimer.stopTimer(req.user._id, { remarks, isProductive, isBillable, meetingWith, clientName, teamMemberName });
+  const { remarks, isProductive, isBillable, meetingWith, clientName, teamMemberName, markTaskCompleted, outcome, visibility } = req.body;
+  const result = await workTimer.stopTimer(req.user._id, { remarks, isProductive, isBillable, meetingWith, clientName, teamMemberName, outcome, visibility });
   if (!result.ok) return respond(res, result);
 
   let taskCompleted = false;

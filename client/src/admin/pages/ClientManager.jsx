@@ -7,15 +7,39 @@ import {
   Ban, RotateCcw, Trash2, AlertTriangle, ArchiveRestore,
 } from 'lucide-react';
 import { usePermissions } from '../hooks/usePermissions';
+import PortfolioKpis from '../components/clients/PortfolioKpis';
+import { inr, pct } from '../components/clients/format';
+import ClientProfilePanel from '../components/clients/ClientProfilePanel';
+import OnboardingPanel from '../components/clients/OnboardingPanel';
+import StrategyPanel from '../components/clients/StrategyPanel';
 
 const STATUS_TABS = [
   { id: '', label: 'All' },
   { id: 'active', label: 'Active' },
-  { id: 'suspended', label: 'Suspended' },
+  { id: 'inactive', label: 'Inactive (suspended)' },
   { id: 'archived', label: 'Deleted' },
 ];
 
-const clientStatus = (c) => (c.deletedAt ? 'archived' : c.isActive ? 'active' : 'suspended');
+const SORT_OPTIONS = [
+  { id: 'fee', label: 'Highest monthly fee' },
+  { id: 'outstanding', label: 'Highest outstanding' },
+  { id: 'overdue', label: 'Most days overdue' },
+  { id: 'newest', label: 'Newest first' },
+  { id: 'name', label: 'Name A–Z' },
+];
+
+// Portfolio rows carry `state` (active | inactive | archived); detail records carry the raw flags
+const clientStatus = (c) => {
+  if (c.state) return c.state === 'inactive' ? 'suspended' : c.state;
+  return c.deletedAt ? 'archived' : c.isActive ? 'active' : 'suspended';
+};
+
+const PREVIEW_TABS = [
+  { id: 'overview', label: 'Overview' },
+  { id: 'profile', label: 'Profile' },
+  { id: 'strategy', label: 'Strategy' },
+  { id: 'onboarding', label: 'Onboarding' },
+];
 
 const STATUS_BADGE = {
   active: { label: 'Active', cls: 'bg-green-500/10 text-green-400 border-green-500/20' },
@@ -47,6 +71,12 @@ export default function ClientManager() {
   const [saving, setSaving] = useState(false);
   const [previewClient, setPreviewClient] = useState(null);
   const [statusFilter, setStatusFilter] = useState('');
+  const [billingFilter, setBillingFilter] = useState('');
+  const [sort, setSort] = useState('fee');
+  const [sectorFilter, setSectorFilter] = useState('');
+  const [serviceFilter, setServiceFilter] = useState('');
+  const [portfolio, setPortfolio] = useState({ kpis: null, topByRevenue: [], revenuePeriod: null, filterOptions: { sectors: [], services: [] } });
+  const [previewTab, setPreviewTab] = useState('overview');
   // { type: 'suspend' | 'archive' | 'permanent', client }
   const [action, setAction] = useState(null);
   const [actionReason, setActionReason] = useState('');
@@ -65,13 +95,27 @@ export default function ClientManager() {
   const fetchClients = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await http.get(`${base}/clients`, { params: { page, limit: 15, search: dSearch, ...(statusFilter && { status: statusFilter }) } });
+      const res = await http.get(`${base}/portfolio`, {
+        params: {
+          page, limit: 15, search: dSearch, sort,
+          ...(statusFilter && { status: statusFilter }),
+          ...(billingFilter && { billing: billingFilter }),
+          ...(sectorFilter && { sector: sectorFilter }),
+          ...(serviceFilter && { service: serviceFilter }),
+        },
+      });
       setClients(res.data.data || []);
       setTotal(res.data.pagination?.total || 0);
       setTotalPages(res.data.pagination?.totalPages || 1);
+      setPortfolio({
+        kpis: res.data.kpis || null,
+        topByRevenue: res.data.topByRevenue || [],
+        revenuePeriod: res.data.revenuePeriod || null,
+        filterOptions: res.data.filterOptions || { sectors: [], services: [] },
+      });
     } catch { toast.error('Failed to load clients'); }
     finally { setLoading(false); }
-  }, [http, base, page, dSearch, statusFilter]);
+  }, [http, base, page, dSearch, statusFilter, billingFilter, sort, sectorFilter, serviceFilter]);
 
   useEffect(() => { fetchClients(); }, [fetchClients]);
 
@@ -92,7 +136,13 @@ export default function ClientManager() {
 
   const openCreate = () => { setSelectedClient(null); setForm(EMPTY_FORM); setErrors({}); setShowModal(true); };
 
-  const openEdit = (client) => {
+  // The portfolio row doesn't carry notes or the lead link, so load the full record first
+  const openEdit = async (row) => {
+    let client = row;
+    try {
+      const res = await http.get(`${base}/clients/${row._id}`);
+      if (res.data.success) client = res.data.data;
+    } catch { /* fall back to the row's own fields */ }
     setSelectedClient(client);
     setForm({
       businessName: client.businessName || '',
@@ -109,10 +159,14 @@ export default function ClientManager() {
   // Client 360: the list row doesn't carry the linked lead's pre-sale
   // timeline, so preview fetches the full detail endpoint (which populates
   // leadRef's pipelineHistory/callLogs + its assignment history).
-  const openPreview = async (client) => {
+  const openPreview = async (client, tab = 'overview') => {
     setPreviewClient(client);
+    setPreviewTab(tab);
+    await refreshPreview(client._id);
+  };
+  const refreshPreview = async (id) => {
     try {
-      const res = await http.get(`${base}/clients/${client._id}`);
+      const res = await http.get(`${base}/clients/${id}`);
       if (res.data.success) setPreviewClient(res.data.data);
     } catch {
       // Preview still shows the row's own fields even if the detail fetch fails.
@@ -128,8 +182,8 @@ export default function ClientManager() {
     }
     if (form.contactName.length < 2 || form.contactName.length > 50) {
       newErrors.contactName = 'Contact name must be between 2 and 50 characters';
-    } else if (!/^[A-Za-z\s]+$/.test(form.contactName)) {
-      newErrors.contactName = 'Contact name cannot contain numbers or special characters';
+    } else if (!/^[\p{L}][\p{L}\s.'’-]*$/u.test(form.contactName)) {
+      newErrors.contactName = 'Contact name can only contain letters, spaces, dots, hyphens and apostrophes';
     }
     if (form.phone && !/^\+?[1-9]\d{9,14}$/.test(form.phone)) {
       newErrors.phone = 'Please enter a valid phone number (10-15 digits)';
@@ -211,8 +265,8 @@ export default function ClientManager() {
   const f = (k) => (e) => {
     let val = e.target.value;
     if (k === 'contactName') {
-      // Remove any characters that are not letters or spaces
-      val = val.replace(/[^A-Za-z\s]/g, '');
+      // Remove digits and symbols; letters (any script), spaces, dots, hyphens and apostrophes stay
+      val = val.replace(/[^\p{L}\s.'’-]/gu, '');
     } else if (k === 'phone') {
       // Remove any characters that are not digits or +
       val = val.replace(/[^\d+]/g, '');
@@ -223,17 +277,20 @@ export default function ClientManager() {
     if (errors[k]) setErrors((p) => ({ ...p, [k]: null }));
   };
 
+  // Money columns only when the API sent them (invoice access)
+  const showMoney = clients.length === 0 ? portfolio.kpis?.monthlyRecurringRevenue !== undefined : clients.some((c) => c.finance);
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-on-surface font-heading">Client Accounts</h1>
-          <p className="text-on-surface-variant text-sm mt-1">Manage portal access for all clients</p>
+          <p className="text-on-surface-variant text-sm mt-1">Client portfolio — accounts, fees, collections and onboarding</p>
         </div>
         <div className="flex items-center gap-3">
           <div className="bg-secondary/10 text-secondary px-4 py-2 rounded-lg font-bold text-sm">
-            Total: {total}
+            Showing: {total}
           </div>
           {canCrm('clients', 'create') && (<button
             onClick={openCreate}
@@ -243,6 +300,15 @@ export default function ClientManager() {
           </button>)}
         </div>
       </div>
+
+      <PortfolioKpis
+        kpis={portfolio.kpis}
+        topByRevenue={portfolio.topByRevenue}
+        revenuePeriod={portfolio.revenuePeriod}
+        status={statusFilter}
+        billing={billingFilter}
+        onPick={({ status, billing }) => { setStatusFilter(status); setBillingFilter(billing); setPage(1); }}
+      />
 
       {/* Search */}
       <div className="bg-surface border border-outline-variant rounded-xl p-4">
@@ -273,6 +339,30 @@ export default function ClientManager() {
             </button>
           ))}
         </div>
+        <div className="flex flex-wrap items-center gap-2 mt-3">
+          {[
+            { label: 'Sector', value: sectorFilter, set: setSectorFilter, opts: portfolio.filterOptions.sectors.map((x) => ({ id: x, label: x })), all: 'All sectors' },
+            { label: 'Service', value: serviceFilter, set: setServiceFilter, opts: portfolio.filterOptions.services.map((x) => ({ id: x, label: x })), all: 'All services' },
+            ...(portfolio.kpis?.monthlyRecurringRevenue !== undefined ? [{
+              label: 'Billing', value: billingFilter, set: setBillingFilter, all: 'Any billing status',
+              opts: [{ id: 'overdue', label: 'Overdue (defaulters)' }, { id: 'outstanding', label: 'Has outstanding balance' }, { id: 'clear', label: 'Fully paid up' }],
+            }] : []),
+          ].map((flt) => (
+            <select key={flt.label} aria-label={flt.label} value={flt.value}
+              onChange={(e) => { flt.set(e.target.value); setPage(1); }}
+              className="bg-admin-bg border border-outline-variant rounded-lg px-3 py-1.5 text-xs text-on-surface-variant focus:outline-none focus:border-secondary cursor-pointer">
+              <option value="">{flt.all}</option>
+              {flt.opts.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
+            </select>
+          ))}
+          <label className="flex items-center gap-2 text-xs text-on-surface-variant ml-auto">
+            Sort
+            <select aria-label="Sort" value={sort} onChange={(e) => { setSort(e.target.value); setPage(1); }}
+              className="bg-admin-bg border border-outline-variant rounded-lg px-3 py-1.5 text-xs text-on-surface focus:outline-none focus:border-secondary cursor-pointer">
+              {SORT_OPTIONS.filter((o) => portfolio.kpis?.monthlyRecurringRevenue !== undefined || ['newest', 'name'].includes(o.id)).map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
+            </select>
+          </label>
+        </div>
       </div>
 
       {/* Table */}
@@ -293,9 +383,10 @@ export default function ClientManager() {
                 <tr>
                   <th className="px-4 py-3 text-left font-semibold">Client ID</th>
                   <th className="px-4 py-3 text-left font-semibold">Business</th>
-                  <th className="px-4 py-3 text-left font-semibold">Contact</th>
-                  <th className="px-4 py-3 text-left font-semibold hidden md:table-cell">Email</th>
-                  <th className="px-4 py-3 text-left font-semibold hidden lg:table-cell">Phone</th>
+                  <th className="px-4 py-3 text-left font-semibold hidden md:table-cell">Account manager</th>
+                  {showMoney && <th className="px-4 py-3 text-right font-semibold">Monthly fee</th>}
+                  {showMoney && <th className="px-4 py-3 text-right font-semibold hidden lg:table-cell">Outstanding</th>}
+                  {showMoney && <th className="px-4 py-3 text-right font-semibold hidden xl:table-cell">Collection</th>}
                   <th className="px-4 py-3 text-center font-semibold">Status</th>
                   <th className="px-4 py-3 text-center font-semibold">Actions</th>
                 </tr>
@@ -305,16 +396,33 @@ export default function ClientManager() {
                   <tr key={c._id} className="hover:bg-surface-container-low transition-colors">
                     <td className="px-4 py-3 font-mono text-secondary text-xs">{c.clientId}</td>
                     <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-lg bg-secondary/15 flex items-center justify-center shrink-0">
-                          <Building size={14} className="text-secondary" />
-                        </div>
-                        <span className="text-on-surface font-medium">{c.businessName}</span>
-                      </div>
+                      <button type="button" onClick={() => openPreview(c)} className="flex items-center gap-2 text-left cursor-pointer" title="Open client overview">
+                        {c.profile?.logoUrl ? (
+                          <img src={c.profile.logoUrl} alt="" className="w-8 h-8 rounded-lg object-contain bg-white p-0.5 shrink-0" />
+                        ) : (
+                          <div className="w-8 h-8 rounded-lg bg-secondary/15 flex items-center justify-center shrink-0">
+                            <Building size={14} className="text-secondary" />
+                          </div>
+                        )}
+                        <span>
+                          <span className="block text-on-surface font-medium">{c.businessName}</span>
+                          <span className="block text-on-surface-variant text-[11px]">
+                            {[c.profile?.domains?.[0], ...(c.profile?.services || []).slice(0, 2)].filter(Boolean).join(' · ') || c.contactName}
+                          </span>
+                        </span>
+                      </button>
                     </td>
-                    <td className="px-4 py-3 text-on-surface-variant">{c.contactName}</td>
-                    <td className="px-4 py-3 text-on-surface-variant hidden md:table-cell">{c.email}</td>
-                    <td className="px-4 py-3 text-on-surface-variant hidden lg:table-cell">{c.phone || '—'}</td>
+                    <td className="px-4 py-3 text-on-surface-variant hidden md:table-cell">{c.accountManagerName || '—'}</td>
+                    {showMoney && <td className="px-4 py-3 text-right text-on-surface font-medium">{inr(c.monthlyRecurringFee)}</td>}
+                    {showMoney && (
+                      <td className="px-4 py-3 text-right hidden lg:table-cell">
+                        <span className="text-on-surface">{inr(c.finance?.outstanding)}</span>
+                        {c.isDefaulter && (
+                          <span className="block text-[10px] font-bold text-red-400">{c.finance.daysOverdue}d overdue · {inr(c.finance.overdueAmount)}</span>
+                        )}
+                      </td>
+                    )}
+                    {showMoney && <td className="px-4 py-3 text-right text-on-surface-variant hidden xl:table-cell">{pct(c.finance?.collectionPercent)}</td>}
                     <td className="px-4 py-3 text-center">
                       <span
                         title={c.suspensionReason || c.deletionReason || ''}
@@ -516,7 +624,40 @@ export default function ClientManager() {
               </button>
             </div>
 
+            <div role="tablist" aria-label="Client sections" className="shrink-0 flex gap-1 px-6 border-b border-outline-variant">
+              {PREVIEW_TABS.map((t) => (
+                <button key={t.id} role="tab" aria-selected={previewTab === t.id} onClick={() => setPreviewTab(t.id)}
+                  className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px cursor-pointer transition-colors ${
+                    previewTab === t.id ? 'border-secondary text-secondary' : 'border-transparent text-on-surface-variant hover:text-on-surface'
+                  }`}>
+                  {t.label}
+                </button>
+              ))}
+            </div>
+
             <div className="p-6 space-y-6 flex-1 min-h-0 overflow-y-auto overscroll-contain">
+              {previewTab === 'profile' && (
+                <ClientProfilePanel
+                  client={previewClient}
+                  http={http}
+                  base={base}
+                  canEdit={canCrm('clients', 'edit')}
+                  onSaved={() => { refreshPreview(previewClient._id); fetchClients(); }}
+                />
+              )}
+              {previewTab === 'strategy' && (
+                <StrategyPanel clientId={previewClient._id} http={http} base={base} canEdit={canCrm('clients', 'edit')} />
+              )}
+              {previewTab === 'onboarding' && (
+                <OnboardingPanel
+                  clientId={previewClient._id}
+                  http={http}
+                  base={base}
+                  canEdit={canCrm('clients', 'edit')}
+                  canException={isSuperAdmin}
+                />
+              )}
+              {previewTab === 'overview' && (<>
               {/* Detailed Grid */}
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 <div className="space-y-1">
@@ -628,6 +769,7 @@ export default function ClientManager() {
                   </p>
                 </div>
               </div>
+              </>)}
             </div>
 
             <div className="shrink-0 px-6 py-3.5 bg-admin-bg/40 border-t border-outline-variant flex justify-end">

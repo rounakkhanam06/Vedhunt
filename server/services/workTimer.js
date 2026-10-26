@@ -11,10 +11,17 @@
 const mongoose = require('mongoose');
 const Employee = require('../models/Employee');
 const WorkLog = require('../models/WorkLog');
+const Client = require('../models/Client');
+const Project = require('../models/Project');
+const SupportTicket = require('../models/SupportTicket');
 const { findActivityType } = require('./activityMaster');
+const { linkableClientIds } = require('./employeeClients');
 
 const MAX_SESSION_MINUTES = 12 * 60;
-const EMPTY_TIMER = { project: null, task: null, taskId: null, activityType: null, startTime: null, pausedAt: null };
+const EMPTY_TIMER = {
+  project: null, task: null, taskId: null, client_ref: null, project_ref: null, ticket_ref: null,
+  activityType: null, startTime: null, pausedAt: null,
+};
 
 const ok = (data = {}) => ({ ok: true, ...data });
 const fail = (status, message) => ({ ok: false, status, message });
@@ -55,6 +62,11 @@ async function buildWorkLog(employeeId, timer, fields = {}, now = new Date()) {
       isProductive: flag(fields.isProductive, master?.productive),
       isBillable: flag(fields.isBillable, master?.billable),
       remarks: [fields.remarks, note].filter(Boolean).join(' '),
+      client_ref: timer.client_ref || undefined,
+      project_ref: timer.project_ref || undefined,
+      ticket_ref: timer.ticket_ref || undefined,
+      outcome: fields.outcome || undefined,
+      visibility: fields.visibility === 'Client' ? 'Client' : 'Internal',
       meetingWith: fields.meetingWith,
       clientName: fields.clientName,
       teamMemberName: fields.teamMemberName,
@@ -111,6 +123,41 @@ async function getTimer(adminId) {
   return ok({ activeTimer: hasTimer(employee.activeTimer) ? employee.activeTimer : null });
 }
 
+const validId = (v) => v && mongoose.Types.ObjectId.isValid(v);
+
+/**
+ * Checks the optional client / project / ticket the session is for. A project
+ * or ticket must belong to the chosen client (and implies it when the client
+ * isn't sent), so a log can't point at a mismatched client.
+ */
+async function resolveLinks(input) {
+  const refs = { client_ref: null, project_ref: null, ticket_ref: null };
+  for (const key of ['client_ref', 'project_ref', 'ticket_ref']) {
+    if (input[key] && !validId(input[key])) return fail(400, `Invalid ${key.replace('_ref', '')} selected.`);
+  }
+  if (input.client_ref && !(await Client.exists({ _id: input.client_ref, deletedAt: null }))) {
+    return fail(400, 'That client does not exist.');
+  }
+  let clientId = input.client_ref ? String(input.client_ref) : null;
+
+  if (input.project_ref) {
+    const project = await Project.findById(input.project_ref, { client_ref: 1 }).lean();
+    if (!project) return fail(400, 'That project does not exist.');
+    if (clientId && String(project.client_ref) !== clientId) return fail(400, 'That project belongs to a different client.');
+    clientId = String(project.client_ref);
+    refs.project_ref = project._id;
+  }
+  if (input.ticket_ref) {
+    const ticket = await SupportTicket.findById(input.ticket_ref, { client_ref: 1 }).lean();
+    if (!ticket) return fail(400, 'That ticket does not exist.');
+    if (clientId && String(ticket.client_ref) !== clientId) return fail(400, 'That ticket belongs to a different client.');
+    clientId = String(ticket.client_ref);
+    refs.ticket_ref = ticket._id;
+  }
+  if (clientId) refs.client_ref = clientId;
+  return { ok: true, refs };
+}
+
 async function startTimer(adminId, input = {}) {
   const project = String(input.project || '').trim();
   const task = String(input.task || '').trim();
@@ -135,7 +182,15 @@ async function startTimer(adminId, input = {}) {
     taskId = assigned._id;
   }
 
-  const activeTimer = { project, task, taskId, activityType, startTime: new Date(), pausedAt: null };
+  // Optional client / project / ticket links — each must exist and agree with the client
+  const links = await resolveLinks(input);
+  if (!links.ok) return links;
+  // Enforced here, not just in the picker: staff can only log against clients they are linked to
+  if (links.refs.client_ref && !(await linkableClientIds(adminId)).has(String(links.refs.client_ref))) {
+    return fail(403, 'You are not assigned to that client, so you cannot log work against it.');
+  }
+
+  const activeTimer = { project, task, taskId, ...links.refs, activityType, startTime: new Date(), pausedAt: null };
   const result = await Employee.updateOne(
     { _id: employee._id, 'activeTimer.startTime': null },
     { $set: { activeTimer } }
@@ -207,6 +262,6 @@ async function stopTimer(adminId, fields = {}) {
 }
 
 module.exports = {
-  closeActiveTimer, sessionBounds, getTimer, startTimer, pauseTimer, resumeTimer, stopTimer, hasTimer,
+  closeActiveTimer, sessionBounds, resolveLinks, getTimer, startTimer, pauseTimer, resumeTimer, stopTimer, hasTimer,
   MAX_SESSION_MINUTES,
 };

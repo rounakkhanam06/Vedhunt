@@ -7,6 +7,7 @@ const { syncFacebookLeads } = require('./leadSync');
 const { runFollowUpChecks, runEODEscalation, runBreachFlagging } = require('./followUpEngine');
 const { runPayrollTick } = require('./payrollCron');
 const { startProbationScheduler } = require('./probationScheduler');
+const { runOnboardingAlerts } = require('./onboardingAlerts');
 
 const startCronJobs = () => {
   // Start probation lifecycle scheduler (EL accrual, auto-promote, reminders)
@@ -227,6 +228,17 @@ const startCronJobs = () => {
   } else {
     logger.warn('Payroll engine is DISABLED (PAYROLL_ENGINE_ENABLED=false).');
   }
+
+  // 8. Onboarding go-live gate — alert owners/admins about launch-critical
+  // steps that are overdue or blocked (once per step per day, 9:30 AM).
+  cron.schedule('30 9 * * *', async () => {
+    try {
+      const sent = await runOnboardingAlerts();
+      if (sent) logger.info(`Onboarding alerts sent for ${sent} step(s).`);
+    } catch (error) {
+      logger.error('Error in Onboarding alerts cron:', error);
+    }
+  });
 
   logger.info('Timesheet Cron Jobs Initialized.');
 };

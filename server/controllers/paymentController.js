@@ -3,6 +3,8 @@ const Invoice = require('../models/Invoice');
 const Client = require('../models/Client');
 const { isScoped, clientAllowed } = require('../utils/clientScope');
 const { notifyPaymentApproved, notifyPaymentRejected } = require('../services/clientNotify');
+const { applyPaymentToInvoice, invoiceBalance, round2 } = require('../services/finance');
+const { recordAudit } = require('../services/audit');
 
 /**
  * @desc    Submit a new payment proof
@@ -21,16 +23,33 @@ exports.submitPaymentProof = async (req, res) => {
       return res.status(400).json({ message: 'Invalid UTR/Transaction ID.' });
     }
 
+    const amount = round2(amountPaid);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return res.status(400).json({ message: 'Amount must be greater than zero.' });
+    }
+
     // Verify invoice belongs to the client
     const invoice = await Invoice.findOne({ _id: invoice_ref, client_ref: req.client._id });
     if (!invoice) {
       return res.status(404).json({ message: 'Invoice not found or unauthorized' });
     }
+    if (invoice.paymentStatus === 'Paid' || invoiceBalance(invoice) <= 0) {
+      return res.status(400).json({ message: 'This invoice is already fully paid.' });
+    }
+    if (amount > invoiceBalance(invoice)) {
+      return res.status(400).json({ message: `Amount cannot exceed the outstanding balance of ${invoiceBalance(invoice)}.` });
+    }
+
+    // The same UTR can only back one live proof — a repeat would double-credit the invoice
+    const duplicate = await PaymentProof.exists({ utrNumber, status: { $in: ['Pending', 'Approved'] } });
+    if (duplicate) {
+      return res.status(409).json({ message: 'A payment with this UTR/Transaction ID has already been submitted.' });
+    }
 
     const proof = new PaymentProof({
       invoice_ref,
       client_ref: req.client._id,
-      amountPaid,
+      amountPaid: amount,
       utrNumber,
       paymentDate: paymentDate || Date.now(),
       screenshotUrl,
@@ -109,37 +128,40 @@ exports.getAllPayments = async (req, res) => {
 exports.approvePayment = async (req, res) => {
   try {
     const { id } = req.params;
-    const payment = await PaymentProof.findById(id).populate('invoice_ref');
+    const existing = await PaymentProof.findById(id).lean();
 
-    if (!payment || !clientAllowed(req, payment.client_ref)) {
+    if (!existing || !clientAllowed(req, existing.client_ref)) {
       return res.status(404).json({ message: 'Payment proof not found' });
     }
 
-    if (payment.status !== 'Pending') {
-      return res.status(400).json({ message: `Payment is already ${payment.status}` });
+    // Claim the proof atomically: only one request can move it out of
+    // Pending, so a double-click or concurrent reviewer can't credit it twice.
+    const payment = await PaymentProof.findOneAndUpdate(
+      { _id: id, status: 'Pending' },
+      { $set: { status: 'Approved', verifiedBy: req.user._id, verifiedAt: new Date() } },
+      { new: true }
+    );
+    if (!payment) {
+      const current = await PaymentProof.findById(id, { status: 1 }).lean();
+      return res.status(400).json({ message: `Payment is already ${current?.status || 'processed'}` });
     }
 
-    const invoice = payment.invoice_ref;
-
-    // Approve the payment
-    payment.status = 'Approved';
-    payment.verifiedBy = req.user._id;
-    payment.verifiedAt = Date.now();
-    await payment.save();
-
-    // Update the invoice paidAmount
-    const newPaidAmount = (invoice.paidAmount || 0) + payment.amountPaid;
-    invoice.paidAmount = newPaidAmount;
-
-    // Check if fully paid
-    if (newPaidAmount >= invoice.totalAmount) {
-      invoice.paymentStatus = 'Paid';
-    } else {
-      // If it was unpaid/overdue, keep it that way unless we want 'Partial' 
-      // Based on prompt, keep the logic standard or whatever was there.
+    let invoice;
+    try {
+      invoice = await applyPaymentToInvoice(payment.invoice_ref, payment.amountPaid, {
+        paidOn: payment.paymentDate || new Date(),
+      });
+      if (!invoice) throw new Error('Invoice not found');
+    } catch (err) {
+      // The invoice wasn't credited, so put the proof back for another attempt
+      await PaymentProof.updateOne({ _id: id }, { $set: { status: 'Pending' }, $unset: { verifiedBy: 1, verifiedAt: 1 } });
+      throw err;
     }
 
-    await invoice.save();
+    await recordAudit(req, 'PAYMENT_APPROVE', 'Payment', payment._id, { status: 'Pending', invoicePaid: round2(invoice.paidAmount - payment.amountPaid) }, {
+      status: 'Approved', amount: payment.amountPaid, utr: payment.utrNumber,
+      invoiceId: invoice.invoiceId, invoicePaid: invoice.paidAmount, invoiceStatus: invoice.paymentStatus,
+    });
     await notifyPaymentApproved(payment, invoice);
 
     res.json({ success: true, message: 'Payment approved successfully', data: payment });
@@ -159,21 +181,25 @@ exports.rejectPayment = async (req, res) => {
     const { id } = req.params;
     const { rejectionReason } = req.body;
 
-    const payment = await PaymentProof.findById(id);
+    const existing = await PaymentProof.findById(id).lean();
 
-    if (!payment || !clientAllowed(req, payment.client_ref)) {
+    if (!existing || !clientAllowed(req, existing.client_ref)) {
       return res.status(404).json({ message: 'Payment proof not found' });
     }
 
-    if (payment.status !== 'Pending') {
-      return res.status(400).json({ message: `Payment is already ${payment.status}` });
+    const payment = await PaymentProof.findOneAndUpdate(
+      { _id: id, status: 'Pending' },
+      { $set: { status: 'Rejected', rejectionReason: rejectionReason || 'No reason provided', verifiedBy: req.user._id, verifiedAt: new Date() } },
+      { new: true }
+    );
+    if (!payment) {
+      const current = await PaymentProof.findById(id, { status: 1 }).lean();
+      return res.status(400).json({ message: `Payment is already ${current?.status || 'processed'}` });
     }
 
-    payment.status = 'Rejected';
-    payment.rejectionReason = rejectionReason || 'No reason provided';
-    payment.verifiedBy = req.user._id;
-    payment.verifiedAt = Date.now();
-    await payment.save();
+    await recordAudit(req, 'PAYMENT_REJECT', 'Payment', payment._id, { status: 'Pending' }, {
+      status: 'Rejected', reason: payment.rejectionReason, amount: payment.amountPaid, utr: payment.utrNumber,
+    });
     await notifyPaymentRejected(payment, await Invoice.findById(payment.invoice_ref).select('invoiceId').lean());
 
     res.json({ success: true, message: 'Payment rejected', data: payment });

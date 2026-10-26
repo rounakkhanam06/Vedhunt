@@ -79,7 +79,8 @@ export default function InvoiceManager() {
       notes: inv.notes || '',
       lineItems: inv.lineItems?.length ? inv.lineItems : [{ description: '', qty: 1, unitPrice: '' }],
       taxPercent: inv.taxPercent || 0,
-      paymentStatus: inv.paymentStatus || 'Unpaid',
+      // Overdue is worked out from the due date and balance, so it is never an editable status
+      paymentStatus: inv.paymentStatus === 'Paid' ? 'Paid' : 'Unpaid',
     });
     setShowModal(true);
   };
@@ -213,11 +214,15 @@ export default function InvoiceManager() {
                       <span className="text-on-surface font-semibold">
                         ₹{(inv.totalAmount || 0).toLocaleString('en-IN')}
                       </span>
+                      {inv.balance > 0 && inv.balance < inv.totalAmount && (
+                        <span className="block text-[10px] text-on-surface-variant">Balance ₹{inv.balance.toLocaleString('en-IN')}</span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-center">
                       <span className={`inline-flex items-center border rounded-full text-[10px] font-medium px-2.5 py-0.5 ${STATUS_COLORS[inv.paymentStatus] || 'bg-gray-500/10 text-gray-400 border-gray-500/20'}`}>
                         {inv.paymentStatus}
                       </span>
+                      {inv.daysOverdue > 0 && <span className="block text-[10px] font-bold text-red-400 mt-0.5">{inv.daysOverdue}d overdue</span>}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-center gap-2">
@@ -328,7 +333,7 @@ export default function InvoiceManager() {
                   <label className="block text-on-surface-variant text-xs font-medium mb-1.5">Status</label>
                   <select value={form.paymentStatus} onChange={e => setForm(p => ({ ...p, paymentStatus: e.target.value }))}
                     className="w-full px-3 py-2.5 bg-admin-bg border border-outline-variant rounded-xl text-on-surface text-sm focus:outline-none focus:border-secondary">
-                    {['Unpaid', 'Paid', 'Overdue'].map(s => <option key={s} value={s}>{s}</option>)}
+                    {['Unpaid', 'Paid'].map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </div>
                 <div className="bg-secondary/5 border border-secondary/20 rounded-xl px-3 py-2.5 flex flex-col justify-center">

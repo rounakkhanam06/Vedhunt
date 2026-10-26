@@ -12,6 +12,10 @@ const { getClientAgreement, acceptAgreement } = require('../controllers/agreemen
 const { buildInvoicePdfBuffer, loadInvoiceContext } = require('../services/invoicePdf');
 const { uploadTicketAttachment, deleteFromCloudinary } = require('../utils/cloudinary');
 const { notifyTicketStaff } = require('../services/staffNotify');
+const finance = require('../services/finance');
+const { attachUsage } = require('../services/retainerUsage');
+const strategy = require('../services/strategy');
+const { buildOverview } = require('../services/clientOverview');
 
 const router = express.Router();
 
@@ -42,6 +46,25 @@ const paginatedResponse = (res, { data, total, page, limit }) => {
 };
 
 // ══════════════════════════════════════════════════════════════════════════════
+// OVERVIEW (the landing page)
+// ══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * @route  GET /api/client/overview
+ * @desc   Client-safe summary across billing, projects, retainer hours, support and
+ *         strategy, plus the things that need the client's attention.
+ * @access Client Private
+ */
+router.get('/overview', async (req, res) => {
+  try {
+    res.json({ success: true, data: await buildOverview(req.client._id) });
+  } catch (error) {
+    logger.error('Client overview error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
 // INVOICES
 // ══════════════════════════════════════════════════════════════════════════════
 
@@ -55,12 +78,12 @@ router.get('/invoices', async (req, res) => {
     const { page, limit, skip } = parsePagination(req.query);
     const now = new Date();
     const base = { client_ref: req.client._id };
-    // Overdue is mostly derived (stored as 'Unpaid' with a past dueDate), so
-    // filter and count on the derived status — matching what the table shows.
+    // Overdue is derived (balance still owed + past due date), so filter and
+    // count on the derived status — matching what the table shows.
     const statusQuery = {
       Paid: { paymentStatus: 'Paid' },
-      Unpaid: { paymentStatus: 'Unpaid', $or: [{ dueDate: null }, { dueDate: { $gte: now } }] },
-      Overdue: { $or: [{ paymentStatus: 'Overdue' }, { paymentStatus: 'Unpaid', dueDate: { $lt: now } }] },
+      Unpaid: finance.unpaidNotOverdueFilter(now),
+      Overdue: finance.overdueFilter(now),
     };
 
     const filter = statusQuery[req.query.status]
@@ -81,14 +104,8 @@ router.get('/invoices', async (req, res) => {
       Invoice.countDocuments({ ...base, ...statusQuery.Overdue }),
     ]);
 
-    // Compute overdue status in-memory (model post-hook doesn't fire on lean)
-    const data = invoices.map((inv) => ({
-      ...inv,
-      paymentStatus:
-        inv.paymentStatus === 'Unpaid' && inv.dueDate && inv.dueDate < now
-          ? 'Overdue'
-          : inv.paymentStatus,
-    }));
+    // Derived status + balance (the model post-hook doesn't fire on lean)
+    const data = invoices.map((inv) => finance.withDerived(inv, now));
 
     res.json({
       success: true,
@@ -125,11 +142,7 @@ router.get('/invoices/:id', async (req, res) => {
       return res.status(404).json({ success: false, message: 'Invoice not found' });
     }
 
-    // Compute overdue
-    const now = new Date();
-    if (invoice.paymentStatus === 'Unpaid' && invoice.dueDate && invoice.dueDate < now) {
-      invoice.paymentStatus = 'Overdue';
-    }
+    const derivedInvoice = finance.withDerived(invoice);
 
     // Fetch UPI/bank payment details from Settings (static QR — admin uploads)
     let paymentInfo = null;
@@ -146,7 +159,7 @@ router.get('/invoices/:id', async (req, res) => {
       // Settings might not have these fields yet — non-fatal
     }
 
-    res.json({ success: true, data: invoice, paymentInfo });
+    res.json({ success: true, data: derivedInvoice, paymentInfo });
   } catch (error) {
     logger.error('Client get invoice detail error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
@@ -168,11 +181,7 @@ router.get('/invoices/:id/pdf', async (req, res) => {
     if (!invoice) {
       return res.status(404).json({ success: false, message: 'Invoice not found' });
     }
-    if (invoice.paymentStatus === 'Unpaid' && invoice.dueDate && invoice.dueDate < new Date()) {
-      invoice.paymentStatus = 'Overdue';
-    }
-
-    const pdf = await buildInvoicePdfBuffer(invoice, req.client, await loadInvoiceContext());
+    const pdf = await buildInvoicePdfBuffer(finance.withDerived(invoice), req.client, await loadInvoiceContext());
     const filename = `Invoice-${(invoice.invoiceId || invoice._id).toString().replace(/[^\w-]/g, '_')}.pdf`;
     res.set({
       'Content-Type': 'application/pdf',
@@ -271,7 +280,7 @@ router.get('/retainers', async (req, res) => {
       Retainer.countDocuments(filter),
     ]);
 
-    paginatedResponse(res, { data: retainers, total, page, limit });
+    paginatedResponse(res, { data: await attachUsage(retainers), total, page, limit });
   } catch (error) {
     logger.error('Client get retainers error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
@@ -300,9 +309,31 @@ router.get('/retainers/:id', async (req, res) => {
     }
 
     // Use toObject with virtuals to include isNearingExpiry, hoursRemaining
-    res.json({ success: true, data: retainer.toObject({ virtuals: true }) });
+    const [withUsage] = await attachUsage([retainer.toObject({ virtuals: true })]);
+    res.json({ success: true, data: withUsage });
   } catch (error) {
     logger.error('Client get retainer detail error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// CAMPAIGN STRATEGY
+// ══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * @route  GET /api/client/strategy
+ * @desc   The latest strategy version Vedhunt has approved for sharing — client-safe
+ *         fields only (no competitor notes, authorship or change notes). data is null
+ *         until a version has been shared.
+ * @access Client Private
+ */
+router.get('/strategy', async (req, res) => {
+  try {
+    const doc = await strategy.latestSharedFor(req.client._id);
+    res.json({ success: true, data: doc ? strategy.clientView(doc) : null });
+  } catch (error) {
+    logger.error('Client get strategy error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });

@@ -75,7 +75,8 @@ export default function RetainerManager() {
       monthlyAmount: ret.monthlyAmount || '',
       billingCycle: ret.billingCycle || 'Monthly',
       supportHoursPerMonth: ret.supportHoursPerMonth || '',
-      hoursUsedThisMonth: ret.hoursUsedThisMonth || 0,
+      // The typed value, not the effective one — saving must never copy logged hours into it
+      hoursUsedThisMonth: ret.hoursManual ?? ret.hoursUsedThisMonth ?? 0,
       contractStartDate: ret.contractStartDate?.split('T')[0] || '',
       contractEndDate: ret.contractEndDate?.split('T')[0] || '',
       status: ret.status || 'Active',
@@ -204,6 +205,10 @@ export default function RetainerManager() {
                         <span className="text-xs font-semibold text-on-surface">
                           {ret.hoursUsedThisMonth} <span className="text-on-surface-variant font-normal">/ {ret.supportHoursPerMonth}h</span>
                         </span>
+                        <span className="text-[10px] text-on-surface-variant" title={ret.hoursSource === 'worklogs' ? 'Billable time logged by staff against this client this month' : 'Typed in by hand — no billable time is logged against this client yet'}>
+                          {ret.hoursSource === 'worklogs' ? 'from work logs' : 'manual'}
+                        </span>
+                        {ret.hoursOverage > 0 && <span className="text-[10px] font-bold text-red-400">{ret.hoursOverage}h over</span>}
                         <div className="w-20 h-1 mt-1 bg-surface-variant rounded-full overflow-hidden">
                           <div className={`h-full transition-all ${(ret.hoursUsedThisMonth / ret.supportHoursPerMonth) > 0.8 ? 'bg-red-500' : 'bg-secondary'}`} 
                                style={{ width: `${Math.min((ret.hoursUsedThisMonth / ret.supportHoursPerMonth) * 100, 100)}%` }} />
@@ -295,9 +300,10 @@ export default function RetainerManager() {
                     className="w-full px-3 py-2 bg-admin-bg border border-outline-variant rounded-xl text-on-surface text-sm focus:outline-none focus:border-secondary" />
                 </div>
                 <div>
-                  <label className="block text-on-surface-variant text-xs font-medium mb-1.5">Hours Used (This Month)</label>
+                  <label className="block text-on-surface-variant text-xs font-medium mb-1.5">Hours Used (This Month) — manual</label>
                   <input type="number" min="0" value={form.hoursUsedThisMonth} onChange={handleNumberChange('hoursUsedThisMonth')}
                     className="w-full px-3 py-2 bg-admin-bg border border-outline-variant rounded-xl text-on-surface text-sm focus:outline-none focus:border-secondary" />
+                  <p className="text-on-surface-variant text-[10px] mt-1">Used only until staff log billable time against this client; after that the logged hours are shown instead.</p>
                 </div>
 
                 <div>

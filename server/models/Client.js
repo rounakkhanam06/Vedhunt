@@ -22,7 +22,7 @@ const clientSchema = new mongoose.Schema(
       trim: true,
       minlength: [2, 'Contact name must be at least 2 characters'],
       maxlength: [50, 'Contact name cannot exceed 50 characters'],
-      match: [/^[A-Za-z\s]+$/, 'Contact name cannot contain numbers or special characters'],
+      match: [/^[\p{L}][\p{L}\s.'’-]*$/u, 'Contact name can only contain letters, spaces, dots, hyphens and apostrophes'],
     },
     email: {
       type: String,
@@ -46,6 +46,35 @@ const clientSchema = new mongoose.Schema(
     isActive: {
       type: Boolean,
       default: true,
+    },
+    // ── Portfolio profile (Client Portal CRM §2–3) ─────────────────────────
+    // Descriptive account data the portfolio filters, groups and shows. Status,
+    // fees and payments are NOT stored here — they're derived from the linked
+    // retainers / invoices / payments so there is one source of truth.
+    profile: {
+      logoUrl: { type: String, trim: true },
+      // The brand's website(s); the first is the primary domain
+      domains: { type: [String], default: [] },
+      sectors: { type: [String], default: [] },
+      // e.g. Performance Marketing, Digital Marketing, Website Development,
+      // App Development, Social Media Management
+      services: { type: [String], default: [] },
+      accountManager: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee' },
+      dedicatedTeam: {
+        type: [{
+          _id: false,
+          employee: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee', required: true },
+          role: { type: String, trim: true, maxlength: 80 },
+        }],
+        default: [],
+      },
+      onboardingDate: { type: Date },
+      adAccountLiveDate: { type: Date },
+      // Approved monthly ad budget (client-paid, separate from Vedhunt's fee)
+      monthlyAdBudget: { type: Number, min: 0 },
+      platforms: { type: [String], default: [] },
+      authorisedSignatory: { type: String, trim: true, maxlength: 120 },
+      paymentReceivedDate: { type: Date },
     },
     // Suspension (reversible): isActive=false + who/when/why. Internal only —
     // never returned by the client-facing APIs.
@@ -166,6 +195,9 @@ clientSchema.index({ email: 1 });
 clientSchema.index({ clientId: 1 });
 clientSchema.index({ businessName: 'text', contactName: 'text', email: 'text' });
 clientSchema.index({ createdAt: -1 });
+clientSchema.index({ 'profile.accountManager': 1 });
+clientSchema.index({ 'profile.sectors': 1 });
+clientSchema.index({ 'profile.services': 1 });
 
 // ─── Auto-generate clientId on first save ────────────────────────────────────
 clientSchema.pre('save', async function () {

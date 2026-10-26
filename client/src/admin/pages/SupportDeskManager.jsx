@@ -10,7 +10,7 @@ import {
 
 const emptyForm = () => ({
   client_ref: '', subject: '', description: '', category: 'General Inquiry',
-  priority: 'Medium', status: 'Open', resolution: '', assignedTo: ''
+  priority: 'Medium', status: 'Open', resolution: '', assignedTo: '', rootCause: '', project_ref: ''
 });
 
 const STATUS_COLORS = {
@@ -34,6 +34,7 @@ export default function SupportDeskManager() {
   const [tickets, setTickets] = useState([]);
   const [clients, setClients] = useState([]);
   const [teamMembers, setTeamMembers] = useState([]);
+  const [clientProjects, setClientProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [pagination, setPagination] = useState({ total: 0, page: 1, totalPages: 1 });
   const [page, setPage] = useState(1);
@@ -111,6 +112,18 @@ export default function SupportDeskManager() {
     };
   }, [showModal]);
 
+  // Projects of the ticket's client for the "linked project" picker. Optional: someone
+  // without Projects access just sees an empty list.
+  useEffect(() => {
+    const clientId = editTarget?.client_ref?._id;
+    if (!showModal || !clientId) return undefined;
+    let live = true;
+    http.get(`${base}/projects`, { params: { client_ref: clientId, limit: 100 } })
+      .then((res) => { if (live) setClientProjects(res.data.data || []); })
+      .catch(() => { if (live) setClientProjects([]); });
+    return () => { live = false; };
+  }, [http, base, showModal, editTarget]);
+
   const openCreate = () => { setEditTarget(null); setForm(emptyForm()); setShowModal(true); };
   
   const openEdit = (t) => {
@@ -123,7 +136,9 @@ export default function SupportDeskManager() {
       priority: t.priority || 'Medium',
       status: t.status || 'Open',
       resolution: t.resolution || '',
-      assignedTo: t.assignedTo?._id || ''
+      assignedTo: t.assignedTo?._id || '',
+      rootCause: t.rootCause || '',
+      project_ref: t.project_ref?._id || t.project_ref || ''
     });
     setShowModal(true);
   };
@@ -467,6 +482,33 @@ export default function SupportDeskManager() {
                   </select>
                 </div>
                 
+                {editTarget && (
+                  <>
+                    <div>
+                      <label className="block text-on-surface-variant text-xs font-medium mb-1.5">Linked project (same client)</label>
+                      <select value={form.project_ref} onChange={e => setForm(p => ({ ...p, project_ref: e.target.value }))}
+                        className="w-full px-3 py-2.5 bg-admin-bg border border-outline-variant rounded-xl text-on-surface text-sm focus:outline-none focus:border-secondary">
+                        <option value="">No linked project</option>
+                        {clientProjects.map(p => <option key={p._id} value={p._id}>{p.projectId} — {p.projectName}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-on-surface-variant text-xs font-medium mb-1.5">Technical time spent</label>
+                      <p className="px-3 py-2.5 bg-admin-bg border border-outline-variant rounded-xl text-on-surface text-sm">
+                        {editTarget.technicalMinutes ? `${Math.floor(editTarget.technicalMinutes / 60)}h ${editTarget.technicalMinutes % 60}m` : 'None logged'}
+                      </p>
+                      <p className="text-on-surface-variant text-[10px] mt-1">Added up from the work logs staff link to this ticket — not typed here.</p>
+                    </div>
+                  </>
+                )}
+
+                <div className="md:col-span-2">
+                  <label className="block text-on-surface-variant text-xs font-medium mb-1.5">Root cause (internal, hidden from client)</label>
+                  <textarea value={form.rootCause} onChange={e => setForm(p => ({ ...p, rootCause: e.target.value }))} rows={2} maxLength={1000}
+                    placeholder="What actually caused the issue? Separate confirmed cause from hypothesis."
+                    className="w-full px-3 py-2 bg-admin-bg border border-outline-variant rounded-xl text-on-surface text-sm focus:outline-none focus:border-secondary resize-none" />
+                </div>
+
                 <div className="md:col-span-2">
                   <label className="block text-on-surface-variant text-xs font-medium mb-1.5">Internal Resolution Notes (Hidden from client)</label>
                   <textarea value={form.resolution} onChange={e => setForm(p => ({ ...p, resolution: e.target.value }))} rows={3}

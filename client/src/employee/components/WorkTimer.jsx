@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Play, Pause, Square, Clock, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Modal from '../../components/ui/Modal';
-import { essPost, essKeys, apiError, useEssTimer, useEssProfile, useActivityTypes } from '../lib/ess';
+import { essPost, essKeys, apiError, useEssTimer, useEssProfile, useActivityTypes, useTimerClients } from '../lib/ess';
 
 const WorkTimerContext = createContext(null);
 const useWorkTimer = () => useContext(WorkTimerContext);
@@ -29,12 +29,16 @@ const OPEN_TASK_STATUSES = ['Pending', 'In Progress', 'Blocked'];
 function StartTimerModal({ onClose, onStarted }) {
   const { data: profile } = useEssProfile();
   const { data: activityTypes = [] } = useActivityTypes();
+  const { data: linkableClients = [] } = useTimerClients();
   const openTasks = (profile?.tasks || []).filter((t) => OPEN_TASK_STATUSES.includes(t.status));
   const [source, setSource] = useState(openTasks.length ? 'task' : 'other');
   const [taskId, setTaskId] = useState('');
   const [project, setProject] = useState('');
   const [task, setTask] = useState('');
   const [activityType, setActivityType] = useState('');
+  const [clientId, setClientId] = useState('');
+  const [projectRef, setProjectRef] = useState('');
+  const [ticketRef, setTicketRef] = useState('');
   const [errors, setErrors] = useState({});
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -44,6 +48,15 @@ function StartTimerModal({ onClose, onStarted }) {
     ? 'Clock in from the Dashboard before starting the work timer.'
     : todayLog.clockOut ? "You've already clocked out for today." : '';
   const projectSuggestions = [...new Set((profile?.tasks || []).flatMap((t) => [t.project, t.client]).filter(Boolean))];
+
+  const linkedClient = linkableClients.find((c) => c._id === clientId);
+  const pickClient = (id) => {
+    setClientId(id);
+    setProjectRef('');
+    setTicketRef('');
+    const picked = linkableClients.find((c) => c._id === id);
+    if (picked && !project.trim()) setProject(picked.businessName);
+  };
 
   const pickTask = (id) => {
     setTaskId(id);
@@ -70,7 +83,10 @@ function StartTimerModal({ onClose, onStarted }) {
     setSubmitting(true);
     setMessage('');
     try {
-      await essPost('/timer/start', { project, task, activityType, taskId: source === 'task' ? taskId : undefined });
+      await essPost('/timer/start', {
+        project, task, activityType, taskId: source === 'task' ? taskId : undefined,
+        client_ref: clientId || undefined, project_ref: projectRef || undefined, ticket_ref: ticketRef || undefined,
+      });
       toast.success('Timer started');
       onStarted();
     } catch (err) {
@@ -112,6 +128,36 @@ function StartTimerModal({ onClose, onStarted }) {
           <input className={inputClass(errors.project)} list="timer-projects" placeholder="e.g. Vedhunt ERP" value={project} onChange={(e) => setProject(e.target.value)} />
           <datalist id="timer-projects">{projectSuggestions.map((p) => <option key={p} value={p} />)}</datalist>
         </div>
+        {linkableClients.length > 0 && (
+          <div className="space-y-3 rounded-lg border border-app-border p-3">
+            <div>
+              <label className={labelClass}>Client work (optional)</label>
+              <select className={inputClass(false)} value={clientId} onChange={(e) => pickClient(e.target.value)}>
+                <option value="">Not for a client (internal work)</option>
+                {linkableClients.map((c) => <option key={c._id} value={c._id}>{c.businessName}</option>)}
+              </select>
+              <p className="text-[11px] text-app-text-muted mt-1">Time on a client counts toward their work history and retainer hours.</p>
+            </div>
+            {linkedClient?.projects.length > 0 && (
+              <div>
+                <label className={labelClass}>Client project</label>
+                <select className={inputClass(false)} value={projectRef} onChange={(e) => setProjectRef(e.target.value)}>
+                  <option value="">None</option>
+                  {linkedClient.projects.map((p) => <option key={p._id} value={p._id}>{p.projectName}</option>)}
+                </select>
+              </div>
+            )}
+            {linkedClient?.tickets.length > 0 && (
+              <div>
+                <label className={labelClass}>Support ticket</label>
+                <select className={inputClass(false)} value={ticketRef} onChange={(e) => setTicketRef(e.target.value)}>
+                  <option value="">None</option>
+                  {linkedClient.tickets.map((t) => <option key={t._id} value={t._id}>{t.ticketId} — {t.subject}</option>)}
+                </select>
+              </div>
+            )}
+          </div>
+        )}
         {source === 'other' && (
           <div>
             <label className={labelClass}>Task <span className="text-primary">*</span></label>
@@ -144,6 +190,7 @@ function StopTimerModal({ timer, elapsed, onClose, onStopped }) {
   const { data: activityTypes = [] } = useActivityTypes();
   const master = activityTypes.find((a) => a.name === timer?.activityType);
   const [remarks, setRemarks] = useState('');
+  const [outcome, setOutcome] = useState('');
   const [isProductive, setIsProductive] = useState(master ? master.productive : true);
   const [isBillable, setIsBillable] = useState(master ? master.billable : false);
   const [markTaskCompleted, setMarkTaskCompleted] = useState(Boolean(timer?.taskId));
@@ -155,7 +202,7 @@ function StopTimerModal({ timer, elapsed, onClose, onStopped }) {
     if (!remarks.trim()) { setMessage('Add a short summary of what you worked on.'); return; }
     setSubmitting(true);
     try {
-      const res = await essPost('/timer/stop', { remarks, isProductive, isBillable, markTaskCompleted: Boolean(timer?.taskId) && markTaskCompleted });
+      const res = await essPost('/timer/stop', { remarks, outcome: outcome.trim() || undefined, isProductive, isBillable, markTaskCompleted: Boolean(timer?.taskId) && markTaskCompleted });
       toast.success(res.message || 'Work logged');
       onStopped();
     } catch (err) {
@@ -178,6 +225,12 @@ function StopTimerModal({ timer, elapsed, onClose, onStopped }) {
           <label className={labelClass}>Summary / Remarks <span className="text-primary">*</span></label>
           <textarea className={`${inputClass(!!message && !remarks.trim())} h-24 resize-none`} placeholder="What did you accomplish?" value={remarks} onChange={(e) => setRemarks(e.target.value)} />
         </div>
+        {timer?.client_ref && (
+          <div>
+            <label className={labelClass}>Outcome for the client work (optional)</label>
+            <input className={inputClass(false)} placeholder="What changed, the result, or what is blocking" maxLength={1000} value={outcome} onChange={(e) => setOutcome(e.target.value)} />
+          </div>
+        )}
         <div className="flex flex-wrap gap-4 text-sm text-app-text">
           <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={isProductive} onChange={(e) => setIsProductive(e.target.checked)} /> Productive</label>
           <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={isBillable} onChange={(e) => setIsBillable(e.target.checked)} /> Billable</label>

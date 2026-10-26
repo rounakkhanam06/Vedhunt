@@ -30,6 +30,15 @@ const requirePageAccess = require('../middleware/requirePageAccess');
 const { isScoped, clientAllowed, scopedClientRef, outOfScope } = require('../utils/clientScope');
 const paymentController = require('../controllers/paymentController');
 const Admin = require('../models/Admin');
+const finance = require('../services/finance');
+const { attachUsage } = require('../services/retainerUsage');
+const { buildPortfolio } = require('../services/portfolio');
+const onboarding = require('../services/onboarding');
+const strategy = require('../services/strategy');
+const CampaignStrategy = require('../models/CampaignStrategy');
+const WorkLog = require('../models/WorkLog');
+const { sanitizeProfile, profileDateErrors, profileAuditSnapshot } = require('../services/clientProfile');
+const { recordAudit } = require('../services/audit');
 
 // No auth here — mounted twice at the bottom of this file: behind the Admin
 // auth at /api/admin, and behind the Employee Portal auth for person-wise
@@ -75,8 +84,8 @@ const validateClientInput = (data) => {
     if (data.contactName.length < 2 || data.contactName.length > 50) {
       errors.push('Contact name must be between 2 and 50 characters');
     }
-    if (!/^[A-Za-z\s]+$/.test(data.contactName)) {
-      errors.push('Contact name cannot contain numbers or special characters');
+    if (!/^[\p{L}][\p{L}\s.'’-]*$/u.test(data.contactName)) {
+      errors.push('Contact name can only contain letters, spaces, dots, hyphens and apostrophes');
     }
   }
   if (data.email !== undefined) {
@@ -136,6 +145,79 @@ router.get('/clients', crm('clients', 'view'), async (req, res) => {
     paginatedResponse(res, { data: clients, total, page, limit });
   } catch (error) {
     logger.error('Admin get clients error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+/**
+ * @route  GET /api/admin/portfolio
+ * @desc   Client portfolio: KPI cards + one row per client with fee, collection
+ *         and defaulter figures derived from retainers / invoices / payments.
+ *         Default order is highest monthly recurring fee first.
+ *         ?status=all|active|inactive|archived &sector= &service= &accountManager=
+ *         &billing=overdue|outstanding|clear &sort=fee|name|outstanding|overdue|newest &search=
+ *         &revenueFrom= &revenueTo=  (period for "top clients by revenue")
+ */
+router.get('/portfolio', crm('clients', 'view'), async (req, res) => {
+  try {
+    const date = (v) => { const d = v ? new Date(v) : null; return d && !Number.isNaN(d.getTime()) ? d : undefined; };
+    const portfolio = await buildPortfolio({
+      clientIds: isScoped(req) ? req.pageScope.clients : undefined,
+      status: req.query.status,
+      sector: req.query.sector,
+      service: req.query.service,
+      accountManager: req.query.accountManager && isValidId(req.query.accountManager) ? req.query.accountManager : undefined,
+      billing: req.query.billing,
+      sort: req.query.sort,
+      search: req.query.search,
+      revenueFrom: date(req.query.revenueFrom),
+      revenueTo: date(req.query.revenueTo),
+    });
+
+    // Money figures need invoice access — a clients-only grant sees the account data without them
+    const invoiceScope = pageScope(req.user, 'invoices', 'view');
+    const stripFinance = ({ finance, isDefaulter, monthlyRecurringFee, ...row }) => row;
+    if (invoiceScope === false) {
+      const { monthlyRecurringRevenue, outstandingReceivables, overdueReceivables, paymentDefaulters, collectionPercent, ...kpis } = portfolio.kpis;
+      portfolio.kpis = kpis;
+      portfolio.topByRevenue = [];
+      portfolio.rows = portfolio.rows.map(stripFinance);
+    } else if (invoiceScope?.mode === 'clients') {
+      // Invoice access covers only some clients: show money figures for those rows alone,
+      // and drop the portfolio-wide money KPIs (they would include clients outside the grant)
+      const allowed = new Set(invoiceScope.clients);
+      portfolio.rows = portfolio.rows.map((row) => (allowed.has(String(row._id)) ? row : stripFinance(row)));
+      const { monthlyRecurringRevenue, outstandingReceivables, overdueReceivables, paymentDefaulters, collectionPercent, ...kpis } = portfolio.kpis;
+      portfolio.kpis = kpis;
+      portfolio.topByRevenue = [];
+    }
+
+    const { page, limit, skip } = parsePagination(req.query);
+    const total = portfolio.rows.length;
+    const sectors = [...new Set(portfolio.rows.flatMap((r) => r.profile.sectors || []))].sort();
+    const services = [...new Set(portfolio.rows.flatMap((r) => r.profile.services || []))].sort();
+    res.json({
+      success: true,
+      kpis: portfolio.kpis,
+      topByRevenue: portfolio.topByRevenue,
+      revenuePeriod: { ...portfolio.revenuePeriod, partial: true },
+      filterOptions: { sectors, services },
+      data: portfolio.rows.slice(skip, skip + limit),
+      pagination: { total, page, limit, totalPages: Math.ceil(total / limit) },
+    });
+  } catch (error) {
+    logger.error('Admin portfolio error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// Staff the account manager / dedicated team can be picked from (names + role only)
+router.get('/clients-staff', crm('clients', 'view'), async (req, res) => {
+  try {
+    const staff = await Employee.find({}, 'firstName lastName designation roleDept employeeId adminId').sort({ firstName: 1 }).limit(1000).lean();
+    res.json({ success: true, data: staff });
+  } catch (error) {
+    logger.error('Admin clients staff error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
@@ -302,7 +384,7 @@ router.put('/clients/:id', crm('clients', 'edit'), async (req, res) => {
     }
     if (!clientAllowed(req, req.params.id)) return outOfScope(res, 'Client');
 
-    const { businessName, contactName, email, phone, notes, agreementDetails } = req.body;
+    const { businessName, contactName, email, phone, notes, agreementDetails, profile } = req.body;
     // Portal status and passwords stay with full CRM access; a grant edits details only
     const { isActive, newPassword } = hasBaseAccess(req.user, 'clients') ? req.body : {};
 
@@ -337,6 +419,16 @@ router.put('/clients/:id', crm('clients', 'edit'), async (req, res) => {
       client.temporaryPasswordText = newPassword;
       client.isTemporaryPassword = true;
     }
+    let profileBefore = null;
+    if (profile && typeof profile === 'object') {
+      const { value, errors } = sanitizeProfile(profile);
+      const current = client.toObject().profile || {};
+      const merged = { ...current, ...value };
+      errors.push(...profileDateErrors(merged));
+      if (errors.length) return res.status(400).json({ success: false, message: errors.join(', ') });
+      profileBefore = profileAuditSnapshot(current);
+      for (const [key, val] of Object.entries(value)) client.set(`profile.${key}`, val === null ? undefined : val);
+    }
     let agreementResignRequired = false;
     if (agreementDetails) {
       const before = client.toObject().agreementDetails;
@@ -349,6 +441,12 @@ router.put('/clients/:id', crm('clients', 'edit'), async (req, res) => {
     }
 
     await client.save();
+    if (profileBefore) {
+      const after = profileAuditSnapshot(client.toObject().profile);
+      if (JSON.stringify(profileBefore) !== JSON.stringify(after)) {
+        await recordAudit(req, 'CLIENT_PROFILE_UPDATE', 'Client', client.clientId, profileBefore, after);
+      }
+    }
     if (agreementResignRequired) await notifyAgreementUpdated(client._id);
 
     res.json({ success: true, message: 'Client updated successfully', agreementResignRequired });
@@ -572,6 +670,185 @@ router.delete('/clients/:id/permanent', requirePermission('*'), async (req, res)
 });
 
 // ══════════════════════════════════════════════════════════════════════════════
+// ONBOARDING CHECKLIST + GO-LIVE GATE
+// ══════════════════════════════════════════════════════════════════════════════
+
+const checklistView = (doc, now = new Date()) => {
+  const obj = doc.toObject();
+  const items = obj.items.map((i) => ({ ...i, overdue: onboarding.isItemOverdue(i, now) }));
+  const blockers = onboarding.launchBlockers(items, now);
+  return {
+    _id: obj._id,
+    client_ref: obj.client_ref,
+    scope: obj.scope,
+    items,
+    blockers,
+    readyForGoLive: blockers.length === 0,
+    goLive: obj.goLive,
+    summary: {
+      total: items.length,
+      done: items.filter((i) => onboarding.DONE.includes(i.status)).length,
+      blocked: items.filter((i) => i.status === 'Blocked').length,
+      overdue: items.filter((i) => i.overdue).length,
+    },
+  };
+};
+
+// Loads the client's checklist after the id + client-scope checks every route needs
+async function loadChecklist(req, res) {
+  if (!isValidId(req.params.id)) { res.status(400).json({ success: false, message: 'Invalid client ID' }); return null; }
+  if (!clientAllowed(req, req.params.id)) { outOfScope(res, 'Client'); return null; }
+  const doc = await onboarding.getOrCreateChecklist(req.params.id);
+  if (!doc) { outOfScope(res, 'Client'); return null; }
+  return doc;
+}
+
+router.get('/clients/:id/onboarding', crm('clients', 'view'), async (req, res) => {
+  try {
+    const doc = await loadChecklist(req, res);
+    if (!doc) return;
+    // Pick up steps for services/platforms added to the profile since the list was built
+    if (!doc.goLive.isLive) await onboarding.syncChecklist(doc);
+    res.json({ success: true, data: checklistView(doc) });
+  } catch (error) {
+    logger.error('Admin get onboarding error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+router.put('/clients/:id/onboarding/items/:key', crm('clients', 'edit'), async (req, res) => {
+  try {
+    const doc = await loadChecklist(req, res);
+    if (!doc) return;
+    const item = doc.items.find((i) => i.key === req.params.key);
+    if (!item) return res.status(404).json({ success: false, message: 'Checklist step not found' });
+
+    const { value, errors } = onboarding.validateItemUpdate(item.toObject(), req.body);
+    if (errors.length) return res.status(400).json({ success: false, message: errors.join('. ') });
+
+    const before = { status: item.status, owner: item.owner ? String(item.owner) : null, dueDate: item.dueDate || null, remarks: item.remarks || '' };
+    item.set(value);
+    if (value.status === 'Completed' && !item.completedAt) item.completedAt = new Date();
+    if (value.status && value.status !== 'Completed') item.completedAt = undefined;
+    if (value.status && value.status !== 'Blocked') item.blocker = undefined;
+    if (value.status && value.status !== 'Not Applicable') item.naReason = undefined;
+    item.updatedBy = req.user._id;
+    item.updatedAt = new Date();
+    await doc.save();
+
+    await recordAudit(req, 'ONBOARDING_ITEM_UPDATE', 'OnboardingChecklist', `${req.params.id}:${item.key}`, before, {
+      status: item.status, owner: item.owner ? String(item.owner) : null, dueDate: item.dueDate || null, remarks: item.remarks || '',
+    });
+    res.json({ success: true, message: 'Step updated', data: checklistView(doc) });
+  } catch (error) {
+    logger.error('Admin update onboarding item error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+router.post('/clients/:id/onboarding/go-live', crm('clients', 'edit'), async (req, res) => {
+  try {
+    const doc = await loadChecklist(req, res);
+    if (!doc) return;
+    if (doc.goLive.isLive) return res.status(409).json({ success: false, message: 'This campaign is already marked live.' });
+
+    // Exceptions are Super Admin only for now (permission '*')
+    const canAuthoriseException = !!req.user.permissions?.includes('*');
+    const decision = onboarding.evaluateGoLive(doc.items.map((i) => i.toObject()), { exception: req.body.exception, canAuthoriseException });
+    if (!decision.allowed) {
+      return res.status(409).json({
+        success: false,
+        message: decision.error || `Campaign cannot go live: ${decision.blockers.length} launch-critical step(s) incomplete.`,
+        blockers: decision.blockers,
+      });
+    }
+
+    const links = Array.isArray(req.body.platformLinks) ? req.body.platformLinks.map((l) => String(l).trim()).filter(Boolean).slice(0, 20) : [];
+    doc.goLive.isLive = true;
+    doc.goLive.liveDate = req.body.liveDate && !Number.isNaN(new Date(req.body.liveDate).getTime()) ? new Date(req.body.liveDate) : new Date();
+    doc.goLive.liveBy = req.user._id;
+    doc.goLive.platformLinks = links;
+    if (decision.exception) {
+      doc.goLive.exception = { ...decision.exception, authorisedBy: req.user._id, authorisedAt: new Date() };
+    }
+    await doc.save();
+
+    // Keep the client profile's ad-account-live date in step with the go-live
+    await Client.updateOne({ _id: req.params.id, 'profile.adAccountLiveDate': { $exists: false } }, { $set: { 'profile.adAccountLiveDate': doc.goLive.liveDate } });
+
+    await recordAudit(req, decision.exception ? 'CAMPAIGN_GO_LIVE_EXCEPTION' : 'CAMPAIGN_GO_LIVE', 'OnboardingChecklist', req.params.id,
+      { isLive: false }, { isLive: true, liveDate: doc.goLive.liveDate, exception: decision.exception || null, platformLinks: links });
+    res.json({ success: true, message: decision.exception ? 'Campaign marked live with a logged exception.' : 'Campaign marked live.', data: checklistView(doc) });
+  } catch (error) {
+    logger.error('Admin go-live error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// CAMPAIGN STRATEGY NOTES (versioned; the client sees only versions approved for sharing)
+// ══════════════════════════════════════════════════════════════════════════════
+
+const strategyClientCheck = (req, res) => {
+  if (!isValidId(req.params.id)) { res.status(400).json({ success: false, message: 'Invalid client ID' }); return false; }
+  if (!clientAllowed(req, req.params.id)) { outOfScope(res, 'Client'); return false; }
+  return true;
+};
+
+router.get('/clients/:id/strategy', crm('clients', 'view'), async (req, res) => {
+  try {
+    if (!strategyClientCheck(req, res)) return;
+    const versions = await CampaignStrategy.find({ client_ref: req.params.id }).sort({ version: -1 }).lean();
+    // Say what each version changed relative to the one before it
+    const data = versions.map((v, i) => ({ ...v, changedFields: strategy.changedFields(versions[i + 1], v) }));
+    res.json({ success: true, data });
+  } catch (error) {
+    logger.error('Admin get strategy error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+router.post('/clients/:id/strategy', crm('clients', 'edit'), async (req, res) => {
+  try {
+    if (!strategyClientCheck(req, res)) return;
+    if (!(await Client.exists({ _id: req.params.id }))) return outOfScope(res, 'Client');
+    const result = await strategy.saveNewVersion(req.params.id, req.body, req.user);
+    if (!result.ok) return res.status(result.status).json({ success: false, message: result.message });
+    await recordAudit(req, 'STRATEGY_VERSION_CREATE', 'CampaignStrategy', `${req.params.id}:v${result.doc.version}`,
+      result.previous ? { version: result.previous.version } : null,
+      { version: result.doc.version, changedFields: strategy.changedFields(result.previous, result.doc), changeNote: result.doc.changeNote || '' });
+    res.status(201).json({ success: true, message: `Saved as version ${result.doc.version}`, data: result.doc });
+  } catch (error) {
+    logger.error('Admin save strategy error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+router.put('/clients/:id/strategy/:version/share', crm('clients', 'edit'), async (req, res) => {
+  try {
+    if (!strategyClientCheck(req, res)) return;
+    const version = Number(req.params.version);
+    const share = req.body.shared !== false;
+    const doc = await CampaignStrategy.findOne({ client_ref: req.params.id, version });
+    if (!doc) return res.status(404).json({ success: false, message: 'Strategy version not found' });
+    if (doc.sharedWithClient === share) return res.json({ success: true, message: share ? 'Already shared with the client' : 'Already hidden from the client', data: doc });
+
+    const name = [req.user.firstName, req.user.lastName].filter(Boolean).join(' ').trim() || req.user.email;
+    doc.sharedWithClient = share;
+    doc.sharedBy = share ? req.user._id : undefined;
+    doc.sharedByName = share ? name : undefined;
+    doc.sharedAt = share ? new Date() : undefined;
+    await doc.save();
+    await recordAudit(req, share ? 'STRATEGY_SHARE' : 'STRATEGY_UNSHARE', 'CampaignStrategy', `${req.params.id}:v${version}`,
+      { sharedWithClient: !share }, { sharedWithClient: share });
+    res.json({ success: true, message: share ? `Version ${version} is now visible to the client` : `Version ${version} hidden from the client`, data: doc });
+  } catch (error) {
+    logger.error('Admin share strategy error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
 // INVOICES
 // ══════════════════════════════════════════════════════════════════════════════
 
@@ -582,7 +859,12 @@ router.get('/invoices', crm('invoices', 'view'), async (req, res) => {
 
     const clientRef = scopedClientRef(req, req.query.client_ref);
     if (clientRef) filter.client_ref = clientRef;
-    if (req.query.status) filter.paymentStatus = req.query.status;
+    // Overdue is derived from balance + due date, never read from a stored flag
+    const now = new Date();
+    const status = req.query.status;
+    if (status === 'Overdue') Object.assign(filter, finance.overdueFilter(now));
+    else if (status === 'Unpaid') Object.assign(filter, finance.unpaidNotOverdueFilter(now));
+    else if (status) filter.paymentStatus = status;
 
     const [invoices, total] = await Promise.all([
       Invoice.find(filter)
@@ -594,7 +876,7 @@ router.get('/invoices', crm('invoices', 'view'), async (req, res) => {
       Invoice.countDocuments(filter),
     ]);
 
-    paginatedResponse(res, { data: invoices, total, page, limit });
+    paginatedResponse(res, { data: invoices.map((inv) => finance.withDerived(inv, now)), total, page, limit });
   } catch (error) {
     logger.error('Admin get invoices error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
@@ -610,7 +892,7 @@ router.get('/invoices/:id', crm('invoices', 'view'), async (req, res) => {
       .populate('client_ref', 'businessName contactName email clientId')
       .lean();
     if (!invoice || !clientAllowed(req, invoice.client_ref)) return outOfScope(res, 'Invoice');
-    res.json({ success: true, data: invoice });
+    res.json({ success: true, data: finance.withDerived(invoice) });
   } catch (error) {
     logger.error('Admin get invoice error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
@@ -634,6 +916,10 @@ router.post('/invoices', crm('invoices', 'create'), async (req, res) => {
       totalAmount,
       notes,
     });
+    await recordAudit(req, 'INVOICE_CREATE', 'Invoice', invoice.invoiceId, null, {
+      invoiceId: invoice.invoiceId, client_ref: invoice.client_ref, totalAmount: invoice.totalAmount,
+      taxAmount: invoice.taxAmount, dueDate: invoice.dueDate,
+    });
     await notifyInvoiceCreated(invoice);
 
     res.status(201).json({ success: true, message: 'Invoice created', data: { invoiceId: invoice.invoiceId, _id: invoice._id } });
@@ -656,6 +942,9 @@ router.put('/invoices/:id', crm('invoices', 'edit'), async (req, res) => {
     const update = { ...req.body };
     delete update._id; delete update.invoiceId; delete update.client_ref;
 
+    // Overdue is derived from the due date and balance — it is never stored as a typed status
+    if (update.paymentStatus === 'Overdue') update.paymentStatus = 'Unpaid';
+
     // Keep the amounts consistent with the status chosen in the dropdown:
     // marking Paid records the full amount as received (and when), and moving
     // a fully-paid invoice back to Unpaid clears that auto-filled payment.
@@ -674,8 +963,11 @@ router.put('/invoices/:id', crm('invoices', 'edit'), async (req, res) => {
       }
     }
 
+    const before = await Invoice.findById(req.params.id).lean();
     const invoice = await Invoice.findByIdAndUpdate(req.params.id, update, { new: true, runValidators: true });
     if (!invoice) return res.status(404).json({ success: false, message: 'Invoice not found' });
+    const money = (i) => ({ totalAmount: i.totalAmount, taxAmount: i.taxAmount, paidAmount: i.paidAmount, paymentStatus: i.paymentStatus, dueDate: i.dueDate });
+    await recordAudit(req, 'INVOICE_UPDATE', 'Invoice', invoice.invoiceId, money(before || {}), money(invoice));
     res.json({ success: true, message: 'Invoice updated', data: invoice });
   } catch (error) {
     logger.error('Admin update invoice error:', error);
@@ -690,7 +982,12 @@ router.delete('/invoices/:id', crm('invoices', 'delete'), async (req, res) => {
     }
     const existing = await Invoice.findById(req.params.id, { client_ref: 1 }).lean();
     if (!existing || !clientAllowed(req, existing.client_ref)) return outOfScope(res, 'Invoice');
-    await Invoice.findByIdAndDelete(req.params.id);
+    const removed = await Invoice.findByIdAndDelete(req.params.id);
+    if (removed) {
+      await recordAudit(req, 'INVOICE_DELETE', 'Invoice', removed.invoiceId, {
+        invoiceId: removed.invoiceId, client_ref: removed.client_ref, totalAmount: removed.totalAmount, paidAmount: removed.paidAmount,
+      }, null);
+    }
     res.json({ success: true, message: 'Invoice deleted' });
   } catch (error) {
     logger.error('Admin delete invoice error:', error);
@@ -848,7 +1145,7 @@ router.get('/retainers', crm('retainers', 'view'), async (req, res) => {
       Retainer.countDocuments(filter),
     ]);
 
-    paginatedResponse(res, { data: retainers, total, page, limit });
+    paginatedResponse(res, { data: await attachUsage(retainers), total, page, limit });
   } catch (error) {
     logger.error('Admin get retainers error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
@@ -861,7 +1158,8 @@ router.get('/retainers/:id', crm('retainers', 'view'), async (req, res) => {
     const retainer = await Retainer.findById(req.params.id)
       .populate('client_ref', 'businessName contactName email clientId');
     if (!retainer || !clientAllowed(req, retainer.client_ref)) return outOfScope(res, 'Retainer');
-    res.json({ success: true, data: retainer.toObject({ virtuals: true }) });
+    const [withUsage] = await attachUsage([retainer.toObject({ virtuals: true })]);
+    res.json({ success: true, data: withUsage });
   } catch (error) {
     logger.error('Admin get retainer error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
@@ -876,6 +1174,10 @@ router.post('/retainers', crm('retainers', 'create'), async (req, res) => {
     }
     if (!clientAllowed(req, client_ref)) return res.status(403).json({ success: false, message: "You can't create retainers for this client." });
     const retainer = await Retainer.create({ client_ref, packageName, monthlyAmount, billingCycle, supportHoursPerMonth, contractStartDate, contractEndDate, status, autoRenew, renewalNotes });
+    await recordAudit(req, 'RETAINER_CREATE', 'Retainer', retainer.retainerId, null, {
+      client_ref: retainer.client_ref, monthlyAmount: retainer.monthlyAmount, billingCycle: retainer.billingCycle,
+      supportHoursPerMonth: retainer.supportHoursPerMonth, status: retainer.status,
+    });
     res.status(201).json({ success: true, message: 'Retainer created', data: { retainerId: retainer.retainerId, _id: retainer._id } });
   } catch (error) {
     logger.error('Admin create retainer error:', error);
@@ -892,8 +1194,11 @@ router.put('/retainers/:id', crm('retainers', 'edit'), async (req, res) => {
     const update = { ...req.body };
     delete update._id; delete update.retainerId; delete update.client_ref;
 
+    const beforeRet = await Retainer.findById(req.params.id).lean();
     const retainer = await Retainer.findByIdAndUpdate(req.params.id, update, { new: true, runValidators: true });
     if (!retainer) return res.status(404).json({ success: false, message: 'Retainer not found' });
+    const retSnap = (r) => ({ monthlyAmount: r.monthlyAmount, billingCycle: r.billingCycle, supportHoursPerMonth: r.supportHoursPerMonth, status: r.status, contractStartDate: r.contractStartDate, contractEndDate: r.contractEndDate });
+    await recordAudit(req, 'RETAINER_UPDATE', 'Retainer', retainer.retainerId, retSnap(beforeRet || {}), retSnap(retainer));
     res.json({ success: true, message: 'Retainer updated', data: retainer.toObject({ virtuals: true }) });
   } catch (error) {
     logger.error('Admin update retainer error:', error);
@@ -930,6 +1235,18 @@ router.get('/tickets-staff', crm('tickets', 'view'), async (req, res) => {
   }
 });
 
+// Technical time spent per ticket = the sum of the work logs linked to it, so
+// the same logged time also counts in the client's hours and the project's
+// actual hours — it is never typed in twice.
+async function ticketMinutes(ticketIds) {
+  if (!ticketIds.length) return new Map();
+  const rows = await WorkLog.aggregate([
+    { $match: { ticket_ref: { $in: ticketIds } } },
+    { $group: { _id: '$ticket_ref', minutes: { $sum: '$duration' } } },
+  ]);
+  return new Map(rows.map((r) => [String(r._id), r.minutes]));
+}
+
 router.get('/tickets', crm('tickets', 'view'), async (req, res) => {
   try {
     const { page, limit, skip } = parsePagination(req.query);
@@ -947,7 +1264,7 @@ router.get('/tickets', crm('tickets', 'view'), async (req, res) => {
           select: 'firstName lastName email roles',
           populate: { path: 'roles', select: 'name' }
         })
-        .select('+resolution') // admin sees full fields
+        .select('+resolution +rootCause') // admin sees full fields
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
@@ -955,7 +1272,9 @@ router.get('/tickets', crm('tickets', 'view'), async (req, res) => {
       SupportTicket.countDocuments(filter),
     ]);
 
-    paginatedResponse(res, { data: tickets, total, page, limit });
+    const minutes = await ticketMinutes(tickets.map((t) => t._id));
+    const data = tickets.map((t) => ({ ...t, technicalMinutes: minutes.get(String(t._id)) || 0 }));
+    paginatedResponse(res, { data, total, page, limit });
   } catch (error) {
     logger.error('Admin get tickets error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
@@ -972,9 +1291,10 @@ router.get('/tickets/:id', crm('tickets', 'view'), async (req, res) => {
         select: 'firstName lastName email roles',
         populate: { path: 'roles', select: 'name' }
       })
-      .select('+resolution');
+      .select('+resolution +rootCause');
     if (!ticket || !clientAllowed(req, ticket.client_ref)) return outOfScope(res, 'Ticket');
-    res.json({ success: true, data: ticket.toObject({ virtuals: true }) });
+    const minutes = await ticketMinutes([ticket._id]);
+    res.json({ success: true, data: { ...ticket.toObject({ virtuals: true }), technicalMinutes: minutes.get(String(ticket._id)) || 0 } });
   } catch (error) {
     logger.error('Admin get ticket error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
@@ -984,11 +1304,12 @@ router.get('/tickets/:id', crm('tickets', 'view'), async (req, res) => {
 router.put('/tickets/:id', crm('tickets', 'edit'), async (req, res) => {
   try {
     if (!isValidId(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid ticket ID' });
-    const { status, priority, resolution, assignedTo } = req.body;
+    const { status, priority, resolution, assignedTo, rootCause, project_ref } = req.body;
     const update = {};
     if (status) update.status = status;
     if (priority) update.priority = priority;
     if (resolution !== undefined) update.resolution = resolution;
+    if (rootCause !== undefined) update.rootCause = String(rootCause || '').slice(0, 1000);
     if (assignedTo !== undefined) {
       if (assignedTo && !isValidId(assignedTo)) return res.status(400).json({ success: false, message: 'Invalid assignee' });
       update.assignedTo = assignedTo || null;
@@ -998,11 +1319,26 @@ router.put('/tickets/:id', crm('tickets', 'edit'), async (req, res) => {
     // resolvedAt / closedAt when the status changes
     const ticket = await SupportTicket.findById(req.params.id);
     if (!ticket || !clientAllowed(req, ticket.client_ref)) return outOfScope(res, 'Ticket');
+    if (project_ref !== undefined) {
+      if (project_ref && !isValidId(project_ref)) return res.status(400).json({ success: false, message: 'Invalid project' });
+      if (project_ref) {
+        const project = await Project.findById(project_ref, { client_ref: 1 }).lean();
+        if (!project || String(project.client_ref) !== String(ticket.client_ref)) {
+          return res.status(400).json({ success: false, message: "That project doesn't belong to this ticket's client." });
+        }
+      }
+      update.project_ref = project_ref || null;
+    }
     const previousStatus = ticket.status;
     const previousAssignee = ticket.assignedTo ? String(ticket.assignedTo) : null;
+    const ticketBefore = { status: ticket.status, priority: ticket.priority, assignedTo: previousAssignee };
     ticket.set(update);
     await ticket.save();
     if (status && previousStatus !== ticket.status) await notifyTicketStatus(ticket);
+    const ticketAfter = { status: ticket.status, priority: ticket.priority, assignedTo: ticket.assignedTo ? String(ticket.assignedTo) : null };
+    if (JSON.stringify(ticketBefore) !== JSON.stringify(ticketAfter)) {
+      await recordAudit(req, 'TICKET_UPDATE', 'SupportTicket', ticket.ticketId, ticketBefore, ticketAfter);
+    }
     // Tell the new assignee (not when an admin assigns the ticket to themselves)
     const newAssignee = ticket.assignedTo ? String(ticket.assignedTo) : null;
     if (newAssignee && newAssignee !== previousAssignee && newAssignee !== String(req.user._id)) {

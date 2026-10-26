@@ -1,0 +1,218 @@
+const { test, describe } = require('node:test');
+const assert = require('node:assert/strict');
+const onboarding = require('../services/onboarding');
+const { usageWindow, monthBounds } = require('../services/retainerUsage');
+const { sanitizeProfile, profileDateErrors } = require('../services/clientProfile');
+const { monthlyEquivalent, clientState } = require('../services/portfolio');
+const { buildActions, nextMilestone, dailyHoursSeries, monthlyTotals } = require('../services/clientOverview');
+
+const NOW = new Date('2026-10-26T10:00:00Z');
+const keys = (scope) => onboarding.applicableTemplate(scope).map((t) => t.key);
+
+describe('onboarding — steps follow the services and platforms', () => {
+  test('a Meta-only performance client gets no Google steps', () => {
+    const k = keys({ services: ['Performance Marketing'], platforms: ['Meta'] });
+    assert.ok(k.includes('meta_access') && k.includes('meta_pixel_capi') && k.includes('test_events_removed'));
+    assert.ok(!k.includes('google_ads_access') && !k.includes('google_tracking'));
+  });
+  test('a Google-only client gets no Meta steps', () => {
+    const k = keys({ services: ['Performance Marketing'], platforms: ['Google Ads'] });
+    assert.ok(k.includes('google_ads_access') && k.includes('google_tracking'));
+    assert.ok(!k.includes('meta_access') && !k.includes('meta_pixel_capi') && !k.includes('test_events_removed'));
+  });
+  test('a website-only client gets contract, payment and website access but no ad steps', () => {
+    const k = keys({ services: ['Website Development'], platforms: [] });
+    assert.deepEqual(k, ['contract_signed', 'advance_payment', 'website_access']);
+  });
+  test('campaign_live is never a prerequisite step', () => {
+    assert.ok(!onboarding.TEMPLATE.some((t) => t.key === 'campaign_live'));
+  });
+  test('syncing adds only missing steps and never touches existing ones', () => {
+    const existing = [{ key: 'contract_signed', label: 'x', status: 'Completed' }];
+    const add = onboarding.missingItems(existing, { services: ['Website Development'], platforms: [] });
+    assert.deepEqual(add.map((i) => i.key), ['advance_payment', 'website_access']);
+  });
+});
+
+const item = (o) => ({ key: 'k', label: 'Step', launchCritical: true, needsEvidence: false, status: 'Not Started', ...o });
+
+describe('onboarding — go-live gate', () => {
+  test('completed and not-applicable steps do not block', () => {
+    assert.equal(onboarding.launchBlockers([item({ status: 'Completed' }), item({ status: 'Not Applicable' })]).length, 0);
+  });
+  test('names exactly which steps block and why', () => {
+    const b = onboarding.launchBlockers([
+      item({ key: 'a', label: 'A', status: 'Blocked', blocker: 'Client has not shared access' }),
+      item({ key: 'b', label: 'B', status: 'In Progress' }),
+      item({ key: 'c', label: 'C', status: 'Completed' }),
+    ]);
+    assert.deepEqual(b.map((x) => [x.key, x.reason]), [['a', 'Client has not shared access'], ['b', 'In progress']]);
+  });
+  test('goes live when nothing blocks', () => {
+    assert.deepEqual(onboarding.evaluateGoLive([item({ status: 'Completed' })]), { allowed: true });
+  });
+  test('is refused with the blockers listed when steps are open', () => {
+    const r = onboarding.evaluateGoLive([item({ key: 'a' })]);
+    assert.equal(r.allowed, false);
+    assert.equal(r.blockers[0].key, 'a');
+  });
+  test('an exception needs authority and a written reason', () => {
+    const items = [item({ key: 'a' })];
+    assert.equal(onboarding.evaluateGoLive(items, { exception: { reason: 'Client asked us to launch early' }, canAuthoriseException: false }).allowed, false);
+    assert.equal(onboarding.evaluateGoLive(items, { exception: { reason: 'short' }, canAuthoriseException: true }).allowed, false);
+    const ok = onboarding.evaluateGoLive(items, { exception: { reason: 'Client asked us to launch early' }, canAuthoriseException: true });
+    assert.equal(ok.allowed, true);
+    assert.deepEqual(ok.exception.waivedItems, ['a']);
+  });
+  test('overdue only counts unfinished steps with a past due date', () => {
+    assert.equal(onboarding.isItemOverdue(item({ dueDate: '2026-10-01' }), NOW), true);
+    assert.equal(onboarding.isItemOverdue(item({ dueDate: '2026-10-01', status: 'Completed' }), NOW), false);
+    assert.equal(onboarding.isItemOverdue(item({ dueDate: '2026-11-01' }), NOW), false);
+    assert.equal(onboarding.isItemOverdue(item({}), NOW), false);
+  });
+});
+
+describe('onboarding — step updates are validated', () => {
+  test('Not Applicable needs a reason', () => {
+    assert.ok(onboarding.validateItemUpdate(item(), { status: 'Not Applicable' }).errors.length);
+    assert.equal(onboarding.validateItemUpdate(item(), { status: 'Not Applicable', naReason: 'Client has no Meta' }).errors.length, 0);
+  });
+  test('Blocked needs to say what blocks it', () => {
+    assert.ok(onboarding.validateItemUpdate(item(), { status: 'Blocked' }).errors.length);
+    assert.equal(onboarding.validateItemUpdate(item(), { status: 'Blocked', blocker: 'Waiting for access' }).errors.length, 0);
+  });
+  test('an evidence step cannot be Completed with no link or remarks', () => {
+    const it = item({ needsEvidence: true });
+    assert.ok(onboarding.validateItemUpdate(it, { status: 'Completed' }).errors.length);
+    assert.equal(onboarding.validateItemUpdate(it, { status: 'Completed', evidenceLink: 'https://x.test/proof' }).errors.length, 0);
+    assert.equal(onboarding.validateItemUpdate(it, { status: 'Completed', remarks: 'Verified in Events Manager' }).errors.length, 0);
+  });
+  test('rejects unknown statuses and bad dates', () => {
+    assert.ok(onboarding.validateItemUpdate(item(), { status: 'Done' }).errors.length);
+    assert.ok(onboarding.validateItemUpdate(item(), { dueDate: 'not-a-date' }).errors.length);
+  });
+});
+
+describe('retainer usage window', () => {
+  test('a contract covering the month uses the whole month', () => {
+    const w = usageWindow({ contractStartDate: '2026-01-01', contractEndDate: '2027-01-01' }, NOW);
+    const m = monthBounds(NOW);
+    assert.equal(w.start.getTime(), m.start.getTime());
+    assert.equal(w.end.getTime(), m.end.getTime());
+  });
+  test('a contract starting mid-month only counts from its start', () => {
+    const w = usageWindow({ contractStartDate: '2026-10-15T00:00:00Z', contractEndDate: '2027-10-14' }, NOW);
+    assert.equal(w.start.toISOString(), '2026-10-15T00:00:00.000Z');
+  });
+  test('a contract that ended before this month has no window', () => {
+    assert.equal(usageWindow({ contractStartDate: '2025-01-01', contractEndDate: '2026-09-30' }, NOW), null);
+  });
+});
+
+describe('client profile validation', () => {
+  test('only the sent keys are returned', () => {
+    const { value, errors } = sanitizeProfile({ sectors: ' Retail , Fitness,Retail ' });
+    assert.deepEqual(value, { sectors: ['Retail', 'Fitness'] });
+    assert.equal(errors.length, 0);
+  });
+  test('domains are normalised and checked', () => {
+    assert.deepEqual(sanitizeProfile({ domains: ['https://Mudgarvale.com/'] }).value.domains, ['mudgarvale.com']);
+    assert.ok(sanitizeProfile({ domains: ['not a domain'] }).errors.length);
+  });
+  test('ad account cannot go live before onboarding', () => {
+    assert.ok(profileDateErrors({ onboardingDate: '2026-06-04', adAccountLiveDate: '2026-05-26' }).length);
+    assert.equal(profileDateErrors({ onboardingDate: '2026-05-26', adAccountLiveDate: '2026-06-04' }).length, 0);
+  });
+  test('budget must be a non-negative number; empty clears it', () => {
+    assert.ok(sanitizeProfile({ monthlyAdBudget: -5 }).errors.length);
+    assert.equal(sanitizeProfile({ monthlyAdBudget: '' }).value.monthlyAdBudget, null);
+    assert.equal(sanitizeProfile({ monthlyAdBudget: '100000' }).value.monthlyAdBudget, 100000);
+  });
+  test('team members are de-duplicated and validated', () => {
+    const id = '507f1f77bcf86cd799439011';
+    const { value, errors } = sanitizeProfile({ dedicatedTeam: [{ employee: id, role: 'Performance Marketer' }, { employee: id }, { employee: 'bad' }] });
+    assert.equal(value.dedicatedTeam.length, 1);
+    assert.equal(errors.length, 1);
+  });
+});
+
+describe('portfolio rules', () => {
+  test('quarterly and annual fees are compared per month', () => {
+    assert.equal(monthlyEquivalent({ monthlyAmount: 15000, billingCycle: 'Monthly' }), 15000);
+    assert.equal(monthlyEquivalent({ monthlyAmount: 45000, billingCycle: 'Quarterly' }), 15000);
+    assert.equal(monthlyEquivalent({ monthlyAmount: 180000, billingCycle: 'Annual' }), 15000);
+  });
+  test('client state comes from real flags, not activity', () => {
+    assert.equal(clientState({ isActive: true }), 'active');
+    assert.equal(clientState({ isActive: false }), 'inactive');
+    assert.equal(clientState({ isActive: true, deletedAt: new Date() }), 'archived');
+  });
+});
+
+describe('client overview — what needs attention', () => {
+  const calm = { billing: { overdueInvoices: 0, overdueAmount: '₹0', nextDue: null, pendingProofs: 0 }, tickets: { awaitingClient: 0 }, retainer: null };
+  const keys = (o) => buildActions({ ...calm, ...o }).map((a) => a.key);
+
+  test('nothing to do shows no actions', () => assert.deepEqual(keys({}), []));
+  test('overdue invoices come first and say how many', () => {
+    const a = buildActions({ ...calm, billing: { ...calm.billing, overdueInvoices: 2, overdueAmount: '₹4,000' }, tickets: { awaitingClient: 1 } });
+    assert.deepEqual(a.map((x) => x.key), ['overdue', 'ticket-reply']);
+    assert.equal(a[0].tone, 'danger');
+    assert.match(a[0].title, /2 overdue invoices/);
+  });
+  test('an invoice due within a week is flagged, but not on top of overdue ones', () => {
+    const due = { invoiceId: 'VH-INV-1', daysUntilDue: 3, balance: '₹500' };
+    assert.deepEqual(keys({ billing: { ...calm.billing, nextDue: due } }), ['due-soon']);
+    assert.deepEqual(keys({ billing: { ...calm.billing, overdueInvoices: 1, overdueAmount: '₹1', nextDue: due } }), ['overdue']);
+    assert.deepEqual(keys({ billing: { ...calm.billing, nextDue: { ...due, daysUntilDue: 20 } } }), []);
+  });
+  test('retainer overage and renewal are surfaced', () => {
+    assert.deepEqual(keys({ retainer: { hoursOverage: 3, packageName: 'P', isNearingExpiry: true } }), ['hours-over', 'renewal']);
+  });
+  test('the next milestone is the earliest unfinished one', () => {
+    const m = nextMilestone([
+      { title: 'Done', status: 'Completed', targetDate: '2026-01-01' },
+      { title: 'Later', status: 'Pending', targetDate: '2026-12-01' },
+      { title: 'Soon', status: 'In Progress', targetDate: '2026-11-01' },
+      { title: 'Undated', status: 'Pending' },
+    ]);
+    assert.equal(m.title, 'Soon');
+    assert.equal(nextMilestone([{ title: 'x', status: 'Completed' }]), null);
+  });
+});
+
+describe('client overview — chart data', () => {
+  const at = (y, m, d, h = 12) => new Date(y, m - 1, d, h);
+  const now = at(2026, 10, 5);
+
+  test('hours run day by day from the 1st to today, with a running total', () => {
+    const { days, totalDays } = dailyHoursSeries([
+      { date: at(2026, 10, 1), duration: 90 },
+      { date: at(2026, 10, 1, 15), duration: 30 },
+      { date: at(2026, 10, 3), duration: 60 },
+    ], now);
+    assert.equal(totalDays, 31);
+    assert.deepEqual(days.map((d) => d.day), [1, 2, 3, 4, 5]);
+    assert.deepEqual(days.map((d) => d.hours), [2, 0, 1, 0, 0]);
+    assert.deepEqual(days.map((d) => d.cumulative), [2, 2, 3, 3, 3]);
+  });
+  test('a month with no logs is a flat zero line, not an empty chart', () => {
+    const { days } = dailyHoursSeries([], now);
+    assert.equal(days.length, 5);
+    assert.ok(days.every((d) => d.cumulative === 0));
+  });
+  test('months are oldest first, cross the year end, and keep empty months as zero', () => {
+    const jan = at(2026, 1, 20);
+    const months = monthlyTotals([
+      { date: at(2025, 11, 10), amount: 1000 },
+      { date: at(2025, 11, 28), amount: 500 },
+      { date: at(2026, 1, 2), amount: 700 },
+    ], 4, jan);
+    assert.deepEqual(months.map((m) => m.key), ['2025-10', '2025-11', '2025-12', '2026-01']);
+    assert.deepEqual(months.map((m) => m.total), [0, 1500, 0, 700]);
+  });
+  test('activity older than the window is ignored', () => {
+    const months = monthlyTotals([{ date: at(2024, 1, 1), amount: 999 }], 6, now);
+    assert.equal(months.reduce((s, m) => s + m.total, 0), 0);
+  });
+});

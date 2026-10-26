@@ -24,6 +24,7 @@ export const essKeys = {
   proposals: (leadId) => ['ess', 'proposals', leadId],
   today: ['ess', 'today'],
   timer: ['ess', 'timer'],
+  timerClients: ['ess', 'timer-clients'],
   activityTypes: ['ess', 'activity-types'],
   tasks: ['ess', 'tasks'],
   dayStats: (date) => ['ess', 'day-stats', date],
@@ -65,6 +66,10 @@ export const useEssToday = (enabled = true) =>
 
 export const useEssTimer = () =>
   useQuery({ queryKey: essKeys.timer, queryFn: () => essGet('/timer').then((d) => d.activeTimer), staleTime: 30_000 });
+
+// Clients (with projects / open tickets) this person may link a timer session to
+export const useTimerClients = () =>
+  useQuery({ queryKey: essKeys.timerClients, queryFn: () => essGet('/timer/clients').then((d) => d.data || []), staleTime: 5 * 60_000 });
 
 export const useActivityTypes = () =>
   useQuery({ queryKey: essKeys.activityTypes, queryFn: () => essGet('/activity-types').then((d) => d.types || []), staleTime: 10 * 60_000 });
