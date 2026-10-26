@@ -11,6 +11,8 @@ import {
   LifeBuoy,
   Target,
   ShieldCheck,
+  BarChart3,
+  Clock,
   UserCircle,
   LogOut,
   MoreHorizontal,
@@ -23,9 +25,11 @@ import ClientNotificationBell from './components/ClientNotificationBell';
 
 const TABS = [
   { id: 'overview',  label: 'Overview',   icon: LayoutDashboard, path: '/client/dashboard?tab=overview' },
+  { id: 'performance', label: 'Performance', icon: BarChart3, path: '/client/dashboard?tab=performance' },
   { id: 'billing',   label: 'Billing',    icon: FileText,      path: '/client/dashboard?tab=billing' },
   { id: 'projects',  label: 'Projects',   icon: Rocket,        path: '/client/dashboard?tab=projects' },
   { id: 'retainers', label: 'Retainers',  icon: RefreshCcw,    path: '/client/dashboard?tab=retainers' },
+  { id: 'work',      label: 'Work log',   icon: Clock,         path: '/client/dashboard?tab=work' },
   { id: 'support',   label: 'Support',    icon: LifeBuoy,      path: '/client/dashboard?tab=support' },
   { id: 'strategy',  label: 'Strategy',   icon: Target,        path: '/client/dashboard?tab=strategy' },
   { id: 'kyc',       label: 'KYC',        icon: ShieldCheck,   path: '/client/dashboard?tab=kyc' },
@@ -34,9 +38,13 @@ const TABS = [
 ];
 
 // Phones fit four tabs comfortably; the rest sit behind "More"
-const MOBILE_PRIMARY_IDS = ['overview', 'billing', 'projects', 'support'];
+const MOBILE_PRIMARY_IDS = ['overview', 'performance', 'billing', 'support'];
 const MOBILE_PRIMARY = TABS.filter((t) => MOBILE_PRIMARY_IDS.includes(t.id));
 const MOBILE_MORE = TABS.filter((t) => !MOBILE_PRIMARY_IDS.includes(t.id));
+// Desktop has room for a few more in the bar; the rest go under "More"
+const DESKTOP_PRIMARY_IDS = ['overview', 'performance', 'billing', 'projects', 'retainers', 'support'];
+const DESKTOP_PRIMARY = TABS.filter((t) => DESKTOP_PRIMARY_IDS.includes(t.id));
+const DESKTOP_MORE = TABS.filter((t) => !DESKTOP_PRIMARY_IDS.includes(t.id));
 
 const ClientLayout = () => {
   const { client, logout } = useClientStore();
@@ -94,19 +102,21 @@ const ClientLayout = () => {
   }, [confirmLogout, loggingOut]);
 
   const [moreOpen, setMoreOpen] = useState(false);
+  const [deskMoreOpen, setDeskMoreOpen] = useState(false);
 
   const handleTabClick = (tab) => {
     setMoreOpen(false);
+    setDeskMoreOpen(false);
     navigate(`/client/dashboard?tab=${tab.id}`);
   };
 
   // Escape closes the "More" sheet
   useEffect(() => {
-    if (!moreOpen) return undefined;
-    const onKey = (e) => { if (e.key === 'Escape') setMoreOpen(false); };
+    if (!moreOpen && !deskMoreOpen) return undefined;
+    const onKey = (e) => { if (e.key === 'Escape') { setMoreOpen(false); setDeskMoreOpen(false); } };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [moreOpen]);
+  }, [moreOpen, deskMoreOpen]);
 
   if (checkingAgreement) {
     return (
@@ -149,8 +159,8 @@ const ClientLayout = () => {
         </div>
 
         {/* Center: Desktop Tab Navigation */}
-        <nav className="hidden md:flex items-center gap-1 lg:gap-1.5">
-          {TABS.map((tab) => {
+        <nav className="hidden md:flex items-center gap-1 lg:gap-1.5" aria-label="Client portal">
+          {DESKTOP_PRIMARY.map((tab) => {
             const Icon = tab.icon;
             const active = currentTab === tab.id;
             return (
@@ -158,17 +168,48 @@ const ClientLayout = () => {
                 key={tab.id}
                 onClick={() => handleTabClick(tab)}
                 title={tab.label}
-                className={`flex items-center gap-1.5 lg:gap-2 px-2.5 lg:px-4 py-2 rounded-lg text-xs lg:text-sm font-medium transition-all duration-200 cursor-pointer ${
+                aria-current={active ? 'page' : undefined}
+                className={`flex items-center gap-1.5 lg:gap-2 px-2.5 lg:px-3 py-2 rounded-lg text-xs lg:text-sm font-medium transition-all duration-200 cursor-pointer ${
                   active
                     ? 'bg-primary/15 text-primary border border-[#FF5A1F]/25'
                     : 'text-[#9CA3AF] hover:text-white hover:bg-bg-surface/50'
                 }`}
               >
                 <Icon size={14} className="shrink-0" />
-                <span>{tab.label}</span>
+                <span className="hidden lg:inline">{tab.label}</span>
               </button>
             );
           })}
+          <div className="relative">
+            {(() => {
+              const moreActive = deskMoreOpen || DESKTOP_MORE.some((t) => t.id === currentTab);
+              return (
+                <button
+                  type="button" onClick={() => setDeskMoreOpen((o) => !o)} aria-haspopup="menu" aria-expanded={deskMoreOpen}
+                  className={`flex items-center gap-1.5 px-2.5 lg:px-3 py-2 rounded-lg text-xs lg:text-sm font-medium cursor-pointer ${moreActive ? 'bg-primary/15 text-primary border border-[#FF5A1F]/25' : 'text-[#9CA3AF] hover:text-white hover:bg-bg-surface/50'}`}
+                >
+                  <MoreHorizontal size={14} /> <span className="hidden lg:inline">{DESKTOP_MORE.find((t) => t.id === currentTab)?.label || 'More'}</span>
+                </button>
+              );
+            })()}
+            {deskMoreOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setDeskMoreOpen(false)} aria-hidden="true" />
+                <div role="menu" className="absolute right-0 mt-2 w-52 z-50 rounded-xl border border-border-default bg-[#1A1F2B] shadow-2xl p-1.5">
+                  {DESKTOP_MORE.map((tab) => {
+                    const Icon = tab.icon;
+                    const active = currentTab === tab.id;
+                    return (
+                      <button key={tab.id} role="menuitem" onClick={() => handleTabClick(tab)}
+                        className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm cursor-pointer ${active ? 'bg-primary/15 text-primary' : 'text-[#E5E7EB] hover:bg-bg-surface/50'}`}>
+                        <Icon size={15} /> {tab.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </div>
         </nav>
 
         {/* Right: Client name + Logout */}
@@ -196,6 +237,13 @@ const ClientLayout = () => {
       </header>
 
       {/* ── Page Content ──────────────────────────────────────────────────── */}
+      {client?.serviceStatus === 'Hold' && (
+        <div role="status" className="w-full bg-[#F59E0B]/10 border-b border-[#F59E0B]/30 px-4 py-2.5 text-center text-sm text-white">
+          <strong className="text-[#F59E0B]">Your account is on hold.</strong>{' '}
+          {client.holdReason || 'Please clear any pending payment or contact us to resume service.'}{' '}
+          <button type="button" onClick={() => handleTabClick({ id: 'billing' })} className="underline text-[#F59E0B] cursor-pointer">View billing</button>
+        </div>
+      )}
       <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 py-6 md:py-8 pb-24 md:pb-8">
         <Outlet />
       </main>

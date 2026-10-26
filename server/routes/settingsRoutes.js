@@ -6,6 +6,9 @@ const requirePermission = require('../middleware/requirePermission');
 const portalLegalController = require('../controllers/portalLegalController');
 const activityMaster = require('../services/activityMaster');
 const clientEmailPolicy = require('../services/clientEmailPolicy');
+const clientPolicies = require('../services/clientPolicies');
+const { runAutoHold } = require('../services/autoHold');
+const { recordAudit } = require('../services/audit');
 
 // Public route to get contact info
 router.get('/settings/contact', settingsController.getContactInfo);
@@ -184,6 +187,49 @@ router.put('/admin/settings/client-email-notifications', authMiddleware, require
   const { policy, error } = await clientEmailPolicy.saveEmailPolicy(req.body.policy);
   if (error) return res.status(400).json({ success: false, message: error });
   res.json({ success: true, events: clientEmailPolicy.EVENTS, policy });
+});
+
+// Super Admin rules: when an unpaid client goes on hold, and how extra retainer hours are billed.
+// Only a Super Admin ('*') can read or change them.
+router.get('/admin/settings/client-policies', authMiddleware, requirePermission('*'), async (req, res) => {
+  res.json({ success: true, autoHold: await clientPolicies.getAutoHold(), extraHours: await clientPolicies.getExtraHours(), billing: await clientPolicies.getBilling() });
+});
+
+router.put('/admin/settings/client-policies', authMiddleware, requirePermission('*'), async (req, res) => {
+  try {
+    const before = { autoHold: await clientPolicies.getAutoHold(), extraHours: await clientPolicies.getExtraHours(), billing: await clientPolicies.getBilling() };
+    const out = {};
+    if (req.body.autoHold !== undefined) {
+      const { value, error } = clientPolicies.validateAutoHold(req.body.autoHold);
+      if (error) return res.status(400).json({ success: false, message: error });
+      out.autoHold = await clientPolicies.saveAutoHold(value);
+    }
+    if (req.body.extraHours !== undefined) {
+      const { value, error } = clientPolicies.validateExtraHours(req.body.extraHours);
+      if (error) return res.status(400).json({ success: false, message: error });
+      out.extraHours = await clientPolicies.saveExtraHours(value);
+    }
+    if (req.body.billing !== undefined) {
+      const { value, error } = clientPolicies.validateBilling(req.body.billing);
+      if (error) return res.status(400).json({ success: false, message: error });
+      out.billing = await clientPolicies.saveBilling(value);
+    }
+    if (!Object.keys(out).length) return res.status(400).json({ success: false, message: 'Nothing to save.' });
+    await recordAudit(req, 'CLIENT_POLICY_UPDATE', 'Settings', 'client-policies', before, { ...before, ...out });
+    res.json({ success: true, autoHold: out.autoHold || before.autoHold, extraHours: out.extraHours || before.extraHours, billing: out.billing || before.billing });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// Run the overdue-payment check right now (the same pass the daily job does)
+router.post('/admin/settings/client-policies/run-auto-hold', authMiddleware, requirePermission('*'), async (req, res) => {
+  try {
+    const result = await runAutoHold();
+    res.json({ success: true, ...result });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
 });
 
 module.exports = router;

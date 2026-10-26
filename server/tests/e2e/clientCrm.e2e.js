@@ -776,7 +776,7 @@ describe('client notification emails — only the switched-on events are emailed
   test('the switches can be read and changed by an admin, and take effect immediately', async () => {
     const got = await admin('GET', '/admin/settings/client-email-notifications');
     assert.equal(got.status, 200);
-    assert.equal(got.body.events.length, 9);
+    assert.equal(got.body.events.length, 11);
     assert.equal(got.body.policy.payment_approved, false);
 
     const put = await admin('PUT', '/admin/settings/client-email-notifications', { policy: { payment_approved: true, invoice_created: false } });
@@ -1015,5 +1015,537 @@ describe('portfolio — KPIs and ordering come from the linked records', () => {
   test('a client with no invoices shows "--" (null) collection, not 0% or a crash', async () => {
     const res = await admin('GET', '/admin/portfolio?search=Delta');
     assert.equal(res.body.data[0].finance.collectionPercent, null);
+  });
+});
+
+describe('client decisions (Oct 2026): hold, exceptions, work log, extra hours, ad performance', () => {
+  const portal = (who, method, url, body) => request(jwt.sign({ id: ids[who] }, JWT_SECRET, { expiresIn: '1h' }), method, `/employee-portal/crm${url}`, body);
+  const pad = (n) => String(n).padStart(2, '0');
+  const dayStr = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const now = new Date();
+  const firstOfMonth = dayStr(new Date(now.getFullYear(), now.getMonth(), 1));
+  const firstOfLastMonth = dayStr(new Date(now.getFullYear(), now.getMonth() - 1, 1));
+
+  before(async () => {
+    const Client = require('../../models/Client');
+    const Role = require('../../models/Role');
+    const Admin = require('../../models/Admin');
+    const Employee = require('../../models/Employee');
+    const eps = await Client.create({ businessName: 'Epsilon Ltd', contactName: 'Eps Owner', email: 'epsilon@example.com', phone: '+919800000009', password: 'ClientPass1', isTemporaryPassword: false });
+    ids.epsilon = String(eps._id);
+    const pmRole = await Role.create({ name: 'PROJECT MANAGER', permissions: ['ess.access'], isEmployeeRole: true });
+    const bdeRole = await Role.create({ name: 'BDE', permissions: ['ess.access'], isEmployeeRole: true });
+    const grant = [{ page: 'clients', actions: ['view', 'edit'], scope: { mode: 'clients', clients: [eps._id] } }];
+    for (const [key, role] of [['pmUser', pmRole], ['bdeUser', bdeRole]]) {
+      const a = await Admin.create({ firstName: key, lastName: 'Staff', email: `${key}@e2e.test`, password: 'Passw0rd!e2e', roles: [role._id], employeeId: `VH-D-${key}`, accessGrants: grant });
+      ids[key] = String(a._id);
+      await Employee.collection.insertOne({ employeeId: `VH-D-${key}`, adminId: a._id, firstName: key, lastName: 'Staff', email: `${key}@e2e.test`, phone: '9800000000', roleDept: 'Test', joinDate: new Date(), salaryCTC: 1, employmentStatus: 'Permanent' });
+    }
+    await admin('PUT', `/admin/clients/${ids.epsilon}`, { profile: { services: ['Website Development'], platforms: [], monthlyAdBudget: 31000 } });
+  });
+
+  // ── 4. Launch exceptions: Admins and Project Managers with access to the client ──
+  test('a Project Manager with access to the client can approve a go-live exception; a BDE with the same access cannot', async () => {
+    assert.equal((await portal('pmUser', 'GET', `/clients/${ids.epsilon}/onboarding`)).status, 200);
+    const bde = await portal('bdeUser', 'POST', `/clients/${ids.epsilon}/onboarding/go-live`, { exception: { reason: 'Client wants to launch before the contract is countersigned' } });
+    assert.equal(bde.status, 409);
+    assert.match(bde.body.message, /authorised/);
+    const pm = await portal('pmUser', 'POST', `/clients/${ids.epsilon}/onboarding/go-live`, { exception: { reason: 'Client wants to launch before the contract is countersigned' } });
+    assert.equal(pm.status, 200, JSON.stringify(pm.body));
+    assert.equal(pm.body.data.goLive.isLive, true);
+  });
+
+  test('a Project Manager cannot act on a client outside their access', async () => {
+    assert.equal((await portal('pmUser', 'POST', `/clients/${ids.gamma}/onboarding/go-live`, { exception: { reason: 'Not my client at all, should be refused' } })).status, 404);
+  });
+
+  // ── 3. Client status: Active ↔ Hold, manual ──
+  test('staff can put a client on hold with a reason; the client is told and can still log in', async () => {
+    assert.equal((await admin('POST', `/admin/clients/${ids.epsilon}/hold`, {})).status, 400, 'a reason is required');
+    const held = await admin('POST', `/admin/clients/${ids.epsilon}/hold`, { reason: 'Invoice VH-INV-1 unpaid for 30 days' });
+    assert.equal(held.status, 200, JSON.stringify(held.body));
+    assert.equal((await admin('POST', `/admin/clients/${ids.epsilon}/hold`, { reason: 'again please' })).status, 409);
+
+    const me = await asClient('epsilon', 'GET', '/client/auth/me');
+    assert.equal(me.status, 200, 'a client on hold can still log in to pay');
+    assert.equal(me.body.client.serviceStatus, 'Hold');
+    const overview = (await asClient('epsilon', 'GET', '/client/overview')).body.data;
+    assert.equal(overview.actions[0].key, 'account-hold');
+    assert.match(overview.actions[0].detail, /unpaid/);
+    assert.ok((await asClient('epsilon', 'GET', '/client/notifications')).body.notifications.some((n) => n.type === 'account_hold'));
+  });
+
+  test('the portfolio counts and filters clients on hold, and leaves them out of recurring revenue', async () => {
+    const all = (await admin('GET', '/admin/portfolio')).body;
+    assert.equal(all.kpis.holdClients, 1);
+    const held = (await admin('GET', '/admin/portfolio?status=hold')).body.data;
+    assert.deepEqual(held.map((r) => r.businessName), ['Epsilon Ltd']);
+    assert.match(held[0].holdReason, /unpaid/);
+  });
+
+  test('releasing the hold makes the client active again; it is audited both ways', async () => {
+    assert.equal((await admin('POST', `/admin/clients/${ids.epsilon}/release`)).status, 200);
+    assert.equal((await admin('POST', `/admin/clients/${ids.epsilon}/release`)).status, 409);
+    assert.equal((await asClient('epsilon', 'GET', '/client/auth/me')).body.client.serviceStatus, 'Active');
+    const AuditLog = require('../../models/AuditLog');
+    assert.ok(await AuditLog.findOne({ action: 'CLIENT_HOLD' }).lean());
+    assert.ok(await AuditLog.findOne({ action: 'CLIENT_RELEASE' }).lean());
+  });
+
+  // ── 5. Work hours visibility ──
+  test('the client sees time by activity and project — no employee names or internal notes', async () => {
+    const WorkLog = require('../../models/WorkLog');
+    const Project = require('../../models/Project');
+    const proj = await Project.create({ client_ref: ids.epsilon, projectName: 'Epsilon store' });
+    const d = new Date();
+    const log = (min, activityType, extra = {}) => ({
+      employeeId: new mongoose.Types.ObjectId(), date: d, startTime: d, duration: min, project: 'internal label', task: 'SECRET task note',
+      activityType, isBillable: true, client_ref: ids.epsilon, remarks: 'SECRET remark', ...extra,
+    });
+    await WorkLog.create([
+      log(90, 'Google Ads', { project_ref: proj._id }),
+      log(60, 'Google Ads', { project_ref: proj._id, outcome: 'Paused two weak ad sets', visibility: 'Client' }),
+      log(30, 'Graphic Design', { outcome: 'SECRET internal outcome' }),
+    ]);
+    const res = await asClient('epsilon', 'GET', '/client/work?period=this_month');
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    const w = res.body.data;
+    assert.equal(w.totalHours, 3);
+    assert.deepEqual(w.byActivity.map((x) => [x.name, x.hours]), [['Google Ads', 2.5], ['Graphic Design', 0.5]]);
+    assert.equal(w.byProject[0].name, 'Epsilon store');
+    assert.ok(w.entries.some((e) => e.outcome === 'Paused two weak ad sets'), 'client-visible outcome is shown');
+    const raw = JSON.stringify(res.body);
+    for (const secret of ['SECRET', 'employeeId', 'remarks', 'pmUser']) assert.equal(raw.includes(secret), false, `leaked ${secret}`);
+    assert.equal((await asClient('epsilon', 'GET', '/client/work?period=custom&from=2026-10-10&to=2026-10-01')).status, 400);
+    assert.equal((await asClient('alpha', 'GET', '/client/work?period=this_month')).body.data.byProject.some((p) => p.name === 'Epsilon store'), false);
+  });
+
+  // ── 6. Extra retainer hours beyond the allocation ──
+  test('hours beyond the plan are tracked month by month', async () => {
+    const Retainer = require('../../models/Retainer');
+    const ret = await Retainer.create({
+      client_ref: ids.epsilon, packageName: 'Starter', monthlyAmount: 10000, supportHoursPerMonth: 1,
+      contractStartDate: new Date(now.getFullYear() - 1, 0, 1), contractEndDate: new Date(now.getFullYear() + 1, 0, 1),
+    });
+    const r = (await admin('GET', `/admin/retainers/${ret._id}`)).body.data;
+    const thisMonth = r.history.at(-1);
+    assert.equal(r.history.length, 6);
+    assert.equal(thisMonth.used, 3);
+    assert.equal(thisMonth.included, 1);
+    assert.equal(thisMonth.extra, 2);
+    assert.equal(thisMonth.partial, true);
+    assert.equal(r.hoursOverage, 2);
+    const mine = (await asClient('epsilon', 'GET', '/client/retainers')).body.data[0];
+    assert.equal(mine.history.at(-1).extra, 2, 'the client sees the same extra hours');
+  });
+
+  // ── 2 + 7. Manual ad spend / campaign performance ──
+  test('staff enter daily rows; bad and duplicate rows are refused', async () => {
+    const add = (body) => admin('POST', `/admin/clients/${ids.epsilon}/ad-performance`, body);
+    const row = { day: firstOfMonth, platform: 'Meta', campaignName: 'Diwali Sale', objective: 'Sales', resultType: 'Purchases', spend: 1000, impressions: 20000, clicks: 400, results: 10, revenue: 5000, notes: 'SECRET internal note' };
+    const first = await add(row);
+    assert.equal(first.status, 201, JSON.stringify(first.body));
+    ids.adRow = first.body.data._id;
+    assert.equal((await add({ ...row, campaignName: '  diwali   sale ' })).status, 409, 'same day + platform + campaign is a duplicate');
+    assert.equal((await add({ ...row, clicks: 30000 })).status, 400);
+    assert.equal((await add({ ...row, day: '2999-01-01' })).status, 400);
+    assert.equal((await add({ ...row, platform: 'Google', campaignName: 'Search - Brand', spend: 500, impressions: 5000, clicks: 250, results: 5, revenue: null })).status, 201);
+    assert.equal((await add({ ...row, platform: 'Google', campaignName: 'Hidden test', spend: 99999, hidden: true })).status, 201);
+    assert.equal((await add({ ...row, day: firstOfLastMonth, spend: 1200, impressions: 24000, clicks: 300, results: 6, revenue: 3000 })).status, 201);
+  });
+
+  test('the client report: totals from sums, comparison with last month, hidden rows and notes excluded', async () => {
+    const res = await asClient('epsilon', 'GET', '/client/performance?period=this_month&group=day');
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    const r = res.body.data;
+    assert.equal(r.totals.spend, 1500, 'the hidden 99,999 row is not counted');
+    assert.equal(r.totals.clicks, 650);
+    assert.equal(r.totals.ctr, 2.6); // 650 / 25,000
+    assert.equal(r.totals.costPerResult, 100); // 1500 / 15
+    assert.equal(r.totals.roas, 3.33); // 5000 / 1500 (one row had no revenue)
+    assert.equal(r.comparison.spend.previous, 1200);
+    assert.equal(r.comparison.spend.pct, 25);
+    assert.equal(r.comparison.costPerResult.good, true, 'cost per result fell from 200 to 100');
+    assert.equal(r.series.length, r.current.days);
+    assert.equal(r.byCampaign.length, 2);
+    const raw = JSON.stringify(r);
+    for (const secret of ['SECRET', 'Hidden test', 'enteredByName', 'notes']) assert.equal(raw.includes(secret), false, `leaked ${secret}`);
+    assert.equal(r.budget.monthlyBudget, 31000);
+    assert.equal(r.budget.spentThisMonth, 1500);
+  });
+
+  test('week and month views, platform filter, and CSV export', async () => {
+    const week = (await asClient('epsilon', 'GET', '/client/performance?period=last_30_days&group=week')).body.data;
+    assert.ok(week.series.length >= 4 && week.series.length <= 6);
+    assert.equal(week.series.reduce((s, b) => s + b.spend, 0), week.totals.spend);
+    const month = (await asClient('epsilon', 'GET', '/client/performance?period=last_30_days&group=month')).body.data;
+    assert.ok(month.series.length >= 1 && month.series.length <= 2);
+    assert.equal((await asClient('epsilon', 'GET', '/client/performance?period=this_month&platform=Google')).body.data.totals.spend, 500);
+
+    const csv = await fetch(`${base}/client/performance/export.csv?period=this_month`, { headers: { authorization: `Bearer ${clientToken('epsilon')}` } });
+    assert.equal(csv.status, 200);
+    const text = await csv.text();
+    assert.match(text.split('\n')[0], /^day,platform,campaignName/);
+    assert.equal(text.includes('SECRET'), false);
+    assert.equal(text.includes('Hidden test'), false);
+  });
+
+  test('staff see hidden rows and notes; edits and deletes are audited; other clients see nothing', async () => {
+    const staff = (await admin('GET', `/admin/clients/${ids.epsilon}/ad-performance?period=this_month`)).body.data;
+    assert.equal(staff.totals.spend, 101499);
+    assert.ok(staff.rows.some((r) => r.notes === 'SECRET internal note'));
+    const upd = await admin('PUT', `/admin/clients/${ids.epsilon}/ad-performance/${ids.adRow}`, { results: 20 });
+    assert.equal(upd.status, 200, JSON.stringify(upd.body));
+    assert.equal(upd.body.data.results, 20);
+    assert.equal(upd.body.data.spend, 1000);
+    const AuditLog = require('../../models/AuditLog');
+    assert.ok(await AuditLog.findOne({ action: 'AD_PERFORMANCE_UPDATE' }).lean());
+    assert.equal((await admin('DELETE', `/admin/clients/${ids.epsilon}/ad-performance/${ids.adRow}`)).status, 200);
+    assert.equal((await asClient('epsilon', 'GET', '/client/performance?period=this_month')).body.data.totals.spend, 500);
+    assert.equal((await asClient('alpha', 'GET', '/client/performance?period=this_month')).body.data.totals.spend, 0);
+    assert.equal((await portal('bdeUser', 'GET', `/clients/${ids.alpha}/ad-performance`)).status, 404, 'scoped staff only see their clients');
+  });
+});
+
+describe('Super Admin rules: automatic hold and extra-hours billing', () => {
+  const policyPut = (token, body) => request(token, 'PUT', '/admin/settings/client-policies', body);
+  const runHold = () => admin('POST', '/admin/settings/client-policies/run-auto-hold');
+  const mkClient = async (key, name) => {
+    const c = await require('../../models/Client').create({ businessName: name, contactName: 'Pol Owner', email: `${key}@example.com`, phone: '+919800000012', password: 'ClientPass1', isTemporaryPassword: false });
+    ids[key] = String(c._id);
+    return c;
+  };
+  const stateOf = (key) => require('../../models/Client').findById(ids[key]).lean();
+
+  before(async () => {
+    await mkClient('zetaLate', 'Zeta Late');       // 40 days overdue, 20,000
+    await mkClient('zetaRecent', 'Zeta Recent');   // 5 days overdue
+    await mkClient('zetaSmall', 'Zeta Small');     // 40 days overdue but only 300
+    await mkClient('zetaManual', 'Zeta Manual');   // manually held, nothing overdue
+    await inv(ids.zetaLate, 20000, -40);
+    await inv(ids.zetaRecent, 20000, -5);
+    await inv(ids.zetaSmall, 300, -40);
+  });
+
+  test('only a Super Admin can read or change the rules', async () => {
+    const Role = require('../../models/Role');
+    const Admin = require('../../models/Admin');
+    const role = await Role.create({ name: 'CRM_E2E_POLICY', permissions: ['cms.manage'] });
+    const a = await Admin.create({ firstName: 'Crm', lastName: 'Admin', email: 'crm-policy@e2e.test', password: 'Passw0rd!e2e', roles: [role._id] });
+    const crmToken = jwt.sign({ id: a._id }, JWT_SECRET, { expiresIn: '1h' });
+    assert.equal((await request(crmToken, 'GET', '/admin/settings/client-policies')).status, 403);
+    assert.equal((await policyPut(crmToken, { autoHold: { enabled: true, daysOverdue: 5 } })).status, 403);
+    assert.equal((await request(null, 'GET', '/admin/settings/client-policies')).status, 401);
+    assert.equal((await asClient('alpha', 'PUT', '/admin/settings/client-policies', {})).status, 401);
+    const got = (await admin('GET', '/admin/settings/client-policies')).body;
+    assert.equal(got.autoHold.enabled, false);
+    assert.equal(got.extraHours.mode, 'track_only');
+  });
+
+  test('with the rule off, the job changes nothing', async () => {
+    const r = (await runHold()).body;
+    assert.equal(r.enabled, false);
+    assert.deepEqual(r.held, []);
+    assert.equal((await stateOf('zetaLate')).serviceStatus, 'Active');
+  });
+
+  test('bad settings are refused and saving is audited', async () => {
+    assert.equal((await policyPut(adminToken(), { autoHold: { enabled: true, daysOverdue: 0 } })).status, 400);
+    assert.equal((await policyPut(adminToken(), { extraHours: { mode: 'bill', ratePerHour: 0 } })).status, 400);
+    assert.equal((await policyPut(adminToken(), {})).status, 400);
+    const ok = await policyPut(adminToken(), { autoHold: { enabled: true, daysOverdue: 30, minOverdueAmount: 1000, autoRelease: true } });
+    assert.equal(ok.status, 200, JSON.stringify(ok.body));
+    assert.ok(await require('../../models/AuditLog').findOne({ action: 'CLIENT_POLICY_UPDATE' }).lean());
+  });
+
+  test('switched on: only clients past the days AND the amount go on hold, and they are told', async () => {
+    const r = (await runHold()).body;
+    assert.deepEqual(r.held, [ids.zetaLate]);
+    const late = await stateOf('zetaLate');
+    assert.equal(late.serviceStatus, 'Hold');
+    assert.equal(late.holdSource, 'auto');
+    assert.match(late.holdReason, /20,000.*40 days/);
+    assert.equal((await stateOf('zetaRecent')).serviceStatus, 'Active', 'not late enough');
+    assert.equal((await stateOf('zetaSmall')).serviceStatus, 'Active', 'below the minimum amount');
+    assert.ok((await asClient('zetaLate', 'GET', '/client/notifications')).body.notifications.some((n) => n.type === 'account_hold'));
+    assert.ok(await require('../../models/AuditLog').findOne({ action: 'CLIENT_HOLD', actorType: 'System' }).lean());
+    assert.deepEqual((await runHold()).body.held, [], 'a second run does not hold again');
+  });
+
+  test('a manual hold is never lifted by the rule; an automatic one lifts once nothing is overdue', async () => {
+    assert.equal((await admin('POST', `/admin/clients/${ids.zetaManual}/hold`, { reason: 'Contract dispute, do not release' })).status, 200);
+    await runHold();
+    assert.equal((await stateOf('zetaManual')).serviceStatus, 'Hold', 'manual hold survives the pass');
+
+    const Invoice = require('../../models/Invoice');
+    await Invoice.updateMany({ client_ref: ids.zetaLate }, { $set: { paidAmount: 20000, paymentStatus: 'Paid' } });
+    const r = (await runHold()).body;
+    assert.deepEqual(r.released, [ids.zetaLate]);
+    const late = await stateOf('zetaLate');
+    assert.equal(late.serviceStatus, 'Active');
+    assert.equal(late.holdSource, undefined);
+  });
+
+  test('with auto-release off, an automatic hold stays until staff release it', async () => {
+    const Invoice = require('../../models/Invoice');
+    await Invoice.updateMany({ client_ref: ids.zetaLate }, { $set: { paidAmount: 0, paymentStatus: 'Unpaid' } });
+    await policyPut(adminToken(), { autoHold: { enabled: true, daysOverdue: 30, minOverdueAmount: 1000, autoRelease: false } });
+    assert.deepEqual((await runHold()).body.held, [ids.zetaLate]);
+    await Invoice.updateMany({ client_ref: ids.zetaLate }, { $set: { paidAmount: 20000, paymentStatus: 'Paid' } });
+    assert.deepEqual((await runHold()).body.released, []);
+    assert.equal((await stateOf('zetaLate')).serviceStatus, 'Hold');
+    assert.equal((await admin('POST', `/admin/clients/${ids.zetaLate}/release`)).status, 200);
+    await policyPut(adminToken(), { autoHold: { enabled: false, daysOverdue: 30, minOverdueAmount: 1000, autoRelease: true } });
+  });
+
+  // ── extra hours ──
+  const lastMonth = () => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth() - 1, 15, 12); };
+  const keyOf = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+
+  test('extra hours: tracked only until billing is switched on; then previewed and invoiced once', async () => {
+    const Retainer = require('../../models/Retainer');
+    const WorkLog = require('../../models/WorkLog');
+    await mkClient('eta', 'Eta Retainer');
+    const ret = await Retainer.create({ client_ref: ids.eta, packageName: 'Growth', monthlyAmount: 20000, supportHoursPerMonth: 2, contractStartDate: new Date(new Date().getFullYear() - 1, 0, 1), contractEndDate: new Date(new Date().getFullYear() + 1, 0, 1) });
+    const when = lastMonth();
+    await WorkLog.create({ employeeId: new mongoose.Types.ObjectId(), date: when, startTime: when, duration: 5 * 60, project: 'P', task: 'T', activityType: 'Google Ads', isBillable: true, client_ref: ids.eta });
+    const month = keyOf(when);
+
+    assert.equal((await admin('GET', `/admin/retainers/${ret._id}/extra-hours?month=${month}`)).status, 409, 'track-only: no billing');
+    assert.equal((await policyPut(adminToken(), { extraHours: { mode: 'bill', ratePerHour: 1000, freeHours: 0.5, roundTo: 0.5, gstPercent: 18 } })).status, 200);
+
+    const prev = (await admin('GET', `/admin/retainers/${ret._id}/extra-hours?month=${month}`)).body.data;
+    assert.deepEqual([prev.used, prev.included, prev.extraHours, prev.billableHours, prev.amount, prev.gst, prev.total], [5, 2, 3, 2.5, 2500, 450, 2950]);
+    assert.equal((await admin('GET', `/admin/retainers/${ret._id}/extra-hours?month=${keyOf(new Date())}`)).status, 400, 'the running month cannot be billed');
+    assert.equal((await admin('GET', `/admin/retainers/${ret._id}/extra-hours?month=bad`)).status, 400);
+
+    const made = await admin('POST', `/admin/retainers/${ret._id}/extra-hours-invoice`, { month });
+    assert.equal(made.status, 201, JSON.stringify(made.body));
+    const invoice = await require('../../models/Invoice').findById(made.body.data._id).lean();
+    assert.equal(invoice.totalAmount, 2950);
+    assert.equal(invoice.taxAmount, 450);
+    assert.equal(invoice.extraHours.month, month);
+    assert.equal(String(invoice.client_ref), ids.eta);
+    assert.ok((await asClient('eta', 'GET', '/client/notifications')).body.notifications.some((n) => n.type === 'invoice_created'));
+    assert.ok(await require('../../models/AuditLog').findOne({ action: 'EXTRA_HOURS_INVOICE' }).lean());
+
+    assert.equal((await admin('POST', `/admin/retainers/${ret._id}/extra-hours-invoice`, { month })).status, 409, 'a month is invoiced once');
+    assert.equal((await admin('GET', `/admin/retainers/${ret._id}/extra-hours?month=${month}`)).body.data.alreadyInvoiced.startsWith('VH-INV'), true);
+    ids.etaRet = String(ret._id);
+  });
+
+  test('two simultaneous requests still create only one invoice', async () => {
+    const Retainer = require('../../models/Retainer');
+    const WorkLog = require('../../models/WorkLog');
+    await mkClient('theta', 'Theta Retainer');
+    const ret = await Retainer.create({ client_ref: ids.theta, packageName: 'Growth', monthlyAmount: 20000, supportHoursPerMonth: 1, contractStartDate: new Date(new Date().getFullYear() - 1, 0, 1), contractEndDate: new Date(new Date().getFullYear() + 1, 0, 1) });
+    const when = lastMonth();
+    await WorkLog.create({ employeeId: new mongoose.Types.ObjectId(), date: when, startTime: when, duration: 4 * 60, project: 'P', task: 'T', activityType: 'Google Ads', isBillable: true, client_ref: ids.theta });
+    const month = keyOf(when);
+    const [a, b] = await Promise.all([1, 2].map(() => admin('POST', `/admin/retainers/${ret._id}/extra-hours-invoice`, { month })));
+    assert.deepEqual([a.status, b.status].sort(), [201, 409]);
+    assert.equal(await require('../../models/Invoice').countDocuments({ 'extraHours.retainer_ref': ret._id }), 1);
+  });
+
+  test('hours inside the free allowance create no invoice', async () => {
+    await policyPut(adminToken(), { extraHours: { mode: 'bill', ratePerHour: 1000, freeHours: 10, roundTo: 0.5, gstPercent: 18 } });
+    const Retainer = require('../../models/Retainer');
+    const WorkLog = require('../../models/WorkLog');
+    await mkClient('iota', 'Iota Retainer');
+    const ret = await Retainer.create({ client_ref: ids.iota, packageName: 'Growth', monthlyAmount: 20000, supportHoursPerMonth: 1, contractStartDate: new Date(new Date().getFullYear() - 1, 0, 1), contractEndDate: new Date(new Date().getFullYear() + 1, 0, 1) });
+    const when = lastMonth();
+    await WorkLog.create({ employeeId: new mongoose.Types.ObjectId(), date: when, startTime: when, duration: 3 * 60, project: 'P', task: 'T', activityType: 'Google Ads', isBillable: true, client_ref: ids.iota });
+    const r = await admin('POST', `/admin/retainers/${ret._id}/extra-hours-invoice`, { month: keyOf(when) });
+    assert.equal(r.status, 400);
+    assert.match(r.body.message, /free allowance/);
+    await policyPut(adminToken(), { extraHours: { mode: 'track_only', ratePerHour: 0, freeHours: 0, roundTo: 0.5, gstPercent: 18 } });
+  });
+});
+
+describe('recurring invoices: schedule, drafts, correction and approval', () => {
+  const pad = (n) => String(n).padStart(2, '0');
+  const dayStr = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const today = new Date();
+  const todayStr = dayStr(today);
+  const daysAgo = (n) => dayStr(new Date(today.getFullYear(), today.getMonth(), today.getDate() - n));
+  const mk = async (key, name, { retainer = true, email } = {}) => {
+    const Client = require('../../models/Client');
+    const c = await Client.create({ businessName: name, contactName: 'Sched Owner', email: email || `${key}@example.com`, phone: '+919800000013', password: 'ClientPass1', isTemporaryPassword: false });
+    ids[key] = String(c._id);
+    if (retainer) {
+      await require('../../models/Retainer').create({
+        client_ref: c._id, packageName: 'Performance Retainer', monthlyAmount: 15000, supportHoursPerMonth: 10,
+        contractStartDate: new Date(today.getFullYear() - 1, 0, 1), contractEndDate: new Date(today.getFullYear() + 1, 0, 1),
+      });
+    }
+    return c;
+  };
+  const schedule = (key, body) => admin('PUT', `/admin/clients/${ids[key]}/billing-schedule`, { active: true, billingDay: today.getDate(), startDate: todayStr, ...body });
+  const run = async () => (await admin('POST', '/admin/invoice-drafts-run')).body;
+  const drafts = async (status = 'open') => (await admin('GET', `/admin/invoice-drafts?status=${status}`)).body;
+  const draftOf = async (key) => (await drafts('')).data.find((d) => d.client._id === ids[key]);
+
+  before(async () => {
+    await mk('kappa', 'Kappa Billing');
+    await mk('lambda', 'Lambda No Retainer', { retainer: false });
+    await mk('mu', 'Mu Inactive');
+    await mk('nu', 'Nu Future');
+  });
+
+  test('a schedule is validated, saved, audited, and shows the upcoming dates', async () => {
+    assert.equal((await schedule('kappa', { billingDay: 0 })).status, 400);
+    assert.equal((await schedule('kappa', { startDate: '2026-02-30' })).status, 400);
+    const ok = await schedule('kappa', { dueDays: 10 });
+    assert.equal(ok.status, 200, JSON.stringify(ok.body));
+    const got = (await admin('GET', `/admin/clients/${ids.kappa}/billing-schedule`)).body.data;
+    assert.equal(got.schedule.dueDays, 10);
+    assert.equal(got.defaultDueDays, 7);
+    assert.equal(got.upcoming[0].invoiceDate, todayStr);
+    assert.ok(await require('../../models/AuditLog').findOne({ action: 'BILLING_SCHEDULE_UPDATE' }).lean());
+    await schedule('lambda');
+    await admin('PUT', `/admin/clients/${ids.mu}/billing-schedule`, { active: false, billingDay: today.getDate(), startDate: todayStr });
+    await schedule('nu', { startDate: dayStr(new Date(today.getFullYear(), today.getMonth() + 1, today.getDate())) });
+  });
+
+  test('the job drafts what is due: advance period, full fee + GST, due date; nothing reaches the client', async () => {
+    const r = await run();
+    assert.equal(r.created, 1);
+    assert.equal(r.needAttention, 1, 'the client with no retainer is flagged, not skipped');
+    const d = await draftOf('kappa');
+    assert.equal(d.status, 'Pending Approval');
+    assert.equal(d.invoiceDate, todayStr);
+    assert.equal(d.lineItems.length, 1);
+    assert.deepEqual([d.subtotal, d.taxAmount, d.totalAmount], [15000, 2700, 17700]);
+    assert.ok(d.periodEnd > d.periodStart, 'the period runs to the day before the next invoice');
+    const dueIn = Math.round((new Date(d.dueDate) - new Date(`${todayStr}T00:00:00`)) / 864e5);
+    assert.ok(dueIn >= 10 && dueIn <= 11, `due 10 days after (got ${dueIn})`);
+    assert.ok(await require('../../models/Notification').findOne({ type: 'invoice_drafts' }).lean(), 'staff are told');
+
+    // a draft is not an invoice: invisible to the client and not money owed
+    assert.equal((await asClient('kappa', 'GET', '/client/invoices')).body.summary.total, 0);
+    assert.equal((await asClient('kappa', 'GET', '/client/overview')).body.data.billing.outstanding, 0);
+    assert.equal((await admin('GET', `/admin/invoices?client_ref=${ids.kappa}`)).body.data.length, 0);
+  });
+
+  test('running the job again creates nothing new; inactive, future and suspended schedules are ignored', async () => {
+    const again = await run();
+    assert.equal(again.created + again.needAttention, 0);
+    assert.equal((await draftOf('mu')), undefined, 'switched-off schedule');
+    assert.equal((await draftOf('nu')), undefined, 'starts next month');
+    assert.equal(await require('../../models/InvoiceDraft').countDocuments({ client_ref: ids.kappa }), 1);
+  });
+
+  test('a draft that cannot be built is kept with its reasons and cannot be approved until fixed', async () => {
+    const d = await draftOf('lambda');
+    assert.equal(d.status, 'Needs Attention');
+    assert.match(d.problems[0], /No active monthly retainer/);
+    const refused = await admin('POST', `/admin/invoice-drafts/${d._id}/approve`);
+    assert.equal(refused.status, 409);
+    assert.match(refused.body.message, /Fix this first/);
+    assert.equal((await admin('PUT', `/admin/invoice-drafts/${d._id}`, { lineItems: [] })).status, 400);
+
+    // correct it by hand: add the line
+    const fixed = await admin('PUT', `/admin/invoice-drafts/${d._id}`, { lineItems: [{ description: 'Setup retainer — manual', unitPrice: 8000 }], note: 'Retainer not entered yet' });
+    assert.equal(fixed.status, 200, JSON.stringify(fixed.body));
+    assert.equal(fixed.body.data.status, 'Pending Approval');
+    assert.equal(fixed.body.data.totalAmount, 9440);
+    assert.equal(fixed.body.data.corrected, true);
+  });
+
+  test('"Rebuild" picks up a retainer added after the draft was made', async () => {
+    const Retainer = require('../../models/Retainer');
+    await mk('xi', 'Xi Late Retainer', { retainer: false });
+    await schedule('xi');
+    await run();
+    const d = await draftOf('xi');
+    assert.equal(d.status, 'Needs Attention');
+    await Retainer.create({ client_ref: ids.xi, packageName: 'Added Later', monthlyAmount: 12000, supportHoursPerMonth: 5, contractStartDate: new Date(today.getFullYear() - 1, 0, 1), contractEndDate: new Date(today.getFullYear() + 1, 0, 1) });
+    const r = await admin('POST', `/admin/invoice-drafts/${d._id}/rebuild`);
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    assert.equal(r.body.data.status, 'Pending Approval');
+    assert.equal(r.body.data.subtotal, 12000);
+  });
+
+  test('a correction before approval flows through to the real invoice, which the client then sees', async () => {
+    const d = await draftOf('kappa');
+    const fixed = await admin('PUT', `/admin/invoice-drafts/${d._id}`, { lineItems: [{ description: 'Performance Retainer — corrected', unitPrice: 14000 }], dueDate: dayStr(new Date(today.getFullYear(), today.getMonth(), today.getDate() + 7)) });
+    assert.equal(fixed.status, 200);
+    assert.equal(fixed.body.data.totalAmount, 16520);
+    assert.ok(await require('../../models/AuditLog').findOne({ action: 'INVOICE_DRAFT_CORRECT' }).lean());
+
+    const [a, b] = await Promise.all([1, 2].map(() => admin('POST', `/admin/invoice-drafts/${d._id}/approve`)));
+    assert.deepEqual([a.status, b.status].sort(), [200, 409], 'two approvers create one invoice');
+    assert.equal(await require('../../models/Invoice').countDocuments({ client_ref: ids.kappa }), 1);
+
+    const mine = (await asClient('kappa', 'GET', '/client/invoices')).body;
+    assert.equal(mine.summary.total, 1);
+    assert.equal(mine.data[0].totalAmount, 16520);
+    assert.match(mine.data[0].lineItems[0].description, /corrected/);
+    assert.ok((await asClient('kappa', 'GET', '/client/notifications')).body.notifications.some((n) => n.type === 'invoice_created'));
+    const stored = await require('../../models/Invoice').findOne({ client_ref: ids.kappa }).lean();
+    assert.equal(stored.scheduled.invoiceDate, todayStr);
+    assert.equal((await draftOf('kappa')).status, 'Approved');
+    assert.ok(await require('../../models/AuditLog').findOne({ action: 'INVOICE_DRAFT_APPROVE' }).lean());
+
+    assert.equal((await admin('PUT', `/admin/invoice-drafts/${d._id}`, { note: 'too late' })).status, 409, 'an approved draft is locked; the invoice itself can still be edited');
+    assert.equal((await run()).created, 0, 'the job does not draft an approved date again');
+  });
+
+  test('skipping needs a reason, and a skipped date is not drafted again', async () => {
+    const d = await draftOf('xi');
+    assert.equal((await admin('POST', `/admin/invoice-drafts/${d._id}/skip`, { reason: 'no' })).status, 400);
+    const ok = await admin('POST', `/admin/invoice-drafts/${d._id}/skip`, { reason: 'Client paid this month offline' });
+    assert.equal(ok.status, 200);
+    assert.equal((await draftOf('xi')).status, 'Skipped');
+    assert.equal((await run()).created, 0);
+    assert.equal((await admin('POST', `/admin/invoice-drafts/${d._id}/approve`)).status, 409);
+  });
+
+  test('a suspended client is not invoiced; the missed-run catch-up is limited to a week', async () => {
+    await mk('omicron', 'Omicron Suspended');
+    await schedule('omicron');
+    await require('../../models/Client').updateOne({ _id: ids.omicron }, { $set: { isActive: false } });
+    await mk('pi', 'Pi Old Start');
+    await schedule('pi', { startDate: daysAgo(20), billingDay: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 20).getDate() });
+    await mk('rho', 'Rho Recent Start');
+    await schedule('rho', { startDate: daysAgo(3), billingDay: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 3).getDate() });
+    await run();
+    assert.equal(await draftOf('omicron'), undefined);
+    assert.equal(await draftOf('pi'), undefined, 'a 20-day-old date is not back-filled');
+    assert.equal((await draftOf('rho')).invoiceDate, daysAgo(3), 'a missed run catches up within the week');
+  });
+
+  test('Super Admin default for days to pay and GST can be changed and are used for new drafts', async () => {
+    const bad = await request(adminToken(), 'PUT', '/admin/settings/client-policies', { billing: { defaultDueDays: 0, gstPercent: 18 } });
+    assert.equal(bad.status, 400);
+    const ok = await request(adminToken(), 'PUT', '/admin/settings/client-policies', { billing: { defaultDueDays: 10, gstPercent: 12 } });
+    assert.equal(ok.status, 200, JSON.stringify(ok.body));
+    assert.equal(ok.body.billing.gstPercent, 12);
+    await mk('sigma', 'Sigma Policy');
+    await schedule('sigma', { dueDays: undefined });
+    await run();
+    const d = await draftOf('sigma');
+    assert.equal(d.taxPercent, 12);
+    assert.equal(d.taxAmount, 1800);
+    assert.equal((await admin('GET', `/admin/clients/${ids.sigma}/billing-schedule`)).body.data.schedule.dueDays, 10);
+    await request(adminToken(), 'PUT', '/admin/settings/client-policies', { billing: { defaultDueDays: 7, gstPercent: 18 } });
+  });
+
+  test('a person limited to some clients only sees and acts on those clients\u2019 drafts', async () => {
+    const Role = require('../../models/Role');
+    const Admin = require('../../models/Admin');
+    const Employee = require('../../models/Employee');
+    const role = await Role.create({ name: 'BDE_SCHED', permissions: ['ess.access'], isEmployeeRole: true });
+    const a = await Admin.create({
+      firstName: 'Sched', lastName: 'Limited', email: 'sched-limited@e2e.test', password: 'Passw0rd!e2e', roles: [role._id], employeeId: 'VH-S-1',
+      accessGrants: [{ page: 'invoices', actions: ['view', 'edit', 'create'], scope: { mode: 'clients', clients: [ids.rho] } }],
+    });
+    await Employee.collection.insertOne({ employeeId: 'VH-S-1', adminId: a._id, firstName: 'Sched', lastName: 'Limited', email: 'sched-limited@e2e.test', phone: '9800000000', roleDept: 'Test', joinDate: new Date(), salaryCTC: 1, employmentStatus: 'Permanent' });
+    const token = jwt.sign({ id: a._id }, JWT_SECRET, { expiresIn: '1h' });
+    const list = (await request(token, 'GET', '/employee-portal/crm/invoice-drafts?status=open')).body.data;
+    assert.ok(list.length >= 1 && list.every((x) => x.client._id === ids.rho));
+    const other = await draftOf('lambda');
+    assert.equal((await request(token, 'POST', `/employee-portal/crm/invoice-drafts/${other._id}/skip`, { reason: 'not my client at all' })).status, 404);
+    assert.equal((await request(token, 'POST', '/employee-portal/crm/invoice-drafts-run')).status, 403, 'generating needs all clients');
   });
 });

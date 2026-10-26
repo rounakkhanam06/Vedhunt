@@ -1,4 +1,4 @@
-import { Users, UserCheck, UserX, IndianRupee, Wallet, AlertTriangle, Percent } from 'lucide-react';
+import { Users, UserCheck, UserX, IndianRupee, Wallet, AlertTriangle, Percent, PauseCircle } from 'lucide-react';
 
 import { inr, pct } from './format';
 
@@ -28,11 +28,15 @@ export default function PortfolioKpis({ kpis, topByRevenue = [], revenuePeriod, 
   const hasMoney = kpis.monthlyRecurringRevenue !== undefined;
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-3">
         <Card icon={Users} label="Total clients" value={kpis.totalClients} sub={kpis.archivedClients ? `${kpis.archivedClients} deleted` : undefined}
           onClick={() => onPick({ status: '', billing: '' })} active={!status && !billing} />
         <Card icon={UserCheck} label="Active" value={kpis.activeClients} tone="text-green-400"
           onClick={() => onPick({ status: 'active', billing: '' })} active={status === 'active'} />
+        {kpis.holdClients !== undefined && (
+          <Card icon={PauseCircle} label="On hold" value={kpis.holdClients} tone="text-orange-400" sub="Service paused"
+            onClick={() => onPick({ status: 'hold', billing: '' })} active={status === 'hold'} />
+        )}
         <Card icon={UserX} label="Inactive" value={kpis.inactiveClients} tone="text-amber-400" sub="Suspended accounts"
           onClick={() => onPick({ status: 'inactive', billing: '' })} active={status === 'inactive'} />
         {hasMoney && (

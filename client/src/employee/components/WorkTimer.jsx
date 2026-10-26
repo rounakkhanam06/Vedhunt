@@ -191,6 +191,7 @@ function StopTimerModal({ timer, elapsed, onClose, onStopped }) {
   const master = activityTypes.find((a) => a.name === timer?.activityType);
   const [remarks, setRemarks] = useState('');
   const [outcome, setOutcome] = useState('');
+  const [shareOutcome, setShareOutcome] = useState(false);
   const [isProductive, setIsProductive] = useState(master ? master.productive : true);
   const [isBillable, setIsBillable] = useState(master ? master.billable : false);
   const [markTaskCompleted, setMarkTaskCompleted] = useState(Boolean(timer?.taskId));
@@ -202,7 +203,7 @@ function StopTimerModal({ timer, elapsed, onClose, onStopped }) {
     if (!remarks.trim()) { setMessage('Add a short summary of what you worked on.'); return; }
     setSubmitting(true);
     try {
-      const res = await essPost('/timer/stop', { remarks, outcome: outcome.trim() || undefined, isProductive, isBillable, markTaskCompleted: Boolean(timer?.taskId) && markTaskCompleted });
+      const res = await essPost('/timer/stop', { remarks, outcome: outcome.trim() || undefined, visibility: shareOutcome && outcome.trim() ? 'Client' : 'Internal', isProductive, isBillable, markTaskCompleted: Boolean(timer?.taskId) && markTaskCompleted });
       toast.success(res.message || 'Work logged');
       onStopped();
     } catch (err) {
@@ -229,6 +230,10 @@ function StopTimerModal({ timer, elapsed, onClose, onStopped }) {
           <div>
             <label className={labelClass}>Outcome for the client work (optional)</label>
             <input className={inputClass(false)} placeholder="What changed, the result, or what is blocking" maxLength={1000} value={outcome} onChange={(e) => setOutcome(e.target.value)} />
+            <label className="flex items-center gap-2 text-xs text-app-text-muted mt-2 cursor-pointer">
+              <input type="checkbox" checked={shareOutcome} onChange={(e) => setShareOutcome(e.target.checked)} /> Show this outcome to the client in their work log
+            </label>
+            <p className="text-[11px] text-app-text-muted mt-1">The client always sees the activity and time; your remarks stay internal.</p>
           </div>
         )}
         <div className="flex flex-wrap gap-4 text-sm text-app-text">

@@ -6,6 +6,8 @@ const { sanitizeProfile, profileDateErrors } = require('../services/clientProfil
 const { monthlyEquivalent, clientState } = require('../services/portfolio');
 const { buildActions, nextMilestone, dailyHoursSeries, monthlyTotals } = require('../services/clientOverview');
 const { EVENTS, mergePolicy } = require('../services/clientEmailPolicy');
+const policies = require('../services/clientPolicies');
+const bs = require('../services/billingSchedule');
 
 const NOW = new Date('2026-10-26T10:00:00Z');
 const keys = (scope) => onboarding.applicableTemplate(scope).map((t) => t.key);
@@ -222,7 +224,7 @@ describe('client email policy — which notifications are also emailed', () => {
   test('by default only action-needed events are emailed', () => {
     const p = mergePolicy(undefined);
     const on = Object.keys(p).filter((k) => p[k]).sort();
-    assert.deepEqual(on, ['agreement_updated', 'invoice_created', 'kyc_rejected', 'payment_rejected', 'ticket_pending_client']);
+    assert.deepEqual(on, ['account_hold', 'agreement_updated', 'invoice_created', 'kyc_rejected', 'payment_rejected', 'ticket_pending_client']);
   });
   test('every event has a switch, a label and a default', () => {
     assert.equal(Object.keys(mergePolicy({})).length, EVENTS.length);
@@ -234,5 +236,85 @@ describe('client email policy — which notifications are also emailed', () => {
     assert.equal(p.invoice_created, false);
     assert.equal(p.ticket_reply, false);
     assert.equal('made_up' in p, false);
+  });
+});
+
+describe('Super Admin rules — auto-hold and extra-hours billing', () => {
+  test('both rules ship switched off / track-only', () => {
+    assert.equal(policies.AUTO_HOLD_DEFAULTS.enabled, false);
+    assert.equal(policies.EXTRA_DEFAULTS.mode, 'track_only');
+  });
+  test('auto-hold settings are validated', () => {
+    assert.equal(policies.validateAutoHold({ enabled: true, daysOverdue: 15 }).value.daysOverdue, 15);
+    for (const bad of [{ daysOverdue: 0 }, { daysOverdue: 1.5 }, { daysOverdue: 400 }, { daysOverdue: 'x' }, { daysOverdue: 10, minOverdueAmount: -1 }]) {
+      assert.ok(policies.validateAutoHold(bad).error, JSON.stringify(bad));
+    }
+    assert.equal(policies.validateAutoHold({ daysOverdue: 10 }).value.autoRelease, true, 'release defaults on');
+  });
+  test('extra-hours settings are validated; billing needs a rate', () => {
+    assert.ok(policies.validateExtraHours({ mode: 'bill', ratePerHour: 0 }).error);
+    assert.ok(policies.validateExtraHours({ mode: 'free' }).error);
+    assert.ok(policies.validateExtraHours({ mode: 'bill', ratePerHour: 500, roundTo: 0.3 }).error);
+    assert.ok(policies.validateExtraHours({ mode: 'bill', ratePerHour: 500, gstPercent: 50 }).error);
+    assert.equal(policies.validateExtraHours({ mode: 'track_only' }).value.mode, 'track_only');
+  });
+  test('the charge takes off free hours, rounds UP to the step, then adds GST', () => {
+    const p = { mode: 'bill', ratePerHour: 1000, freeHours: 0.5, roundTo: 0.5, gstPercent: 18 };
+    assert.deepEqual(policies.extraCharge(3, p), { billableHours: 2.5, amount: 2500, gst: 450, total: 2950 });
+    assert.equal(policies.extraCharge(1.2, { ...p, freeHours: 0 }).billableHours, 1.5, '1.2h bills as 1.5h');
+    assert.equal(policies.extraCharge(1, { ...p, roundTo: 1, freeHours: 0 }).billableHours, 1);
+  });
+  test('nothing is charged when tracking only, within the free hours, or with no extra hours', () => {
+    const bill = { mode: 'bill', ratePerHour: 1000, freeHours: 2, roundTo: 0.5, gstPercent: 18 };
+    assert.equal(policies.extraCharge(5, { ...bill, mode: 'track_only' }).total, 0);
+    assert.equal(policies.extraCharge(2, bill).total, 0);
+    assert.equal(policies.extraCharge(0, bill).total, 0);
+  });
+});
+
+describe('recurring invoices — dates and drafts', () => {
+  const sched = (billingDay, startDate, dueDays = 7) => ({ billingDay, startDate, dueDays });
+  test('the first invoice is on the start date, then the billing day of each following month', () => {
+    assert.deepEqual(bs.invoiceDatesBetween(sched(20, '2026-11-20'), '2026-11-01', '2027-02-28'), ['2026-11-20', '2026-12-20', '2027-01-20', '2027-02-20']);
+  });
+  test('a start date off the billing day never produces two invoices in its own month', () => {
+    assert.deepEqual(bs.invoiceDatesBetween(sched(25, '2026-11-20'), '2026-11-01', '2027-01-31'), ['2026-11-20', '2026-12-25', '2027-01-25']);
+  });
+  test('a billing day of 29–31 uses the last day of a shorter month', () => {
+    assert.deepEqual(bs.invoiceDatesBetween(sched(31, '2026-01-31'), '2026-01-01', '2026-05-31'), ['2026-01-31', '2026-02-28', '2026-03-31', '2026-04-30', '2026-05-31']);
+    assert.equal(bs.dayInMonth(2028, 1, 30), '2028-02-29', 'leap year');
+  });
+  test('billed in advance: a period runs from its date to the day before the next invoice', () => {
+    assert.deepEqual(bs.periodFor(sched(20, '2026-11-20'), '2026-11-20'), { start: '2026-11-20', end: '2026-12-19' });
+    assert.deepEqual(bs.periodFor(sched(20, '2026-11-20'), '2026-12-20'), { start: '2026-12-20', end: '2027-01-19' });
+  });
+  test('existing clients are suggested onboarding date + 30 days', () => {
+    assert.equal(bs.suggestStartDate('2026-10-22T05:00:00Z'), '2026-11-21');
+    assert.equal(bs.suggestStartDate(null), null);
+  });
+  test('upcoming dates start from today, including today', () => {
+    assert.deepEqual(bs.upcomingDates(sched(20, '2026-11-20'), '2026-12-20', 2), ['2026-12-20', '2027-01-20']);
+  });
+  test('totals add GST on the subtotal', () => {
+    assert.deepEqual(bs.totals([{ amount: 15000 }], 18), { subtotal: 15000, taxPercent: 18, taxAmount: 2700, totalAmount: 17700 });
+  });
+  test('line items from staff are validated', () => {
+    assert.ok(bs.cleanItems([]).error);
+    assert.ok(bs.cleanItems([{ description: ' ', unitPrice: 5 }]).error);
+    assert.ok(bs.cleanItems([{ description: 'x', unitPrice: -1 }]).error);
+    assert.ok(bs.cleanItems([{ description: 'x', unitPrice: 5, qty: 1.5 }]).error);
+    assert.deepEqual(bs.cleanItems([{ description: ' Fee ', unitPrice: '100.505', qty: 2 }]).items, [{ description: 'Fee', qty: 2, unitPrice: 100.51, amount: 201.02 }]);
+  });
+  test('schedule settings are validated and default the days to pay', () => {
+    assert.equal(bs.validateSchedule({ billingDay: 20, startDate: '2026-11-20', active: true }, 7).value.dueDays, 7);
+    assert.equal(bs.validateSchedule({ billingDay: 20, startDate: '2026-11-20', dueDays: 10 }, 7).value.dueDays, 10);
+    for (const bad of [{ billingDay: 0, startDate: '2026-11-20' }, { billingDay: 32, startDate: '2026-11-20' }, { billingDay: 20, startDate: '2026-02-30' }, { billingDay: 20, startDate: '2026-11-20', dueDays: 90 }]) {
+      assert.ok(bs.validateSchedule(bad, 7).error, JSON.stringify(bad));
+    }
+  });
+  test('problems explain why a draft cannot go out', () => {
+    assert.equal(bs.problemsFor({ lineItems: [{ amount: 1 }], totalAmount: 1 }, { email: 'a@b.co' }).length, 0);
+    assert.match(bs.problemsFor({ lineItems: [], totalAmount: 0 }, { email: 'a@b.co' })[0], /No active monthly retainer/);
+    assert.match(bs.problemsFor({ lineItems: [{ amount: 1 }], totalAmount: 1 }, { email: '' })[0], /email/);
   });
 });

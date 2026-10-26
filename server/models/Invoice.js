@@ -55,6 +55,18 @@ const invoiceSchema = new mongoose.Schema(
       default: 'Unpaid',
     },
     paidOn: { type: Date },
+    // Set on invoices generated from a retainer's extra hours: one invoice per retainer per month
+    // Set on invoices created from a billing schedule (one per client per scheduled date)
+    scheduled: {
+      invoiceDate: { type: String },
+      periodStart: { type: String },
+      periodEnd: { type: String },
+    },
+    extraHours: {
+      retainer_ref: { type: mongoose.Schema.Types.ObjectId, ref: 'Retainer' },
+      month: { type: String }, // 'YYYY-MM'
+      hours: { type: Number },
+    },
     paymentMethod: { type: String, trim: true },
     // Internal admin notes — NEVER sent to client (select: false)
     notes: { type: String, trim: true, select: false },
@@ -67,6 +79,14 @@ invoiceSchema.index({ client_ref: 1, createdAt: -1 });
 invoiceSchema.index({ invoiceId: 1 });
 invoiceSchema.index({ paymentStatus: 1 });
 invoiceSchema.index({ dueDate: 1 });
+invoiceSchema.index(
+  { client_ref: 1, 'scheduled.invoiceDate': 1 },
+  { unique: true, partialFilterExpression: { 'scheduled.invoiceDate': { $exists: true } } }
+);
+invoiceSchema.index(
+  { 'extraHours.retainer_ref': 1, 'extraHours.month': 1 },
+  { unique: true, partialFilterExpression: { 'extraHours.month': { $exists: true } } }
+);
 invoiceSchema.index({ client_ref: 1, paymentStatus: 1 });
 
 // ─── Auto-generate invoiceId ─────────────────────────────────────────────────

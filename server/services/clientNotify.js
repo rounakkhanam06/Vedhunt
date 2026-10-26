@@ -174,6 +174,33 @@ const notifyAgreementUpdated = (clientId) =>
     ctaLabel: 'Review agreement',
   });
 
+const notifyAccountHold = (clientId, reason) =>
+  notifyClient({
+    clientId,
+    type: 'account_hold',
+    emailEvent: 'account_hold',
+    title: 'Your account is on hold',
+    message: reason ? `Reason: ${clip(reason, 200)}` : 'Please contact us to resume your service.',
+    link: '/client/dashboard?tab=billing',
+    emailLines: [
+      'Your Vedhunt service has been put <strong>on hold</strong>.',
+      reason ? `Reason: ${escapeHtml(clip(reason, 500))}` : 'Please contact us to resume your service.',
+      'You can still log in to the portal to view and pay your invoices.',
+    ],
+    ctaLabel: 'View billing',
+  });
+
+const notifyAccountReleased = (clientId) =>
+  notifyClient({
+    clientId,
+    type: 'account_released',
+    emailEvent: 'account_released',
+    title: 'Your account is active again',
+    message: 'Your service has resumed. Thank you!',
+    link: '/client/dashboard',
+    emailLines: ['Your Vedhunt service is <strong>active</strong> again. Thank you!'],
+  });
+
 const notifyKycRejected = (clientId, label, reason) =>
   notifyClient({
     clientId,
@@ -209,6 +236,8 @@ const notifyKycVerified = (clientId, label, complete) =>
 module.exports = {
   notifyClient,
   notifyKycRejected,
+  notifyAccountHold,
+  notifyAccountReleased,
   notifyKycVerified,
   notifyInvoiceCreated,
   notifyPaymentApproved,

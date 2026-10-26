@@ -166,7 +166,40 @@ const RetainersTab = () => {
                       {r.hoursRemaining ?? Math.max(0, (r.supportHoursPerMonth || 0) - (r.hoursUsedThisMonth || 0))} hrs
                     </p>
                   </div>
+                  {r.hoursOverage > 0 && (
+                    <div className="bg-[#F59E0B]/10 border border-[#F59E0B]/30 rounded-lg px-3 py-2">
+                      <p className="text-[#D1D5DB]">Extra hours</p>
+                      <p className="text-white font-semibold">{r.hoursOverage} hrs</p>
+                    </div>
+                  )}
                 </div>
+
+                {/* Hours beyond the plan, month by month (how extra hours are billed is agreed separately) */}
+                {Array.isArray(r.history) && r.history.some((m) => m.used > 0) && (
+                  <div className="mt-4 overflow-x-auto">
+                    <table className="w-full text-xs min-w-[360px]">
+                      <caption className="text-left text-[#9CA3AF] mb-2">Hours by month — last 6 months</caption>
+                      <thead>
+                        <tr className="text-[#9CA3AF] uppercase tracking-wider text-[10px]">
+                          <th scope="col" className="text-left py-1 pr-2 font-semibold">Month</th>
+                          <th scope="col" className="text-right py-1 px-2 font-semibold">Included</th>
+                          <th scope="col" className="text-right py-1 px-2 font-semibold">Used</th>
+                          <th scope="col" className="text-right py-1 pl-2 font-semibold">Extra</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/5">
+                        {r.history.map((m) => (
+                          <tr key={m.key} className="text-white">
+                            <th scope="row" className="text-left py-1.5 pr-2 font-normal">{m.label}{m.partial ? ' (so far)' : ''}</th>
+                            <td className="text-right py-1.5 px-2 tabular-nums">{m.inContract ? `${m.included}h` : '—'}</td>
+                            <td className="text-right py-1.5 px-2 tabular-nums">{m.used}h</td>
+                            <td className={`text-right py-1.5 pl-2 tabular-nums ${m.extra > 0 ? 'text-[#F59E0B] font-semibold' : 'text-[#9CA3AF]'}`}>{m.extra > 0 ? `+${m.extra}h` : '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             );
           })}

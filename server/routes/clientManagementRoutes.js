@@ -22,7 +22,7 @@ const AuditLog = require('../models/AuditLog');
 const PaymentProof = require('../models/PaymentProof');
 const ClientNotification = require('../models/ClientNotification');
 const {
-  notifyInvoiceCreated, notifyAgreementUpdated, notifyTicketReply, notifyTicketStatus, notifyKycRejected, notifyKycVerified,
+  notifyInvoiceCreated, notifyAgreementUpdated, notifyTicketReply, notifyTicketStatus, notifyKycRejected, notifyKycVerified, notifyAccountHold, notifyAccountReleased,
 } = require('../services/clientNotify');
 
 const { PAGE_CATALOG, pageScope, hasBaseAccess } = require('../config/pageAccess');
@@ -31,11 +31,18 @@ const { isScoped, clientAllowed, scopedClientRef, outOfScope } = require('../uti
 const paymentController = require('../controllers/paymentController');
 const Admin = require('../models/Admin');
 const finance = require('../services/finance');
-const { attachUsage } = require('../services/retainerUsage');
+const { attachUsage, attachUsageWithHistory } = require('../services/retainerUsage');
 const { buildPortfolio } = require('../services/portfolio');
 const onboarding = require('../services/onboarding');
 const strategy = require('../services/strategy');
 const kyc = require('../services/kyc');
+const extraHoursBilling = require('../services/extraHoursBilling');
+const billingSchedule = require('../services/billingSchedule');
+const clientPolicies = require('../services/clientPolicies');
+const BillingSchedule = require('../models/BillingSchedule');
+const InvoiceDraft = require('../models/InvoiceDraft');
+const adPerformance = require('../services/adPerformance');
+const AdPerformance = require('../models/AdPerformance');
 const CampaignStrategy = require('../models/CampaignStrategy');
 const WorkLog = require('../models/WorkLog');
 const { sanitizeProfile, profileDateErrors, profileAuditSnapshot } = require('../services/clientProfile');
@@ -457,6 +464,58 @@ router.put('/clients/:id', crm('clients', 'edit'), async (req, res) => {
   }
 });
 
+// ─── Service status: hold / release (manual, client decision Oct 2026) ───────
+
+router.post('/clients/:id/hold', crm('clients', 'edit'), async (req, res) => {
+  try {
+    if (!isValidId(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid client ID' });
+    if (!clientAllowed(req, req.params.id)) return outOfScope(res, 'Client');
+    const reason = String(req.body.reason || '').trim();
+    if (reason.length < 5) return res.status(400).json({ success: false, message: 'Give a reason the client will see (at least 5 characters).' });
+    const client = await Client.findById(req.params.id);
+    if (!client || client.deletedAt) return outOfScope(res, 'Client');
+    if (client.serviceStatus === 'Hold') return res.status(409).json({ success: false, message: 'This client is already on hold.' });
+    const name = [req.user.firstName, req.user.lastName].filter(Boolean).join(' ').trim() || req.user.email;
+    client.serviceStatus = 'Hold';
+    client.holdReason = reason.slice(0, 500);
+    client.holdSince = new Date();
+    client.holdSource = 'manual';
+    client.holdBy = req.user._id;
+    client.holdByName = name;
+    await client.save();
+    await recordAudit(req, 'CLIENT_HOLD', 'Client', client.clientId, { serviceStatus: 'Active' }, { serviceStatus: 'Hold', reason: client.holdReason });
+    await notifyAccountHold(client._id, client.holdReason);
+    res.json({ success: true, message: `${client.businessName} is on hold` });
+  } catch (error) {
+    logger.error('Admin hold client error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+router.post('/clients/:id/release', crm('clients', 'edit'), async (req, res) => {
+  try {
+    if (!isValidId(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid client ID' });
+    if (!clientAllowed(req, req.params.id)) return outOfScope(res, 'Client');
+    const client = await Client.findById(req.params.id);
+    if (!client || client.deletedAt) return outOfScope(res, 'Client');
+    if (client.serviceStatus !== 'Hold') return res.status(409).json({ success: false, message: 'This client is not on hold.' });
+    const before = { serviceStatus: 'Hold', reason: client.holdReason };
+    client.serviceStatus = 'Active';
+    client.holdReason = undefined;
+    client.holdSince = undefined;
+    client.holdSource = undefined;
+    client.holdBy = undefined;
+    client.holdByName = undefined;
+    await client.save();
+    await recordAudit(req, 'CLIENT_RELEASE', 'Client', client.clientId, before, { serviceStatus: 'Active' });
+    await notifyAccountReleased(client._id);
+    res.json({ success: true, message: `${client.businessName} is active again` });
+  } catch (error) {
+    logger.error('Admin release client error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
 // ─── Account status: suspend / reactivate / archive / restore / delete ───────
 
 const cleanReason = (r) => (typeof r === 'string' ? r.trim().slice(0, 500) : '');
@@ -753,8 +812,12 @@ router.post('/clients/:id/onboarding/go-live', crm('clients', 'edit'), async (re
     if (!doc) return;
     if (doc.goLive.isLive) return res.status(409).json({ success: false, message: 'This campaign is already marked live.' });
 
-    // Exceptions are Super Admin only for now (permission '*')
-    const canAuthoriseException = !!req.user.permissions?.includes('*');
+    // Client decision: Admins, and Project Managers who have access to this client's assets.
+    // Route access (clients edit + client scope) is already enforced above.
+    const isProjectManager = (req.user.roles || []).some((r) => /project\s*manager/i.test(r?.name || ''));
+    const canAuthoriseException = !!req.user.permissions?.includes('*')
+      || hasBaseAccess(req.user, 'clients', 'edit')
+      || isProjectManager;
     const decision = onboarding.evaluateGoLive(doc.items.map((i) => i.toObject()), { exception: req.body.exception, canAuthoriseException });
     if (!decision.allowed) {
       return res.status(409).json({
@@ -845,6 +908,257 @@ router.put('/clients/:id/strategy/:version/share', crm('clients', 'edit'), async
     res.json({ success: true, message: share ? `Version ${version} is now visible to the client` : `Version ${version} hidden from the client`, data: doc });
   } catch (error) {
     logger.error('Admin share strategy error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// AD PERFORMANCE — manually entered Daily Tracker rows (client decision Oct 2026)
+// ══════════════════════════════════════════════════════════════════════════════
+
+const adQuery = (req) => ({ period: req.query.period, from: req.query.from, to: req.query.to, group: req.query.group, platform: req.query.platform });
+const adSnap = (r) => ({ day: r.day, platform: r.platform, campaignName: r.campaignName, spend: r.spend, impressions: r.impressions, clicks: r.clicks, results: r.results, revenue: r.revenue ?? null, hidden: !!r.hidden });
+
+async function adClient(req, res) {
+  if (!isValidId(req.params.id)) { res.status(400).json({ success: false, message: 'Invalid client ID' }); return null; }
+  if (!clientAllowed(req, req.params.id)) { outOfScope(res, 'Client'); return null; }
+  const client = await Client.findById(req.params.id).select('profile.monthlyAdBudget businessName clientId').lean();
+  if (!client) { outOfScope(res, 'Client'); return null; }
+  return client;
+}
+
+router.get('/clients/:id/ad-performance', crm('clients', 'view'), async (req, res) => {
+  try {
+    const client = await adClient(req, res);
+    if (!client) return;
+    const data = await adPerformance.report(client._id, { ...adQuery(req), monthlyAdBudget: client.profile?.monthlyAdBudget });
+    if (!data) return res.status(400).json({ success: false, message: 'Choose a valid date range (up to one year).' });
+    res.json({ success: true, data });
+  } catch (error) {
+    logger.error('Admin ad performance error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+router.get('/clients/:id/ad-performance/export.csv', crm('clients', 'view'), async (req, res) => {
+  try {
+    const client = await adClient(req, res);
+    if (!client) return;
+    const data = await adPerformance.report(client._id, adQuery(req));
+    if (!data) return res.status(400).json({ success: false, message: 'Choose a valid date range (up to one year).' });
+    res.set({ 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': `attachment; filename="ad-performance-${client.clientId}-${data.current.from}-to-${data.current.to}.csv"`, 'Cache-Control': 'private, no-store' });
+    res.send(adPerformance.toCsv(data.rows, { internal: true }));
+  } catch (error) {
+    logger.error('Admin ad performance export error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+router.post('/clients/:id/ad-performance', crm('clients', 'edit'), async (req, res) => {
+  try {
+    const client = await adClient(req, res);
+    if (!client) return;
+    const { value, error } = adPerformance.validateRow(req.body);
+    if (error) return res.status(400).json({ success: false, message: error });
+    const name = [req.user.firstName, req.user.lastName].filter(Boolean).join(' ').trim() || req.user.email;
+    let row;
+    try {
+      row = await AdPerformance.create({ ...value, client_ref: client._id, enteredBy: req.user._id, enteredByName: name, updatedBy: req.user._id });
+    } catch (err) {
+      if (err.code === 11000) return res.status(409).json({ success: false, message: 'This day already has a row for that platform, campaign and creative — edit it instead.' });
+      throw err;
+    }
+    await recordAudit(req, 'AD_PERFORMANCE_CREATE', 'AdPerformance', String(row._id), null, adSnap(row));
+    res.status(201).json({ success: true, message: 'Entry saved', data: row });
+  } catch (error) {
+    logger.error('Admin ad performance create error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+router.put('/clients/:id/ad-performance/:rowId', crm('clients', 'edit'), async (req, res) => {
+  try {
+    const client = await adClient(req, res);
+    if (!client) return;
+    if (!isValidId(req.params.rowId)) return res.status(400).json({ success: false, message: 'Invalid entry ID' });
+    const row = await AdPerformance.findOne({ _id: req.params.rowId, client_ref: client._id });
+    if (!row) return res.status(404).json({ success: false, message: 'Entry not found' });
+    const before = adSnap(row);
+    const { value, error } = adPerformance.validateRow(req.body, row.toObject());
+    if (error) return res.status(400).json({ success: false, message: error });
+    row.set({ ...value, updatedBy: req.user._id });
+    try {
+      await row.save();
+    } catch (err) {
+      if (err.code === 11000) return res.status(409).json({ success: false, message: 'Another entry already exists for that day, platform, campaign and creative.' });
+      throw err;
+    }
+    await recordAudit(req, 'AD_PERFORMANCE_UPDATE', 'AdPerformance', String(row._id), before, adSnap(row));
+    res.json({ success: true, message: 'Entry updated', data: row });
+  } catch (error) {
+    logger.error('Admin ad performance update error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+router.delete('/clients/:id/ad-performance/:rowId', crm('clients', 'edit'), async (req, res) => {
+  try {
+    const client = await adClient(req, res);
+    if (!client) return;
+    if (!isValidId(req.params.rowId)) return res.status(400).json({ success: false, message: 'Invalid entry ID' });
+    const row = await AdPerformance.findOneAndDelete({ _id: req.params.rowId, client_ref: client._id });
+    if (!row) return res.status(404).json({ success: false, message: 'Entry not found' });
+    await recordAudit(req, 'AD_PERFORMANCE_DELETE', 'AdPerformance', String(row._id), adSnap(row), null);
+    res.json({ success: true, message: 'Entry deleted' });
+  } catch (error) {
+    logger.error('Admin ad performance delete error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// RECURRING INVOICES — per-client billing schedule + admin approval of scheduled drafts
+// ══════════════════════════════════════════════════════════════════════════════
+
+const draftView = (d) => ({
+  _id: d._id, client: d.client_ref, invoiceDate: d.invoiceDate, periodStart: d.periodStart, periodEnd: d.periodEnd, dueDate: d.dueDate,
+  lineItems: d.lineItems, subtotal: d.subtotal, taxPercent: d.taxPercent, taxAmount: d.taxAmount, totalAmount: d.totalAmount,
+  status: d.status, problems: d.problems, note: d.note || '', corrected: !!d.corrected,
+  decidedByName: d.decidedByName || null, decidedAt: d.decidedAt || null, skipReason: d.skipReason || '', invoice_ref: d.invoice_ref || null,
+});
+const draftSnap = (d) => ({ invoiceDate: d.invoiceDate, status: d.status, totalAmount: d.totalAmount, lineItems: (d.lineItems || []).map((i) => ({ description: i.description, amount: i.amount })), dueDate: d.dueDate });
+
+router.get('/clients/:id/billing-schedule', crm('invoices', 'view'), async (req, res) => {
+  try {
+    if (!isValidId(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid client ID' });
+    if (!clientAllowed(req, req.params.id)) return outOfScope(res, 'Client');
+    const client = await Client.findById(req.params.id).select('profile.onboardingDate').lean();
+    if (!client) return outOfScope(res, 'Client');
+    const [schedule, policy] = await Promise.all([BillingSchedule.findOne({ client_ref: req.params.id }).lean(), clientPolicies.getBilling()]);
+    const today = adPerformance.dayOf(new Date());
+    res.json({
+      success: true,
+      data: {
+        schedule,
+        suggestedStartDate: billingSchedule.suggestStartDate(client.profile?.onboardingDate),
+        defaultDueDays: policy.defaultDueDays,
+        upcoming: schedule ? billingSchedule.upcomingDates(schedule, today, 4).map((d) => ({ invoiceDate: d, ...billingSchedule.periodFor(schedule, d) })) : [],
+      },
+    });
+  } catch (error) {
+    logger.error('Admin get billing schedule error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+router.put('/clients/:id/billing-schedule', crm('invoices', 'edit'), async (req, res) => {
+  try {
+    if (!isValidId(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid client ID' });
+    if (!clientAllowed(req, req.params.id)) return outOfScope(res, 'Client');
+    if (!(await Client.exists({ _id: req.params.id, deletedAt: null }))) return outOfScope(res, 'Client');
+    const policy = await clientPolicies.getBilling();
+    const { value, error } = billingSchedule.validateSchedule(req.body, policy.defaultDueDays);
+    if (error) return res.status(400).json({ success: false, message: error });
+    const before = await BillingSchedule.findOne({ client_ref: req.params.id }).lean();
+    const schedule = await BillingSchedule.findOneAndUpdate({ client_ref: req.params.id }, { $set: { ...value, updatedBy: req.user._id } }, { upsert: true, new: true });
+    const snap = (s) => (s ? { active: s.active, billingDay: s.billingDay, startDate: s.startDate, dueDays: s.dueDays } : null);
+    await recordAudit(req, 'BILLING_SCHEDULE_UPDATE', 'BillingSchedule', req.params.id, snap(before), snap(schedule));
+    res.json({ success: true, message: schedule.active ? 'Billing schedule saved and switched on' : 'Billing schedule saved (switched off)', data: schedule });
+  } catch (error) {
+    logger.error('Admin save billing schedule error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+router.get('/invoice-drafts', crm('invoices', 'view'), async (req, res) => {
+  try {
+    const filter = {};
+    const clientRef = scopedClientRef(req, req.query.client_ref);
+    if (clientRef) filter.client_ref = clientRef;
+    const status = req.query.status;
+    if (status === 'open') filter.status = { $in: ['Pending Approval', 'Needs Attention'] };
+    else if (InvoiceDraft.STATUSES.includes(status)) filter.status = status;
+    const drafts = await InvoiceDraft.find(filter).populate('client_ref', 'businessName clientId email').sort({ invoiceDate: -1, createdAt: -1 }).limit(200).lean();
+    const openCount = await InvoiceDraft.countDocuments({ ...filter, status: { $in: ['Pending Approval', 'Needs Attention'] } });
+    res.json({ success: true, data: drafts.map(draftView), openCount });
+  } catch (error) {
+    logger.error('Admin list invoice drafts error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// Loads a draft the person may act on (client scope applies)
+async function loadDraft(req, res) {
+  if (!isValidId(req.params.id)) { res.status(400).json({ success: false, message: 'Invalid ID' }); return null; }
+  const d = await InvoiceDraft.findById(req.params.id).lean();
+  if (!d || !clientAllowed(req, d.client_ref)) { outOfScope(res, 'Scheduled invoice'); return null; }
+  return d;
+}
+
+router.put('/invoice-drafts/:id', crm('invoices', 'edit'), async (req, res) => {
+  try {
+    const before = await loadDraft(req, res);
+    if (!before) return;
+    const r = await billingSchedule.editDraft(req.params.id, req.body, req.user);
+    if (!r.ok) return res.status(r.status).json({ success: false, message: r.message });
+    await recordAudit(req, 'INVOICE_DRAFT_CORRECT', 'InvoiceDraft', `${before.client_ref}:${before.invoiceDate}`, draftSnap(before), draftSnap(r.draft));
+    res.json({ success: true, message: r.draft.problems.length ? 'Saved — it still needs attention' : 'Saved — ready to approve', data: draftView(r.draft) });
+  } catch (error) {
+    logger.error('Admin correct invoice draft error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+router.post('/invoice-drafts/:id/rebuild', crm('invoices', 'edit'), async (req, res) => {
+  try {
+    const before = await loadDraft(req, res);
+    if (!before) return;
+    const r = await billingSchedule.rebuildDraft(req.params.id);
+    if (!r.ok) return res.status(r.status).json({ success: false, message: r.message });
+    await recordAudit(req, 'INVOICE_DRAFT_REBUILD', 'InvoiceDraft', `${before.client_ref}:${before.invoiceDate}`, draftSnap(before), draftSnap(r.draft));
+    res.json({ success: true, message: 'Rebuilt from the current retainers', data: draftView(r.draft) });
+  } catch (error) {
+    logger.error('Admin rebuild invoice draft error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+router.post('/invoice-drafts/:id/approve', crm('invoices', 'create'), async (req, res) => {
+  try {
+    const before = await loadDraft(req, res);
+    if (!before) return;
+    const r = await billingSchedule.approveDraft(req.params.id, req.user);
+    if (!r.ok) return res.status(r.status).json({ success: false, message: r.message });
+    await recordAudit(req, 'INVOICE_DRAFT_APPROVE', 'InvoiceDraft', `${before.client_ref}:${before.invoiceDate}`, draftSnap(before),
+      { ...draftSnap(r.draft), invoiceId: r.invoice.invoiceId, corrected: !!r.draft.corrected });
+    res.json({ success: true, message: `Invoice ${r.invoice.invoiceId} sent to the client`, data: { invoiceId: r.invoice.invoiceId, _id: r.invoice._id } });
+  } catch (error) {
+    logger.error('Admin approve invoice draft error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+router.post('/invoice-drafts/:id/skip', crm('invoices', 'edit'), async (req, res) => {
+  try {
+    const before = await loadDraft(req, res);
+    if (!before) return;
+    const r = await billingSchedule.skipDraft(req.params.id, req.body.reason, req.user);
+    if (!r.ok) return res.status(r.status).json({ success: false, message: r.message });
+    await recordAudit(req, 'INVOICE_DRAFT_SKIP', 'InvoiceDraft', `${before.client_ref}:${before.invoiceDate}`, draftSnap(before), { ...draftSnap(r.draft), reason: r.draft.skipReason });
+    res.json({ success: true, message: 'Skipped', data: draftView(r.draft) });
+  } catch (error) {
+    logger.error('Admin skip invoice draft error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// Create any drafts that are due, now (the same pass the daily job runs). Needs access to all clients.
+router.post('/invoice-drafts-run', crm('invoices', 'create'), async (req, res) => {
+  try {
+    if (isScoped(req)) return res.status(403).json({ success: false, message: 'This needs access to all clients.' });
+    res.json({ success: true, ...(await billingSchedule.generateDrafts()) });
+  } catch (error) {
+    logger.error('Admin generate invoice drafts error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
@@ -1214,7 +1528,7 @@ router.get('/retainers', crm('retainers', 'view'), async (req, res) => {
       Retainer.countDocuments(filter),
     ]);
 
-    paginatedResponse(res, { data: await attachUsage(retainers), total, page, limit });
+    paginatedResponse(res, { data: await attachUsageWithHistory(retainers), total, page, limit });
   } catch (error) {
     logger.error('Admin get retainers error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
@@ -1227,7 +1541,7 @@ router.get('/retainers/:id', crm('retainers', 'view'), async (req, res) => {
     const retainer = await Retainer.findById(req.params.id)
       .populate('client_ref', 'businessName contactName email clientId');
     if (!retainer || !clientAllowed(req, retainer.client_ref)) return outOfScope(res, 'Retainer');
-    const [withUsage] = await attachUsage([retainer.toObject({ virtuals: true })]);
+    const [withUsage] = await attachUsageWithHistory([retainer.toObject({ virtuals: true })]);
     res.json({ success: true, data: withUsage });
   } catch (error) {
     logger.error('Admin get retainer error:', error);
@@ -1271,6 +1585,40 @@ router.put('/retainers/:id', crm('retainers', 'edit'), async (req, res) => {
     res.json({ success: true, message: 'Retainer updated', data: retainer.toObject({ virtuals: true }) });
   } catch (error) {
     logger.error('Admin update retainer error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// Extra hours (beyond the plan): preview a finished month, then invoice it — only if the Super Admin
+// policy is set to bill. Never automatic; one invoice per retainer per month.
+router.get('/retainers/:id/extra-hours', crm('retainers', 'view'), async (req, res) => {
+  try {
+    if (!isValidId(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid retainer ID' });
+    const retainer = await Retainer.findById(req.params.id).lean();
+    if (!retainer || !clientAllowed(req, retainer.client_ref)) return outOfScope(res, 'Retainer');
+    const p = await extraHoursBilling.previewMonth(retainer, req.query.month);
+    if (!p.ok) return res.status(p.status).json({ success: false, message: p.message });
+    res.json({ success: true, data: p });
+  } catch (error) {
+    logger.error('Admin extra hours preview error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+router.post('/retainers/:id/extra-hours-invoice', crm('invoices', 'create'), async (req, res) => {
+  try {
+    if (!isValidId(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid retainer ID' });
+    const retainer = await Retainer.findById(req.params.id, { client_ref: 1 }).lean();
+    if (!retainer || !clientAllowed(req, retainer.client_ref)) return outOfScope(res, 'Retainer');
+    const r = await extraHoursBilling.createInvoice(req.params.id, req.body.month);
+    if (!r.ok) return res.status(r.status).json({ success: false, message: r.message });
+    await recordAudit(req, 'EXTRA_HOURS_INVOICE', 'Invoice', r.invoice.invoiceId, null, {
+      retainer: req.params.id, month: req.body.month, billableHours: r.preview.billableHours, total: r.invoice.totalAmount,
+    });
+    await notifyInvoiceCreated(r.invoice);
+    res.status(201).json({ success: true, message: `Invoice ${r.invoice.invoiceId} created for ${r.preview.label} extra hours`, data: { invoiceId: r.invoice.invoiceId, _id: r.invoice._id } });
+  } catch (error) {
+    logger.error('Admin extra hours invoice error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });

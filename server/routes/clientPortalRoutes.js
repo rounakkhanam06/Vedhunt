@@ -14,9 +14,12 @@ const { uploadTicketAttachment, deleteFromCloudinary } = require('../utils/cloud
 const { notifyTicketStaff, notifyPermissionHolders } = require('../services/staffNotify');
 const multer = require('multer');
 const kyc = require('../services/kyc');
+const { workSummary } = require('../services/clientWork');
+const adPerformance = require('../services/adPerformance');
+const Client = require('../models/Client');
 const { recordAudit } = require('../services/audit');
 const finance = require('../services/finance');
-const { attachUsage } = require('../services/retainerUsage');
+const { attachUsage, attachUsageWithHistory } = require('../services/retainerUsage');
 const strategy = require('../services/strategy');
 const { buildOverview } = require('../services/clientOverview');
 
@@ -283,7 +286,7 @@ router.get('/retainers', async (req, res) => {
       Retainer.countDocuments(filter),
     ]);
 
-    paginatedResponse(res, { data: await attachUsage(retainers), total, page, limit });
+    paginatedResponse(res, { data: await attachUsageWithHistory(retainers), total, page, limit });
   } catch (error) {
     logger.error('Client get retainers error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
@@ -312,7 +315,7 @@ router.get('/retainers/:id', async (req, res) => {
     }
 
     // Use toObject with virtuals to include isNearingExpiry, hoursRemaining
-    const [withUsage] = await attachUsage([retainer.toObject({ virtuals: true })]);
+    const [withUsage] = await attachUsageWithHistory([retainer.toObject({ virtuals: true })]);
     res.json({ success: true, data: withUsage });
   } catch (error) {
     logger.error('Client get retainer detail error:', error);
@@ -337,6 +340,61 @@ router.get('/strategy', async (req, res) => {
     res.json({ success: true, data: doc ? strategy.clientView(doc) : null });
   } catch (error) {
     logger.error('Client get strategy error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// AD PERFORMANCE — the client's own campaign results (manually entered by Vedhunt)
+// ══════════════════════════════════════════════════════════════════════════════
+
+const perfQuery = (req) => ({ period: req.query.period, from: req.query.from, to: req.query.to, group: req.query.group, platform: req.query.platform, forClient: true });
+
+/**
+ * @route  GET /api/client/performance?period=&from=&to=&group=day|week|month&platform=
+ * @desc   Totals, period comparison, series, campaigns and budget pacing — hidden rows and internal notes excluded
+ * @access Client Private
+ */
+router.get('/performance', async (req, res) => {
+  try {
+    const client = await Client.findById(req.client._id).select('profile.monthlyAdBudget').lean();
+    const data = await adPerformance.report(req.client._id, { ...perfQuery(req), monthlyAdBudget: client?.profile?.monthlyAdBudget });
+    if (!data) return res.status(400).json({ success: false, message: 'Choose a valid date range (up to one year).' });
+    res.json({ success: true, data });
+  } catch (error) {
+    logger.error('Client performance error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+router.get('/performance/export.csv', async (req, res) => {
+  try {
+    const data = await adPerformance.report(req.client._id, perfQuery(req));
+    if (!data) return res.status(400).json({ success: false, message: 'Choose a valid date range (up to one year).' });
+    res.set({ 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': `attachment; filename="ad-performance-${data.current.from}-to-${data.current.to}.csv"`, 'Cache-Control': 'private, no-store' });
+    res.send(adPerformance.toCsv(data.rows));
+  } catch (error) {
+    logger.error('Client performance export error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// WORK LOG — time the team spent for this client, by activity and project
+// ══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * @route  GET /api/client/work?period=this_week|this_month|last_month|last_3_months|custom&from=&to=
+ * @desc   Totals by activity and project plus recent entries — no employee names or internal notes
+ * @access Client Private
+ */
+router.get('/work', async (req, res) => {
+  try {
+    const data = await workSummary(req.client._id, { period: req.query.period, from: req.query.from, to: req.query.to });
+    if (!data) return res.status(400).json({ success: false, message: 'Choose a valid date range (up to one year).' });
+    res.json({ success: true, data });
+  } catch (error) {
+    logger.error('Client work summary error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });

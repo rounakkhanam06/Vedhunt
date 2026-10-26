@@ -12,6 +12,7 @@ const WorkLog = require('../models/WorkLog');
 const { attachUsage, usageWindow, monthBounds } = require('./retainerUsage');
 const { latestSharedFor } = require('./strategy');
 const kycService = require('./kyc');
+const Client = require('../models/Client');
 
 const OPEN_TICKET = ['Open', 'In Progress', 'Pending Client'];
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -80,8 +81,11 @@ function monthlyTotals(rows, count = 6, now = new Date()) {
  * Things that need the client's attention, most urgent first. Pure so the
  * rules can be tested without a database.
  */
-function buildActions({ billing, tickets, retainer, kyc }) {
+function buildActions({ billing, tickets, retainer, kyc, hold }) {
   const actions = [];
+  if (hold) {
+    actions.push({ key: 'account-hold', tone: 'danger', tab: 'billing', title: 'Your account is on hold', detail: hold.reason || 'Please clear any pending payment or contact us to resume service' });
+  }
   if (billing.overdueInvoices > 0) {
     actions.push({ key: 'overdue', tone: 'danger', tab: 'billing', title: `${billing.overdueInvoices} overdue invoice${billing.overdueInvoices > 1 ? 's' : ''}`, detail: `${billing.overdueAmount} overdue — please arrange payment` });
   }
@@ -115,7 +119,7 @@ function buildActions({ billing, tickets, retainer, kyc }) {
 }
 
 async function buildOverview(clientId, now = new Date()) {
-  const [{ perClient }, unpaid, pendingProofs, projects, retainers, tickets, strategy, kycDoc] = await Promise.all([
+  const [{ perClient }, unpaid, pendingProofs, projects, retainers, tickets, strategy, kycDoc, clientDoc] = await Promise.all([
     finance.portfolioFinance({ clientIds: [clientId], now }),
     Invoice.find({ client_ref: clientId, paymentStatus: { $ne: 'Paid' }, $expr: { $gt: ['$totalAmount', '$paidAmount'] } })
       .select('-notes').sort({ dueDate: 1 }).limit(20).lean(),
@@ -128,6 +132,7 @@ async function buildOverview(clientId, now = new Date()) {
       .select('ticketId subject status priority slaDeadline updatedAt').sort({ updatedAt: -1 }).limit(20).lean(),
     latestSharedFor(clientId),
     kycService.findOrBlank(clientId),
+    Client.findById(clientId).select('serviceStatus holdReason holdSince').lean(),
   ]);
 
   const fin = perClient.get(String(clientId)) || { outstanding: 0, overdueAmount: 0, overdueInvoices: 0, received: 0, billed: 0, collectionPercent: null };
@@ -198,7 +203,8 @@ async function buildOverview(clientId, now = new Date()) {
     tickets: ticketSummary,
     strategy: strategy ? { version: strategy.version, sharedAt: strategy.sharedAt || strategy.updatedAt } : null,
     kyc: kycSummary,
-    actions: buildActions({ kyc: kycSummary, billing: { ...billing, overdueAmount: formatInr(billing.overdueAmount), nextDue: billing.nextDue && { ...billing.nextDue, balance: formatInr(billing.nextDue.balance) } }, tickets: ticketSummary, retainer }),
+    account: { serviceStatus: clientDoc?.serviceStatus || 'Active', holdReason: clientDoc?.serviceStatus === 'Hold' ? clientDoc.holdReason || '' : null, holdSince: clientDoc?.holdSince || null },
+    actions: buildActions({ hold: clientDoc?.serviceStatus === 'Hold' ? { reason: clientDoc.holdReason } : null, kyc: kycSummary, billing: { ...billing, overdueAmount: formatInr(billing.overdueAmount), nextDue: billing.nextDue && { ...billing.nextDue, balance: formatInr(billing.nextDue.balance) } }, tickets: ticketSummary, retainer }),
   };
 }
 

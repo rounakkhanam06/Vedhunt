@@ -9,6 +9,14 @@ const SETTINGS_KEY = 'activity_master';
 // matching a master entry.
 const DEFAULT_ACTIVITY_TYPES = [
   { name: 'Client Work', productive: true, billable: true },
+  // Client-facing categories (client request, Oct 2026) — shown to clients in their work log
+  { name: 'Google Ads', productive: true, billable: true },
+  { name: 'Facebook / Meta Ads', productive: true, billable: true },
+  { name: 'Graphic Design', productive: true, billable: true },
+  { name: 'Social Media Management', productive: true, billable: true },
+  { name: 'Website Development', productive: true, billable: true },
+  { name: 'SEO', productive: true, billable: true },
+  { name: 'Reporting', productive: true, billable: true },
   { name: 'Client Meeting', productive: true, billable: true },
   { name: 'Internal Meeting', productive: true, billable: false },
   { name: 'Vedhunt Task', productive: true, billable: false },

@@ -46,6 +46,8 @@ const safeClientProfile = (client) => ({
   phone: client.phone,
   isTemporaryPassword: client.isTemporaryPassword,
   acceptedAgreementVersion: client.acceptedAgreementVersion,
+  serviceStatus: client.serviceStatus || 'Active',
+  holdReason: client.serviceStatus === 'Hold' ? client.holdReason || '' : undefined,
   createdAt: client.createdAt,
 });
 

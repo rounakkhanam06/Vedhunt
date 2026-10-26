@@ -118,7 +118,7 @@ function StepRow({ step, staff, canEdit, onSave }) {
 /**
  * Onboarding checklist + go-live gate for one client (Client Portal CRM §4).
  * The server decides what blocks launch; this panel only shows it and sends
- * the requests. `canException` is Super Admin only.
+ * the requests. Exceptions: Admins and Project Managers with access to the client (the server decides).
  */
 export default function OnboardingPanel({ clientId, http, base, canEdit, canException }) {
   const [data, setData] = useState(null);

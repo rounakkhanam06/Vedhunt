@@ -8,6 +8,8 @@ const { runFollowUpChecks, runEODEscalation, runBreachFlagging } = require('./fo
 const { runPayrollTick } = require('./payrollCron');
 const { startProbationScheduler } = require('./probationScheduler');
 const { runOnboardingAlerts } = require('./onboardingAlerts');
+const { runAutoHold } = require('./autoHold');
+const { generateDrafts } = require('./billingSchedule');
 
 const startCronJobs = () => {
   // Start probation lifecycle scheduler (EL accrual, auto-promote, reminders)
@@ -237,6 +239,28 @@ const startCronJobs = () => {
       if (sent) logger.info(`Onboarding alerts sent for ${sent} step(s).`);
     } catch (error) {
       logger.error('Error in Onboarding alerts cron:', error);
+    }
+  });
+
+  // 10. Recurring invoices: create the scheduled invoice DRAFTS that are due (an admin approves
+  // each one before the client sees it). Daily, 8:00 AM.
+  cron.schedule('0 8 * * *', async () => {
+    try {
+      const r = await generateDrafts();
+      if (r.created || r.needAttention) logger.info(`Invoice drafts: ${r.created} ready, ${r.needAttention} need attention.`);
+    } catch (error) {
+      logger.error('Error in Invoice drafts cron:', error);
+    }
+  });
+
+  // 9. Automatic hold for unpaid clients — only does anything when a Super Admin has switched
+  // the rule on in Settings. Daily, 10:00 AM.
+  cron.schedule('0 10 * * *', async () => {
+    try {
+      const r = await runAutoHold();
+      if (r.held.length || r.released.length) logger.info(`Auto-hold: ${r.held.length} held, ${r.released.length} released.`);
+    } catch (error) {
+      logger.error('Error in Auto-hold cron:', error);
     }
   });
 

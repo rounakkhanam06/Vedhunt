@@ -76,6 +76,16 @@ const clientSchema = new mongoose.Schema(
       authorisedSignatory: { type: String, trim: true, maxlength: 120 },
       paymentReceivedDate: { type: Date },
     },
+    // Service status (client decision, Oct 2026): 'Hold' pauses the service — typically for
+    // non-payment — while the client can still log in, see why and pay. Set and released
+    // manually by staff; no automatic trigger until the client confirms one.
+    serviceStatus: { type: String, enum: ['Active', 'Hold'], default: 'Active' },
+    holdReason: { type: String, trim: true, maxlength: 500 },
+    // 'manual' (staff) or 'auto' (the overdue-payment rule). Only auto holds are ever lifted automatically.
+    holdSource: { type: String, enum: ['manual', 'auto'] },
+    holdSince: { type: Date },
+    holdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin' },
+    holdByName: { type: String, trim: true },
     // Suspension (reversible): isActive=false + who/when/why. Internal only —
     // never returned by the client-facing APIs.
     suspendedAt: { type: Date },

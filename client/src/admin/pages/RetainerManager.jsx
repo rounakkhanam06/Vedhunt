@@ -3,8 +3,9 @@ import { useCrm } from '../../shared/crmAccess';
 import toast from 'react-hot-toast';
 import {
   FolderOpen, Plus, Search, X, Save,
-  ChevronLeft, ChevronRight, Trash2, Edit2, Filter, LayoutList, Shield
+  ChevronLeft, ChevronRight, Trash2, Edit2, Filter, LayoutList, Shield, FileText
 } from 'lucide-react';
+import ExtraHoursModal from '../components/ExtraHoursModal';
 
 const emptyForm = () => ({
   client_ref: '', packageName: '', monthlyAmount: '', billingCycle: 'Monthly',
@@ -30,6 +31,7 @@ export default function RetainerManager() {
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState('');
   const [showModal, setShowModal] = useState(false);
+  const [extraFor, setExtraFor] = useState(null);
   const [editTarget, setEditTarget] = useState(null);
   const [form, setForm] = useState(emptyForm());
   const [saving, setSaving] = useState(false);
@@ -222,6 +224,10 @@ export default function RetainerManager() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-center gap-2">
+                        {canCrm('invoices', 'create') && (ret.history || []).some((m) => !m.partial && m.extra > 0) && (<button onClick={() => setExtraFor(ret)} title="Bill extra hours"
+                          className="p-1.5 text-amber-400 hover:bg-amber-500/10 rounded-lg cursor-pointer">
+                          <FileText size={14} />
+                        </button>)}
                         {canCrm('retainers', 'edit') && (<button onClick={() => openEdit(ret)} title="Edit"
                           className="p-1.5 text-secondary hover:bg-secondary/10 rounded-lg cursor-pointer">
                           <Edit2 size={14} />
@@ -355,6 +361,7 @@ export default function RetainerManager() {
           </div>
         </div>
       )}
+      {extraFor && <ExtraHoursModal retainer={extraFor} http={http} base={base} onClose={() => setExtraFor(null)} onDone={() => { setExtraFor(null); fetchRetainers(); }} />}
     </div>
   );
 }

@@ -12,7 +12,11 @@ const CYCLE_MONTHS = { Monthly: 1, Quarterly: 3, Annual: 12 };
 const monthlyEquivalent = (r) => (Number(r.monthlyAmount) || 0) / (CYCLE_MONTHS[r.billingCycle] || 1);
 
 /** 'active' | 'inactive' | 'archived' from the client's real flags (never inferred from ad spend). */
-const clientState = (c) => (c.deletedAt ? 'archived' : c.isActive ? 'active' : 'inactive');
+const clientState = (c) => {
+  if (c.deletedAt) return 'archived';
+  if (!c.isActive) return 'inactive';
+  return c.serviceStatus === 'Hold' ? 'hold' : 'active';
+};
 
 async function recurringFees(clientIds) {
   const retainers = await Retainer.find({ client_ref: { $in: clientIds }, status: 'Active' }, 'client_ref monthlyAmount billingCycle').lean();
@@ -55,7 +59,7 @@ async function buildPortfolio(opts = {}, now = new Date()) {
   if (opts.clientIds) base._id = { $in: opts.clientIds };
 
   const allClients = await Client.find(base,
-    'clientId businessName contactName email phone isActive deletedAt createdAt profile')
+    'clientId businessName contactName email phone isActive deletedAt createdAt profile serviceStatus holdReason holdSince')
     .populate('profile.accountManager', 'firstName lastName')
     .lean();
 
@@ -76,6 +80,8 @@ async function buildPortfolio(opts = {}, now = new Date()) {
       phone: c.phone,
       createdAt: c.createdAt,
       state: clientState(c),
+      holdReason: c.serviceStatus === 'Hold' ? c.holdReason || '' : undefined,
+      holdSince: c.serviceStatus === 'Hold' ? c.holdSince : undefined,
       profile: { ...(c.profile || {}), accountManager: manager?._id || null },
       accountManagerName: manager ? [manager.firstName, manager.lastName].filter(Boolean).join(' ') : null,
       teamSize: (c.profile?.dedicatedTeam || []).length,
@@ -90,6 +96,7 @@ async function buildPortfolio(opts = {}, now = new Date()) {
     totalClients: rows.filter((r) => r.state !== 'archived').length,
     activeClients: rows.filter((r) => r.state === 'active').length,
     inactiveClients: rows.filter((r) => r.state === 'inactive').length,
+    holdClients: rows.filter((r) => r.state === 'hold').length,
     archivedClients: rows.filter((r) => r.state === 'archived').length,
     // Active clients' active recurring plans only; one-time fees are excluded
     monthlyRecurringRevenue: round2(rows.filter((r) => r.state === 'active').reduce((s, r) => s + (r.monthlyRecurringFee || 0), 0)),

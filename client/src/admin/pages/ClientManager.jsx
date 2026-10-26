@@ -4,7 +4,7 @@ import toast from 'react-hot-toast';
 import {
   Users, Plus, Search, Eye, X, Edit2,
   Mail, Phone, Building, UserCheck, Link2, ChevronLeft, ChevronRight, Save,
-  Ban, RotateCcw, Trash2, AlertTriangle, ArchiveRestore,
+  Ban, RotateCcw, Trash2, AlertTriangle, ArchiveRestore, PauseCircle, PlayCircle,
 } from 'lucide-react';
 import { usePermissions } from '../hooks/usePermissions';
 import PortfolioKpis from '../components/clients/PortfolioKpis';
@@ -13,10 +13,13 @@ import ClientProfilePanel from '../components/clients/ClientProfilePanel';
 import OnboardingPanel from '../components/clients/OnboardingPanel';
 import StrategyPanel from '../components/clients/StrategyPanel';
 import KycPanel from '../components/clients/KycPanel';
+import BillingSchedulePanel from '../components/clients/BillingSchedulePanel';
+import AdPerformancePanel from '../components/clients/AdPerformancePanel';
 
 const STATUS_TABS = [
   { id: '', label: 'All' },
   { id: 'active', label: 'Active' },
+  { id: 'hold', label: 'On hold' },
   { id: 'inactive', label: 'Inactive (suspended)' },
   { id: 'archived', label: 'Deleted' },
 ];
@@ -32,7 +35,9 @@ const SORT_OPTIONS = [
 // Portfolio rows carry `state` (active | inactive | archived); detail records carry the raw flags
 const clientStatus = (c) => {
   if (c.state) return c.state === 'inactive' ? 'suspended' : c.state;
-  return c.deletedAt ? 'archived' : c.isActive ? 'active' : 'suspended';
+  if (c.deletedAt) return 'archived';
+  if (!c.isActive) return 'suspended';
+  return c.serviceStatus === 'Hold' ? 'hold' : 'active';
 };
 
 const PREVIEW_TABS = [
@@ -40,11 +45,14 @@ const PREVIEW_TABS = [
   { id: 'profile', label: 'Profile' },
   { id: 'strategy', label: 'Strategy' },
   { id: 'kyc', label: 'KYC' },
+  { id: 'billing', label: 'Billing' },
+  { id: 'ads', label: 'Ad data' },
   { id: 'onboarding', label: 'Onboarding' },
 ];
 
 const STATUS_BADGE = {
   active: { label: 'Active', cls: 'bg-green-500/10 text-green-400 border-green-500/20' },
+  hold: { label: 'On hold', cls: 'bg-orange-500/10 text-orange-400 border-orange-500/20' },
   suspended: { label: 'Suspended', cls: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
   archived: { label: 'Deleted', cls: 'bg-red-500/10 text-red-400 border-red-500/20' },
 };
@@ -241,6 +249,7 @@ export default function ClientManager() {
     try {
       let res;
       if (type === 'suspend') res = await http.post(`${base}/clients/${client._id}/suspend`, { reason: actionReason });
+      if (type === 'hold') res = await http.post(`${base}/clients/${client._id}/hold`, { reason: actionReason });
       if (type === 'archive') res = await http.delete(`${base}/clients/${client._id}`, { data: { reason: actionReason } });
       if (type === 'permanent') res = await http.delete(`${base}/clients/${client._id}/permanent`, { data: { confirm: confirmText.trim() } });
       toast.success(res.data.message);
@@ -427,7 +436,7 @@ export default function ClientManager() {
                     {showMoney && <td className="px-4 py-3 text-right text-on-surface-variant hidden xl:table-cell">{pct(c.finance?.collectionPercent)}</td>}
                     <td className="px-4 py-3 text-center">
                       <span
-                        title={c.suspensionReason || c.deletionReason || ''}
+                        title={c.holdReason || c.suspensionReason || c.deletionReason || ''}
                         className={`inline-flex items-center rounded-full text-[10px] font-bold px-2.5 py-0.5 border ${STATUS_BADGE[clientStatus(c)].cls}`}
                       >
                         {STATUS_BADGE[clientStatus(c)].label}
@@ -449,6 +458,18 @@ export default function ClientManager() {
                         >
                           <Edit2 size={15} />
                         </button>)}
+                        {canCrm('clients', 'edit') && clientStatus(c) === 'active' && (
+                          <button onClick={() => openAction('hold', c)} title="Put on hold (service paused, client can still log in and pay)"
+                            className="p-1.5 text-orange-400 hover:bg-orange-500/10 rounded-lg transition-colors cursor-pointer">
+                            <PauseCircle size={15} />
+                          </button>
+                        )}
+                        {canCrm('clients', 'edit') && clientStatus(c) === 'hold' && (
+                          <button onClick={() => quickAction('release', c)} title="Take off hold"
+                            className="p-1.5 text-green-400 hover:bg-green-500/10 rounded-lg transition-colors cursor-pointer">
+                            <PlayCircle size={15} />
+                          </button>
+                        )}
                         {full && clientStatus(c) === 'active' && (
                           <button onClick={() => openAction('suspend', c)} title="Suspend account"
                             className="p-1.5 text-amber-400 hover:bg-amber-500/10 rounded-lg transition-colors cursor-pointer">
@@ -650,6 +671,12 @@ export default function ClientManager() {
               {previewTab === 'strategy' && (
                 <StrategyPanel clientId={previewClient._id} http={http} base={base} canEdit={canCrm('clients', 'edit')} />
               )}
+              {previewTab === 'billing' && (
+                <BillingSchedulePanel clientId={previewClient._id} http={http} base={base} canEdit={canCrm('invoices', 'edit')} />
+              )}
+              {previewTab === 'ads' && (
+                <AdPerformancePanel clientId={previewClient._id} http={http} base={base} canEdit={canCrm('clients', 'edit')} />
+              )}
               {previewTab === 'kyc' && (
                 <KycPanel clientId={previewClient._id} http={http} base={base} canReview={canCrm('clients', 'edit')} />
               )}
@@ -659,7 +686,7 @@ export default function ClientManager() {
                   http={http}
                   base={base}
                   canEdit={canCrm('clients', 'edit')}
-                  canException={isSuperAdmin}
+                  canException={canCrm('clients', 'edit')}
                 />
               )}
               {previewTab === 'overview' && (<>
@@ -796,6 +823,7 @@ export default function ClientManager() {
             <div className="flex items-center justify-between px-6 py-4 border-b border-outline-variant">
               <h3 id="client-action-title" className="text-on-surface font-semibold text-lg">
                 {action.type === 'suspend' && 'Suspend account'}
+                {action.type === 'hold' && 'Put client on hold'}
                 {action.type === 'archive' && 'Delete account'}
                 {action.type === 'permanent' && 'Delete permanently'}
               </h3>
@@ -809,6 +837,14 @@ export default function ClientManager() {
                 <span className="font-semibold">{action.client.businessName}</span>{' '}
                 <span className="text-on-surface-variant font-mono text-xs">({action.client.clientId})</span>
               </p>
+
+              {action.type === 'hold' && (
+                <ul className="list-disc pl-5 text-on-surface-variant space-y-1 text-xs">
+                  <li>The client's service is paused — for example for an unpaid invoice.</li>
+                  <li>They can still log in to see why and to pay; they are notified with your reason.</li>
+                  <li>Take them off hold at any time from this list.</li>
+                </ul>
+              )}
 
               {action.type === 'suspend' && (
                 <ul className="list-disc pl-5 text-on-surface-variant space-y-1 text-xs">
@@ -835,9 +871,9 @@ export default function ClientManager() {
                 </>
               )}
 
-              {(action.type === 'suspend' || action.type === 'archive') && (
+              {(action.type === 'suspend' || action.type === 'archive' || action.type === 'hold') && (
                 <div>
-                  <label htmlFor="client-action-reason" className="block text-on-surface-variant text-xs font-medium mb-1.5">Reason (internal, not shown to the client)</label>
+                  <label htmlFor="client-action-reason" className="block text-on-surface-variant text-xs font-medium mb-1.5">{action.type === 'hold' ? 'Reason (shown to the client)' : 'Reason (internal, not shown to the client)'}</label>
                   <textarea
                     id="client-action-reason"
                     rows={3}
@@ -890,13 +926,14 @@ export default function ClientManager() {
                 onClick={runAction}
                 disabled={
                   acting ||
-                  (action.type === 'permanent' && (!linked || linked.error || linked.total > 0 || confirmText.trim() !== action.client.clientId))
+                  (action.type === 'permanent' && (!linked || linked.error || linked.total > 0 || confirmText.trim() !== action.client.clientId)) ||
+                  (action.type === 'hold' && actionReason.trim().length < 5)
                 }
                 className={`px-4 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer ${
-                  action.type === 'suspend' ? 'bg-amber-600 hover:bg-amber-700' : 'bg-red-600 hover:bg-red-700'
+                  action.type === 'suspend' || action.type === 'hold' ? 'bg-amber-600 hover:bg-amber-700' : 'bg-red-600 hover:bg-red-700'
                 }`}
               >
-                {acting ? 'Working…' : action.type === 'suspend' ? 'Suspend account' : action.type === 'archive' ? 'Delete account' : 'Delete permanently'}
+                {acting ? 'Working…' : action.type === 'hold' ? 'Put on hold' : action.type === 'suspend' ? 'Suspend account' : action.type === 'archive' ? 'Delete account' : 'Delete permanently'}
               </button>
             </div>
           </div>

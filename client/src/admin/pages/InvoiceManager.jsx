@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useCrm } from '../../shared/crmAccess';
+import InvoiceDraftsPanel from '../components/InvoiceDraftsPanel';
 import toast from 'react-hot-toast';
 import {
   FileText, Plus, Search, X, Save, IndianRupee,
@@ -27,6 +28,8 @@ export default function InvoiceManager() {
   const [pagination, setPagination] = useState({ total: 0, page: 1, totalPages: 1 });
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState('');
+  const [view, setView] = useState('invoices'); // 'invoices' | 'drafts'
+  const [openDrafts, setOpenDrafts] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [editTarget, setEditTarget] = useState(null);
   const [form, setForm] = useState(emptyForm());
@@ -51,6 +54,12 @@ export default function InvoiceManager() {
   }, [http, base, page, statusFilter]);
 
   useEffect(() => { fetchInvoices(); }, [fetchInvoices]);
+
+  // How many scheduled invoices are waiting — for the badge on the tab
+  const refreshDraftCount = useCallback(() => {
+    http.get(`${base}/invoice-drafts`, { params: { status: 'open' } }).then((r) => setOpenDrafts(r.data.openCount)).catch(() => {});
+  }, [http, base]);
+  useEffect(() => { refreshDraftCount(); }, [refreshDraftCount, view]);
 
   // Lock body scroll when modal is open
   useEffect(() => {
@@ -158,6 +167,22 @@ export default function InvoiceManager() {
         </div>
       </div>
 
+      <div className="flex gap-2 border-b border-outline-variant" role="tablist" aria-label="Invoice views">
+        {[['invoices', 'Invoices'], ['drafts', 'Awaiting approval']].map(([id, label]) => (
+          <button key={id} role="tab" aria-selected={view === id} onClick={() => setView(id)}
+            className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px cursor-pointer transition-colors flex items-center gap-2 ${view === id ? 'border-secondary text-secondary' : 'border-transparent text-on-surface-variant hover:text-on-surface'}`}>
+            {label}
+            {id === 'drafts' && openDrafts > 0 && <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-secondary text-white text-[10px] font-bold flex items-center justify-center">{openDrafts}</span>}
+          </button>
+        ))}
+      </div>
+
+      {view === 'drafts' && (
+        <InvoiceDraftsPanel http={http} base={base} canApprove={canCrm('invoices', 'create')} canEdit={canCrm('invoices', 'edit')}
+          onChanged={() => { fetchInvoices(); refreshDraftCount(); }} />
+      )}
+
+      {view === 'invoices' && (<>
       {/* Filters */}
       <div className="flex gap-2 items-center">
         <Filter size={14} className="text-on-surface-variant" />
@@ -259,6 +284,7 @@ export default function InvoiceManager() {
           </div>
         )}
       </div>
+      </>)}
 
       {/* Modal */}
       {showModal && (
