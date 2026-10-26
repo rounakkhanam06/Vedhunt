@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import toast from 'react-hot-toast';
 import { AlertTriangle, X, RefreshCcw, UserPlus, Link2, Ban, Search } from 'lucide-react';
+import useBodyScrollLock from '../../hooks/useBodyScrollLock';
 
 const inputCls = 'w-full px-3 py-2 bg-admin-bg border border-outline-variant rounded-lg text-on-surface text-sm focus:outline-none focus:border-secondary';
 const fmt = (d) => (d ? new Date(d).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '');
@@ -81,6 +82,7 @@ function Issue({ issue, http, base, onChanged }) {
  * Opens as a dialog from the banner on Client Accounts.
  */
 export default function ClientCreationIssuesPanel({ http, base, onClose, onChanged }) {
+  useBodyScrollLock(onClose); // the page behind stays still; Escape closes
   const [data, setData] = useState(null);
   const [scanning, setScanning] = useState(false);
   const [lastScan, setLastScan] = useState(null); // result of the check run in this session
@@ -108,7 +110,7 @@ export default function ClientCreationIssuesPanel({ http, base, onClose, onChang
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm overflow-y-auto" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm overflow-y-auto overscroll-contain" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div role="dialog" aria-modal="true" aria-labelledby="cci-title" className="w-full max-w-3xl bg-surface border border-outline-variant rounded-2xl shadow-2xl my-auto">
         <div className="flex items-start justify-between gap-3 px-5 py-4 border-b border-outline-variant">
           <div>
@@ -117,7 +119,7 @@ export default function ClientCreationIssuesPanel({ http, base, onClose, onChang
           </div>
           <button onClick={onClose} aria-label="Close" className="p-1.5 rounded-lg hover:bg-surface-container-low text-on-surface-variant cursor-pointer shrink-0"><X size={18} /></button>
         </div>
-        <div className="p-5 space-y-4 max-h-[70vh] overflow-y-auto">
+        <div className="p-5 space-y-4 max-h-[70vh] overflow-y-auto overscroll-contain">
           <button type="button" onClick={scan} disabled={scanning} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-outline-variant text-xs text-on-surface hover:bg-surface-container-low disabled:opacity-60 cursor-pointer"><Search size={13} /> {scanning ? 'Checking…' : 'Check all Won leads now'}</button>
           {lastScan && (
             <p className="text-xs text-on-surface-variant" role="status">

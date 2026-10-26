@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { X, FileText } from 'lucide-react';
 import toast from 'react-hot-toast';
+import useBodyScrollLock from '../hooks/useBodyScrollLock';
 
 const inr = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
 
@@ -10,6 +11,7 @@ const inr = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { maximumFractio
  * creates the invoice (once per month).
  */
 export default function ExtraHoursModal({ retainer, http, base, onClose, onDone }) {
+  useBodyScrollLock(onClose);
   const months = (retainer.history || []).filter((m) => !m.partial && m.extra > 0).reverse();
   const [month, setMonth] = useState(months[0]?.key || '');
   const [preview, setPreview] = useState(null);

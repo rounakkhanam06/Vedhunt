@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import toast from 'react-hot-toast';
+import useBodyScrollLock from '../hooks/useBodyScrollLock';
 import { CheckCircle2, AlertTriangle, Edit2, SkipForward, RefreshCcw, Plus, Trash2, X, Save } from 'lucide-react';
 
 const inr = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
@@ -15,6 +16,7 @@ const STATUS = {
 };
 
 function EditDraft({ draft, http, base, onClose, onSaved }) {
+  useBodyScrollLock(onClose);
   const [items, setItems] = useState(draft.lineItems.length ? draft.lineItems.map((i) => ({ description: i.description, qty: i.qty, unitPrice: i.unitPrice })) : [{ description: '', qty: 1, unitPrice: '' }]);
   const [dueDate, setDueDate] = useState(toDay(draft.dueDate));
   const [taxPercent, setTaxPercent] = useState(draft.taxPercent);
