@@ -55,6 +55,15 @@ async function prerenderSEO() {
       fs.mkdirSync(servicesDir, { recursive: true });
     }
 
+    // A real directory on disk makes nginx resolve /services/ to it and return 403
+    // unless it has an index file. Serve the SPA shell for every listing route that
+    // has (or may have) a directory, so the trailing-slash URL loads the app.
+    const blogDir = path.resolve(__dirname, '../../client/dist/blog');
+    fs.mkdirSync(blogDir, { recursive: true });
+    for (const dir of [servicesDir, blogDir]) {
+      fs.writeFileSync(path.join(dir, 'index.html'), baseHtml, 'utf8');
+    }
+
     let generatedCount = 0;
 
     for (const service of services) {
