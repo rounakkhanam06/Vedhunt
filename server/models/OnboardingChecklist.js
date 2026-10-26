@@ -19,6 +19,11 @@ const itemSchema = new mongoose.Schema(
     remarks: { type: String, trim: true, maxlength: 1000 },
     evidenceLink: { type: String, trim: true, maxlength: 500 }, // document / approval / validation link
     blocker: { type: String, trim: true, maxlength: 500 },
+    // What the CLIENT is allowed to see (everything else on a step is internal):
+    // a step with a clientMessage shows as "Waiting on you"; the proof link is shown
+    // only when shareProof is on (and the link is a plain https URL).
+    shareProof: { type: Boolean, default: false },
+    clientMessage: { type: String, trim: true, maxlength: 300 },
     naReason: { type: String, trim: true, maxlength: 500 },
     updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin' },
     updatedAt: { type: Date },

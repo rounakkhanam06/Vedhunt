@@ -112,6 +112,58 @@ async function buildContents(schedule, client, invoiceDate, policy) {
   return { period, lineItems, dueDate, ...t, problems: problemsFor({ lineItems, totalAmount: t.totalAmount }, client) };
 }
 
+/**
+ * Draft one scheduled date for a client. Returns 'created' | 'needAttention' | 'existing'.
+ * A date that already has a draft or an invoice is never drafted again.
+ */
+async function draftOne(schedule, client, invoiceDate, policy) {
+  if (await InvoiceDraft.exists({ client_ref: schedule.client_ref, invoiceDate })) return 'existing';
+  if (await Invoice.exists({ client_ref: schedule.client_ref, 'scheduled.invoiceDate': invoiceDate })) return 'existing';
+  const c = await buildContents(schedule, client, invoiceDate, policy);
+  try {
+    await InvoiceDraft.create({
+      client_ref: schedule.client_ref, invoiceDate, periodStart: c.period.start, periodEnd: c.period.end, dueDate: c.dueDate,
+      lineItems: c.lineItems, subtotal: c.subtotal, taxPercent: c.taxPercent, taxAmount: c.taxAmount, totalAmount: c.totalAmount,
+      problems: c.problems, status: c.problems.length ? 'Needs Attention' : 'Pending Approval',
+    });
+  } catch (err) {
+    if (err.code === 11000) return 'existing'; // another run got there first
+    throw err;
+  }
+  return c.problems.length ? 'needAttention' : 'created';
+}
+
+const MISSED_LOOKBACK_DAYS = 62;
+
+/** Scheduled dates up to today that have neither a draft nor an invoice (the job only catches up a week). */
+async function missedDates(schedule, now = new Date()) {
+  const today = dayOf(now);
+  const from = addDays(today, -MISSED_LOOKBACK_DAYS);
+  const dates = invoiceDatesBetween(schedule, from, today);
+  if (!dates.length) return [];
+  const [drafts, invoices] = await Promise.all([
+    InvoiceDraft.find({ client_ref: schedule.client_ref, invoiceDate: { $in: dates } }).select('invoiceDate').lean(),
+    Invoice.find({ client_ref: schedule.client_ref, 'scheduled.invoiceDate': { $in: dates } }).select('scheduled.invoiceDate').lean(),
+  ]);
+  const have = new Set([...drafts.map((d) => d.invoiceDate), ...invoices.map((i) => i.scheduled.invoiceDate)]);
+  return dates.filter((d) => !have.has(d)).slice(-3);
+}
+
+/** Staff asked for the draft of a date the job did not (or will not) create — e.g. a start date already in the past. */
+async function createDraftFor(clientId, invoiceDate, now = new Date()) {
+  const schedule = await BillingSchedule.findOne({ client_ref: clientId }).lean();
+  if (!schedule) return fail(404, 'This client has no billing schedule yet. Save one first.');
+  if (!isDay(invoiceDate)) return fail(400, 'Choose a valid date.');
+  if (invoiceDate > dayOf(now)) return fail(400, 'That date has not arrived yet — the daily job will create it.');
+  if (!invoiceDatesBetween(schedule, invoiceDate, invoiceDate).length) return fail(400, 'That date is not one of this client\'s scheduled invoice dates.');
+  const client = await Client.findById(clientId).select('email businessName clientId isActive deletedAt').lean();
+  if (!client || client.deletedAt) return fail(404, 'Client not found');
+  const state = await draftOne(schedule, client, invoiceDate, await getBilling());
+  if (state === 'existing') return fail(409, 'That date already has a draft or an invoice.');
+  const draft = await InvoiceDraft.findOne({ client_ref: clientId, invoiceDate }).lean();
+  return { ok: true, draft, state };
+}
+
 // ── The daily job ───────────────────────────────────────────────────────────
 /**
  * Create the drafts that are due. Safe to run any number of times: the unique
@@ -133,17 +185,8 @@ async function generateDrafts(now = new Date()) {
 
     for (const invoiceDate of dates) {
       try {
-        if (await InvoiceDraft.exists({ client_ref: schedule.client_ref, invoiceDate })) { result.existing += 1; continue; }
-        if (await Invoice.exists({ client_ref: schedule.client_ref, 'scheduled.invoiceDate': invoiceDate })) { result.existing += 1; continue; }
-        const c = await buildContents(schedule, client, invoiceDate, policy);
-        await InvoiceDraft.create({
-          client_ref: schedule.client_ref, invoiceDate, periodStart: c.period.start, periodEnd: c.period.end, dueDate: c.dueDate,
-          lineItems: c.lineItems, subtotal: c.subtotal, taxPercent: c.taxPercent, taxAmount: c.taxAmount, totalAmount: c.totalAmount,
-          problems: c.problems, status: c.problems.length ? 'Needs Attention' : 'Pending Approval',
-        });
-        if (c.problems.length) result.needAttention += 1; else result.created += 1;
+        result[await draftOne(schedule, client, invoiceDate, policy)] += 1;
       } catch (err) {
-        if (err.code === 11000) { result.existing += 1; continue; } // another run got there first
         logger.error(`Invoice draft failed for ${client.clientId} ${invoiceDate}:`, err.message);
       }
     }
@@ -286,5 +329,5 @@ function validateSchedule(input = {}, defaultDueDays = 7) {
 
 module.exports = {
   CATCH_UP_DAYS, dayInMonth, nthDate, invoiceDatesBetween, nextDateAfter, upcomingDates, periodFor, suggestStartDate,
-  totals, problemsFor, cleanItems, generateDrafts, editDraft, rebuildDraft, approveDraft, skipDraft, validateSchedule,
+  totals, problemsFor, cleanItems, generateDrafts, missedDates, createDraftFor, editDraft, rebuildDraft, approveDraft, skipDraft, validateSchedule,
 };

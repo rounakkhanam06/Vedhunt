@@ -3,6 +3,28 @@ import toast from 'react-hot-toast';
 import { Save, CalendarClock } from 'lucide-react';
 
 const fmt = (d) => new Date(`${d}T12:00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+const todayStr = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+
+// The first date the daily job will draft on its own: a missed run only catches up the last 7 days
+function firstAutomaticDate(startDate, billingDay) {
+  if (!startDate) return null;
+  const today = todayStr();
+  const earliest = new Date(`${today}T12:00:00`);
+  earliest.setDate(earliest.getDate() - 7);
+  const from = `${earliest.getFullYear()}-${String(earliest.getMonth() + 1).padStart(2, '0')}-${String(earliest.getDate()).padStart(2, '0')}`;
+  const [y, m] = startDate.split('-').map(Number);
+  for (let k = 0; k < 600; k += 1) {
+    let d = startDate;
+    if (k > 0) {
+      const first = new Date(y, m - 1 + k, 1);
+      const last = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate();
+      d = `${first.getFullYear()}-${String(first.getMonth() + 1).padStart(2, '0')}-${String(Math.min(Number(billingDay) || 1, last)).padStart(2, '0')}`;
+    }
+    if (d >= from) return d;
+  }
+  return null;
+}
+
 const inputCls = 'w-full px-3 py-2 bg-admin-bg border border-outline-variant rounded-lg text-on-surface text-sm focus:outline-none focus:border-secondary';
 
 /**
@@ -15,6 +37,7 @@ export default function BillingSchedulePanel({ clientId, http, base, canEdit }) 
   const [form, setForm] = useState(null);
   const [saving, setSaving] = useState(false);
   const [reload, setReload] = useState(0);
+  const [creating, setCreating] = useState('');
 
   useEffect(() => {
     let live = true;
@@ -43,6 +66,16 @@ export default function BillingSchedulePanel({ clientId, http, base, canEdit }) 
       setReload((n) => n + 1);
     } catch (err) { toast.error(err?.response?.data?.message || 'Could not save'); }
     finally { setSaving(false); }
+  };
+
+  const createNow = async (invoiceDate) => {
+    setCreating(invoiceDate);
+    try {
+      const res = await http.post(`${base}/clients/${clientId}/billing-schedule/draft`, { invoiceDate });
+      toast.success(res.data.message);
+      setReload((n) => n + 1);
+    } catch (err) { toast.error(err?.response?.data?.message || 'Could not create the draft'); }
+    finally { setCreating(''); }
   };
 
   if (!info || !form) return <div className="flex justify-center py-8"><div className="w-6 h-6 border-2 border-secondary/30 border-t-secondary rounded-full animate-spin" /></div>;
@@ -77,8 +110,36 @@ export default function BillingSchedulePanel({ clientId, http, base, canEdit }) 
       <label className="block"><span className="block text-on-surface-variant text-[10px] uppercase font-bold tracking-wider mb-1">Internal note</span>
         <input className={inputCls} maxLength={500} value={form.note} disabled={!canEdit} onChange={set('note')} /></label>
 
+      {(() => {
+        const first = firstAutomaticDate(form.startDate, form.billingDay);
+        if (!form.startDate || !first || first === form.startDate) return null;
+        return (
+          <p className="text-xs text-amber-300 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2" role="status">
+            {fmt(form.startDate)} has already passed, so the daily job will not create a draft for it. The first automatic invoice will be on <strong>{fmt(first)}</strong>.
+            {info.schedule ? ' You can create the draft for the missed date below.' : ' Save the schedule, then you can create the draft for the missed date.'}
+          </p>
+        );
+      })()}
+
       {canEdit && (
         <button type="submit" disabled={saving} className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-secondary text-white text-sm font-semibold disabled:opacity-60 cursor-pointer"><Save size={14} /> {saving ? 'Saving…' : 'Save schedule'}</button>
+      )}
+
+      {canEdit && info.missed?.length > 0 && (
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3.5 space-y-2">
+          <p className="text-on-surface text-sm font-semibold">Missed invoice dates</p>
+          <p className="text-xs text-on-surface-variant">These dates have passed with no draft or invoice. Create the draft for each one that should still be billed — it will wait for approval like any other.</p>
+          <ul className="space-y-2">
+            {info.missed.map((m) => (
+              <li key={m.invoiceDate} className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                <span className="text-on-surface">{fmt(m.invoiceDate)} <span className="text-on-surface-variant">— covers {fmt(m.start)} to {fmt(m.end)}</span></span>
+                <button type="button" disabled={!!creating} onClick={() => createNow(m.invoiceDate)} className="px-3 py-1.5 rounded-lg bg-secondary text-white font-semibold disabled:opacity-60 cursor-pointer">
+                  {creating === m.invoiceDate ? 'Creating…' : 'Create draft now'}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
 
       {info.schedule && (

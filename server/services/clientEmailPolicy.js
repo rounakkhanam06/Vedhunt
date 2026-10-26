@@ -16,6 +16,7 @@ const EVENTS = [
   { key: 'payment_rejected', label: 'Payment proof rejected', hint: 'The client has to submit the proof again.', default: true },
   { key: 'ticket_pending_client', label: 'Ticket waiting for the client', hint: 'Our team needs the client’s reply to continue.', default: true },
   { key: 'agreement_updated', label: 'Agreement ready to sign', hint: 'Terms were created or changed and need acceptance.', default: true },
+  { key: 'onboarding_request', label: 'We need something from the client', hint: 'A setup step is waiting on the client (access, approval …).', default: true },
   { key: 'account_hold', label: 'Account put on hold', hint: 'Service is paused, usually for an unpaid invoice.', default: true },
   { key: 'kyc_rejected', label: 'KYC document needs changes', hint: 'A KYC item was rejected and has to be uploaded again.', default: true },
   { key: 'payment_approved', label: 'Payment verified', hint: 'Receipt-style confirmation that a payment was accepted.', default: false },

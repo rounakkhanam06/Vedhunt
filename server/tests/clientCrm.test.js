@@ -224,7 +224,7 @@ describe('client email policy — which notifications are also emailed', () => {
   test('by default only action-needed events are emailed', () => {
     const p = mergePolicy(undefined);
     const on = Object.keys(p).filter((k) => p[k]).sort();
-    assert.deepEqual(on, ['account_hold', 'agreement_updated', 'invoice_created', 'kyc_rejected', 'payment_rejected', 'ticket_pending_client']);
+    assert.deepEqual(on, ['account_hold', 'agreement_updated', 'invoice_created', 'kyc_rejected', 'onboarding_request', 'payment_rejected', 'ticket_pending_client']);
   });
   test('every event has a switch, a label and a default', () => {
     assert.equal(Object.keys(mergePolicy({})).length, EVENTS.length);
@@ -316,5 +316,54 @@ describe('recurring invoices — dates and drafts', () => {
     assert.equal(bs.problemsFor({ lineItems: [{ amount: 1 }], totalAmount: 1 }, { email: 'a@b.co' }).length, 0);
     assert.match(bs.problemsFor({ lineItems: [], totalAmount: 0 }, { email: 'a@b.co' })[0], /No active monthly retainer/);
     assert.match(bs.problemsFor({ lineItems: [{ amount: 1 }], totalAmount: 1 }, { email: '' })[0], /email/);
+  });
+});
+
+describe('onboarding — what the client sees', () => {
+  const doc = (items, goLive = {}) => ({ items, goLive: { isLive: false, ...goLive } });
+  const it = (o) => ({ key: 'k', label: 'Step', status: 'Not Started', ...o });
+  const stateOf = (o) => onboarding.clientView(doc([it(o)])).items[0].state;
+
+  test('there is nothing to show before a checklist exists', () => {
+    assert.equal(onboarding.clientView(null), null);
+    assert.equal(onboarding.clientView(doc([])), null);
+  });
+  test('internal statuses become plain client-facing states', () => {
+    assert.equal(stateOf({}), 'not_started');
+    assert.equal(stateOf({ status: 'In Progress' }), 'in_progress');
+    assert.equal(stateOf({ status: 'Blocked', blocker: 'client has not replied' }), 'blocked');
+    assert.equal(stateOf({ status: 'Completed' }), 'done');
+    assert.equal(stateOf({ status: 'Not Applicable', naReason: 'internal reason' }), 'not_needed');
+  });
+  test('a message for the client makes the step "waiting on you" — until it is done', () => {
+    assert.equal(stateOf({ status: 'In Progress', clientMessage: 'Please add us as admin' }), 'waiting_on_you');
+    assert.equal(onboarding.clientView(doc([it({ clientMessage: 'Please add us as admin' })])).items[0].message, 'Please add us as admin');
+    assert.equal(stateOf({ status: 'Completed', clientMessage: 'Please add us as admin' }), 'done');
+    assert.equal(onboarding.clientView(doc([it({ status: 'Completed', clientMessage: 'x' })])).items[0].message, '');
+  });
+  test('a proof link is shown only when shared AND a plain https link', () => {
+    const url = (o) => onboarding.clientView(doc([it({ evidenceLink: 'https://drive.test/signed.pdf', ...o })])).items[0].proofUrl;
+    assert.equal(url({}), null, 'not shared by default');
+    assert.equal(url({ shareProof: true }), 'https://drive.test/signed.pdf');
+    assert.equal(url({ shareProof: true, evidenceLink: 'javascript:alert(1)' }), null);
+    assert.equal(url({ shareProof: true, evidenceLink: 'http://insecure.test/x' }), null);
+    assert.equal(url({ shareProof: true, evidenceLink: 'signed copy is in the email' }), null);
+  });
+  test('nothing internal is ever in the client view', () => {
+    const view = onboarding.clientView(doc([it({
+      status: 'Blocked', remarks: 'SECRET remark', blocker: 'SECRET blocker', naReason: 'SECRET na', evidenceLink: 'https://secret.test/internal', owner: 'ownerid', dueDate: '2026-01-01',
+    })], { exception: { reason: 'SECRET exception', waivedItems: ['k'] } }));
+    const raw = JSON.stringify(view);
+    for (const s of ['SECRET', 'secret.test', 'ownerid', 'dueDate', 'exception', 'owner']) assert.equal(raw.includes(s), false, `leaked ${s}`);
+  });
+  test('the summary counts done, not-needed and waiting steps', () => {
+    const v = onboarding.clientView(doc([it({ status: 'Completed' }), it({ status: 'Not Applicable' }), it({ clientMessage: 'help' }), it({})]));
+    assert.deepEqual(v.summary, { total: 4, done: 2, waitingOnYou: 1 });
+  });
+  test('sharing a proof needs an https link; the message is length-limited', () => {
+    assert.ok(onboarding.validateItemUpdate(it({ needsEvidence: true }), { shareProof: true }).errors.length, 'no link');
+    assert.ok(onboarding.validateItemUpdate(it(), { shareProof: true, evidenceLink: 'http://x.test' }).errors.length, 'http is not enough');
+    assert.equal(onboarding.validateItemUpdate(it(), { shareProof: true, evidenceLink: 'https://x.test/a' }).errors.length, 0);
+    assert.ok(onboarding.validateItemUpdate(it(), { clientMessage: 'x'.repeat(301) }).errors.length);
   });
 });

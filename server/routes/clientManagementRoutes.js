@@ -22,7 +22,7 @@ const AuditLog = require('../models/AuditLog');
 const PaymentProof = require('../models/PaymentProof');
 const ClientNotification = require('../models/ClientNotification');
 const {
-  notifyInvoiceCreated, notifyAgreementUpdated, notifyTicketReply, notifyTicketStatus, notifyKycRejected, notifyKycVerified, notifyAccountHold, notifyAccountReleased,
+  notifyInvoiceCreated, notifyAgreementUpdated, notifyTicketReply, notifyTicketStatus, notifyKycRejected, notifyKycVerified, notifyAccountHold, notifyAccountReleased, notifyOnboardingRequest,
 } = require('../services/clientNotify');
 
 const { PAGE_CATALOG, pageScope, hasBaseAccess } = require('../config/pageAccess');
@@ -786,7 +786,8 @@ router.put('/clients/:id/onboarding/items/:key', crm('clients', 'edit'), async (
     const { value, errors } = onboarding.validateItemUpdate(item.toObject(), req.body);
     if (errors.length) return res.status(400).json({ success: false, message: errors.join('. ') });
 
-    const before = { status: item.status, owner: item.owner ? String(item.owner) : null, dueDate: item.dueDate || null, remarks: item.remarks || '' };
+    const snap = () => ({ status: item.status, owner: item.owner ? String(item.owner) : null, dueDate: item.dueDate || null, remarks: item.remarks || '', shareProof: !!item.shareProof, clientMessage: item.clientMessage || '' });
+    const before = snap();
     item.set(value);
     if (value.status === 'Completed' && !item.completedAt) item.completedAt = new Date();
     if (value.status && value.status !== 'Completed') item.completedAt = undefined;
@@ -796,9 +797,11 @@ router.put('/clients/:id/onboarding/items/:key', crm('clients', 'edit'), async (
     item.updatedAt = new Date();
     await doc.save();
 
-    await recordAudit(req, 'ONBOARDING_ITEM_UPDATE', 'OnboardingChecklist', `${req.params.id}:${item.key}`, before, {
-      status: item.status, owner: item.owner ? String(item.owner) : null, dueDate: item.dueDate || null, remarks: item.remarks || '',
-    });
+    await recordAudit(req, 'ONBOARDING_ITEM_UPDATE', 'OnboardingChecklist', `${req.params.id}:${item.key}`, before, snap());
+    // A new or changed request to the client is worth a notification (it also appears on their Overview)
+    if (item.clientMessage && item.clientMessage !== before.clientMessage && !onboarding.DONE.includes(item.status)) {
+      await notifyOnboardingRequest(req.params.id, item.label, item.clientMessage);
+    }
     res.json({ success: true, message: 'Step updated', data: checklistView(doc) });
   } catch (error) {
     logger.error('Admin update onboarding item error:', error);
@@ -1043,6 +1046,8 @@ router.get('/clients/:id/billing-schedule', crm('invoices', 'view'), async (req,
         suggestedStartDate: billingSchedule.suggestStartDate(client.profile?.onboardingDate),
         defaultDueDays: policy.defaultDueDays,
         upcoming: schedule ? billingSchedule.upcomingDates(schedule, today, 4).map((d) => ({ invoiceDate: d, ...billingSchedule.periodFor(schedule, d) })) : [],
+        // Scheduled dates that have passed with no draft or invoice — staff can create their drafts now
+        missed: schedule ? (await billingSchedule.missedDates(schedule)).map((d) => ({ invoiceDate: d, ...billingSchedule.periodFor(schedule, d) })) : [],
       },
     });
   } catch (error) {
@@ -1066,6 +1071,24 @@ router.put('/clients/:id/billing-schedule', crm('invoices', 'edit'), async (req,
     res.json({ success: true, message: schedule.active ? 'Billing schedule saved and switched on' : 'Billing schedule saved (switched off)', data: schedule });
   } catch (error) {
     logger.error('Admin save billing schedule error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+router.post('/clients/:id/billing-schedule/draft', crm('invoices', 'create'), async (req, res) => {
+  try {
+    if (!isValidId(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid client ID' });
+    if (!clientAllowed(req, req.params.id)) return outOfScope(res, 'Client');
+    const r = await billingSchedule.createDraftFor(req.params.id, req.body.invoiceDate);
+    if (!r.ok) return res.status(r.status).json({ success: false, message: r.message });
+    await recordAudit(req, 'INVOICE_DRAFT_CREATE_NOW', 'InvoiceDraft', `${req.params.id}:${r.draft.invoiceDate}`, null, draftSnap(r.draft));
+    res.status(201).json({
+      success: true,
+      message: r.state === 'needAttention' ? 'Draft created, but it needs attention before it can be approved (see Invoices → Awaiting approval).' : 'Draft created — approve it under Invoices → Awaiting approval.',
+      data: draftView(r.draft),
+    });
+  } catch (error) {
+    logger.error('Admin create draft now error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });

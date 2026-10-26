@@ -11,6 +11,7 @@ const StrategyTab   = lazy(() => import('../tabs/StrategyTab'));
 const KycTab        = lazy(() => import('../tabs/KycTab'));
 const PerformanceTab = lazy(() => import('../tabs/PerformanceTab'));
 const WorkTab       = lazy(() => import('../tabs/WorkTab'));
+const OnboardingTab = lazy(() => import('../tabs/OnboardingTab'));
 const AgreementTab  = lazy(() => import('../tabs/AgreementTab'));
 const AccountTab    = lazy(() => import('../tabs/AccountTab'));
 
@@ -24,6 +25,7 @@ const TAB_COMPONENTS = {
   kyc:       KycTab,
   performance: PerformanceTab,
   work:      WorkTab,
+  onboarding: OnboardingTab,
   agreement: AgreementTab,
   account:   AccountTab,
 };

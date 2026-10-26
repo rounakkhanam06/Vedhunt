@@ -776,7 +776,7 @@ describe('client notification emails — only the switched-on events are emailed
   test('the switches can be read and changed by an admin, and take effect immediately', async () => {
     const got = await admin('GET', '/admin/settings/client-email-notifications');
     assert.equal(got.status, 200);
-    assert.equal(got.body.events.length, 11);
+    assert.equal(got.body.events.length, 12);
     assert.equal(got.body.policy.payment_approved, false);
 
     const put = await admin('PUT', '/admin/settings/client-email-notifications', { policy: { payment_approved: true, invoice_created: false } });
@@ -1547,5 +1547,132 @@ describe('recurring invoices: schedule, drafts, correction and approval', () => 
     const other = await draftOf('lambda');
     assert.equal((await request(token, 'POST', `/employee-portal/crm/invoice-drafts/${other._id}/skip`, { reason: 'not my client at all' })).status, 404);
     assert.equal((await request(token, 'POST', '/employee-portal/crm/invoice-drafts-run')).status, 403, 'generating needs all clients');
+  });
+});
+
+describe('recurring invoices: a start date that has already passed', () => {
+  const pad = (n) => String(n).padStart(2, '0');
+  const dayStr = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const today = new Date();
+  const ago = (n) => new Date(today.getFullYear(), today.getMonth(), today.getDate() - n);
+
+  before(async () => {
+    const c = await require('../../models/Client').create({ businessName: 'Tau Past Start', contactName: 'Tau Owner', email: 'tau@example.com', phone: '+919800000014', password: 'ClientPass1', isTemporaryPassword: false });
+    ids.tau = String(c._id);
+    await require('../../models/Retainer').create({ client_ref: c._id, packageName: 'Performance Retainer', monthlyAmount: 15000, supportHoursPerMonth: 10, contractStartDate: new Date(today.getFullYear() - 1, 0, 1), contractEndDate: new Date(today.getFullYear() + 1, 0, 1) });
+    await admin('PUT', `/admin/clients/${ids.tau}/billing-schedule`, { active: true, billingDay: ago(9).getDate(), startDate: dayStr(ago(9)) });
+  });
+
+  test('the daily job leaves a date older than a week alone, and the schedule lists it as missed', async () => {
+    await admin('POST', '/admin/invoice-drafts-run');
+    assert.equal(await require('../../models/InvoiceDraft').countDocuments({ client_ref: ids.tau }), 0);
+    const info = (await admin('GET', `/admin/clients/${ids.tau}/billing-schedule`)).body.data;
+    assert.deepEqual(info.missed.map((m) => m.invoiceDate), [dayStr(ago(9))]);
+    assert.ok(info.missed[0].end > info.missed[0].start);
+  });
+
+  test('staff can create the draft for the missed date; it then waits for approval like any other', async () => {
+    const r = await admin('POST', `/admin/clients/${ids.tau}/billing-schedule/draft`, { invoiceDate: dayStr(ago(9)) });
+    assert.equal(r.status, 201, JSON.stringify(r.body));
+    assert.equal(r.body.data.status, 'Pending Approval');
+    assert.equal(r.body.data.totalAmount, 17700);
+    assert.ok(await require('../../models/AuditLog').findOne({ action: 'INVOICE_DRAFT_CREATE_NOW' }).lean());
+    assert.equal((await asClient('tau', 'GET', '/client/invoices')).body.summary.total, 0, 'still invisible to the client');
+    const info = (await admin('GET', `/admin/clients/${ids.tau}/billing-schedule`)).body.data;
+    assert.deepEqual(info.missed, [], 'it is no longer missed');
+  });
+
+  test('a date that already has a draft, a future date, and a date off the schedule are all refused', async () => {
+    const post = (invoiceDate) => admin('POST', `/admin/clients/${ids.tau}/billing-schedule/draft`, { invoiceDate });
+    assert.equal((await post(dayStr(ago(9)))).status, 409);
+    assert.equal((await post(dayStr(new Date(today.getFullYear(), today.getMonth(), today.getDate() + 3)))).status, 400);
+    assert.equal((await post(dayStr(ago(10)))).status, 400, 'not one of the scheduled dates');
+    assert.equal((await post('2026-02-30')).status, 400);
+    assert.equal((await asClient('tau', 'POST', `/admin/clients/${ids.tau}/billing-schedule/draft`, { invoiceDate: dayStr(ago(9)) })).status, 401);
+  });
+});
+
+describe('onboarding — the client can follow progress and see shared proof', () => {
+  const step = (client, key, body) => admin('PUT', `/admin/clients/${ids[client]}/onboarding/items/${key}`, body);
+  const mine = async (who) => (await asClient(who, 'GET', '/client/onboarding')).body.data;
+  const find = (data, key) => data.items.find((i) => i.key === key);
+
+  before(async () => {
+    const c = await require('../../models/Client').create({ businessName: 'Upsilon Setup', contactName: 'Ups Owner', email: 'upsilon@example.com', phone: '+919800000015', password: 'ClientPass1', isTemporaryPassword: false });
+    ids.upsilon = String(c._id);
+    await admin('PUT', `/admin/clients/${ids.upsilon}`, { profile: { services: ['Performance Marketing'], platforms: ['Meta'] } });
+    await admin('GET', `/admin/clients/${ids.upsilon}/onboarding`); // creates the checklist
+  });
+
+  test('before any checklist exists there is nothing to show', async () => {
+    assert.equal(await mine('gamma'), null);
+  });
+
+  test('the client sees every step as a plain status, with nothing internal', async () => {
+    await step('upsilon', 'contract_signed', { status: 'Completed', evidenceLink: 'https://drive.test/signed-contract.pdf', remarks: 'SECRET internal remark' });
+    await step('upsilon', 'advance_payment', { status: 'In Progress', remarks: 'SECRET chasing finance' });
+    await step('upsilon', 'meta_access', { status: 'Blocked', blocker: 'SECRET client ignoring emails' });
+    const d = await mine('upsilon');
+    assert.equal(find(d, 'contract_signed').state, 'done');
+    assert.equal(find(d, 'advance_payment').state, 'in_progress');
+    assert.equal(find(d, 'meta_access').state, 'blocked');
+    assert.equal(find(d, 'website_access').state, 'not_started');
+    const raw = JSON.stringify(d);
+    for (const s of ['SECRET', 'drive.test', 'remarks', 'blocker', 'owner', 'exception']) assert.equal(raw.includes(s), false, `leaked ${s}`);
+  });
+
+  test('a proof link is hidden until staff share it, and only a real https link can be shared', async () => {
+    assert.equal(find(await mine('upsilon'), 'contract_signed').proofUrl, null);
+    assert.equal((await step('upsilon', 'advance_payment', { shareProof: true })).status, 400, 'no link to share');
+    assert.equal((await step('upsilon', 'contract_signed', { evidenceLink: 'javascript:alert(1)', shareProof: true })).status, 400);
+    assert.equal((await step('upsilon', 'contract_signed', { evidenceLink: 'http://plain.test/x', shareProof: true })).status, 400);
+    assert.equal((await step('upsilon', 'contract_signed', { shareProof: true })).status, 200);
+    assert.equal(find(await mine('upsilon'), 'contract_signed').proofUrl, 'https://drive.test/signed-contract.pdf');
+    assert.equal((await step('upsilon', 'contract_signed', { shareProof: false })).status, 200);
+    assert.equal(find(await mine('upsilon'), 'contract_signed').proofUrl, null, 'unsharing hides it again');
+  });
+
+  test('a message for the client turns a step into "waiting on you", notifies them, and shows on their Overview', async () => {
+    const r = await step('upsilon', 'meta_access', { clientMessage: 'Please add business@vedhunt.in as an admin on your Meta Business Manager' });
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    const d = await mine('upsilon');
+    const meta = find(d, 'meta_access');
+    assert.equal(meta.state, 'waiting_on_you');
+    assert.match(meta.message, /business@vedhunt\.in/);
+    assert.equal(d.summary.waitingOnYou, 1);
+    assert.ok((await asClient('upsilon', 'GET', '/client/notifications')).body.notifications.some((n) => n.type === 'onboarding_request' && /Meta/.test(n.title)));
+    const overview = (await asClient('upsilon', 'GET', '/client/overview')).body.data;
+    assert.ok(overview.actions.some((a) => a.key === 'onboarding-waiting' && a.tab === 'onboarding'));
+
+    // saving the same message again does not notify twice
+    const count = (await asClient('upsilon', 'GET', '/client/notifications')).body.notifications.filter((n) => n.type === 'onboarding_request').length;
+    await step('upsilon', 'meta_access', { clientMessage: 'Please add business@vedhunt.in as an admin on your Meta Business Manager' });
+    assert.equal((await asClient('upsilon', 'GET', '/client/notifications')).body.notifications.filter((n) => n.type === 'onboarding_request').length, count);
+  });
+
+  test('once the step is done the request disappears', async () => {
+    await step('upsilon', 'meta_access', { status: 'Completed', remarks: 'Access granted 26 Oct' });
+    const meta = find(await mine('upsilon'), 'meta_access');
+    assert.equal(meta.state, 'done');
+    assert.equal(meta.message, '');
+    const overview = (await asClient('upsilon', 'GET', '/client/overview')).body.data;
+    assert.equal(overview.actions.some((a) => a.key === 'onboarding-waiting'), false);
+  });
+
+  test('going live is shown to the client without the exception details; clients only see their own checklist', async () => {
+    await admin('POST', `/admin/clients/${ids.upsilon}/onboarding/go-live`, { exception: { reason: 'SECRET: launching before the remaining steps are finished' } });
+    const d = await mine('upsilon');
+    assert.equal(d.live, true);
+    assert.ok(d.liveDate);
+    assert.equal(JSON.stringify(d).includes('SECRET'), false);
+    assert.equal(await mine('beta') === null || !JSON.stringify(await mine('beta')).includes('Upsilon'), true);
+    assert.equal((await request(null, 'GET', '/client/onboarding')).status, 401);
+  });
+
+  test('every sharing change is in the audit trail', async () => {
+    const AuditLog = require('../../models/AuditLog');
+    const entries = await AuditLog.find({ action: 'ONBOARDING_ITEM_UPDATE' }).lean();
+    assert.ok(entries.some((e) => e.afterSnapshot?.shareProof === true));
+    assert.ok(entries.some((e) => /business@vedhunt\.in/.test(e.afterSnapshot?.clientMessage || '')));
   });
 });

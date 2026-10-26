@@ -201,6 +201,21 @@ const notifyAccountReleased = (clientId) =>
     emailLines: ['Your Vedhunt service is <strong>active</strong> again. Thank you!'],
   });
 
+const notifyOnboardingRequest = (clientId, label, message) =>
+  notifyClient({
+    clientId,
+    type: 'onboarding_request',
+    emailEvent: 'onboarding_request',
+    title: `We need something from you — ${label}`,
+    message: clip(message, 200),
+    link: '/client/dashboard?tab=onboarding',
+    emailLines: [
+      `To keep your setup moving, we need your help with <strong>${escapeHtml(label)}</strong>.`,
+      escapeHtml(clip(message, 500)),
+    ],
+    ctaLabel: 'See what we need',
+  });
+
 const notifyKycRejected = (clientId, label, reason) =>
   notifyClient({
     clientId,
@@ -236,6 +251,7 @@ const notifyKycVerified = (clientId, label, complete) =>
 module.exports = {
   notifyClient,
   notifyKycRejected,
+  notifyOnboardingRequest,
   notifyAccountHold,
   notifyAccountReleased,
   notifyKycVerified,

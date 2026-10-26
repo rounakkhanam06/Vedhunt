@@ -97,6 +97,12 @@ function validateItemUpdate(item, input = {}) {
   for (const f of ['remarks', 'evidenceLink', 'blocker', 'naReason']) {
     if (input[f] !== undefined) value[f] = String(input[f] || '').trim();
   }
+  if (input.clientMessage !== undefined) {
+    const msg = String(input.clientMessage || '').trim();
+    if (msg.length > 300) errors.push('The message for the client can be at most 300 characters.');
+    else value.clientMessage = msg;
+  }
+  if (input.shareProof !== undefined) value.shareProof = input.shareProof === true;
   if (input.owner !== undefined) {
     if (input.owner && !mongoose.Types.ObjectId.isValid(input.owner)) errors.push('Invalid owner');
     else value.owner = input.owner || null;
@@ -109,12 +115,50 @@ function validateItemUpdate(item, input = {}) {
 
   const status = value.status ?? item.status;
   const merged = { ...next, ...value };
+  // Sharing a proof link with the client needs a real https link — never free text or a script URL
+  if (merged.shareProof === true && !/^https:\/\/\S+$/i.test(String(merged.evidenceLink || '').trim())) {
+    errors.push('To show the proof to the client, add a link that starts with https://');
+  }
   if (status === 'Not Applicable' && !String(merged.naReason || '').trim()) errors.push('A reason is required to mark a step Not Applicable');
   if (status === 'Blocked' && !String(merged.blocker || '').trim()) errors.push('Say what is blocking this step');
   if (status === 'Completed' && item.needsEvidence && !String(merged.evidenceLink || '').trim() && !String(merged.remarks || '').trim()) {
     errors.push('Add evidence (a link) or remarks before marking this step Completed');
   }
   return { value, errors };
+}
+
+/**
+ * What a client may see of their checklist — status words, a message they were
+ * sent, and proof links staff chose to share. Never remarks, blockers, owners,
+ * due dates, internal reasons or exception details.
+ */
+function clientView(doc) {
+  if (!doc || !doc.items?.length) return null;
+  const items = doc.items.map((i) => {
+    const done = i.status === 'Completed';
+    const notNeeded = i.status === 'Not Applicable';
+    const waiting = !!i.clientMessage && !done && !notNeeded;
+    const state = done ? 'done' : notNeeded ? 'not_needed' : waiting ? 'waiting_on_you' : i.status === 'Blocked' ? 'blocked' : i.status === 'In Progress' ? 'in_progress' : 'not_started';
+    const link = String(i.evidenceLink || '').trim();
+    return {
+      key: i.key,
+      label: i.label,
+      state,
+      message: waiting ? i.clientMessage : '',
+      completedAt: done ? i.completedAt || null : null,
+      proofUrl: i.shareProof && /^https:\/\/\S+$/i.test(link) ? link : null,
+    };
+  });
+  return {
+    items,
+    summary: {
+      total: items.length,
+      done: items.filter((i) => i.state === 'done' || i.state === 'not_needed').length,
+      waitingOnYou: items.filter((i) => i.state === 'waiting_on_you').length,
+    },
+    live: !!doc.goLive?.isLive,
+    liveDate: doc.goLive?.isLive ? doc.goLive.liveDate || null : null,
+  };
 }
 
 /** Load a client's checklist, creating it from the template on first use. */
@@ -175,5 +219,5 @@ async function findAlertableItems(now = new Date()) {
 
 module.exports = {
   TEMPLATE, DONE, applicableTemplate, missingItems, isItemOverdue, launchBlockers, validateItemUpdate,
-  getOrCreateChecklist, syncChecklist, evaluateGoLive, findAlertableItems, dayKey,
+  getOrCreateChecklist, syncChecklist, clientView, evaluateGoLive, findAlertableItems, dayKey,
 };

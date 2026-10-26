@@ -14,6 +14,8 @@ const { uploadTicketAttachment, deleteFromCloudinary } = require('../utils/cloud
 const { notifyTicketStaff, notifyPermissionHolders } = require('../services/staffNotify');
 const multer = require('multer');
 const kyc = require('../services/kyc');
+const onboardingService = require('../services/onboarding');
+const OnboardingChecklist = require('../models/OnboardingChecklist');
 const { workSummary } = require('../services/clientWork');
 const adPerformance = require('../services/adPerformance');
 const Client = require('../models/Client');
@@ -395,6 +397,26 @@ router.get('/work', async (req, res) => {
     res.json({ success: true, data });
   } catch (error) {
     logger.error('Client work summary error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ONBOARDING — the client's view of their launch checklist
+// ══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * @route  GET /api/client/onboarding
+ * @desc   Status of each setup step, what we need from the client, and proof links staff chose to share.
+ *         data is null until a checklist exists. Internal notes, owners and exceptions are never included.
+ * @access Client Private
+ */
+router.get('/onboarding', async (req, res) => {
+  try {
+    const doc = await OnboardingChecklist.findOne({ client_ref: req.client._id }).lean();
+    res.json({ success: true, data: onboardingService.clientView(doc) });
+  } catch (error) {
+    logger.error('Client onboarding error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
