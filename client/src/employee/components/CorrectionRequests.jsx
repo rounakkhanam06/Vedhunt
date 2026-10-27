@@ -30,6 +30,8 @@ export function CorrectionRequestModal({ kind, initial = {}, onClose }) {
       project: log?.project || '', task: log?.task || '', activityType: log?.activityType || '',
       isProductive: log ? log.isProductive : true, reason: '',
     }));
+  const [range, setRange] = useState(false); // attendance only: one request for several days
+  const [toDate, setToDate] = useState('');
   const [proof, setProof] = useState(null);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -39,18 +41,26 @@ export function CorrectionRequestModal({ kind, initial = {}, onClose }) {
     e.preventDefault();
     setError('');
     const required = kind === 'Attendance'
-      ? [['date', 'date'], ['clockIn', 'check-in'], ['clockOut', 'check-out'], ['reason', 'reason']]
+      ? [['date', range ? 'from date' : 'date'], ...(range ? [['toDate', 'to date']] : []), ['clockIn', 'check-in'], ['clockOut', 'check-out'], ['reason', 'reason']]
       : [['date', 'date'], ['start', 'start time'], ['end', 'end time'], ['project', 'project'], ['task', 'task'], ['activityType', 'activity type'], ['reason', 'reason']];
-    const missing = required.filter(([key]) => !String(form[key] ?? '').trim()).map(([, name]) => name);
+    const missing = required.filter(([key]) => !String((key === 'toDate' ? toDate : form[key]) ?? '').trim()).map(([, name]) => name);
     if (missing.length) { setError(`Please add: ${missing.join(', ')}.`); return; }
 
     setSaving(true);
     try {
       if (kind === 'Attendance') {
         const body = new FormData();
-        Object.entries(form).forEach(([k, v]) => body.append(k, v));
+        const { date, ...times } = form;
+        Object.entries(range ? { ...times, fromDate: date, toDate } : form).forEach(([k, v]) => body.append(k, v));
         if (proof) body.append('proof', proof);
-        await essPost('/corrections/attendance', body, { headers: { 'Content-Type': 'multipart/form-data' } });
+        const res = await essPost(range ? '/corrections/attendance/range' : '/corrections/attendance', body, { headers: { 'Content-Type': 'multipart/form-data' } });
+        if (range) {
+          const skipped = res.skipped || [];
+          toast.success(`${res.created} day${res.created === 1 ? '' : 's'} sent for approval${skipped.length ? ` · ${skipped.length} skipped (${skipped.map((x) => `${fmtDate(x.date)}: ${x.reason}`).join(', ')})` : ''}`, { duration: skipped.length ? 8000 : 4000 });
+          queryClient.invalidateQueries({ queryKey: essKeys.corrections });
+          onClose();
+          return;
+        }
       } else {
         await essPost('/corrections/timesheet', {
           workLogId: log?._id,
@@ -74,10 +84,24 @@ export function CorrectionRequestModal({ kind, initial = {}, onClose }) {
   return (
     <Modal title={title} subtitle="Goes to your manager for approval — your original record is kept." onClose={onClose}>
       <form onSubmit={submit} noValidate className="space-y-4">
-        <div>
-          <label className={label}>Date</label>
-          <input type="date" max={toDateInput()} value={form.date} onChange={set('date')} className={field} />
+        {kind === 'Attendance' && (
+          <label className="flex items-center gap-2 text-sm text-app-text cursor-pointer">
+            <input type="checkbox" checked={range} onChange={(e) => setRange(e.target.checked)} /> Multiple days (date range, same times each day)
+          </label>
+        )}
+        <div className={range ? 'grid grid-cols-2 gap-3' : ''}>
+          <div>
+            <label className={label}>{range ? 'From date' : 'Date'}</label>
+            <input type="date" max={toDateInput()} value={form.date} onChange={set('date')} className={field} />
+          </div>
+          {range && (
+            <div>
+              <label className={label}>To date</label>
+              <input type="date" min={form.date || undefined} max={toDateInput()} value={toDate} onChange={(e) => setToDate(e.target.value)} className={field} />
+            </div>
+          )}
         </div>
+        {range && <p className="text-[11px] text-app-text-muted -mt-2">Sundays, holidays, approved leave and days that already have a pending request are skipped automatically.</p>}
         {kind === 'Attendance' ? (
           <div className="grid grid-cols-2 gap-3">
             <div><label className={label}>Check-in</label><input type="time" value={form.clockIn} onChange={set('clockIn')} className={field} /></div>

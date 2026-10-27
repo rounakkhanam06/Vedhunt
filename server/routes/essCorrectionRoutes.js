@@ -14,6 +14,11 @@ router.post('/attendance', uploadTicketAttachment.single('proof'), async (req, r
   respond(res, await corrections.createAttendanceRequest(req.user, req.body, req.file?.path), 201);
 });
 
+// One request for a date range (e.g. 15–20 Oct, same times each day): one request per working day, grouped
+router.post('/attendance/range', uploadTicketAttachment.single('proof'), async (req, res) => {
+  respond(res, await corrections.createAttendanceRangeRequest(req.user, req.body, req.file?.path), 201);
+});
+
 router.post('/timesheet', async (req, res) => {
   respond(res, await corrections.createTimesheetRequest(req.user, req.body), 201);
 });

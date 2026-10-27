@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { usePageAccess } from '../../shared/crmAccess';
@@ -41,22 +41,44 @@ export default function CorrectionRequestsManager() {
   const queryClient = useQueryClient();
   const [status, setStatus] = useState('Pending');
   const [kind, setKind] = useState('All');
-  const [action, setAction] = useState(null); // { request, status }
+  const [search, setSearch] = useState('');
+  const [query, setQuery] = useState(''); // search text after a short pause in typing
+  const [selected, setSelected] = useState(() => new Set());
+  const [action, setAction] = useState(null); // { request, status } for one request, { ids, status } for the ticked ones
   const [comment, setComment] = useState('');
   const [saving, setSaving] = useState(false);
 
+  useEffect(() => {
+    const t = setTimeout(() => setQuery(search.trim()), 300);
+    return () => clearTimeout(t);
+  }, [search]);
+
   const { data: requests = [], isLoading } = useQuery({
-    queryKey: ['admin', 'corrections', status, kind],
-    queryFn: () => http.get(`${root}/corrections`, { params: { status: status === 'All' ? undefined : status, kind: kind === 'All' ? undefined : kind } }).then((r) => r.data.requests || []),
+    queryKey: ['admin', 'corrections', status, kind, query],
+    queryFn: () => http.get(`${root}/corrections`, { params: { status: status === 'All' ? undefined : status, kind: kind === 'All' ? undefined : kind, search: query || undefined } }).then((r) => r.data.requests || []),
   });
+
+  const canEdit = allowed('attendance.manage', 'corrections', 'edit');
+  const pending = requests.filter((r) => r.status === 'Pending');
+  const picked = pending.filter((r) => selected.has(r._id));
+  const toggle = (id) => setSelected((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const toggleAll = () => setSelected(picked.length === pending.length ? new Set() : new Set(pending.map((r) => r._id)));
+  // Requests made together for a date range share a batch: tick the whole range in one click
+  const selectBatch = (batchId) => setSelected((prev) => { const n = new Set(prev); pending.filter((r) => r.batchId === batchId).forEach((r) => n.add(r._id)); return n; });
+  const batchSize = (batchId) => pending.filter((r) => r.batchId === batchId).length;
 
   const submit = async (e) => {
     e.preventDefault();
     setSaving(true);
     try {
-      const res = await http.put(`${root}/corrections/${action.request._id}/status`, { status: action.status, comment });
-      toast.success(res.data.message);
+      const res = action.ids
+        ? await http.put(`${root}/corrections/bulk-status`, { ids: action.ids, status: action.status, comment })
+        : await http.put(`${root}/corrections/${action.request._id}/status`, { status: action.status, comment });
+      const failed = (res.data.results || []).filter((x) => !x.ok);
+      if (failed.length) toast.error(`${res.data.message} ${failed[0].message}`, { duration: 6000 });
+      else toast.success(res.data.message);
       setAction(null);
+      setSelected(new Set());
       queryClient.invalidateQueries({ queryKey: ['admin', 'corrections'] });
     } catch (err) {
       toast.error(err.response?.data?.message || 'Could not update the request.');
@@ -73,7 +95,9 @@ export default function CorrectionRequestsManager() {
           <h1 className="text-2xl font-bold">Correction Requests</h1>
           <p className="text-sm text-app-text-muted mt-1">Attendance regularization and timesheet corrections. Approved requests become the official record; the original stays in the request and audit log.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search employee name or ID" aria-label="Search employee"
+            className={`${select} w-56`} />
           <select value={kind} onChange={(e) => setKind(e.target.value)} className={select} aria-label="Type">
             <option value="All">All types</option><option value="Attendance">Attendance</option><option value="Timesheet">Timesheet</option>
           </select>
@@ -83,24 +107,40 @@ export default function CorrectionRequestsManager() {
         </div>
       </div>
 
+      {canEdit && picked.length > 0 && (
+        <div className="flex flex-wrap items-center gap-3 bg-app-card border border-primary/40 rounded-xl px-4 py-3">
+          <span className="text-sm font-bold">{picked.length} selected</span>
+          <button onClick={() => { setAction({ ids: picked.map((r) => r._id), status: 'Approved' }); setComment(''); }} className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded cursor-pointer">Approve selected</button>
+          <button onClick={() => { setAction({ ids: picked.map((r) => r._id), status: 'Rejected' }); setComment(''); }} className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded cursor-pointer">Reject selected</button>
+          <button onClick={() => setSelected(new Set())} className="text-xs text-app-text-muted hover:underline cursor-pointer">Clear</button>
+        </div>
+      )}
+
       <div className="bg-app-card rounded-xl border border-app-border overflow-x-auto">
         <table className="w-full text-left min-w-[900px]">
           <thead>
             <tr className="border-b border-app-border text-xs text-app-text-muted uppercase">
+              {canEdit && <th className="py-3 px-4 w-8"><input type="checkbox" aria-label="Select all pending" disabled={!pending.length} checked={pending.length > 0 && picked.length === pending.length} onChange={toggleAll} /></th>}
               <th className="py-3 px-4">Employee</th><th className="py-3 px-4">Date</th><th className="py-3 px-4">Type</th>
               <th className="py-3 px-4">Details</th><th className="py-3 px-4">Reason</th><th className="py-3 px-4 text-right">Status</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-app-border text-sm">
-            {isLoading && <tr><td colSpan="6" className="text-center py-8 text-app-text-muted">Loading…</td></tr>}
-            {!isLoading && requests.length === 0 && <tr><td colSpan="6" className="text-center py-8 text-app-text-muted">No requests found.</td></tr>}
+            {isLoading && <tr><td colSpan="7" className="text-center py-8 text-app-text-muted">Loading…</td></tr>}
+            {!isLoading && requests.length === 0 && <tr><td colSpan="7" className="text-center py-8 text-app-text-muted">No requests found.</td></tr>}
             {requests.map((r) => (
               <tr key={r._id} className="align-top">
+                {canEdit && <td className="py-3 px-4">{r.status === 'Pending' && <input type="checkbox" aria-label="Select request" checked={selected.has(r._id)} onChange={() => toggle(r._id)} />}</td>}
                 <td className="py-3 px-4">
                   <div className="font-bold">{r.employee?.firstName} {r.employee?.lastName}</div>
                   <div className="text-xs text-app-text-muted">{r.employee?.employeeId} · {r.employee?.roleDept}</div>
                 </td>
-                <td className="py-3 px-4 font-mono whitespace-nowrap">{fmtDay(r.date)}</td>
+                <td className="py-3 px-4 font-mono whitespace-nowrap">
+                  {fmtDay(r.date)}
+                  {r.batchId && r.status === 'Pending' && batchSize(r.batchId) > 1 && canEdit && (
+                    <button onClick={() => selectBatch(r.batchId)} className="block text-[11px] font-sans text-primary hover:underline cursor-pointer">Select all {batchSize(r.batchId)} days of this range</button>
+                  )}
+                </td>
                 <td className="py-3 px-4 whitespace-nowrap">{r.kind}<div className="text-xs text-app-text-muted">{TYPE_LABEL[r.type]}</div></td>
                 <td className="py-3 px-4"><RequestDetails r={r} /></td>
                 <td className="py-3 px-4 max-w-[220px]">
@@ -110,8 +150,8 @@ export default function CorrectionRequestsManager() {
                 <td className="py-3 px-4 text-right whitespace-nowrap">
                   {r.status === 'Pending' ? (
                     <div className="flex justify-end gap-2">
-                      {allowed('attendance.manage', 'corrections', 'edit') && (<button onClick={() => { setAction({ request: r, status: 'Approved' }); setComment(''); }} className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded cursor-pointer">Approve</button>)}
-                      {allowed('attendance.manage', 'corrections', 'edit') && (<button onClick={() => { setAction({ request: r, status: 'Rejected' }); setComment(''); }} className="px-3 py-1 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded cursor-pointer">Reject</button>)}
+                      {canEdit && (<button onClick={() => { setAction({ request: r, status: 'Approved' }); setComment(''); }} className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded cursor-pointer">Approve</button>)}
+                      {canEdit && (<button onClick={() => { setAction({ request: r, status: 'Rejected' }); setComment(''); }} className="px-3 py-1 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded cursor-pointer">Reject</button>)}
                     </div>
                   ) : (
                     <div>
@@ -128,7 +168,7 @@ export default function CorrectionRequestsManager() {
       </div>
 
       {action && (
-        <Modal title={`${action.status === 'Approved' ? 'Approve' : 'Reject'} request`} subtitle={`${action.request.employee?.firstName} ${action.request.employee?.lastName} · ${fmtDay(action.request.date)}`} onClose={() => setAction(null)}>
+        <Modal title={`${action.status === 'Approved' ? 'Approve' : 'Reject'} ${action.ids ? `${action.ids.length} requests` : 'request'}`} subtitle={action.ids ? 'Applies to every ticked request' : `${action.request.employee?.firstName} ${action.request.employee?.lastName} · ${fmtDay(action.request.date)}`} onClose={() => setAction(null)}>
           <form onSubmit={submit} className="space-y-4">
             <div>
               <label className="block text-xs text-app-text-muted mb-1">Comment {action.status === 'Rejected' ? '(required)' : '(optional)'}</label>
@@ -137,7 +177,7 @@ export default function CorrectionRequestsManager() {
             </div>
             <button type="submit" disabled={saving || (action.status === 'Rejected' && !comment.trim())}
               className={`w-full py-2.5 text-white rounded-lg text-sm font-bold cursor-pointer disabled:opacity-50 ${action.status === 'Approved' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700'}`}>
-              {saving ? 'Saving…' : `Confirm ${action.status}`}
+              {saving ? 'Saving…' : `Confirm ${action.status}${action.ids ? ` (${action.ids.length})` : ''}`}
             </button>
           </form>
         </Modal>

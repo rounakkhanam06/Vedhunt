@@ -31,6 +31,10 @@ const correctionRequestSchema = new mongoose.Schema(
     workLog: { type: mongoose.Schema.Types.ObjectId, ref: 'WorkLog' }, // timesheet edit target
     original: { type: mongoose.Schema.Types.Mixed, default: null },
 
+    // Requests made together for a date range share one batchId (still one record per day, so each
+    // day is applied, approved and audited on its own — the manager just sees them grouped)
+    batchId: { type: mongoose.Schema.Types.ObjectId },
+
     reason: { type: String, required: true, trim: true, maxlength: 500 },
     proofUrl: { type: String, trim: true },
 
@@ -44,5 +48,6 @@ const correctionRequestSchema = new mongoose.Schema(
 
 correctionRequestSchema.index({ employee: 1, createdAt: -1 });
 correctionRequestSchema.index({ status: 1, createdAt: -1 });
+correctionRequestSchema.index({ batchId: 1 }, { sparse: true });
 
 module.exports = mongoose.model('CorrectionRequest', correctionRequestSchema);

@@ -678,6 +678,70 @@ describe('Phase 4 — HRMS pages granted per person, scoped to direct reports', 
     assert.equal((await call('hrLead', 'PUT', `/employee-portal/grants/corrections/${ids.corr_hrLead}/status`, { status: 'Rejected', comment: 'x' })).status, 404);
   });
 
+  test('Corrections: search by employee name, bulk decision limited to the scope', async () => {
+    const g = '/employee-portal/grants/corrections';
+    const all = await call('super', 'GET', '/corrections?status=Pending');
+    const row = all.body.requests.find((x) => x._id === ids.corr_grantee);
+    const byName = await call('super', 'GET', `/corrections?status=Pending&search=${encodeURIComponent(row.employee.firstName)}`);
+    assert.ok(byName.body.requests.some((x) => x._id === ids.corr_grantee));
+    assert.ok(byName.body.requests.every((x) => x.employee.firstName.toLowerCase().includes(row.employee.firstName.toLowerCase()) || x.employee.lastName.toLowerCase().includes(row.employee.firstName.toLowerCase())));
+    assert.equal((await call('super', 'GET', '/corrections?search=zzz-nobody-here')).body.requests.length, 0);
+    // The scoped person only finds people inside their scope, even when searching for someone else
+    const outsider = all.body.requests.find((x) => x._id === ids.corr_bde);
+    const scopedSearch = await call('hrLead', 'GET', `${g}?search=${encodeURIComponent(outsider.employee.firstName)}`);
+    assert.ok(!scopedSearch.body.requests.some((x) => x._id === ids.corr_bde));
+
+    const bulk = await call('hrLead', 'PUT', `${g}/bulk-status`, { ids: [ids.corr_grantee, ids.corr_bde], status: 'Rejected', comment: 'Not enough proof' });
+    assert.equal(bulk.status, 200);
+    assert.equal(bulk.body.done, 1);
+    assert.equal(bulk.body.failed, 1);
+    const after = (await call('super', 'GET', '/corrections?status=All')).body.requests;
+    assert.equal(after.find((x) => x._id === ids.corr_grantee).status, 'Rejected');
+    assert.equal(after.find((x) => x._id === ids.corr_bde).status, 'Pending');
+
+    assert.equal((await call('super', 'PUT', '/corrections/bulk-status', { ids: [], status: 'Approved' })).status, 400);
+    assert.equal((await call('super', 'PUT', '/corrections/bulk-status', { ids: [ids.corr_bde], status: 'Rejected' })).status, 400); // rejecting needs a comment
+    assert.equal((await call('super', 'PUT', '/corrections/bulk-status', { ids: [ids.corr_bde], status: 'Maybe' })).status, 400);
+  });
+
+  test('Corrections: a date range becomes one request per working day, approved in bulk', async () => {
+    const ess = '/employee-portal/ess/corrections';
+    const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const day = (back) => { const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - back); return d; };
+    const range = { fromDate: ymd(day(8)), toDate: ymd(day(3)), clockIn: '10:00', clockOut: '18:30', reason: 'Biometric was down' };
+    const working = [8, 7, 6, 5, 4, 3].filter((b) => day(b).getDay() !== 0);
+
+    assert.equal((await call('bde', 'POST', `${ess}/attendance/range`, { ...range, toDate: range.fromDate, clockOut: '09:00' })).status, 400); // out before in
+    assert.equal((await call('bde', 'POST', `${ess}/attendance/range`, { ...range, fromDate: range.toDate, toDate: range.fromDate })).status, 400); // backwards
+    assert.equal((await call('bde', 'POST', `${ess}/attendance/range`, { ...range, fromDate: ymd(day(80)), toDate: ymd(day(40)) })).status, 400); // too long, too old
+
+    const made = await call('bde', 'POST', `${ess}/attendance/range`, range);
+    assert.equal(made.status, 201);
+    assert.equal(made.body.created, working.length);
+    assert.equal(made.body.skipped.length, 6 - working.length); // Sundays only
+    const mine = (await call('super', 'GET', '/corrections?status=Pending&kind=Attendance')).body.requests.filter((x) => x.batchId === made.body.batchId);
+    assert.equal(mine.length, working.length);
+
+    // Sending the same range again finds every day already pending
+    const again = await call('bde', 'POST', `${ess}/attendance/range`, range);
+    assert.equal(again.status, 400);
+    assert.match(again.body.message, /pending/i);
+
+    const bulk = await call('super', 'PUT', '/corrections/bulk-status', { ids: mine.map((x) => x._id), status: 'Approved' });
+    assert.equal(bulk.status, 200);
+    assert.equal(bulk.body.done, working.length);
+    const Employee = require('../../models/Employee');
+    const emp = await Employee.findById(ids.emp_bde, { attendance: 1 }).lean();
+    for (const b of working) {
+      const rec = emp.attendance.find((a) => new Date(a.date).toDateString() === day(b).toDateString());
+      assert.equal(rec?.clockIn, '10:00 AM');
+      assert.equal(rec?.regularized, true);
+    }
+    // Already decided: a second bulk run reports them as not processed instead of re-applying
+    const twice = await call('super', 'PUT', '/corrections/bulk-status', { ids: mine.map((x) => x._id), status: 'Approved' });
+    assert.equal(twice.body.done, 0);
+  });
+
   test('Bank changes: account numbers masked without Sensitive, approving refused', async () => {
     const r = await call('hrLead', 'GET', `${e}/admin/bank-change-requests`);
     assert.deepEqual(idsOf(r.body.requests, (x) => x._id), [ids.bank_grantee]);

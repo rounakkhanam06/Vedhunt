@@ -5,6 +5,8 @@ const mongoose = require('mongoose');
 const Employee = require('../models/Employee');
 const WorkLog = require('../models/WorkLog');
 const Settings = require('../models/Settings');
+const Holiday = require('../models/Holiday');
+const LeaveRequest = require('../models/LeaveRequest');
 const AuditLog = require('../models/AuditLog');
 const CorrectionRequest = require('../models/CorrectionRequest');
 const { findActivityType } = require('./activityMaster');
@@ -99,6 +101,95 @@ async function createAttendanceRequest(user, body, proofUrl) {
     `Attendance regularization from ${employee.firstName} ${employee.lastName}`,
     `${fmtDay(start)} · ${clockIn} – ${clockOut} · ${reason.slice(0, 80)}`);
   return ok({ request });
+}
+
+const MAX_RANGE_DAYS = 31;
+const parseDayStr = (s) => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(s || '').slice(0, 10));
+  if (!m) return null;
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  return d.getMonth() === Number(m[2]) - 1 ? d : null;
+};
+
+/**
+ * One regularization request for a date range (e.g. 15–20 Oct) with the same times for each day.
+ * It becomes one request per working day, grouped by a shared batchId. Days that cannot be
+ * regularized are skipped with the reason: weekly off (Sunday), holidays, approved leave, days outside
+ * the window, and days that already have a pending request. Nothing changes until a manager approves.
+ */
+async function createAttendanceRangeRequest(user, body, proofUrl) {
+  const from = parseDayStr(body.fromDate);
+  const to = parseDayStr(body.toDate);
+  if (!from || !to) return fail(400, 'Please choose a valid from and to date.');
+  if (to < from) return fail(400, 'The "to" date cannot be before the "from" date.');
+  const span = Math.round((to - from) / 86400000) + 1;
+  if (span > MAX_RANGE_DAYS) return fail(400, `A range can cover up to ${MAX_RANGE_DAYS} days.`);
+
+  const clockIn = formatHHmm(body.clockIn);
+  const clockOut = formatHHmm(body.clockOut);
+  if (!clockIn || !clockOut) return fail(400, 'Please enter both the check-in and check-out time.');
+  if (parseClock(clockOut) <= parseClock(clockIn)) return fail(400, 'Check-out must be after check-in.');
+  const { text: reason, error } = cleanReason(body.reason);
+  if (error) return fail(400, error);
+
+  const [employee] = await Employee.aggregate([
+    { $match: { adminId: user._id } },
+    { $project: { firstName: 1, lastName: 1, employeeId: 1, adminId: 1, reportingManager: 1,
+      attendance: { $filter: { input: '$attendance', as: 'a', cond: { $and: [{ $gte: ['$$a.date', from] }, { $lt: ['$$a.date', new Date(to.getTime() + 86400000)] }] } } } } },
+  ]);
+  if (!employee) return fail(404, 'Employee not found');
+
+  const rangeEnd = new Date(to.getTime() + 86399999);
+  const [holidays, leaves, pending, rules] = await Promise.all([
+    Holiday.find({ date: { $gte: from, $lte: rangeEnd } }).select('date name').lean(),
+    LeaveRequest.find({ employeeId: employee._id, status: 'Approved', startDate: { $lte: rangeEnd }, endDate: { $gte: from } }).select('startDate endDate').lean(),
+    CorrectionRequest.find({ employee: employee._id, kind: 'Attendance', status: 'Pending', date: { $gte: from, $lte: rangeEnd } }).select('date').lean(),
+    Settings.findOne({ key: 'attendance_rules' }).lean(),
+  ]);
+  const holidayOn = new Map(holidays.map((h) => [new Date(h.date).toDateString(), h.name]));
+  const pendingOn = new Set(pending.map((p) => new Date(p.date).toDateString()));
+  const attendanceOn = new Map((employee.attendance || []).map((a) => [new Date(a.date).toDateString(), a]));
+  const onLeave = (d) => leaves.some((l) => d >= new Date(l.startDate).setHours(0, 0, 0, 0) && d <= new Date(l.endDate).setHours(23, 59, 59, 999));
+  const today = dayRange(new Date()).start;
+  const oldest = new Date(today.getTime() - MAX_BACKDATE_DAYS * 86400000);
+  const allowFuture = Boolean(rules?.value?.allowFutureRegularization);
+
+  const batchId = new mongoose.Types.ObjectId();
+  const docs = [];
+  const skipped = [];
+  for (let d = new Date(from); d <= to; d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1)) {
+    const key = d.toDateString();
+    const skip = (why) => skipped.push({ date: new Date(d), reason: why });
+    const existing = attendanceOn.get(key);
+    if (d.getDay() === 0) skip('Weekly off');
+    else if (holidayOn.has(key)) skip(`Holiday${holidayOn.get(key) ? ` — ${holidayOn.get(key)}` : ''}`);
+    else if (existing?.status === 'Leave' || onLeave(d.getTime())) skip('On approved leave');
+    else if (d > today && !allowFuture) skip('A future date');
+    else if (d < oldest) skip(`Older than ${MAX_BACKDATE_DAYS} days`);
+    else if (pendingOn.has(key)) skip('Already has a pending request');
+    else {
+      docs.push({
+        employee: employee._id, requestedBy: user._id, kind: 'Attendance',
+        type: !existing ? 'Backdated' : existing.clockIn && !existing.clockOut ? 'MissedClockOut' : 'Correction',
+        date: new Date(d), requested: { clockIn, clockOut },
+        original: existing
+          ? { status: existing.status, clockIn: existing.clockIn || '', clockOut: existing.clockOut || '', lateByMins: existing.lateByMins || 0, missedClockOut: Boolean(existing.missedClockOut) }
+          : null,
+        reason, proofUrl, batchId,
+      });
+    }
+  }
+  if (!docs.length) {
+    return fail(400, `No day in this range can be regularized: ${skipped.map((s) => `${fmtDay(s.date)} (${s.reason})`).join('; ')}.`);
+  }
+  const requests = await CorrectionRequest.insertMany(docs);
+
+  const span1 = fmtDay(docs[0].date);
+  const spanN = fmtDay(docs[docs.length - 1].date);
+  await notifyReviewers(employee,
+    `Attendance regularization from ${employee.firstName} ${employee.lastName} — ${docs.length} day${docs.length === 1 ? '' : 's'}`,
+    `${span1}${docs.length > 1 ? ` – ${spanN}` : ''} · ${clockIn} – ${clockOut} · ${reason.slice(0, 80)}`);
+  return ok({ requests, created: requests.length, skipped, batchId });
 }
 
 async function applyAttendance(request) {
@@ -259,9 +350,19 @@ async function cancelOwnRequest(adminId, id) {
 }
 
 // employeeIds: limit to these employees (a person-wise grant), or null for everyone
-async function listForReview({ status, kind } = {}, employeeIds = null) {
+async function listForReview({ status, kind, search } = {}, employeeIds = null) {
   const filter = {};
   if (employeeIds) filter.employee = { $in: employeeIds };
+  // Filter by employee: name (first, last or both) or employee ID, within the person's scope
+  const text = String(search || '').trim().slice(0, 60);
+  if (text) {
+    const words = text.split(/\s+/).map((w) => new RegExp(w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'));
+    const match = await Employee.find({
+      ...(employeeIds ? { _id: { $in: employeeIds } } : {}),
+      $and: words.map((re) => ({ $or: [{ firstName: re }, { lastName: re }, { employeeId: re }] })),
+    }, { _id: 1 }).limit(500).lean();
+    filter.employee = { $in: match.map((e) => e._id) };
+  }
   if (['Pending', 'Approved', 'Rejected', 'Cancelled'].includes(status)) filter.status = status;
   if (['Attendance', 'Timesheet'].includes(kind)) filter.kind = kind;
   return CorrectionRequest.find(filter)
@@ -271,7 +372,7 @@ async function listForReview({ status, kind } = {}, employeeIds = null) {
     .lean();
 }
 
-async function reviewRequest(reviewer, id, status, comment, ipAddress) {
+async function reviewRequest(reviewer, id, status, comment, ipAddress, { notify = true } = {}) {
   if (!['Approved', 'Rejected'].includes(status)) return fail(400, 'Status must be Approved or Rejected.');
   if (!mongoose.Types.ObjectId.isValid(id)) return fail(400, 'Invalid request ID');
   const reviewComment = String(comment || '').trim().slice(0, 500);
@@ -302,7 +403,7 @@ async function reviewRequest(reviewer, id, status, comment, ipAddress) {
     ipAddress,
   }).catch((e) => logger.error('Audit log failed (correction review):', e.message));
 
-  const employee = await Employee.findById(request.employee, { adminId: 1 }).lean();
+  const employee = notify ? await Employee.findById(request.employee, { adminId: 1 }).lean() : null;
   if (employee?.adminId) {
     await notifyStaff(employee.adminId, {
       type: 'correction_reviewed',
@@ -314,6 +415,52 @@ async function reviewRequest(reviewer, id, status, comment, ipAddress) {
   return ok({ request, message: `Request ${status.toLowerCase()}.` });
 }
 
+const MAX_BULK = 100;
+
+/**
+ * Approve or reject many requests in one go (the manager ticks them on the Correction Requests page).
+ * Each request is decided on its own — claimed, applied and audited exactly like a single review — so one
+ * that cannot be applied (e.g. a timesheet that now overlaps) is reported and the rest still go through.
+ * Each employee gets one notification, not one per day.
+ * @param inScope  (request) => boolean — a person's grant limits which requests they may decide
+ */
+async function reviewMany(reviewer, ids, status, comment, ipAddress, inScope = () => true) {
+  if (!['Approved', 'Rejected'].includes(status)) return fail(400, 'Status must be Approved or Rejected.');
+  const list = [...new Set((Array.isArray(ids) ? ids : []).map(String))];
+  if (!list.length) return fail(400, 'Select at least one request.');
+  if (list.length > MAX_BULK) return fail(400, `You can decide up to ${MAX_BULK} requests at a time.`);
+  if (status === 'Rejected' && !String(comment || '').trim()) return fail(400, 'Please add a comment explaining the rejection.');
+
+  const found = await CorrectionRequest.find({ _id: { $in: list.filter((i) => mongoose.Types.ObjectId.isValid(i)) } }).select('employee kind date').lean();
+  const byId = new Map(found.map((r) => [String(r._id), r]));
+  const results = [];
+  const perEmployee = new Map();
+  for (const id of list) {
+    const r = byId.get(id);
+    if (!r || !inScope(r)) { results.push({ id, ok: false, message: 'Request not found' }); continue; }
+    const out = await reviewRequest(reviewer, id, status, comment, ipAddress, { notify: false });
+    results.push({ id, ok: out.ok, message: out.ok ? 'Done' : out.message });
+    if (out.ok) {
+      const key = String(r.employee);
+      perEmployee.set(key, [...(perEmployee.get(key) || []), r]);
+    }
+  }
+  const reviewComment = String(comment || '').trim().slice(0, 500);
+  for (const [employeeId, items] of perEmployee) {
+    const employee = await Employee.findById(employeeId, { adminId: 1 }).lean();
+    if (!employee?.adminId) continue;
+    const kinds = new Set(items.map((i) => i.kind));
+    await notifyStaff(employee.adminId, {
+      type: 'correction_reviewed',
+      title: `${items.length} correction request${items.length === 1 ? '' : 's'} ${status.toLowerCase()}`,
+      message: `${items.map((i) => fmtDay(i.date)).join(', ').slice(0, 180)}${reviewComment ? ` · ${reviewComment}` : ''}`,
+      link: `/employee/dashboard?tab=${kinds.size === 1 && kinds.has('Timesheet') ? 'timesheet' : 'attendance'}`,
+    });
+  }
+  const done = results.filter((r) => r.ok).length;
+  return ok({ results, done, failed: results.length - done, message: `${done} request${done === 1 ? '' : 's'} ${status.toLowerCase()}${results.length - done ? `, ${results.length - done} could not be processed` : ''}.` });
+}
+
 module.exports = {
-  createAttendanceRequest, createTimesheetRequest, listOwnRequests, cancelOwnRequest, listForReview, reviewRequest,
+  createAttendanceRequest, createAttendanceRangeRequest, createTimesheetRequest, listOwnRequests, cancelOwnRequest, listForReview, reviewRequest, reviewMany,
 };

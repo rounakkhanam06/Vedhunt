@@ -20,6 +20,13 @@ scoped.get('/', requirePageAccess('corrections', 'view'), async (req, res) => {
   res.json({ success: true, requests: await corrections.listForReview(req.query, await scopedEmployeeIds(req)) });
 });
 
+// Decide several requests at once: { ids: [...], status: 'Approved' | 'Rejected', comment }
+scoped.put('/bulk-status', requirePageAccess('corrections', 'edit'), async (req, res) => {
+  const allowed = req.pageScope ? new Set((await scopedEmployeeIds(req)).map(String)) : null;
+  sendResult(res, await corrections.reviewMany(req.user, req.body.ids, req.body.status, req.body.comment, req.ip,
+    allowed ? (r) => allowed.has(String(r.employee)) : undefined));
+});
+
 scoped.put('/:id/status', requirePageAccess('corrections', 'edit'), async (req, res) => {
   if (req.pageScope) {
     const request = mongoose.Types.ObjectId.isValid(req.params.id) ? await CorrectionRequest.findById(req.params.id, { employee: 1 }).lean() : null;

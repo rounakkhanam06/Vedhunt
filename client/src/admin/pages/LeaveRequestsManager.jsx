@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { usePageAccess } from '../../shared/crmAccess';
 import toast from 'react-hot-toast';
 
+// leaveBalances / leavesUsed are per-type objects { CL, SL, PL, EL } — show the total across types
+const sumLeaves = (o) => Object.values(o || {}).reduce((n, v) => n + (Number(v) || 0), 0);
+
 const LeaveRequestsManager = ({ embedded = false }) => {
   // Admin panel (role) or Employee Portal (person-wise grant) — shared/crmAccess.js
   const { http, root, allowed } = usePageAccess();
@@ -98,9 +101,9 @@ const LeaveRequestsManager = ({ embedded = false }) => {
                   <td className="py-3 px-4 font-mono text-app-text">{new Date(req.endDate).toLocaleDateString()}</td>
                   <td className="py-3 px-4 max-w-[200px] truncate text-app-text" title={req.reason}>{req.reason}</td>
                   <td className="py-3 px-4 text-center whitespace-nowrap">
-                    <div className="text-[11px] text-app-text-muted">Total: {req.employeeId?.leaveBalance || 0} | Used: {req.employeeId?.leavesUsed || 0}</div>
+                    <div className="text-[11px] text-app-text-muted">Total: {sumLeaves(req.employeeId?.leaveBalances)} | Used: {sumLeaves(req.employeeId?.leavesUsed)}</div>
                     <div className="text-sm font-bold text-primary">
-                      Remaining: {(req.employeeId?.leaveBalance || 0) - (req.employeeId?.leavesUsed || 0)}
+                      Remaining: {sumLeaves(req.employeeId?.leaveBalances) - sumLeaves(req.employeeId?.leavesUsed)}
                     </div>
                   </td>
                   <td className="py-3 px-4 text-center">
