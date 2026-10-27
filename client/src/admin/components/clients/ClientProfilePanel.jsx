@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import toast from 'react-hot-toast';
 import { Edit2, Save, X, Plus, Trash2 } from 'lucide-react';
+import { useServiceList } from '../../../shared/useServiceList';
 
-const SERVICE_OPTIONS = ['Performance Marketing', 'Digital Marketing', 'Website Development', 'App Development', 'Social Media Management'];
 const PLATFORM_OPTIONS = ['Meta', 'Google Ads'];
 
 const toDateInput = (d) => (d ? new Date(d).toISOString().slice(0, 10) : '');
@@ -39,6 +39,9 @@ function Chips({ items, empty = '—' }) {
  * retainers / invoices / payments.
  */
 export default function ClientProfilePanel({ client, http, base, canEdit, onSaved }) {
+  // The admin's service list (Settings → Services); a service the client already has stays
+  // selectable even if it was later removed from the list, so saving never drops it
+  const serviceList = useServiceList(http, base);
   const profile = client.profile || {};
   const [staff, setStaff] = useState([]);
   const [editing, setEditing] = useState(false);
@@ -153,7 +156,7 @@ export default function ClientProfilePanel({ client, http, base, canEdit, onSave
 
       <Field label="Services taken" hint="Decides which onboarding steps apply">
         <div className="flex flex-wrap gap-2">
-          {SERVICE_OPTIONS.map((s) => (
+          {[...new Set([...serviceList, ...(form.services || [])])].map((s) => (
             <button key={s} type="button" onClick={() => toggle('services', s)}
               className={`px-3 py-1.5 rounded-full text-xs font-medium border cursor-pointer ${form.services.includes(s) ? 'bg-secondary/15 text-secondary border-secondary/30' : 'bg-admin-bg text-on-surface-variant border-outline-variant'}`}>
               {s}

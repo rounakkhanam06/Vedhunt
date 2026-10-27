@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import toast from 'react-hot-toast';
 import useBodyScrollLock from '../hooks/useBodyScrollLock';
+import { useServiceList } from '../../shared/useServiceList';
 import { CheckCircle2, AlertTriangle, Edit2, SkipForward, RefreshCcw, Plus, Trash2, X, Save } from 'lucide-react';
 
 const inr = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
@@ -17,7 +18,11 @@ const STATUS = {
 
 function EditDraft({ draft, http, base, onClose, onSaved }) {
   useBodyScrollLock(onClose);
-  const [items, setItems] = useState(draft.lineItems.length ? draft.lineItems.map((i) => ({ description: i.description, qty: i.qty, unitPrice: i.unitPrice })) : [{ description: '', qty: 1, unitPrice: '' }]);
+  // Revenue type and service travel with each line, so a correction keeps them
+  const [items, setItems] = useState(draft.lineItems.length
+    ? draft.lineItems.map((i) => ({ description: i.description, qty: i.qty, unitPrice: i.unitPrice, revenueType: i.revenueType, service: i.service || '' }))
+    : [{ description: '', qty: 1, unitPrice: '', service: '' }]);
+  const services = useServiceList(http, base);
   const [dueDate, setDueDate] = useState(toDay(draft.dueDate));
   const [taxPercent, setTaxPercent] = useState(draft.taxPercent);
   const [note, setNote] = useState(draft.note || '');
@@ -50,13 +55,17 @@ function EditDraft({ draft, http, base, onClose, onSaved }) {
           <div className="space-y-2">
             {items.map((it, i) => (
               <div key={i} className="grid grid-cols-[1fr_4.5rem_7rem_auto] gap-2 items-start">
+                <select aria-label="Service" value={it.service || ''} onChange={set(i, 'service')} className={`${inputCls} col-span-4 ${it.service ? '' : 'text-amber-400'}`}>
+                  <option value="">Service: Unassigned</option>
+                  {[...new Set([...services, ...(it.service ? [it.service] : [])])].map((sv) => <option key={sv} value={sv}>{sv}</option>)}
+                </select>
                 <input aria-label="Description" className={inputCls} placeholder="Description" value={it.description} onChange={set(i, 'description')} required />
                 <input aria-label="Quantity" type="number" min="1" step="1" className={inputCls} value={it.qty} onChange={set(i, 'qty')} required />
                 <input aria-label="Price (₹)" type="number" min="0" step="0.01" className={inputCls} placeholder="₹" value={it.unitPrice} onChange={set(i, 'unitPrice')} required />
                 <button type="button" aria-label="Remove line" onClick={() => setItems((l) => l.filter((_, j) => j !== i))} disabled={items.length === 1} className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg disabled:opacity-30 cursor-pointer"><Trash2 size={15} /></button>
               </div>
             ))}
-            <button type="button" onClick={() => setItems((l) => [...l, { description: '', qty: 1, unitPrice: '' }])} className="flex items-center gap-1.5 text-secondary text-xs font-medium cursor-pointer"><Plus size={13} /> Add a line</button>
+            <button type="button" onClick={() => setItems((l) => [...l, { description: '', qty: 1, unitPrice: '', service: '' }])} className="flex items-center gap-1.5 text-secondary text-xs font-medium cursor-pointer"><Plus size={13} /> Add a line</button>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <label className="block"><span className="block text-on-surface-variant text-[10px] uppercase font-bold tracking-wider mb-1">Due date</span>

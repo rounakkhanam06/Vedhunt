@@ -6,8 +6,7 @@ import {
   Briefcase, FileText, Wallet, ShieldCheck, Settings, LogOut, X,
   Image as ImageIcon, Tag, UserPlus, Scale, Share2, Mail, MessageCircle,
   User, Clock, CheckSquare, FileSpreadsheet, CreditCard, Award, Building2,
-  Gauge, Search
-} from 'lucide-react';
+  Gauge, Search, PieChart } from 'lucide-react';
 import { useAdminStore } from '../../store/useAdminStore';
 import { usePermissions } from '../hooks/usePermissions';
 import BrandLogo from '../../components/brand/BrandLogo';
@@ -54,6 +53,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
 
   const navItems = [
     { name: 'Overview', path: '/admin/dashboard', icon: LayoutDashboard },
+    { name: 'Financial Overview', path: '/admin/financial-overview', icon: PieChart, requiredPermission: 'cms.manage' },
     { name: 'Leads Overview', path: '/admin/management-dashboard', icon: Gauge, requiredPermission: 'dashboard.management' },
     {
       name: 'Leads Management',

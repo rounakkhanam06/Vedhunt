@@ -80,6 +80,15 @@ const clientSchema = new mongoose.Schema(
     // non-payment — while the client can still log in, see why and pay. Set and released
     // manually by staff; no automatic trigger until the client confirms one.
     serviceStatus: { type: String, enum: ['Active', 'Hold'], default: 'Active' },
+    // Flagged "at risk" by the team (Financial Overview). Overdue payments and missed KPI
+    // targets are worked out from the records (services/clientRisk.js); this is the manual reason.
+    riskFlag: {
+      flagged: { type: Boolean, default: false },
+      reason: { type: String, trim: true, maxlength: 500 },
+      flaggedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin' },
+      flaggedByName: { type: String, trim: true },
+      flaggedAt: { type: Date },
+    },
     holdReason: { type: String, trim: true, maxlength: 500 },
     // 'manual' (staff) or 'auto' (the overdue-payment rule). Only auto holds are ever lifted automatically.
     holdSource: { type: String, enum: ['manual', 'auto'] },

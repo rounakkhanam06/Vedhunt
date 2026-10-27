@@ -11,6 +11,7 @@ const lineItemSchema = new mongoose.Schema(
     unitPrice: { type: Number, required: true, min: 0 },
     amount: { type: Number, required: true, min: 0 },
     revenueType: { type: String, enum: ['Retainer', 'One-time setup', 'Project / Add-on', 'Other'] },
+    service: { type: String, trim: true, maxlength: 80 }, // from the admin's service list; absent = Unassigned
   },
   { _id: false }
 );

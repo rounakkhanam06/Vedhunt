@@ -25,6 +25,8 @@ import KycPanel from '../components/clients/KycPanel';
 import BillingSchedulePanel from '../components/clients/BillingSchedulePanel';
 import ClientCreationIssuesPanel from '../components/clients/ClientCreationIssuesPanel';
 import AdPerformancePanel from '../components/clients/AdPerformancePanel';
+import CampaignsPanel from '../components/clients/CampaignsPanel';
+import ClientRiskPanel from '../components/clients/ClientRiskPanel';
 
 const STATUS_TABS = [
   { id: '', label: 'All' },
@@ -815,7 +817,10 @@ export default function ClientManager() {
                 <KpiPanel clientId={previewClient._id} http={http} base={base} canEdit={canKpi} />
               )}
               {previewTab === 'ads' && (
-                <AdPerformancePanel clientId={previewClient._id} http={http} base={base} canEdit={canCrm('clients', 'edit')} />
+                <>
+                  <CampaignsPanel clientId={previewClient._id} http={http} base={base} canEdit={canCrm('clients', 'edit')} />
+                  <AdPerformancePanel clientId={previewClient._id} http={http} base={base} canEdit={canCrm('clients', 'edit')} />
+                </>
               )}
               {previewTab === 'kyc' && (
                 <KycPanel clientId={previewClient._id} http={http} base={base} canReview={canCrm('clients', 'edit')} />
@@ -830,6 +835,8 @@ export default function ClientManager() {
                 />
               )}
               {previewTab === 'overview' && (<>
+              {/* At risk? overdue > 7 days, KPI off target 2 months, or flagged — with the reasons */}
+              <ClientRiskPanel clientId={previewClient._id} http={http} base={base} canEdit={canCrm('clients', 'edit')} />
               {/* The client's register row: status, domains, package, received, balance, month-wise */}
               <ClientRegisterSummary http={http} base={base} client={previewClient} />
               <ClientCallsPanel http={http} base={base} clientId={previewClient._id} canLog={canCrm('clients', 'edit')} />

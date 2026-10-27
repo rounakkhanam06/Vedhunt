@@ -8,6 +8,9 @@ const REVENUE_TYPES = ['Retainer', 'One-time setup', 'Project / Add-on', 'Other'
 const lineItemSchema = new mongoose.Schema(
   {
     revenueType: { type: String, enum: REVENUE_TYPES }, // absent on older invoices ("Untyped" in the report)
+    // Which service the line is revenue for — a name from the admin's service list
+    // (services/serviceCatalog.js). Absent = "Unassigned" until someone maps it.
+    service: { type: String, trim: true, maxlength: 80 },
     description: { type: String, required: true, trim: true },
     qty: { type: Number, required: true, min: 1, default: 1 },
     unitPrice: { type: Number, required: true, min: 0 },

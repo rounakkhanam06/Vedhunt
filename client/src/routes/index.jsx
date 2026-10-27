@@ -75,6 +75,7 @@ const ActivityLog = lazy(() => import('../admin/pages/ActivityLog'));
 const AssignmentLogManager = lazy(() => import('../admin/pages/AssignmentLogManager'));
 const FollowUpsManager = lazy(() => import('../admin/pages/FollowUpsManager'));
 const ManagementDashboard = lazy(() => import('../admin/pages/ManagementDashboard'));
+const FinancialOverview = lazy(() => import('../admin/pages/FinancialOverview'));
 const FacebookIntegrationManager = lazy(() => import('../admin/pages/FacebookIntegrationManager'));
 const SubscriberManager = lazy(() => import('../admin/pages/SubscriberManager'));
 
@@ -589,6 +590,10 @@ export const router = createBrowserRouter([
           {
             path: 'management-dashboard',
             element: withPermission(ManagementDashboard, 'dashboard.management')
+          },
+          {
+            path: 'financial-overview',
+            element: withPermission(FinancialOverview, 'cms.manage')
           },
           {
             path: 'leads-overview',

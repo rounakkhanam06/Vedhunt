@@ -3156,3 +3156,182 @@ describe('portal preview — a Super Admin views the Client / Employee Portal as
     assert.equal((await asPreview(forged, 'GET', '/client/auth/me')).status, 401);
   });
 });
+
+describe('Financial Overview — revenue by service, risk, campaigns, ad spend vs budget, new clients', () => {
+  const pad = (n) => String(n).padStart(2, '0');
+  const ymd = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const now = new Date();
+  const monthFrom = ymd(new Date(now.getFullYear(), now.getMonth(), 1));
+  const monthTo = ymd(new Date(now.getFullYear(), now.getMonth() + 1, 0));
+  const today = ymd(now);
+  const daysAgo = (n) => ymd(new Date(now.getFullYear(), now.getMonth(), now.getDate() - n));
+  const overview = async (q = '') => {
+    const r = await admin('GET', `/admin/financial-overview?from=${monthFrom}&to=${monthTo}${q}`);
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    return r.body.data;
+  };
+  const billing = { address: '1 Road', placeOfSupply: 'Goa' };
+  const invoice = async (client, lineItems, extra = {}) => {
+    const subtotal = lineItems.reduce((s, l) => s + l.amount, 0);
+    const r = await admin('POST', '/admin/invoices', {
+      client_ref: client, issueDate: today, dueDate: monthTo, taxPercent: 18, billing, lineItems,
+      subtotal, taxAmount: subtotal * 0.18, totalAmount: subtotal * 1.18, ...extra,
+    });
+    assert.equal(r.status, 201, JSON.stringify(r.body));
+    assert.equal((await admin('POST', `/admin/invoices/${r.body.data._id}/send`, { type: 'Proforma Invoice', date: today })).status, 200);
+    return r.body.data._id;
+  };
+
+  before(async () => {
+    const Client = require('../../models/Client');
+    const base = { password: 'ClientPass1', isTemporaryPassword: false };
+    ids.ovA = String((await Client.create({ ...base, businessName: 'Overview Alpha', contactName: 'Alpha Person', email: 'ov-a@example.com',
+      profile: { services: ['Performance Marketing'], onboardingDate: new Date(now.getFullYear(), now.getMonth(), 1, 12), monthlyAdBudget: 30000 } }))._id);
+    ids.ovB = String((await Client.create({ ...base, businessName: 'Overview Beta', contactName: 'Beta Person', email: 'ov-b@example.com',
+      profile: { services: ['Website Development'] } }))._id);
+  });
+
+  test('one admin-editable service list; "Unassigned" is reserved', async () => {
+    const list = (await admin('GET', '/admin/service-catalog')).body.services;
+    for (const s of ['Performance Marketing', 'Website Development', 'Accounting & Finance', 'MIS & Dashboard', 'Other']) assert.ok(list.includes(s), s);
+    assert.equal(list[list.length - 1], 'Other');
+    assert.equal((await admin('PUT', '/admin/service-catalog', { services: [] })).status, 400);
+    assert.equal((await admin('PUT', '/admin/service-catalog', { services: [...list, 'Unassigned'] })).status, 400);
+    const saved = await admin('PUT', '/admin/service-catalog', { services: [...list.slice(0, -1), 'SEO', 'seo ', 'Other'] });
+    assert.equal(saved.status, 200);
+    assert.equal(saved.body.services.filter((s) => s.toLowerCase() === 'seo').length, 1, 'no duplicates');
+    assert.ok(await require('../../models/AuditLog').exists({ action: 'SERVICE_CATALOG_UPDATE' }));
+  });
+
+  test('revenue is split by the service on each invoice line; lines without one are Unassigned', async () => {
+    ids.ovInvoice = await invoice(ids.ovA, [
+      { description: 'Meta ads management', qty: 1, unitPrice: 20000, amount: 20000, revenueType: 'Retainer', service: 'Performance Marketing' },
+      { description: 'Landing page', qty: 1, unitPrice: 5000, amount: 5000, revenueType: 'Project / Add-on', service: '' },
+    ]);
+    const o = await overview(`&client=${ids.ovA}`);
+    assert.equal(o.cards.totalRevenue.value, 25000);
+    assert.deepEqual(o.revenueByService, [{ service: 'Performance Marketing', amount: 20000 }, { service: 'Unassigned', amount: 5000 }]);
+    assert.deepEqual(o.unassigned, { amount: 5000, lines: 1 });
+    assert.equal(o.trend.length, 6);
+    assert.equal(o.trend[5].invoiced, 25000);
+  });
+
+  test('unassigned lines are listed and mapped without touching amounts; mapping is checked and audited', async () => {
+    const lines = (await admin('GET', '/admin/invoice-lines/unassigned')).body.lines.filter((l) => l.invoice === ids.ovInvoice);
+    assert.deepEqual(lines.map((l) => [l.index, l.description]), [[1, 'Landing page']]);
+    assert.equal((await admin('PUT', '/admin/invoice-lines/services', { items: [{ invoice: ids.ovInvoice, index: 1, service: 'Astrology' }] })).status, 400);
+    assert.equal((await admin('PUT', '/admin/invoice-lines/services', { items: [{ invoice: ids.ovInvoice, index: 9, service: 'Website Development' }] })).status, 400);
+    const ok = await admin('PUT', '/admin/invoice-lines/services', { items: [{ invoice: ids.ovInvoice, index: 1, service: 'Website Development' }] });
+    assert.equal(ok.status, 200, JSON.stringify(ok.body));
+    const inv = await require('../../models/Invoice').findById(ids.ovInvoice).lean();
+    assert.deepEqual(inv.lineItems.map((l) => [l.service, l.amount]), [['Performance Marketing', 20000], ['Website Development', 5000]]);
+    assert.equal(inv.totalAmount, 29500, 'amounts unchanged');
+    const o = await overview(`&client=${ids.ovA}`);
+    assert.deepEqual(o.unassigned, { amount: 0, lines: 0 });
+    assert.deepEqual(o.revenueByService.map((r) => r.service), ['Performance Marketing', 'Website Development']);
+    // The service filter narrows revenue to that service's lines
+    assert.equal((await overview(`&client=${ids.ovA}&service=${encodeURIComponent('Performance Marketing')}`)).cards.totalRevenue.value, 20000);
+    assert.ok(await require('../../models/AuditLog').exists({ action: 'INVOICE_LINE_SERVICE', recordId: inv.invoiceId }));
+  });
+
+  test('collected, outstanding, MRR-free client, new clients by onboarding date, missing dates listed', async () => {
+    assert.equal((await admin('POST', `/admin/invoices/${ids.ovInvoice}/payments`, { amount: 10000, method: 'Cash', date: today })).status, 201);
+    const o = await overview(`&client=${ids.ovA}`);
+    assert.equal(o.cards.collected.value, 10000);
+    assert.equal(o.cards.outstanding, 19500);
+    assert.equal(o.cards.newClients.value, 1);
+    assert.equal(o.newClientList[0].businessName, 'Overview Alpha');
+    const both = await overview();
+    assert.ok(both.missingOnboardingDate.some((c) => c._id === ids.ovB), 'a client without an onboarding date is listed apart');
+    assert.ok(!both.newClientList.some((c) => c._id === ids.ovB));
+    assert.equal(o.topClients[0].revenue, 25000);
+    assert.equal(o.topClients[0].collected, 10000);
+    assert.equal(o.recentInvoices[0].status, 'Partial');
+  });
+
+  test('campaigns: ad data campaigns join once with no status; Active counts as live; no duplicates', async () => {
+    const AdPerformance = require('../../models/AdPerformance');
+    const row = (day, name, spend, platform = 'Meta') => ({ client_ref: ids.ovA, day, platform, campaignName: name, campaignKey: name.toLowerCase(), spend });
+    await AdPerformance.create([row(monthFrom, 'Diwali Sale', 4000), row(today === monthFrom ? monthTo : today, 'Diwali Sale', 6000), row(monthFrom, 'Search Brand', 2500, 'Google')]);
+
+    const list = async () => (await admin('GET', `/admin/clients/${ids.ovA}/campaigns`)).body.data;
+    const first = await list();
+    assert.deepEqual(first.map((c) => [c.platform, c.name, c.status, c.spend]), [['Google', 'Search Brand', null, 2500], ['Meta', 'Diwali Sale', null, 10000]]);
+    assert.equal((await list()).length, 2, 'syncing again adds nothing');
+    let o = await overview(`&client=${ids.ovA}`);
+    assert.deepEqual([o.cards.campaigns.live, o.cards.campaigns.needsStatus], [0, 2]);
+
+    const meta = first.find((c) => c.platform === 'Meta');
+    assert.equal((await admin('PUT', `/admin/clients/${ids.ovA}/campaigns/${meta._id}`, { status: 'Running' })).status, 400);
+    assert.equal((await admin('PUT', `/admin/clients/${ids.ovA}/campaigns/${meta._id}`, { status: 'Active' })).status, 200);
+    assert.equal((await admin('POST', `/admin/clients/${ids.ovA}/campaigns`, { platform: 'Meta', name: '  diwali   SALE ' })).status, 409, 'same campaign, different spacing / case');
+    assert.equal((await admin('POST', `/admin/clients/${ids.ovA}/campaigns`, { platform: 'Meta', name: 'Retargeting', status: 'Paused' })).status, 201);
+    o = await overview(`&client=${ids.ovA}`);
+    assert.deepEqual([o.cards.campaigns.live, o.cards.campaigns.paused, o.cards.campaigns.needsStatus], [1, 1, 1]);
+    assert.equal(await require('../../models/Campaign').countDocuments({ client_ref: ids.ovA }), 3);
+
+    // Ad spend is the actual spend; the planned budget (profile, no KPI setup) is apart
+    assert.equal(o.cards.adSpend.value, 12500);
+    assert.deepEqual(o.adSpendByPlatform, [{ platform: 'Meta', spend: 10000 }, { platform: 'Google', spend: 2500 }]);
+    assert.equal(o.cards.plannedAdBudget.total, 30000);
+    assert.equal(o.cards.plannedAdBudget.clientsUsingProfileBudget, 1);
+  });
+
+  test('the KPI setup budget history is the planned budget when there is one', async () => {
+    assert.equal((await admin('PUT', `/admin/clients/${ids.ovA}/kpi-setup/Meta`, { reportingFrequency: 'Monthly', monthlyBudget: 20000, primaryGoal: 'Purchases' })).status, 200);
+    const o = await overview(`&client=${ids.ovA}`);
+    assert.equal(o.cards.plannedAdBudget.total, 20000, 'the profile budget is no longer added for this client');
+    assert.equal(o.cards.plannedAdBudget.clientsUsingProfileBudget, 0);
+  });
+
+  test('at risk: overdue more than 7 days, KPI off target two months running, or flagged — reasons kept', async () => {
+    // Overdue 10 days
+    await invoice(ids.ovB, [{ description: 'Site build', qty: 1, unitPrice: 10000, amount: 10000, service: 'Website Development' }], { issueDate: daysAgo(20), dueDate: daysAgo(10) });
+    // KPI: Meta CPA ₹300 against a ₹100 target in each of the last two complete months
+    assert.equal((await admin('PUT', `/admin/clients/${ids.ovB}/kpi-setup/Meta`, { reportingFrequency: 'Monthly', monthlyBudget: 10000, primaryGoal: 'Purchases', targetCpa: 100 })).status, 200);
+    const AdPerformance = require('../../models/AdPerformance');
+    for (const back of [1, 2]) {
+      const d = new Date(now.getFullYear(), now.getMonth() - back, 10);
+      await AdPerformance.create({ client_ref: ids.ovB, day: ymd(d), platform: 'Meta', campaignName: 'Leads', campaignKey: 'leads', resultType: 'Purchases', spend: 3000, results: 10 });
+    }
+    const risk = (await admin('GET', `/admin/clients/${ids.ovB}/risk`)).body;
+    assert.equal(risk.atRisk, true);
+    assert.deepEqual(risk.reasons.map((r) => r.type).sort(), ['kpi', 'overdue']);
+    assert.match(risk.reasons.find((r) => r.type === 'overdue').text, /overdue 10 days/);
+    assert.match(risk.reasons.find((r) => r.type === 'kpi').text, /Meta KPI off target/);
+
+    // Manual flag needs a reason; it is shown with who flagged it
+    assert.equal((await admin('PUT', `/admin/clients/${ids.ovA}/risk-flag`, { flagged: true })).status, 400);
+    assert.equal((await admin('PUT', `/admin/clients/${ids.ovA}/risk-flag`, { flagged: true, reason: 'Not answering calls' })).status, 200);
+    const o = await overview('&status=at-risk');
+    const a = o.atRiskClients.find((c) => c._id === ids.ovA);
+    assert.equal(a.reasons[0].type, 'manual');
+    assert.match(a.reasons[0].text, /Not answering calls/);
+    assert.ok(o.atRiskClients.some((c) => c._id === ids.ovB));
+    assert.ok(o.clientsByStatus.find((s) => s.status === 'At Risk').count >= 2);
+    assert.ok(await require('../../models/AuditLog').exists({ action: 'CLIENT_RISK_FLAG' }));
+
+    assert.equal((await admin('PUT', `/admin/clients/${ids.ovA}/risk-flag`, { flagged: false })).status, 200);
+    const after = await overview(`&client=${ids.ovA}`);
+    assert.equal(after.cards.atRisk, 0);
+    // Back in its own group: no agreement / KYC yet, so still onboarding
+    assert.equal(after.clientsByStatus.find((s) => s.status === 'Onboarding').count, 1);
+    assert.equal(after.cards.pendingOnboarding, 1);
+  });
+
+  test('bad ranges are refused; the previous period is compared', async () => {
+    assert.equal((await admin('GET', '/admin/financial-overview?from=2026-10-10&to=2026-10-01')).status, 400);
+    assert.equal((await admin('GET', '/admin/financial-overview?from=2024-01-01&to=2026-10-01')).status, 400);
+    const o = await overview(`&client=${ids.ovA}`);
+    assert.equal(o.cards.totalRevenue.previous, 0);
+    assert.equal(o.cards.totalRevenue.change, null, 'no % change against an empty previous period');
+    assert.equal(o.period.previousFrom.slice(8), '01');
+  });
+
+  test('recurring invoice drafts take the service when the client has exactly one', async () => {
+    const { lineService } = require('../../services/serviceCatalog');
+    assert.equal(lineService('  Performance   Marketing '), 'Performance Marketing');
+    assert.equal(lineService('Unassigned'), undefined);
+    assert.equal(lineService(''), undefined);
+  });
+});

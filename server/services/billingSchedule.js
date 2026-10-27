@@ -13,6 +13,7 @@ const Invoice = require('../models/Invoice');
 const { REVENUE_TYPES } = require('../models/Invoice');
 const Retainer = require('../models/Retainer');
 const Client = require('../models/Client');
+const { lineService } = require('./serviceCatalog');
 const { dayOf, addDays } = require('./adPerformance');
 const { getBilling } = require('./clientPolicies');
 const { notifyPermissionHolders } = require('./staffNotify');
@@ -103,9 +104,14 @@ async function buildContents(schedule, client, invoiceDate, policy) {
     client_ref: schedule.client_ref, status: 'Active', billingCycle: 'Monthly', contractEndDate: { $gte: new Date(`${invoiceDate}T00:00:00`) },
   }).select('packageName monthlyAmount').sort({ createdAt: 1 }).lean();
 
+  // The line's service: the client's one service, when it has exactly one; otherwise staff pick it
+  const owner = await Client.findById(schedule.client_ref).select('profile.services').lean();
+  const services = owner?.profile?.services || [];
+  const service = services.length === 1 ? lineService(services[0]) : undefined;
   const lineItems = retainers.filter((r) => r.monthlyAmount > 0).map((r) => ({
     description: `${r.packageName} — ${label(period.start)} to ${label(period.end)}`,
     qty: 1, unitPrice: r.monthlyAmount, amount: r.monthlyAmount, revenueType: 'Retainer',
+    ...(service && { service }),
   }));
   const t = totals(lineItems, policy.gstPercent);
   const dueDate = new Date(`${addDays(invoiceDate, schedule.dueDays)}T23:59:59`);
@@ -223,7 +229,8 @@ function cleanItems(input) {
     const price = r2(unitPrice); // the amount is worked out from the price shown, so a line always adds up
     // A draft is a retainer invoice unless staff say otherwise
     const revenueType = REVENUE_TYPES.includes(it?.revenueType) ? it.revenueType : 'Retainer';
-    items.push({ description: description.slice(0, 300), qty, unitPrice: price, amount: r2(price * qty), revenueType });
+    const service = lineService(it?.service);
+    items.push({ description: description.slice(0, 300), qty, unitPrice: price, amount: r2(price * qty), revenueType, ...(service && { service }) });
   }
   return { items };
 }

@@ -66,6 +66,11 @@ const clientPolicies = require('../services/clientPolicies');
 const BillingSchedule = require('../models/BillingSchedule');
 const InvoiceDraft = require('../models/InvoiceDraft');
 const adPerformance = require('../services/adPerformance');
+const campaigns = require('../services/campaigns');
+const Campaign = require('../models/Campaign');
+const { riskReasons } = require('../services/clientRisk');
+const { buildOverview } = require('../services/financialOverview');
+const serviceCatalog = require('../services/serviceCatalog');
 const AdPerformance = require('../models/AdPerformance');
 const CampaignStrategy = require('../models/CampaignStrategy');
 const WorkLog = require('../models/WorkLog');
@@ -77,7 +82,14 @@ const { recordAudit } = require('../services/audit');
 // grants. Every route checks page + action through requirePageAccess, which
 // gives cms.manage / '*' full access and limits a grant to its clients.
 const router = express.Router();
+const { lineService } = require('../services/serviceCatalog');
 const crm = requirePageAccess;
+// Invoice lines keep the service as a clean name, or none ("Unassigned")
+const withLineServices = (items) => (Array.isArray(items) ? items.map((it) => {
+  const { service, ...rest } = it || {};
+  const name = lineService(service);
+  return name ? { ...rest, service: name } : rest;
+}) : items);
 
 // Client fields never sent. No password is ever shown to staff (SOP §4) — not even an old
 // temporary one still stored from before activation links.
@@ -1191,6 +1203,7 @@ router.post('/clients/:id/ad-performance', crm('clients', 'edit'), async (req, r
       throw err;
     }
     await recordAudit(req, 'AD_PERFORMANCE_CREATE', 'AdPerformance', String(row._id), null, adSnap(row));
+    await campaigns.syncFromAdData([client._id]); // a new campaign name joins the campaign list (no status yet)
     res.status(201).json({ success: true, message: 'Entry saved', data: row });
   } catch (error) {
     logger.error('Admin ad performance create error:', error);
@@ -1211,6 +1224,7 @@ router.put('/clients/:id/ad-performance/:rowId', crm('clients', 'edit'), async (
     row.set({ ...value, updatedBy: req.user._id });
     try {
       await row.save();
+      await campaigns.syncFromAdData([client._id]);
     } catch (err) {
       if (err.code === 11000) return res.status(409).json({ success: false, message: 'Another entry already exists for that day, platform, campaign and creative.' });
       throw err;
@@ -2129,7 +2143,7 @@ router.post('/invoices', crm('invoices', 'create'), async (req, res) => {
 
     // Saved, not sent: the client sees it (and it counts as owed) only after Send
     const invoice = await Invoice.create({
-      client_ref, issueDate, dueDate, lineItems,
+      client_ref, issueDate, dueDate, lineItems: withLineServices(lineItems),
       subtotal: subtotal || totalAmount,
       taxPercent: taxPercent || 0,
       taxAmount: taxAmount || 0,
@@ -2162,6 +2176,7 @@ router.put('/invoices/:id', crm('invoices', 'edit'), async (req, res) => {
     if (!existing || !clientAllowed(req, existing.client_ref)) return outOfScope(res, 'Invoice');
     const update = { ...req.body };
     delete update._id; delete update.invoiceId; delete update.client_ref;
+    if (Array.isArray(update.lineItems)) update.lineItems = withLineServices(update.lineItems);
     // Set only by sending (services/invoiceDocument.js) and by credit notes (services/receivables.js)
     delete update.documents; delete update.unsent; delete update.creditedAmount;
     // Credit notes are issued against the invoice's amounts: change those with a new credit note, not by editing
@@ -2428,6 +2443,206 @@ router.delete('/invoices/:id', crm('invoices', 'delete'), async (req, res) => {
     res.json({ success: true, message: 'Invoice deleted' });
   } catch (error) {
     logger.error('Admin delete invoice error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// FINANCIAL OVERVIEW, SERVICE LIST, RISK FLAGS, CAMPAIGNS
+// ══════════════════════════════════════════════════════════════════════════════
+
+/** @route GET /api/admin/financial-overview?from&to&status&service&client — services/financialOverview.js */
+router.get('/financial-overview', crm('invoices', 'view'), async (req, res) => {
+  try {
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    const data = await buildOverview({
+      from: req.query.from || `${now.getFullYear()}-${pad(now.getMonth() + 1)}-01`,
+      to: req.query.to || `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`,
+      clientIds: isScoped(req) ? req.pageScope.clients : undefined,
+      status: req.query.status, service: req.query.service, client: req.query.client,
+    }, now);
+    if (data.error) return res.status(400).json({ success: false, message: data.error });
+    res.json({ success: true, data });
+  } catch (error) {
+    logger.error('Financial overview error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+/** The admin's service list (client profiles + invoice lines). Anyone in the panel can read it. */
+router.get('/service-catalog', async (req, res) => {
+  try {
+    res.json({ success: true, services: await serviceCatalog.getServiceList(), unassigned: serviceCatalog.UNASSIGNED });
+  } catch (error) {
+    logger.error('Service catalog error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+router.put('/service-catalog', requirePermission('settings.manage'), async (req, res) => {
+  try {
+    const before = await serviceCatalog.getServiceList();
+    const result = await serviceCatalog.setServiceList(req.body.services);
+    if (result.error) return res.status(400).json({ success: false, message: result.error });
+    await recordAudit(req, 'SERVICE_CATALOG_UPDATE', 'Settings', 'service_catalog', { services: before }, { services: result.services });
+    res.json({ success: true, services: result.services, message: 'Service list saved.' });
+  } catch (error) {
+    logger.error('Service catalog update error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+/**
+ * @route GET /api/admin/invoice-lines/unassigned?from&to — sent invoice lines with no service yet,
+ *        newest first (from at most 300 invoices), for mapping older invoices.
+ */
+router.get('/invoice-lines/unassigned', crm('invoices', 'view'), async (req, res) => {
+  try {
+    const match = { unsent: { $ne: true }, lineItems: { $elemMatch: { $or: [{ service: { $exists: false } }, { service: null }, { service: '' }] } } };
+    if (isScoped(req)) match.client_ref = { $in: req.pageScope.clients };
+    const day = (v) => (/^\d{4}-\d{2}-\d{2}$/.test(String(v || '')) ? new Date(`${v}T00:00:00`) : null);
+    const from = day(req.query.from);
+    const to = day(req.query.to);
+    if (from || to) match.issueDate = { ...(from && { $gte: from }), ...(to && { $lte: new Date(to.getTime() + 86399999) }) };
+    const invoices = await Invoice.find(match).sort({ issueDate: -1 }).limit(300)
+      .select('invoiceId client_ref issueDate lineItems').populate('client_ref', 'businessName clientId profile.services').lean();
+    const lines = [];
+    for (const inv of invoices) {
+      (inv.lineItems || []).forEach((li, index) => {
+        if (li.service) return;
+        lines.push({
+          invoice: inv._id, invoiceId: inv.invoiceId, index, issueDate: inv.issueDate, description: li.description, amount: li.amount,
+          revenueType: li.revenueType || '', client: inv.client_ref?.businessName || '', clientServices: inv.client_ref?.profile?.services || [],
+        });
+      });
+    }
+    res.json({ success: true, lines, services: await serviceCatalog.getServiceList() });
+  } catch (error) {
+    logger.error('Unassigned invoice lines error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+/**
+ * @route PUT /api/admin/invoice-lines/services  { items: [{ invoice, index, service }] }
+ * Sets which service invoice lines are for. Only the service changes (amounts, numbers and sent
+ * documents stay as they are), so it is allowed on sent and paid invoices too. Audited per invoice.
+ */
+router.put('/invoice-lines/services', crm('invoices', 'edit'), async (req, res) => {
+  try {
+    const items = Array.isArray(req.body.items) ? req.body.items.slice(0, 500) : [];
+    if (!items.length) return res.status(400).json({ success: false, message: 'Choose at least one line.' });
+    const list = await serviceCatalog.getServiceList();
+    const byInvoice = new Map();
+    for (const it of items) {
+      if (!isValidId(it?.invoice) || !Number.isInteger(it?.index) || it.index < 0) return res.status(400).json({ success: false, message: 'Each line needs its invoice and position.' });
+      const service = lineService(it.service);
+      if (service && !list.includes(service)) return res.status(400).json({ success: false, message: `"${service}" is not in the service list.` });
+      byInvoice.set(String(it.invoice), [...(byInvoice.get(String(it.invoice)) || []), { index: it.index, service }]);
+    }
+    // Check every invoice first, so a bad line changes nothing
+    const plans = [];
+    for (const [id, changes] of byInvoice) {
+      const inv = await Invoice.findById(id).select('invoiceId client_ref lineItems').lean();
+      if (!inv || !clientAllowed(req, inv.client_ref)) return outOfScope(res, 'Invoice');
+      for (const c of changes) {
+        if (c.index >= (inv.lineItems || []).length) return res.status(400).json({ success: false, message: `${inv.invoiceId} has no line ${c.index + 1}.` });
+      }
+      plans.push({ inv, changes });
+    }
+    let updated = 0;
+    for (const { inv, changes } of plans) {
+      const $set = {};
+      const $unset = {};
+      const before = changes.map((c) => ({ line: c.index + 1, service: inv.lineItems[c.index].service || null }));
+      for (const c of changes) {
+        if (c.service) $set[`lineItems.${c.index}.service`] = c.service; else $unset[`lineItems.${c.index}.service`] = '';
+      }
+      await Invoice.updateOne({ _id: inv._id }, { ...(Object.keys($set).length && { $set }), ...(Object.keys($unset).length && { $unset }) });
+      await recordAudit(req, 'INVOICE_LINE_SERVICE', 'Invoice', inv.invoiceId, { lines: before }, { lines: changes.map((c) => ({ line: c.index + 1, service: c.service || null })) });
+      updated += changes.length;
+    }
+    res.json({ success: true, updated, message: `${updated} line${updated === 1 ? '' : 's'} updated.` });
+  } catch (error) {
+    logger.error('Invoice line services error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+/** @route GET /api/admin/clients/:id/risk — why the client is at risk (if it is), and the manual flag */
+router.get('/clients/:id/risk', crm('clients', 'view'), async (req, res) => {
+  try {
+    const client = await adClient(req, res);
+    if (!client) return;
+    const [reasons, doc] = await Promise.all([
+      riskReasons([client._id]),
+      Client.findById(client._id).select('riskFlag').lean(),
+    ]);
+    res.json({ success: true, atRisk: reasons.has(String(client._id)), reasons: reasons.get(String(client._id)) || [], flag: doc?.riskFlag || { flagged: false } });
+  } catch (error) {
+    logger.error('Client risk error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+/** @route PUT /api/admin/clients/:id/risk-flag { flagged, reason } — a reason is required to flag */
+router.put('/clients/:id/risk-flag', crm('clients', 'edit'), async (req, res) => {
+  try {
+    const client = await adClient(req, res);
+    if (!client) return;
+    const flagged = req.body.flagged === true;
+    const reason = String(req.body.reason || '').trim().slice(0, 500);
+    if (flagged && !reason) return res.status(400).json({ success: false, message: 'Give the reason the client is at risk.' });
+    const before = (await Client.findById(client._id).select('riskFlag').lean())?.riskFlag || { flagged: false };
+    const riskFlag = { flagged, reason: flagged ? reason : '', flaggedBy: req.user._id, flaggedByName: staffName(req.user), flaggedAt: new Date() };
+    await Client.updateOne({ _id: client._id }, { $set: { riskFlag } });
+    await recordAudit(req, flagged ? 'CLIENT_RISK_FLAG' : 'CLIENT_RISK_CLEAR', 'Client', client.clientId,
+      { flagged: Boolean(before.flagged), reason: before.reason || '' }, { flagged, reason: riskFlag.reason });
+    res.json({ success: true, flag: riskFlag, message: flagged ? 'Client flagged at risk.' : 'Risk flag removed.' });
+  } catch (error) {
+    logger.error('Client risk flag error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+/** @route GET /api/admin/clients/:id/campaigns — the campaign list (campaigns from the ad data join with no status) */
+router.get('/clients/:id/campaigns', crm('clients', 'view'), async (req, res) => {
+  try {
+    const client = await adClient(req, res);
+    if (!client) return;
+    res.json({ success: true, data: await campaigns.listCampaigns(client._id), statuses: campaigns.STATUSES, platforms: Campaign.schema.path('platform').enumValues });
+  } catch (error) {
+    logger.error('Client campaigns error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+router.post('/clients/:id/campaigns', crm('clients', 'edit'), async (req, res) => {
+  try {
+    const client = await adClient(req, res);
+    if (!client) return;
+    const r = await campaigns.addCampaign(client._id, req.body, req.user._id, staffName(req.user));
+    if (!r.ok) return res.status(r.status).json({ success: false, message: r.message });
+    await recordAudit(req, 'CAMPAIGN_ADD', 'Campaign', `${client.clientId}:${r.campaign.platform}:${r.campaign.name}`, null, { status: r.campaign.status });
+    res.status(201).json({ success: true, data: r.campaign });
+  } catch (error) {
+    logger.error('Client campaign add error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+router.put('/clients/:id/campaigns/:campaignId', crm('clients', 'edit'), async (req, res) => {
+  try {
+    const client = await adClient(req, res);
+    if (!client) return;
+    const status = req.body.status === '' || req.body.status == null ? null : req.body.status;
+    const r = await campaigns.setStatus(client._id, req.params.campaignId, status, req.user._id, staffName(req.user));
+    if (!r.ok) return res.status(r.status).json({ success: false, message: r.message });
+    await recordAudit(req, 'CAMPAIGN_STATUS', 'Campaign', `${client.clientId}:${r.campaign.platform}:${r.campaign.name}`, { status: r.before.status }, { status });
+    res.json({ success: true, data: r.campaign });
+  } catch (error) {
+    logger.error('Client campaign status error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
