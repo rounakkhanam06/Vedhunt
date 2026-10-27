@@ -114,6 +114,17 @@ const notifyCreditNote = (note, invoice) =>
     emailLines: [],
   });
 
+// The client has something to approve (in-app only, like credit notes)
+const notifyApprovalRequested = (approval) =>
+  notifyClient({
+    clientId: approval.client_ref,
+    type: 'approval_requested',
+    title: `Approval needed — ${approval.title}`,
+    message: `Please review and approve or reject: ${approval.title}.`,
+    link: '/client/dashboard?tab=approvals',
+    emailLines: [],
+  });
+
 const notifyPaymentApproved = (payment, invoice) =>
   notifyClient({
     clientId: payment.client_ref,
@@ -286,6 +297,7 @@ module.exports = {
   notifyInvoiceCreated,
   notifyInvoiceSent,
   notifyCreditNote,
+  notifyApprovalRequested,
   notifyPaymentApproved,
   notifyPaymentRejected,
   notifyTicketReply,

@@ -8,6 +8,7 @@ const Retainer = require('../models/Retainer');
 const SupportTicket = require('../models/SupportTicket');
 const PaymentProof = require('../models/PaymentProof');
 const finance = require('./finance');
+const Approval = require('../models/Approval');
 const WorkLog = require('../models/WorkLog');
 const { attachUsage, usageWindow, monthBounds } = require('./retainerUsage');
 const { latestSharedFor } = require('./strategy');
@@ -83,8 +84,11 @@ function monthlyTotals(rows, count = 6, now = new Date()) {
  * Things that need the client's attention, most urgent first. Pure so the
  * rules can be tested without a database.
  */
-function buildActions({ billing, tickets, retainer, kyc, hold, onboarding }) {
+function buildActions({ billing, tickets, retainer, kyc, hold, onboarding, pendingApprovals = 0 }) {
   const actions = [];
+  if (pendingApprovals > 0) {
+    actions.push({ key: 'approvals-pending', tone: 'warn', tab: 'approvals', title: `${pendingApprovals} thing${pendingApprovals > 1 ? 's' : ''} waiting for your approval`, detail: 'Vedhunt will not go ahead until you approve or ask for changes' });
+  }
   if (hold) {
     actions.push({ key: 'account-hold', tone: 'danger', tab: 'billing', title: 'Your account is on hold', detail: hold.reason || 'Please clear any pending payment or contact us to resume service' });
   }
@@ -125,7 +129,7 @@ function buildActions({ billing, tickets, retainer, kyc, hold, onboarding }) {
 }
 
 async function buildOverview(clientId, now = new Date()) {
-  const [{ perClient }, unpaid, pendingProofs, projects, retainers, tickets, strategy, kycDoc, clientDoc, onboardingDoc] = await Promise.all([
+  const [{ perClient }, unpaid, pendingProofs, projects, retainers, tickets, strategy, kycDoc, clientDoc, onboardingDoc, pendingApprovals] = await Promise.all([
     finance.portfolioFinance({ clientIds: [clientId], now }),
     Invoice.find({ client_ref: clientId, unsent: { $ne: true }, paymentStatus: { $ne: 'Paid' }, $expr: { $gt: [finance.NET_TOTAL, '$paidAmount'] } })
       .select('-notes').sort({ dueDate: 1 }).limit(20).lean(),
@@ -140,6 +144,7 @@ async function buildOverview(clientId, now = new Date()) {
     kycService.findOrBlank(clientId),
     Client.findById(clientId).select('serviceStatus holdReason holdSince').lean(),
     OnboardingChecklist.findOne({ client_ref: clientId }).lean(),
+    Approval.countDocuments({ client_ref: clientId, status: 'Pending' }),
   ]);
 
   const fin = perClient.get(String(clientId)) || { outstanding: 0, overdueAmount: 0, overdueInvoices: 0, received: 0, billed: 0, collectionPercent: null };
@@ -211,7 +216,7 @@ async function buildOverview(clientId, now = new Date()) {
     strategy: strategy ? { version: strategy.version, sharedAt: strategy.sharedAt || strategy.updatedAt } : null,
     kyc: kycSummary,
     account: { serviceStatus: clientDoc?.serviceStatus || 'Active', holdReason: clientDoc?.serviceStatus === 'Hold' ? clientDoc.holdReason || '' : null, holdSince: clientDoc?.holdSince || null },
-    actions: buildActions({ onboarding: onboardingService.clientView(onboardingDoc)?.summary, hold: clientDoc?.serviceStatus === 'Hold' ? { reason: clientDoc.holdReason } : null, kyc: kycSummary, billing: { ...billing, overdueAmount: formatInr(billing.overdueAmount), nextDue: billing.nextDue && { ...billing.nextDue, balance: formatInr(billing.nextDue.balance) } }, tickets: ticketSummary, retainer }),
+    actions: buildActions({ onboarding: onboardingService.clientView(onboardingDoc)?.summary, hold: clientDoc?.serviceStatus === 'Hold' ? { reason: clientDoc.holdReason } : null, kyc: kycSummary, billing: { ...billing, overdueAmount: formatInr(billing.overdueAmount), nextDue: billing.nextDue && { ...billing.nextDue, balance: formatInr(billing.nextDue.balance) } }, tickets: ticketSummary, retainer, pendingApprovals }),
   };
 }
 

@@ -14,6 +14,7 @@ const WorkTab       = lazy(() => import('../tabs/WorkTab'));
 const OnboardingTab = lazy(() => import('../tabs/OnboardingTab'));
 const AgreementTab  = lazy(() => import('../tabs/AgreementTab'));
 const AccountTab    = lazy(() => import('../tabs/AccountTab'));
+const ApprovalsTab  = lazy(() => import('../tabs/ApprovalsTab'));
 
 const TAB_COMPONENTS = {
   overview:  OverviewTab,
@@ -28,6 +29,7 @@ const TAB_COMPONENTS = {
   onboarding: OnboardingTab,
   agreement: AgreementTab,
   account:   AccountTab,
+  approvals: ApprovalsTab,
 };
 
 const TabLoader = () => (

@@ -22,11 +22,13 @@ const AuditLog = require('../models/AuditLog');
 const PaymentProof = require('../models/PaymentProof');
 const ClientNotification = require('../models/ClientNotification');
 const {
-  notifyInvoiceCreated, notifyPaymentApproved, notifyCreditNote, notifyAgreementUpdated, notifyTicketReply, notifyTicketStatus, notifyKycRejected, notifyKycVerified, notifyAccountHold, notifyAccountReleased, notifyOnboardingRequest,
+  notifyInvoiceCreated, notifyPaymentApproved, notifyCreditNote, notifyApprovalRequested, notifyAgreementUpdated, notifyTicketReply, notifyTicketStatus, notifyKycRejected, notifyKycVerified, notifyAccountHold, notifyAccountReleased, notifyOnboardingRequest,
 } = require('../services/clientNotify');
 
 const invoiceDocument = require('../services/invoiceDocument');
 const ClientCall = require('../models/ClientCall');
+const Approval = require('../models/Approval');
+const approvals = require('../services/approvals');
 const PlatformAccess = require('../models/PlatformAccess');
 const platformAccess = require('../services/platformAccess');
 const KpiSetup = require('../models/KpiSetup');
@@ -1196,6 +1198,71 @@ router.delete('/clients/:id/ad-performance/:rowId', crm('clients', 'edit'), asyn
     res.json({ success: true, message: 'Entry deleted' });
   } catch (error) {
     logger.error('Admin ad performance delete error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// APPROVALS — strategy / budget / creative the client has to approve (services/approvals.js)
+// ══════════════════════════════════════════════════════════════════════════════
+
+router.get('/clients/:id/approvals', crm('clients', 'view'), async (req, res) => {
+  try {
+    const client = await adClient(req, res);
+    if (!client) return;
+    const rows = await Approval.find({ client_ref: client._id }).sort({ requestedAt: -1 }).limit(200).lean();
+    res.json({ success: true, data: rows, options: { kinds: Approval.KINDS, channels: approvals.STAFF_CHANNELS } });
+  } catch (error) {
+    logger.error('Admin approvals error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+router.post('/clients/:id/approvals', crm('clients', 'edit'), async (req, res) => {
+  try {
+    const client = await adClient(req, res);
+    if (!client) return;
+    const { value, error } = approvals.validateRequest(req.body);
+    if (error) return res.status(400).json({ success: false, message: error });
+    const row = await Approval.create({ ...value, client_ref: client._id, requestedBy: req.user._id, requestedByName: staffName(req.user) });
+    await recordAudit(req, 'APPROVAL_REQUEST', 'Approval', `${client.clientId}:${row.kind}`, null, { title: row.title, kind: row.kind, versionLabel: row.versionLabel, amount: row.amount });
+    await notifyApprovalRequested(row);
+    res.status(201).json({ success: true, data: row });
+  } catch (error) {
+    logger.error('Admin approval request error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// Staff record the answer the client gave another way (never silently: the channel and day are required)
+router.put('/clients/:id/approvals/:approvalId/decision', crm('clients', 'edit'), async (req, res) => {
+  try {
+    const client = await adClient(req, res);
+    if (!client) return;
+    if (!isValidId(req.params.approvalId)) return res.status(404).json({ success: false, message: 'Approval not found' });
+    const r = await approvals.decide(req.params.approvalId, client._id, req.body.decision, { note: req.body.note },
+      { type: 'staff', user: req.user, channel: req.body.channel, receivedAt: req.body.receivedAt });
+    if (!r.ok) return res.status(r.status).json({ success: false, message: r.message });
+    await recordAudit(req, 'APPROVAL_RECORDED', 'Approval', `${client.clientId}:${r.approval.kind}`, { status: 'Pending' },
+      { status: r.approval.status, channel: r.approval.channel, receivedAt: r.approval.receivedAt, title: r.approval.title });
+    res.json({ success: true, data: r.approval });
+  } catch (error) {
+    logger.error('Admin approval decision error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+router.put('/clients/:id/approvals/:approvalId/cancel', crm('clients', 'edit'), async (req, res) => {
+  try {
+    const client = await adClient(req, res);
+    if (!client) return;
+    if (!isValidId(req.params.approvalId)) return res.status(404).json({ success: false, message: 'Approval not found' });
+    const r = await approvals.cancel(req.params.approvalId, client._id, req.body.reason, req.user);
+    if (!r.ok) return res.status(r.status).json({ success: false, message: r.message });
+    await recordAudit(req, 'APPROVAL_CANCEL', 'Approval', `${client.clientId}:${r.approval.kind}`, { status: 'Pending' }, { status: 'Cancelled', reason: r.approval.note });
+    res.json({ success: true, data: r.approval });
+  } catch (error) {
+    logger.error('Admin approval cancel error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });

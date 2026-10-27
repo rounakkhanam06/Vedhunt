@@ -15,6 +15,7 @@ import ClientRegister, { ClientRegisterSummary } from '../components/clients/Cli
 import ClientCallsPanel from '../components/clients/ClientCallsPanel';
 import KpiPanel from '../components/clients/KpiPanel';
 import AccessPanel from '../components/clients/AccessPanel';
+import ApprovalsPanel from '../components/clients/ApprovalsPanel';
 import { openPortalPreview } from '../../shared/portalPreview';
 import OnboardingPanel from '../components/clients/OnboardingPanel';
 import StrategyPanel from '../components/clients/StrategyPanel';
@@ -56,6 +57,7 @@ const PREVIEW_TABS = [
   { id: 'ads', label: 'Ad data' },
   { id: 'kpi', label: 'KPI' },
   { id: 'access', label: 'Access' },
+  { id: 'approvals', label: 'Approvals' },
   { id: 'onboarding', label: 'Onboarding' },
 ];
 
@@ -791,6 +793,9 @@ export default function ClientManager() {
               )}
               {previewTab === 'billing' && (
                 <BillingSchedulePanel clientId={previewClient._id} http={http} base={base} canEdit={canCrm('invoices', 'edit')} />
+              )}
+              {previewTab === 'approvals' && (
+                <ApprovalsPanel clientId={previewClient._id} http={http} base={base} canEdit={canCrm('clients', 'edit')} />
               )}
               {previewTab === 'access' && (
                 <AccessPanel clientId={previewClient._id} http={http} base={base} canEdit={canCrm('clients', 'edit')} />

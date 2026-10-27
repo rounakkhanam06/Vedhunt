@@ -2443,6 +2443,98 @@ describe('payments, receipts, credit notes and the ageing report (SOP §5.2, §1
   });
 });
 
+describe('client approvals — in the portal, or recorded by staff with the source (SOP §9)', () => {
+  const adminUrl = () => `/admin/clients/${ids.apprCo}/approvals`;
+  const mine = async () => (await asClient('apprCo', 'GET', '/client/approvals')).body;
+  const ask = (body) => admin('POST', adminUrl(), { kind: 'Strategy', title: 'Strategy v2', details: 'Meta-first plan', versionLabel: 'v2', ...body });
+
+  before(async () => {
+    const Client = require('../../models/Client');
+    ids.apprCo = String((await Client.create({ businessName: 'Approval Co', contactName: 'Appr Person', email: 'apprco@example.com', password: 'ClientPass1', isTemporaryPassword: false }))._id);
+    ids.apprOther = String((await Client.create({ businessName: 'Approval Other', contactName: 'Other Person', email: 'approther@example.com', password: 'ClientPass1', isTemporaryPassword: false }))._id);
+  });
+
+  test('staff ask; the client is told, sees it as pending, and it shows on their overview', async () => {
+    assert.equal((await ask({ kind: 'Budget', title: 'Meta budget' })).status, 400, 'a budget needs its amount');
+    const made = await ask();
+    assert.equal(made.status, 201, JSON.stringify(made.body));
+    ids.apprA = made.body.data._id;
+    const list = await mine();
+    assert.equal(list.pending, 1);
+    assert.equal(list.data[0].status, 'Pending');
+    assert.equal(JSON.stringify(list).includes('Super Admin'), false, 'the requester stays internal');
+    const bell = (await asClient('apprCo', 'GET', '/client/notifications')).body.notifications;
+    assert.ok(bell.some((n) => n.type === 'approval_requested' && n.link.endsWith('tab=approvals')));
+    const actions = (await asClient('apprCo', 'GET', '/client/overview')).body.data.actions;
+    assert.ok(actions.some((a) => a.key === 'approvals-pending' && a.tab === 'approvals'));
+  });
+
+  test('the client approves in the portal; it is final and cannot be decided again', async () => {
+    assert.equal((await asClient('apprCo', 'PUT', `/client/approvals/${ids.apprA}`, { decision: 'maybe' })).status, 400);
+    const ok = await asClient('apprCo', 'PUT', `/client/approvals/${ids.apprA}`, { decision: 'approve', note: 'Looks good' });
+    assert.equal(ok.status, 200, JSON.stringify(ok.body));
+    assert.deepEqual([ok.body.data.status, ok.body.data.channel, ok.body.data.decidedByClient], ['Approved', 'Client portal', true]);
+    assert.equal((await asClient('apprCo', 'PUT', `/client/approvals/${ids.apprA}`, { decision: 'reject', note: 'Changed my mind' })).status, 409);
+    const staff = (await admin('PUT', `${adminUrl()}/${ids.apprA}/decision`, { decision: 'reject', note: 'late change', channel: 'Email' }));
+    assert.equal(staff.status, 409, 'staff cannot overwrite a decision either');
+    assert.equal((await mine()).pending, 0);
+    assert.equal((await asClient('apprCo', 'GET', '/client/overview')).body.data.actions.some((a) => a.key === 'approvals-pending'), false);
+    assert.ok(await require('../../models/AuditLog').findOne({ action: 'APPROVAL_APPROVED' }).lean());
+  });
+
+  test('rejecting needs a reason; another client cannot touch it', async () => {
+    const r = await ask({ kind: 'Creative', title: 'Creative set 3', linkUrl: 'https://drive.example/set3' });
+    assert.equal((await asClient('apprCo', 'PUT', `/client/approvals/${r.body.data._id}`, { decision: 'reject' })).status, 400, 'a reason is needed');
+    assert.equal((await asClient('apprOther', 'PUT', `/client/approvals/${r.body.data._id}`, { decision: 'approve' })).status, 404, 'not another client’s');
+    assert.equal((await asClient('apprOther', 'GET', '/client/approvals')).body.data.length, 0);
+    const rej = await asClient('apprCo', 'PUT', `/client/approvals/${r.body.data._id}`, { decision: 'reject', note: 'Logo too small on the second ad' });
+    assert.equal(rej.body.data.status, 'Rejected');
+    assert.equal(rej.body.data.note, 'Logo too small on the second ad');
+  });
+
+  test('staff record a WhatsApp answer with the channel and the day; never silently', async () => {
+    const r = await ask({ kind: 'Budget', title: 'Meta budget Nov', amount: 30000 });
+    const id = r.body.data._id;
+    const body = (extra) => ({ decision: 'approve', channel: 'WhatsApp', receivedAt: '2026-10-20', ...extra });
+    assert.equal((await admin('PUT', `${adminUrl()}/${id}/decision`, body({ channel: undefined }))).status, 400, 'the channel is required');
+    assert.equal((await admin('PUT', `${adminUrl()}/${id}/decision`, body({ channel: 'Client portal' }))).status, 400, 'that is the client’s own click');
+    assert.equal((await admin('PUT', `${adminUrl()}/${id}/decision`, body({ receivedAt: '2099-01-01' }))).status, 400, 'not in the future');
+    assert.equal((await admin('PUT', `${adminUrl()}/${id}/decision`, body({ decision: 'reject' }))).status, 400, 'a rejection needs a reason');
+    const ok = await admin('PUT', `${adminUrl()}/${id}/decision`, body({ note: 'Confirmed on WhatsApp by the owner' }));
+    assert.equal(ok.status, 200, JSON.stringify(ok.body));
+    assert.deepEqual([ok.body.data.decisionBy, ok.body.data.channel, ok.body.data.status], ['staff', 'WhatsApp', 'Approved']);
+    assert.equal(ok.body.data.receivedAt.slice(0, 10), '2026-10-20');
+    const seen = (await mine()).data.find((a) => a._id === id);
+    assert.deepEqual([seen.channel, seen.decidedByClient], ['WhatsApp', false], 'the client sees it was recorded by Vedhunt');
+    assert.ok(await require('../../models/AuditLog').findOne({ action: 'APPROVAL_RECORDED' }).lean());
+  });
+
+  test('a pending request can be withdrawn with a reason; a decided one cannot', async () => {
+    const r = await ask({ kind: 'Other', title: 'Landing page copy' });
+    assert.equal((await admin('PUT', `${adminUrl()}/${r.body.data._id}/cancel`, { reason: '' })).status, 400);
+    assert.equal((await admin('PUT', `${adminUrl()}/${r.body.data._id}/cancel`, { reason: 'Sent the wrong file' })).status, 200);
+    assert.equal((await asClient('apprCo', 'PUT', `/client/approvals/${r.body.data._id}`, { decision: 'approve' })).status, 409, 'withdrawn');
+    assert.equal((await admin('PUT', `${adminUrl()}/${ids.apprA}/cancel`, { reason: 'Already approved' })).status, 409);
+  });
+
+  test('two decisions at once: exactly one wins', async () => {
+    const r = await ask({ kind: 'Creative', title: 'Race' });
+    const [a, b] = await Promise.all([
+      asClient('apprCo', 'PUT', `/client/approvals/${r.body.data._id}`, { decision: 'approve' }),
+      admin('PUT', `${adminUrl()}/${r.body.data._id}/decision`, { decision: 'approve', channel: 'Email', receivedAt: '2026-10-27' }),
+    ]);
+    assert.deepEqual([a.status, b.status].sort(), [200, 409]);
+  });
+
+  test('a Super Admin’s portal preview is read-only: it cannot approve for the client', async () => {
+    const r = await ask({ kind: 'Strategy', title: 'Preview check' });
+    const preview = (await admin('POST', `/admin/portal-preview/client/${ids.apprCo}`)).body.data.token;
+    const res = await fetch(`${base}/client/approvals/${r.body.data._id}`, { method: 'PUT', headers: { 'content-type': 'application/json', 'x-preview-token': preview }, body: JSON.stringify({ decision: 'approve' }) });
+    assert.equal(res.status, 403);
+    assert.equal((await require('../../models/Approval').findById(r.body.data._id).lean()).status, 'Pending');
+  });
+});
+
 describe('platform access tracker (SOP §8)', () => {
   const url = () => `/admin/clients/${ids.accessCo}/access`;
   let rowId;

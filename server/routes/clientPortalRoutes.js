@@ -12,6 +12,8 @@ const { getClientAgreement, acceptAgreement } = require('../controllers/agreemen
 const { buildInvoicePdfBuffer, loadInvoiceContext } = require('../services/invoicePdf');
 const invoiceDocument = require('../services/invoiceDocument');
 const PaymentProof = require('../models/PaymentProof');
+const Approval = require('../models/Approval');
+const approvals = require('../services/approvals');
 const CreditNote = require('../models/CreditNote');
 const { buildReceiptPdf, buildCreditNotePdf } = require('../services/receiptPdf');
 const kpi = require('../services/kpi');
@@ -548,6 +550,42 @@ router.put('/kyc/:item', kycItem, (req, res, next) => {
     res.json({ success: true, message: `${label} submitted for review.`, data: kyc.clientView(result.doc) });
   } catch (error) {
     logger.error('Client submit KYC error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+/**
+ * @route  GET /api/client/approvals      — what Vedhunt has asked this client to approve, and the history
+ * @route  PUT /api/client/approvals/:id  { decision: 'approve' | 'reject', note }
+ */
+router.get('/approvals', async (req, res) => {
+  try {
+    const rows = await Approval.find({ client_ref: req.client._id }).sort({ requestedAt: -1 }).limit(200).lean();
+    res.json({ success: true, data: rows.map(approvals.clientView), pending: rows.filter((r) => r.status === 'Pending').length });
+  } catch (error) {
+    logger.error('Client approvals error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+router.put('/approvals/:id', async (req, res) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) return res.status(404).json({ success: false, message: 'Approval not found' });
+    const r = await approvals.decide(req.params.id, req.client._id, req.body.decision, { note: req.body.note }, { type: 'client', client: req.client });
+    if (!r.ok) return res.status(r.status).json({ success: false, message: r.message });
+    const approved = r.approval.status === 'Approved';
+    await recordAudit(null, approved ? 'APPROVAL_APPROVED' : 'APPROVAL_REJECTED', 'Approval', `${req.client._id}:${r.approval.kind}`, { status: 'Pending' },
+      { status: r.approval.status, title: r.approval.title, note: r.approval.note },
+      { actor: { actorType: 'Client', actorId: req.client._id, actorName: req.client.businessName || req.client.contactName }, source: 'client-portal' });
+    await notifyPermissionHolders('cms.manage', {
+      type: 'approval_decided',
+      title: `${approved ? 'Approved' : 'Rejected'} — ${r.approval.title}`,
+      message: `${req.client.businessName || 'A client'} ${approved ? 'approved' : 'rejected'} “${r.approval.title}”${r.approval.note ? `: ${r.approval.note}` : '.'}`,
+      link: '/admin/clients',
+    });
+    res.json({ success: true, message: approved ? 'Thank you — approved.' : 'Thank you — we will make the changes.', data: approvals.clientView(r.approval) });
+  } catch (error) {
+    logger.error('Client approval decision error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
