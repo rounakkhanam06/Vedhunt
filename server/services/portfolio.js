@@ -5,6 +5,7 @@ const Client = require('../models/Client');
 const Retainer = require('../models/Retainer');
 const PaymentProof = require('../models/PaymentProof');
 const { portfolioFinance, round2 } = require('./finance');
+const { stagesFor } = require('./clientStage');
 
 // Monthly-equivalent of a retainer's amount, so quarterly/annual plans rank
 // fairly against monthly ones.
@@ -59,13 +60,14 @@ async function buildPortfolio(opts = {}, now = new Date()) {
   if (opts.clientIds) base._id = { $in: opts.clientIds };
 
   const allClients = await Client.find(base,
-    'clientId businessName contactName email phone isActive deletedAt createdAt profile serviceStatus holdReason holdSince offboardedAt offboardReason offboardSource')
+    'clientId businessName contactName email phone isActive deletedAt createdAt profile serviceStatus holdReason holdSince offboardedAt offboardReason offboardSource isTemporaryPassword agreementVersion acceptedAgreementVersion agreementDetails.domain agreementDetails.agreementDate agreementDetails.effectiveDate')
     .populate('profile.accountManager', 'firstName lastName')
     .lean();
 
   const ids = allClients.map((c) => c._id);
   const [fees, { perClient, totals }] = await Promise.all([recurringFees(ids), portfolioFinance({ clientIds: ids, now })]);
 
+  const byIdRaw = new Map(allClients.map((c) => [String(c._id), c]));
   const emptyFin = { billed: 0, received: 0, outstanding: 0, overdueAmount: 0, overdueInvoices: 0, oldestOverdueDue: null, daysOverdue: 0, collectionPercent: null };
   const rows = allClients.map((c) => {
     const k = String(c._id);
@@ -93,6 +95,14 @@ async function buildPortfolio(opts = {}, now = new Date()) {
       isDefaulter: fin.overdueInvoices > 0,
     };
   });
+
+  // Where each client is in the journey (services/clientStage.js), worked out from the records
+  const stages = await stagesFor(rows.map((r) => ({ _id: r._id, client: byIdRaw.get(String(r._id)), finance: r.finance, isDefaulter: r.isDefaulter })));
+  for (const r of rows) {
+    const s = stages.get(String(r._id));
+    r.stage = s.stage;
+    r.stageReason = s.reason;
+  }
 
   // KPI cards cover the whole (scoped) portfolio regardless of the table filters
   const kpis = {
@@ -129,6 +139,7 @@ async function buildPortfolio(opts = {}, now = new Date()) {
   if (opts.billing === 'overdue') list = list.filter((r) => r.isDefaulter);
   else if (opts.billing === 'outstanding') list = list.filter((r) => r.finance.outstanding > 0);
   else if (opts.billing === 'clear') list = list.filter((r) => r.finance.outstanding === 0);
+  if (opts.stage) list = list.filter((r) => r.stage === opts.stage);
   if (opts.search) {
     const q = String(opts.search).toLowerCase();
     list = list.filter((r) => [r.businessName, r.contactName, r.email, r.clientId].some((v) => String(v || '').toLowerCase().includes(q)));

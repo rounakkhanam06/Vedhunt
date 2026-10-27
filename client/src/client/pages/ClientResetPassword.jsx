@@ -4,7 +4,9 @@ import clientService from '../../services/clientService';
 import { Lock, Eye, EyeOff, CheckCircle, ArrowLeft } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-const ClientResetPassword = () => {
+// mode 'activate': the first-time "set your password" link a new account gets by email
+const ClientResetPassword = ({ mode = 'reset' }) => {
+  const activate = mode === 'activate';
   const { token } = useParams();
   const navigate = useNavigate();
   const [form, setForm] = useState({ password: '', confirmPassword: '' });
@@ -26,10 +28,10 @@ const ClientResetPassword = () => {
     try {
       await clientService.resetPassword(token, form.password);
       setDone(true);
-      toast.success('Password reset successfully!');
+      toast.success(activate ? 'Your account is active!' : 'Password reset successfully!');
       setTimeout(() => navigate('/client/login'), 3000);
     } catch (err) {
-      setError(err?.response?.data?.message || 'Invalid or expired reset token.');
+      setError(err?.response?.data?.message || 'This link is invalid or has expired.');
     } finally {
       setLoading(false);
     }
@@ -54,13 +56,13 @@ const ClientResetPassword = () => {
               <div className="w-16 h-16 rounded-full bg-[#22C55E]/10 border border-[#22C55E]/20 flex items-center justify-center mx-auto mb-4">
                 <CheckCircle size={32} className="text-[#22C55E]" />
               </div>
-              <h2 className="text-white text-xl font-semibold mb-2">Password Reset!</h2>
+              <h2 className="text-white text-xl font-semibold mb-2">{activate ? 'Account activated!' : 'Password Reset!'}</h2>
               <p className="text-[#9CA3AF] text-sm">Redirecting you to login…</p>
             </div>
           ) : (
             <>
-              <h2 className="text-white text-xl font-semibold mb-2">Set New Password</h2>
-              <p className="text-[#9CA3AF] text-sm mb-6">Choose a strong password for your portal account.</p>
+              <h2 className="text-white text-xl font-semibold mb-2">{activate ? 'Activate your account' : 'Set New Password'}</h2>
+              <p className="text-[#9CA3AF] text-sm mb-6">{activate ? 'Welcome to the Vedhunt Client Portal. Choose a password to activate your account.' : 'Choose a strong password for your portal account.'}</p>
 
               {error && (
                 <div className="p-4 rounded-xl bg-[#EF4444]/10 border border-[#EF4444]/20 mb-5">
@@ -101,7 +103,7 @@ const ClientResetPassword = () => {
                   disabled={loading}
                   className="w-full py-3 rounded-xl bg-gradient-to-r from-[#FF5A1F] to-[#E64A19] text-white font-semibold text-sm hover:from-[#FF7A47] hover:to-[#FF5A1F] disabled:opacity-60 transition-all cursor-pointer"
                 >
-                  {loading ? 'Resetting…' : 'Reset Password'}
+                  {loading ? 'Saving…' : activate ? 'Activate account' : 'Reset Password'}
                 </button>
               </form>
             </>

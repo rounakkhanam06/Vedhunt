@@ -62,6 +62,7 @@ export function ClientRegisterSummary({ http, base, client }) {
           <span className={`inline-flex rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${STATUS_CLS[r.serviceStatus] || STATUS_CLS['In-Active']}`}>{r.serviceStatus}</span>
           {r.offboardedAt && <p className="text-on-surface-variant text-[11px] mt-1">Offboarded {day(r.offboardedAt)}{r.offboardReason ? ` — ${r.offboardReason}` : ''}</p>}
         </Item>
+        <Item label="Stage">{r.stage}{r.stageReason && <span className="block text-[11px] text-on-surface-variant font-normal">{r.stageReason}</span>}</Item>
         <Item label="Domain(s)">{r.domains.length ? r.domains.map((d) => <span key={d} className="block break-all">{d}</span>) : '—'}</Item>
         <Item label="Onboarding date">{day(r.onboardingDate)}</Item>
         <Item label="Billing">{r.billingType || '—'}{r.packageNames?.length ? <span className="block text-[11px] text-on-surface-variant">{r.packageNames.join(', ')}</span> : null}</Item>
@@ -165,15 +166,15 @@ export default function ClientRegister({ http, base, filters, onView, onEdit, ca
 
   const download = () => {
     if (!data) return;
-    const head = ['Client ID', 'Business', 'Party / Contact', 'Domain', 'Onboarding Date', 'Billing', 'Client Status', 'Account Manager',
+    const head = ['Client ID', 'Business', 'Party / Contact', 'Domain', 'Onboarding Date', 'Billing', 'Client Status', 'Stage', 'Account Manager',
       ...(showMoney ? ['Package (₹)', `GST @${data.gstPercent}% (₹)`, 'Total (₹)', 'Received (₹)', 'Balance (₹)', ...data.months.map((m) => m.label), `Overall Payment ${data.fyLabel}`, `Revenue Last Month (${data.lastMonthLabel})`] : [])];
     const line = (r) => [r.clientId, r.businessName, r.party, r.domains.join(' | '), r.onboardingDate ? new Date(r.onboardingDate).toLocaleDateString('en-CA') : '',
-      r.billingType || '', r.serviceStatus, r.accountManagerName || '',
+      r.billingType || '', r.serviceStatus, r.stage || '', r.accountManagerName || '',
       ...(showMoney ? (r.months ? [r.packageAmount, r.gstAmount, r.totalAmount, r.received, r.balance, ...r.months, r.fyTotal, r.lastMonth] : Array(7 + data.months.length).fill('')) : [])];
     const rows = [head, ...data.rows.map(line)];
     if (showMoney && data.totals) {
       const t = data.totals;
-      rows.push(['Total', '', '', '', '', '', '', '', t.packageAmount, t.gstAmount, t.totalAmount, t.received, t.balance, ...t.months, t.fyTotal, t.lastMonth]);
+      rows.push(['Total', '', '', '', '', '', '', '', '', t.packageAmount, t.gstAmount, t.totalAmount, t.received, t.balance, ...t.months, t.fyTotal, t.lastMonth]);
     }
     const blob = new Blob([`${BOM}${rows.map((r) => r.map(csvCell).join(',')).join('\r\n')}`], { type: 'text/csv;charset=utf-8' });
     const a = document.createElement('a');
@@ -230,6 +231,7 @@ export default function ClientRegister({ http, base, filters, onView, onEdit, ca
                 <th className={`${th} text-left`}>Onboarding</th>
                 <th className={`${th} text-left`}>Billing</th>
                 <th className={`${th} text-center`}>Client Status</th>
+                <th className={`${th} text-left`}>Stage</th>
                 {showMoney && (<>
                   <th className={`${th} text-right`}>Package ₹</th>
                   <th className={`${th} text-right`}>GST @{data.gstPercent}% ₹</th>
@@ -265,6 +267,7 @@ export default function ClientRegister({ http, base, filters, onView, onEdit, ca
                     {r.offboardedAt && <span className="block text-[10px] text-on-surface-variant mt-0.5">{r.offboardSource === 'auto' ? 'auto · ' : ''}since {day(r.offboardedAt)}</span>}
                     {r.state === 'inactive' && <span className="block text-[10px] text-red-400 mt-0.5">login suspended</span>}
                   </td>
+                  <td className={`${td} border-b border-outline-variant`} title={r.stageReason}>{r.stage}</td>
                   {showMoney && (r.months ? (<>
                     <td className={`${td} text-right border-b border-outline-variant`}>{money(r.packageAmount)}</td>
                     <td className={`${td} text-right border-b border-outline-variant`}>{money(r.gstAmount)}</td>

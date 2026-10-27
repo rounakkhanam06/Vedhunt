@@ -97,15 +97,18 @@ describe('overall KYC status', () => {
   test('verified items with nothing pending but some missing is "incomplete"', () => {
     const o = kyc.overall(doc({ gst: st('Verified'), pan: st('Verified') }));
     assert.equal(o.status, 'incomplete');
-    assert.deepEqual(o.missing, ['aadhaar', 'photo']);
+    assert.deepEqual(o.missing, ['photo'], 'Aadhaar is optional');
   });
   test('a rejected item means "action needed", whatever else is going on', () => {
     const o = kyc.overall(doc({ gst: st('Verified'), pan: st('Rejected'), aadhaar: st('Submitted') }));
     assert.equal(o.status, 'action_needed');
     assert.deepEqual(o.rejected, ['pan']);
   });
-  test('verified needs all four required items; brand authorisation is optional', () => {
-    const four = { gst: st('Verified'), pan: st('Verified'), aadhaar: st('Verified'), photo: st('Verified') };
+  test('verified needs GST, PAN and photo; Aadhaar and brand authorisation are optional', () => {
+    const three = { gst: st('Verified'), pan: st('Verified'), photo: st('Verified') };
+    assert.equal(kyc.overall(doc(three)).status, 'verified', 'no Aadhaar needed');
+    assert.equal(kyc.overall(doc({ ...three, aadhaar: st('Rejected') })).status, 'action_needed', 'a rejected optional item still needs action');
+    const four = { ...three, aadhaar: st('Verified') };
     assert.equal(kyc.overall(doc(four)).status, 'verified');
     assert.equal(kyc.overall(doc({ ...four, photo: st('Submitted') })).status, 'in_review');
     assert.equal(kyc.overall(doc({ ...four, brand_authorisation: st('Submitted') })).status, 'verified');
@@ -141,5 +144,41 @@ describe('what the client is shown', () => {
     assert.equal(byKey('photo').number, null);
     assert.equal(byKey('photo').accept, 'image');
     assert.equal(byKey('brand_authorisation').required, false);
+  });
+});
+
+describe('Not Requested, Under Review and Not Applicable (SOP §7)', () => {
+  const three = { gst: st('Verified'), pan: st('Verified'), photo: st('Verified') };
+
+  test('a required item that does not apply counts as done, so KYC can complete without it', () => {
+    const o = kyc.overall(doc({ gst: st('Not Applicable'), pan: st('Verified'), photo: st('Verified') }));
+    assert.equal(o.status, 'verified');
+    assert.equal(o.requiredVerified, 3);
+    assert.deepEqual(o.notApplicable, ['gst']);
+  });
+  test('Under Review is waiting for staff, like Submitted', () => {
+    const o = kyc.overall(doc({ ...three, gst: st('Under Review') }));
+    assert.equal(o.status, 'in_review');
+    assert.deepEqual(o.pending, ['gst']);
+  });
+  test('an optional item that was not requested does not make KYC look started or incomplete', () => {
+    assert.equal(kyc.overall(doc({ aadhaar: st('Not Requested') })).status, 'not_started');
+    assert.equal(kyc.overall(doc({ ...three, aadhaar: st('Not Requested') })).status, 'verified');
+  });
+  test('the client cannot send a document that is locked, not needed, or not requested', () => {
+    const can = (status) => kyc.clientView(doc({ gst: st(status) })).items[0].canSubmit;
+    for (const s of ['Verified', 'Not Applicable', 'Not Requested']) assert.equal(can(s), false, s);
+    for (const s of ['Not Submitted', 'Submitted', 'Under Review', 'Rejected']) assert.equal(can(s), true, s);
+  });
+  test('the client sees whether Vedhunt uploaded it and from where — never the admin or the N/A reason', () => {
+    const view = kyc.clientView(doc({
+      gst: { status: 'Under Review', value: VEDHUNT_GSTIN, file: { fileId: 'f1' }, uploadedBy: 'admin', uploadedByName: 'Asha Admin', source: 'Client WhatsApp' },
+      photo: { status: 'Not Applicable', naReason: 'Spokesperson not needed' },
+    }));
+    const gst = view.items.find((i) => i.key === 'gst');
+    assert.deepEqual([gst.uploadedBy, gst.source], ['admin', 'Client WhatsApp']);
+    const raw = JSON.stringify(view);
+    assert.equal(raw.includes('Asha Admin'), false);
+    assert.equal(raw.includes('Spokesperson not needed'), false);
   });
 });

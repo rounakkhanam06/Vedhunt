@@ -92,6 +92,7 @@ export default function ClientManager() {
   const [sort, setSort] = useState('fee');
   const [sectorFilter, setSectorFilter] = useState('');
   const [serviceFilter, setServiceFilter] = useState('');
+  const [stageFilter, setStageFilter] = useState('');
   const [portfolio, setPortfolio] = useState({ kpis: null, topByRevenue: [], revenuePeriod: null, filterOptions: { sectors: [], services: [] } });
   const [previewTab, setPreviewTab] = useState('overview');
   const [issueCount, setIssueCount] = useState(0);
@@ -114,7 +115,8 @@ export default function ClientManager() {
     ...(billingFilter && { billing: billingFilter }),
     ...(sectorFilter && { sector: sectorFilter }),
     ...(serviceFilter && { service: serviceFilter }),
-  }), [dSearch, sort, statusFilter, billingFilter, sectorFilter, serviceFilter]);
+    ...(stageFilter && { stage: stageFilter }),
+  }), [dSearch, sort, statusFilter, billingFilter, sectorFilter, serviceFilter, stageFilter]);
 
   // Debounce search
   useEffect(() => {
@@ -132,6 +134,7 @@ export default function ClientManager() {
           ...(billingFilter && { billing: billingFilter }),
           ...(sectorFilter && { sector: sectorFilter }),
           ...(serviceFilter && { service: serviceFilter }),
+          ...(stageFilter && { stage: stageFilter }),
         },
       });
       setClients(res.data.data || []);
@@ -145,7 +148,7 @@ export default function ClientManager() {
       });
     } catch { toast.error('Failed to load clients'); }
     finally { setLoading(false); }
-  }, [http, base, page, dSearch, statusFilter, billingFilter, sort, sectorFilter, serviceFilter]);
+  }, [http, base, page, dSearch, statusFilter, billingFilter, sort, sectorFilter, serviceFilter, stageFilter]);
 
   useEffect(() => { fetchClients(); }, [fetchClients]);
 
@@ -201,6 +204,18 @@ export default function ClientManager() {
     setPreviewTab(tab);
     await refreshPreview(client._id);
   };
+  // Email the client a link to set their password (they never get one from staff)
+  const [sendingLink, setSendingLink] = useState(false);
+  const sendLink = async () => {
+    setSendingLink(true);
+    try {
+      const res = await http.post(`${base}/clients/${previewClient._id}/send-activation`);
+      toast.success(res.data.message);
+      refreshPreview(previewClient._id);
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Could not send the link');
+    } finally { setSendingLink(false); }
+  };
   const refreshPreview = async (id) => {
     try {
       const res = await http.get(`${base}/clients/${id}`);
@@ -237,17 +252,16 @@ export default function ClientManager() {
 
     setSaving(true);
     try {
+      // No passwords here: the client sets their own through an emailed link (SOP §4)
+      const payload = { ...form };
+      delete payload.password;
       if (selectedClient) {
-        const payload = { ...form };
-        if (!payload.password) delete payload.password;
-        else payload.newPassword = payload.password;
-        delete payload.password;
         await http.put(`${base}/clients/${selectedClient._id}`, payload);
         toast.success('Client updated');
       } else {
-        if (!form.password) return toast.error('Password is required for new clients');
-        await http.post(`${base}/clients`, form);
-        toast.success('Client account created & welcome email sent');
+        const res = await http.post(`${base}/clients`, payload);
+        if (res.data.activationEmailSent) toast.success(res.data.message);
+        else toast(res.data.message, { icon: '⚠️', duration: 8000 });
       }
       setShowModal(false);
       fetchClients();
@@ -400,6 +414,7 @@ export default function ClientManager() {
           {[
             { label: 'Sector', value: sectorFilter, set: setSectorFilter, opts: portfolio.filterOptions.sectors.map((x) => ({ id: x, label: x })), all: 'All sectors' },
             { label: 'Service', value: serviceFilter, set: setServiceFilter, opts: portfolio.filterOptions.services.map((x) => ({ id: x, label: x })), all: 'All services' },
+            { label: 'Stage', value: stageFilter, set: setStageFilter, opts: (portfolio.filterOptions.stages || []).map((x) => ({ id: x, label: x })), all: 'Any stage' },
             ...(portfolio.kpis?.monthlyRecurringRevenue !== undefined ? [{
               label: 'Billing', value: billingFilter, set: setBillingFilter, all: 'Any billing status',
               opts: [{ id: 'overdue', label: 'Overdue (defaulters)' }, { id: 'outstanding', label: 'Has outstanding balance' }, { id: 'clear', label: 'Fully paid up' }],
@@ -503,6 +518,7 @@ export default function ClientManager() {
                       >
                         {STATUS_BADGE[clientStatus(c)].label}
                       </span>
+                      {c.stage && <span title={c.stageReason} className="block mt-1 text-[10px] text-on-surface-variant">{c.stage}</span>}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-center gap-2">
@@ -628,22 +644,12 @@ export default function ClientManager() {
                 ))}
               </div>
 
-              {/* Portal passwords stay with full CRM access (the API ignores them otherwise) */}
-              {(full || !selectedClient) && (
-              <div>
-                <label className="block text-on-surface-variant text-xs font-medium mb-1.5">
-                  {selectedClient ? 'New Password (leave blank to keep current)' : 'Temporary Password *'}
-                </label>
-                <input
-                  type="text"
-                  value={form.password}
-                  onChange={f('password')}
-                  required={!selectedClient}
-                  placeholder={selectedClient ? 'Leave blank to keep current password' : 'Set a temporary password'}
-                  className="w-full px-4 py-2.5 bg-admin-bg border border-outline-variant rounded-xl text-on-surface text-sm focus:outline-none focus:border-secondary transition-colors"
-                />
-              </div>
-              )}
+              {/* No password field: the client sets their own through an emailed link (SOP §4) */}
+              <p className="text-[11px] text-on-surface-variant rounded-lg bg-admin-bg/60 border border-outline-variant px-3 py-2">
+                {selectedClient
+                  ? 'Passwords are never set by staff. To give the client a new password, use “Send activation / reset link” on the client’s Overview.'
+                  : 'The client gets an email with a link to set their own password (valid 72 hours). No password is created or shown here.'}
+              </p>
 
               <div>
                 <label className="block text-on-surface-variant text-xs font-medium mb-1.5">Lead Reference (optional)</label>
@@ -840,19 +846,25 @@ export default function ClientManager() {
                   </div>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-on-surface-variant text-[10px] uppercase font-bold tracking-wider">Password / Security</p>
+                  <p className="text-on-surface-variant text-[10px] uppercase font-bold tracking-wider">Portal login</p>
                   <div className="pt-0.5 flex flex-col gap-1">
+                    {/* Activated = the client set their own password (activation link, or the old temporary-password screen) */}
                     <span className={`inline-flex self-start items-center rounded-full text-[10px] font-bold px-2.5 py-0.5 ${
                       previewClient.isTemporaryPassword
                         ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                        : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                        : 'bg-green-500/10 text-green-400 border border-green-500/20'
                     }`}>
-                      {previewClient.isTemporaryPassword ? 'Temporary Password Active' : 'Custom Password Set'}
+                      {previewClient.isTemporaryPassword ? 'Not activated yet' : 'Activated'}
                     </span>
-                    {previewClient.isTemporaryPassword && previewClient.temporaryPasswordText && (
-                      <p className="text-on-surface text-xs font-mono font-bold mt-1 bg-admin-bg border border-outline-variant px-2.5 py-1.5 rounded-lg select-all">
-                        Password: {previewClient.temporaryPasswordText}
-                      </p>
+                    <p className="text-on-surface-variant text-[11px]">
+                      {!previewClient.isTemporaryPassword && previewClient.activatedAt && `Since ${fmtDate(previewClient.activatedAt)}. `}
+                      {previewClient.activationSentAt && `Last link sent ${fmtDate(previewClient.activationSentAt)}.`}
+                    </p>
+                    {canCrm('clients', 'edit') && !previewClient.deletedAt && previewClient.isActive !== false && (
+                      <button type="button" disabled={sendingLink} onClick={sendLink}
+                        className="self-start mt-0.5 px-2.5 py-1 rounded-lg border border-secondary/40 text-secondary text-[11px] font-semibold hover:bg-secondary/10 disabled:opacity-50 cursor-pointer">
+                        {sendingLink ? 'Sending…' : previewClient.isTemporaryPassword ? 'Send activation link' : 'Send password reset link'}
+                      </button>
                     )}
                   </div>
                 </div>

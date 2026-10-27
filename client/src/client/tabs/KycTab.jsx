@@ -9,8 +9,11 @@ import clientService from '../../services/clientService';
 const ICONS = { gst: Receipt, pan: CreditCard, aadhaar: Fingerprint, photo: Camera, brand_authorisation: FileSignature };
 
 const STATUS = {
+  'Not Requested': { label: 'Not needed yet', icon: CircleDashed, cls: 'text-[#9CA3AF] bg-white/5 border-white/10' },
   'Not Submitted': { label: 'Not submitted', icon: CircleDashed, cls: 'text-[#9CA3AF] bg-white/5 border-white/10' },
   Submitted: { label: 'In review', icon: Clock, cls: 'text-[#3B82F6] bg-[#3B82F6]/10 border-[#3B82F6]/25' },
+  'Under Review': { label: 'In review', icon: Clock, cls: 'text-[#3B82F6] bg-[#3B82F6]/10 border-[#3B82F6]/25' },
+  'Not Applicable': { label: 'Not needed', icon: CheckCircle2, cls: 'text-[#9CA3AF] bg-white/5 border-white/10' },
   Verified: { label: 'Verified', icon: CheckCircle2, cls: 'text-[#22C55E] bg-[#22C55E]/10 border-[#22C55E]/25' },
   Rejected: { label: 'Needs changes', icon: AlertTriangle, cls: 'text-[#EF4444] bg-[#EF4444]/10 border-[#EF4444]/25' },
 };
@@ -139,11 +142,17 @@ function ItemCard({ item, onSaved }) {
         </div>
       )}
 
-      {locked && <p className="mt-3 text-xs text-[#22C55E]">Verified {fmtDate(item.reviewedAt)}. Contact support if this needs to change.</p>}
+      {item.uploadedBy === 'admin' && (
+        <p className="mt-2 text-xs text-[#9CA3AF]">Uploaded for you by the Vedhunt team ({item.source}). If anything looks wrong, replace it below.</p>
+      )}
+
+      {item.status === 'Verified' && <p className="mt-3 text-xs text-[#22C55E]">Verified {fmtDate(item.reviewedAt)}. Contact support if this needs to change.</p>}
+      {item.status === 'Not Applicable' && <p className="mt-3 text-xs text-[#9CA3AF]">This is not needed for your account.</p>}
+      {item.status === 'Not Requested' && <p className="mt-3 text-xs text-[#9CA3AF]">We will ask for this if it becomes necessary.</p>}
 
       {!locked && !editing && (
         <button type="button" onClick={() => setEditing(true)} className="mt-3 flex items-center gap-1.5 text-xs font-medium text-[#9CA3AF] hover:text-white cursor-pointer">
-          <RefreshCcw size={13} /> Replace {item.status === 'Submitted' ? 'what I submitted' : 'document'}
+          <RefreshCcw size={13} /> Replace {['Submitted', 'Under Review'].includes(item.status) ? 'what was submitted' : 'document'}
         </button>
       )}
 
@@ -193,7 +202,7 @@ function ItemCard({ item, onSaved }) {
   );
 }
 
-/** Advertiser KYC: GST, PAN, Aadhaar, photo and (optional) brand authorisation. */
+/** Advertiser KYC: GST, PAN, photo, and (optional) Aadhaar and brand authorisation. */
 const KycTab = () => {
   const [data, setData] = useState(null);
   const [failed, setFailed] = useState(false);

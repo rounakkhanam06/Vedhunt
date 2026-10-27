@@ -130,6 +130,8 @@ async function buildRegister(rows, fy, now = new Date()) {
       domains: r.profile?.domains || [],
       onboardingDate: r.profile?.onboardingDate || null,
       accountManagerName: r.accountManagerName,
+      stage: r.stage,
+      stageReason: r.stageReason,
       state: r.state, // login: active / hold / inactive (suspended) / archived
       // Client status (client decision, Oct 2026): In-Active = offboarded by staff
       serviceStatus: r.offboardedAt ? 'In-Active' : r.state === 'hold' ? 'On hold' : 'Active',

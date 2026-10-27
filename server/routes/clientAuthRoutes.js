@@ -361,10 +361,15 @@ router.put('/reset-password/:resettoken', async (req, res) => {
     if (!client) {
       return res
         .status(400)
-        .json({ success: false, message: 'Invalid or expired reset token' });
+        .json({ success: false, message: 'This link is invalid or has expired. Ask your Vedhunt account manager for a new one.' });
+    }
+    if (typeof req.body.password !== 'string' || req.body.password.length < 6) {
+      return res.status(400).json({ success: false, message: 'Password must be at least 6 characters.' });
     }
 
     client.password = req.body.password;
+    // The same link activates a new account (services/clientProvisioning.js) and resets a password
+    if (!client.activatedAt) client.activatedAt = new Date();
     client.isTemporaryPassword = false;
     client.temporaryPasswordText = undefined;
     client.resetPasswordToken = undefined;
@@ -403,6 +408,8 @@ router.post('/reset-temp-password', clientAuthMiddleware, async (req, res) => {
     client.password = newPassword;
     client.isTemporaryPassword = false;
     client.temporaryPasswordText = undefined;
+    // An account made before activation links: setting its own password activates it
+    if (!client.activatedAt) client.activatedAt = new Date();
     await client.save();
 
     res.json({ success: true, message: 'Password updated successfully' });

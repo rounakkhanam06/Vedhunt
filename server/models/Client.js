@@ -139,6 +139,11 @@ const clientSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    // Account activation (Client Journey SOP §4: never email a password). A new account gets a
+    // random password nobody knows and an emailed "set your password" link; the client sets
+    // their own password through it. activatedAt = when they first did.
+    activationSentAt: { type: Date },
+    activatedAt: { type: Date },
     temporaryPasswordText: {
       type: String,
       select: false,
@@ -239,13 +244,17 @@ clientSchema.methods.matchPassword = async function (enteredPassword) {
 };
 
 // ─── Generate password reset token ───────────────────────────────────────────
-clientSchema.methods.getResetPasswordToken = function () {
+/**
+ * A one-time link token (only its hash is stored). Forgot-password links last 10 minutes;
+ * an activation link (new account, or one staff send) lasts `minutes` (72 hours).
+ */
+clientSchema.methods.getResetPasswordToken = function (minutes = 10) {
   const resetToken = crypto.randomBytes(20).toString('hex');
   this.resetPasswordToken = crypto
     .createHash('sha256')
     .update(resetToken)
     .digest('hex');
-  this.resetPasswordExpire = Date.now() + 10 * 60 * 1000; // 10 minutes
+  this.resetPasswordExpire = Date.now() + minutes * 60 * 1000;
   return resetToken;
 };
 

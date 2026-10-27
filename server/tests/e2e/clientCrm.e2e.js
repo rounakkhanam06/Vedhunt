@@ -827,7 +827,7 @@ describe('KYC — GST, PAN, Aadhaar, photo and brand authorisation', () => {
   test('a new client starts with nothing submitted: four required items and one optional', async () => {
     const d = await mine('alpha');
     assert.equal(d.overall.status, 'not_started');
-    assert.deepEqual(d.items.map((i) => [i.key, i.required]), [['gst', true], ['pan', true], ['aadhaar', true], ['photo', true], ['brand_authorisation', false]]);
+    assert.deepEqual(d.items.map((i) => [i.key, i.required]), [['gst', true], ['pan', true], ['aadhaar', false], ['photo', true], ['brand_authorisation', false]]);
     assert.ok(d.items.every((i) => i.status === 'Not Submitted' && !i.hasFile));
   });
 
@@ -935,14 +935,15 @@ describe('KYC — GST, PAN, Aadhaar, photo and brand authorisation', () => {
     assert.equal(await ClientKycFile.countDocuments({ client_ref: ids.alpha, item: 'photo' }), before, 'the replaced document is deleted, not piled up');
   });
 
-  test('verifying all four required items completes KYC; verified items are locked', async () => {
+  test('verifying the required items completes KYC (Aadhaar is optional); verified items are locked', async () => {
     for (const key of ['gst', 'pan', 'aadhaar']) assert.equal((await review(ids.alpha, key, { decision: 'verify' })).status, 200);
     assert.equal((await mine('alpha')).overall.status, 'in_review', 'the photo is still waiting');
     assert.equal((await review(ids.alpha, 'photo', { decision: 'verify' })).status, 200);
 
     const d = await mine('alpha');
     assert.equal(d.overall.status, 'verified');
-    assert.equal(d.overall.requiredVerified, 4);
+    assert.equal(d.overall.requiredVerified, 3);
+    assert.equal(d.overall.requiredTotal, 3, 'GST, PAN and photo');
     const bell = (await asClient('alpha', 'GET', '/client/notifications')).body.notifications;
     assert.ok(bell.some((n) => n.type === 'kyc_verified' && /KYC complete/.test(n.title)), 'a completion notification');
 
@@ -2249,6 +2250,195 @@ describe('client calls and the automatic In-Active rule (hold first, then In-Act
     assert.equal(a.offboardedAt, undefined);
     assert.equal(a.offboardSource, undefined);
     await policy({ enabled: false, daysOverdue: 45, unansweredCalls: 3 });
+  });
+});
+
+describe('client accounts are activated by an emailed link — no password is ever set or shown by staff', () => {
+  const Client = () => require('../../models/Client');
+  // The raw link token is only ever emailed; the test makes its own the same way
+  const linkFor = async (id) => {
+    const c = await Client().findById(id).select('+resetPasswordToken +resetPasswordExpire');
+    const token = c.getResetPasswordToken(72 * 60);
+    await c.save({ validateBeforeSave: false });
+    return token;
+  };
+
+  test('creating a client needs no password and stores none anyone can read', async () => {
+    const res = await admin('POST', '/admin/clients', { businessName: 'Activation Co', contactName: 'Act Person', email: 'activate@example.com', phone: '+919800000088' });
+    assert.equal(res.status, 201, JSON.stringify(res.body));
+    ids.actClient = res.body.data._id;
+    assert.equal(res.body.activationEmailSent, false, 'no email service in tests');
+    assert.match(res.body.message, /could not be sent/);
+    const stored = await Client().findById(ids.actClient).select('+temporaryPasswordText +resetPasswordToken +resetPasswordExpire').lean();
+    assert.equal(stored.temporaryPasswordText, undefined, 'no readable password');
+    assert.equal(stored.isTemporaryPassword, true);
+    assert.ok(stored.activationSentAt);
+    assert.ok(stored.resetPasswordExpire > Date.now() + 71 * 3600e3, 'the link lasts 72 hours');
+    const detail = (await admin('GET', `/admin/clients/${ids.actClient}`)).body.data;
+    assert.equal(detail.temporaryPasswordText, undefined);
+    assert.equal(detail.password, undefined);
+  });
+
+  test('staff cannot set a password; they send a link (refused while email fails)', async () => {
+    assert.equal((await admin('PUT', `/admin/clients/${ids.actClient}`, { newPassword: 'Secret123' })).status, 400);
+    const send = await admin('POST', `/admin/clients/${ids.actClient}/send-activation`);
+    assert.equal(send.status, 502, 'says so when the email cannot be sent');
+    assert.ok(await require('../../models/AuditLog').findOne({ action: 'CLIENT_ACTIVATION_LINK' }).lean());
+  });
+
+  test('the link activates the account; the client then logs in with their own password', async () => {
+    const token = await linkFor(ids.actClient);
+    assert.equal((await request(null, 'PUT', `/client/auth/reset-password/${token}`, { password: '123' })).status, 400, 'too short');
+    const ok = await request(null, 'PUT', `/client/auth/reset-password/${token}`, { password: 'MyOwnPass9' });
+    assert.equal(ok.status, 200, JSON.stringify(ok.body));
+    const c = await Client().findById(ids.actClient).lean();
+    assert.ok(c.activatedAt);
+    assert.equal(c.isTemporaryPassword, false);
+    assert.equal((await request(null, 'PUT', `/client/auth/reset-password/${token}`, { password: 'Another99' })).status, 400, 'a link works once');
+    const login = await request(null, 'POST', '/client/auth/login', { email: 'activate@example.com', password: 'MyOwnPass9' });
+    assert.equal(login.status, 200, JSON.stringify(login.body));
+  });
+});
+
+describe('KYC — admin-assisted upload, Under Review and Not Applicable (SOP §7)', () => {
+  const jpg = () => Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(200, 4)]);
+  const GSTIN = '27AALCV0172E1ZD';
+  const url = (key) => `/admin/clients/${ids.kycAssist}/kyc/${key}`;
+  const view = async () => (await admin('GET', `/admin/clients/${ids.kycAssist}/kyc`)).body.data;
+  const item = (d, key) => d.items.find((i) => i.key === key);
+  const adminUpload = async (key, { source = 'Client WhatsApp', receivedAt, value, bytes = jpg() } = {}) => {
+    const form = new FormData();
+    if (source) form.append('source', source);
+    if (receivedAt) form.append('receivedAt', receivedAt);
+    if (value) form.append('value', value);
+    if (bytes) form.append('file', new Blob([bytes]), 'whatsapp-doc.jpg');
+    const res = await fetch(`${base}${url(key)}/upload`, { method: 'PUT', headers: { authorization: `Bearer ${adminToken()}` }, body: form });
+    return { status: res.status, body: await res.json().catch(() => null) };
+  };
+
+  before(async () => {
+    const c = await require('../../models/Client').create({ businessName: 'KYC Assist Co', contactName: 'Assist Person', email: 'kycassist@example.com', password: 'ClientPass1', isTemporaryPassword: false });
+    ids.kycAssist = String(c._id);
+  });
+
+  test('an admin uploads a WhatsApp document: source, uploader and date are recorded; it starts Under Review', async () => {
+    assert.equal((await adminUpload('gst', { source: null, value: GSTIN })).status, 400, 'the source is required');
+    assert.equal((await adminUpload('gst', { source: 'Client portal', value: GSTIN })).status, 400, 'Client portal is only for the client’s own upload');
+    assert.equal((await adminUpload('gst', { value: GSTIN, receivedAt: new Date(Date.now() + 5 * DAY).toISOString() })).status, 400, 'not in the future');
+    assert.equal((await adminUpload('gst', { value: 'NOTAGSTIN' })).status, 400, 'the number is still checked');
+
+    const got = await adminUpload('gst', { value: GSTIN, receivedAt: new Date(Date.now() - 2 * DAY).toISOString() });
+    assert.equal(got.status, 200, JSON.stringify(got.body));
+    const gst = item(got.body.data, 'gst');
+    assert.equal(gst.status, 'Under Review');
+    assert.deepEqual([gst.uploadedBy, gst.source, gst.uploadedByName], ['admin', 'Client WhatsApp', 'Super Admin']);
+    assert.ok(gst.receivedAt);
+    assert.ok(await require('../../models/AuditLog').findOne({ action: 'KYC_ADMIN_UPLOAD' }).lean());
+
+    // the client sees that Vedhunt uploaded it and from where — not who
+    const mine = (await asClient('kycAssist', 'GET', '/client/kyc')).body.data;
+    const clientGst = item(mine, 'gst');
+    assert.deepEqual([clientGst.uploadedBy, clientGst.source, clientGst.status], ['admin', 'Client WhatsApp', 'Under Review']);
+    assert.equal(JSON.stringify(mine).includes('Super Admin'), false);
+    assert.equal(mine.overall.status, 'in_review');
+  });
+
+  test('verifying needs the document on file; Under Review can be verified or rejected', async () => {
+    assert.equal((await admin('PUT', `${url('pan')}/review`, { decision: 'verify' })).status, 409, 'nothing was submitted for PAN');
+    const verified = await admin('PUT', `${url('gst')}/review`, { decision: 'verify' });
+    assert.equal(verified.status, 200, JSON.stringify(verified.body));
+    assert.equal(item(verified.body.data, 'gst').status, 'Verified');
+    assert.equal((await adminUpload('gst', { value: GSTIN })).status, 409, 'a verified item is locked, for admins too');
+    const audit = await require('../../models/AuditLog').findOne({ action: 'KYC_VERIFY', recordId: `${ids.kycAssist}:gst` }).lean();
+    assert.equal(audit.beforeSnapshot.status, 'Under Review');
+  });
+
+  test('"start review" moves a client submission to Under Review without telling the client', async () => {
+    const form = new FormData();
+    form.append('value', 'AALCV0172E');
+    form.append('file', new Blob([jpg()]), 'pan.jpg');
+    const sent = await fetch(`${base}/client/kyc/pan`, { method: 'PUT', headers: { authorization: `Bearer ${clientToken('kycAssist')}` }, body: form });
+    assert.equal(sent.status, 200);
+    assert.equal(item(await view(), 'pan').status, 'Submitted');
+    const before = (await asClient('kycAssist', 'GET', '/client/notifications')).body.notifications.length;
+    const start = await admin('PUT', `${url('pan')}/review`, { decision: 'start_review' });
+    assert.equal(start.status, 200, JSON.stringify(start.body));
+    assert.equal(item(start.body.data, 'pan').status, 'Under Review');
+    assert.equal((await admin('PUT', `${url('pan')}/review`, { decision: 'start_review' })).status, 409, 'already under review');
+    assert.equal((await asClient('kycAssist', 'GET', '/client/notifications')).body.notifications.length, before);
+    assert.equal((await admin('PUT', `${url('pan')}/review`, { decision: 'reject', reason: 'Blurry copy, send again' })).status, 200);
+  });
+
+  test('Not Applicable needs a reason and counts as done; Not Requested is for optional items; both can be reversed', async () => {
+    assert.equal((await admin('PUT', `${url('photo')}/applicability`, { mode: 'not_applicable' })).status, 400, 'a reason is needed');
+    assert.equal((await admin('PUT', `${url('photo')}/applicability`, { mode: 'not_requested' })).status, 400, 'a required item cannot be Not Requested');
+    assert.equal((await admin('PUT', `${url('pan')}/applicability`, { mode: 'not_applicable', reason: 'Proprietor has no PAN yet' })).status, 200);
+    const na = await admin('PUT', `${url('photo')}/applicability`, { mode: 'not_applicable', reason: 'No spokesperson in this scope' });
+    assert.equal(na.status, 200, JSON.stringify(na.body));
+    assert.equal(item(na.body.data, 'photo').naReason, 'No spokesperson in this scope');
+    assert.equal(na.body.data.overall.status, 'verified', 'GST verified, PAN and photo not applicable');
+
+    const clientView = (await asClient('kycAssist', 'GET', '/client/kyc')).body.data;
+    assert.equal(item(clientView, 'photo').canSubmit, false);
+    assert.equal(JSON.stringify(clientView).includes('No spokesperson'), false, 'the reason is staff-only');
+    const blocked = new FormData();
+    blocked.append('file', new Blob([jpg()]), 'me.jpg');
+    assert.equal((await fetch(`${base}/client/kyc/photo`, { method: 'PUT', headers: { authorization: `Bearer ${clientToken('kycAssist')}` }, body: blocked })).status, 409);
+
+    assert.equal((await admin('PUT', `${url('aadhaar')}/applicability`, { mode: 'not_requested' })).status, 200);
+    assert.equal((await adminUpload('aadhaar', { value: '2345 6789 0124' })).status, 200, 'an admin upload asks for it');
+    assert.equal((await admin('PUT', `${url('gst')}/applicability`, { mode: 'not_applicable', reason: 'Trying on a verified one' })).status, 409, 'a verified item is not altered');
+
+    const back = await admin('PUT', `${url('photo')}/applicability`, { mode: 'request' });
+    assert.equal(back.status, 200);
+    assert.equal(item(back.body.data, 'photo').status, 'Not Submitted');
+    assert.deepEqual(back.body.data.overall.missing, ['photo'], 'the photo is asked for again');
+    assert.equal(back.body.data.overall.status, 'in_review', 'the Aadhaar uploaded for the client is still being checked');
+    assert.ok(await require('../../models/AuditLog').findOne({ action: 'KYC_APPLICABILITY' }).lean());
+  });
+});
+
+describe('client stage — worked out from the records, never typed', () => {
+  const stageOfClient = async (key) => {
+    const rows = (await admin('GET', `/admin/portfolio?status=all&search=${encodeURIComponent(`Stage ${key}`)}&limit=50`)).body.data;
+    return rows.find((r) => String(r._id) === ids[`stage${key}`]);
+  };
+  const Client = () => require('../../models/Client');
+  const mk = async (key, extra = {}) => {
+    const c = await Client().create({ businessName: `Stage ${key}`, contactName: 'Stage Person', email: `stage-${key}@example.com`, password: 'ClientPass1', isTemporaryPassword: false, ...extra });
+    ids[`stage${key}`] = String(c._id);
+    return c;
+  };
+
+  test('a journey from activation to payment to agreement to KYC', async () => {
+    await mk('A', { isTemporaryPassword: true });
+    assert.equal((await stageOfClient('A')).stage, 'Pending Onboarding');
+    assert.match((await stageOfClient('A')).stageReason, /not activated/);
+
+    await Client().updateOne({ _id: ids.stageA }, { $set: { isTemporaryPassword: false } });
+    await inv(ids.stageA, 7000, 10);
+    assert.equal((await stageOfClient('A')).stage, 'Awaiting Payment', 'invoice issued, nothing paid');
+
+    await require('../../models/Invoice').updateMany({ client_ref: ids.stageA }, { $set: { paidAmount: 2000 } });
+    assert.equal((await stageOfClient('A')).stage, 'Awaiting Agreement', 'paid something; the agreement is not prepared');
+
+    await Client().updateOne({ _id: ids.stageA }, { $set: { agreementVersion: 1, acceptedAgreementVersion: 1 } });
+    assert.equal((await stageOfClient('A')).stage, 'KYC Pending');
+  });
+
+  test('account conditions override the journey, and the stage can be filtered', async () => {
+    await mk('B', { serviceStatus: 'Hold', holdReason: 'Payment overdue', holdSince: new Date() });
+    assert.equal((await stageOfClient('B')).stage, 'Paused');
+    await mk('C');
+    await inv(ids.stageC, 5000, -20);
+    assert.equal((await stageOfClient('C')).stage, 'Payment Overdue');
+    await Client().updateOne({ _id: ids.stageC }, { $set: { offboardedAt: new Date(), offboardReason: 'Contract ended' } });
+    assert.equal((await stageOfClient('C')).stage, 'Offboarded');
+
+    const only = (await admin('GET', `/admin/portfolio?status=all&stage=Paused&search=Stage`)).body.data;
+    assert.ok(only.length >= 1 && only.every((r) => r.stage === 'Paused'));
+    const reg = (await admin('GET', '/admin/client-register?search=Stage%20B')).body.data.rows[0];
+    assert.equal(reg.stage, 'Paused');
   });
 });
 

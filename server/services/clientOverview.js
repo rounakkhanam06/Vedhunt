@@ -112,7 +112,7 @@ function buildActions({ billing, tickets, retainer, kyc, hold, onboarding }) {
     actions.push({
       key: 'kyc-missing', tone: 'info', tab: 'kyc',
       title: kyc.status === 'not_started' ? 'Complete your KYC' : `${kyc.missing.length} KYC item${kyc.missing.length > 1 ? 's' : ''} still to submit`,
-      detail: 'GST, PAN, Aadhaar and a photo are needed to verify your business',
+      detail: 'GST, PAN and a photo are needed to verify your business',
     });
   }
   if (retainer?.hoursOverage > 0) {

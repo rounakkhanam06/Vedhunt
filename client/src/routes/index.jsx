@@ -120,6 +120,8 @@ const ClientLogin = lazy(() => import('../client/pages/ClientLogin'));
 const ClientDashboard = lazy(() => import('../client/pages/ClientDashboard'));
 const ClientForgotPassword = lazy(() => import('../client/pages/ClientForgotPassword'));
 const ClientResetPassword = lazy(() => import('../client/pages/ClientResetPassword'));
+// The same page, worded for a new account's emailed "set your password" link
+const ClientActivate = () => <ClientResetPassword mode="activate" />;
 const ClientTempPasswordReset = lazy(() => import('../client/pages/ClientTempPasswordReset'));
 
 import ProtectedRoute from '../admin/components/ProtectedRoute';
@@ -691,6 +693,11 @@ export const router = createBrowserRouter([
       {
         path: 'reset-password/:token',
         element: withSuspense(ClientResetPassword)
+      },
+      {
+        // New account: the emailed "set your password" link (server/services/clientProvisioning.js)
+        path: 'activate/:token',
+        element: withSuspense(ClientActivate)
       },
       {
         path: 'reset-temp-password',

@@ -14,7 +14,7 @@ const SupportTicket = require('../models/SupportTicket');
 const AssignmentLog = require('../models/AssignmentLog');
 const logger = require('../utils/logger');
 const { updateAgreement, getAgreement } = require('../controllers/agreementController');
-const { provisionClientAccount } = require('../services/clientProvisioning');
+const { provisionClientAccount, sendActivationLink } = require('../services/clientProvisioning');
 const { agreementDetailsChanged, nextAgreementVersion } = require('../services/agreementVersioning');
 const requirePermission = require('../middleware/requirePermission');
 const { notifyTicketAssigned } = require('../services/staffNotify');
@@ -31,6 +31,7 @@ const KpiSetup = require('../models/KpiSetup');
 const KpiPeriodEntry = require('../models/KpiPeriodEntry');
 const kpi = require('../services/kpi');
 const { buildRegister, fyOf } = require('../services/clientRegister');
+const { STAGES } = require('../services/clientStage');
 const { GST_STATE_CODES } = require('../config/gstStates');
 const { validateGstin, validatePan } = require('../services/kycValidators');
 const { PAGE_CATALOG, pageScope, hasBaseAccess } = require('../config/pageAccess');
@@ -44,6 +45,7 @@ const { buildPortfolio } = require('../services/portfolio');
 const onboarding = require('../services/onboarding');
 const strategy = require('../services/strategy');
 const kyc = require('../services/kyc');
+const multer = require('multer');
 const extraHoursBilling = require('../services/extraHoursBilling');
 const billingSchedule = require('../services/billingSchedule');
 const clientCreationIssues = require('../services/clientCreationIssues');
@@ -67,8 +69,9 @@ const { recordAudit } = require('../services/audit');
 const router = express.Router();
 const crm = requirePageAccess;
 
-// Client fields never sent; the temporary portal password is for full CRM access only
-const clientSelect = (req) => `+notes ${hasBaseAccess(req.user, 'clients') ? '+temporaryPasswordText ' : ''}-password -refreshToken -resetPasswordToken -resetPasswordExpire`;
+// Client fields never sent. No password is ever shown to staff (SOP §4) — not even an old
+// temporary one still stored from before activation links.
+const clientSelect = () => '+notes -password -temporaryPasswordText -refreshToken -resetPasswordToken -resetPasswordExpire';
 
 // ─── Utility ─────────────────────────────────────────────────────────────────
 const parsePagination = (query) => {
@@ -188,6 +191,7 @@ router.get('/portfolio', crm('clients', 'view'), async (req, res) => {
       service: req.query.service,
       accountManager: req.query.accountManager && isValidId(req.query.accountManager) ? req.query.accountManager : undefined,
       billing: req.query.billing,
+      stage: req.query.stage,
       sort: req.query.sort,
       search: req.query.search,
       revenueFrom: date(req.query.revenueFrom),
@@ -221,7 +225,7 @@ router.get('/portfolio', crm('clients', 'view'), async (req, res) => {
       kpis: portfolio.kpis,
       topByRevenue: portfolio.topByRevenue,
       revenuePeriod: { ...portfolio.revenuePeriod, partial: true },
-      filterOptions: { sectors, services },
+      filterOptions: { sectors, services, stages: STAGES },
       data: portfolio.rows.slice(skip, skip + limit),
       pagination: { total, page, limit, totalPages: Math.ceil(total / limit) },
     });
@@ -246,6 +250,7 @@ router.get('/client-register', crm('clients', 'view'), async (req, res) => {
       service: req.query.service,
       accountManager: req.query.accountManager && isValidId(req.query.accountManager) ? req.query.accountManager : undefined,
       billing: req.query.billing,
+      stage: req.query.stage,
       sort: req.query.sort,
       search: req.query.search,
     });
@@ -368,12 +373,13 @@ router.post('/clients', crm('clients', 'create'), async (req, res) => {
     if (isScoped(req)) {
       return res.status(403).json({ success: false, message: 'Creating clients needs access to all clients.' });
     }
-    const { businessName, contactName, email, phone, password, notes, leadRef } = req.body;
+    // No password: the client sets their own through the emailed activation link (SOP §4)
+    const { businessName, contactName, email, phone, notes, leadRef } = req.body;
 
-    if (!businessName || !contactName || !email || !password) {
+    if (!businessName || !contactName || !email) {
       return res.status(400).json({
         success: false,
-        message: 'businessName, contactName, email and password are required',
+        message: 'businessName, contactName and email are required',
       });
     }
 
@@ -399,7 +405,6 @@ router.post('/clients', crm('clients', 'create'), async (req, res) => {
       contactName,
       email,
       phone,
-      password,
       notes,
       leadRef: leadRef && isValidId(leadRef) ? leadRef : undefined,
       createdBy: req.user._id,
@@ -407,7 +412,10 @@ router.post('/clients', crm('clients', 'create'), async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: 'Client account created successfully',
+      message: client.activationEmail?.sent
+        ? 'Client account created. An activation link has been emailed to the client.'
+        : 'Client account created, but the activation email could not be sent — use "Send activation link" on the client.',
+      activationEmailSent: Boolean(client.activationEmail?.sent),
       data: {
         _id: client._id,
         clientId: client.clientId,
@@ -440,8 +448,12 @@ router.put('/clients/:id', crm('clients', 'edit'), async (req, res) => {
     if (!clientAllowed(req, req.params.id)) return outOfScope(res, 'Client');
 
     const { businessName, contactName, email, phone, notes, agreementDetails, profile } = req.body;
-    // Portal status and passwords stay with full CRM access; a grant edits details only
-    const { isActive, newPassword } = hasBaseAccess(req.user, 'clients') ? req.body : {};
+    // Portal status stays with full CRM access; a grant edits details only
+    const { isActive } = hasBaseAccess(req.user, 'clients') ? req.body : {};
+    // Staff never set or see a client's password (SOP §4): they send a link instead
+    if (req.body.newPassword) {
+      return res.status(400).json({ success: false, message: 'Passwords are set by the client. Use "Send activation / reset link" instead.' });
+    }
 
     const validationErrors = validateClientInput(req.body);
     if (validationErrors.length > 0) {
@@ -468,11 +480,6 @@ router.put('/clients/:id', crm('clients', 'edit'), async (req, res) => {
     if (isActive !== undefined && Boolean(isActive) !== client.isActive) {
       applySuspension(client, !isActive, req.user._id);
       await auditClient(req, isActive ? 'CLIENT_REACTIVATE' : 'CLIENT_SUSPEND', client);
-    }
-    if (newPassword) {
-      client.password = newPassword;
-      client.temporaryPasswordText = newPassword;
-      client.isTemporaryPassword = true;
     }
     let profileBefore = null;
     if (profile && typeof profile === 'object') {
@@ -559,6 +566,29 @@ router.post('/clients/:id/release', crm('clients', 'edit'), async (req, res) => 
     res.json({ success: true, message: `${client.businessName} is active again` });
   } catch (error) {
     logger.error('Admin release client error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// ─── Activation / reset link (SOP §4: no password by email, none shown to staff) ──
+
+router.post('/clients/:id/send-activation', crm('clients', 'edit'), async (req, res) => {
+  try {
+    if (!isValidId(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid client ID' });
+    if (!clientAllowed(req, req.params.id)) return outOfScope(res, 'Client');
+    const client = await Client.findById(req.params.id).select('+resetPasswordToken +resetPasswordExpire');
+    if (!client || client.deletedAt) return outOfScope(res, 'Client');
+    if (!client.isActive) return res.status(409).json({ success: false, message: 'This account is suspended. Reactivate it before sending a link.' });
+    const r = await sendActivationLink(client);
+    await recordAudit(req, 'CLIENT_ACTIVATION_LINK', 'Client', client.clientId, null, { kind: client.activatedAt ? 'reset' : 'activation', sent: r.sent });
+    if (!r.sent) return res.status(502).json({ success: false, message: 'The email could not be sent. Check the client’s email address and try again.' });
+    res.json({
+      success: true,
+      message: client.activatedAt ? `A link to set a new password was emailed to ${client.email}.` : `An activation link was emailed to ${client.email}.`,
+      activationSentAt: client.activationSentAt,
+    });
+  } catch (error) {
+    logger.error('Admin send activation error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
@@ -1652,19 +1682,68 @@ router.put('/clients/:id/kyc/:item/review', crm('clients', 'edit'), async (req, 
     const result = await kyc.reviewItem(req.params.id, req.params.item, { decision: req.body.decision, reason: req.body.reason }, req.user);
     if (!result.ok) return res.status(result.status).json({ success: false, message: result.message });
 
-    const verified = req.body.decision === 'verify';
-    await recordAudit(req, verified ? 'KYC_VERIFY' : 'KYC_REJECT', 'ClientKyc', `${req.params.id}:${req.params.item}`,
-      { status: 'Submitted' }, { status: verified ? 'Verified' : 'Rejected', reason: verified ? undefined : String(req.body.reason).trim().slice(0, 500) });
+    const decision = req.body.decision;
+    const verified = decision === 'verify';
+    const action = { start_review: 'KYC_REVIEW_START', verify: 'KYC_VERIFY', reject: 'KYC_REJECT' }[decision];
+    await recordAudit(req, action, 'ClientKyc', `${req.params.id}:${req.params.item}`,
+      { status: result.from }, { status: result.to, reason: decision === 'reject' ? String(req.body.reason).trim().slice(0, 500) : undefined });
+    // Starting a review changes nothing for the client, so they are not notified
     if (verified) await notifyKycVerified(req.params.id, result.item.label, result.becameVerified);
-    else await notifyKycRejected(req.params.id, result.item.label, String(req.body.reason).trim());
+    else if (decision === 'reject') await notifyKycRejected(req.params.id, result.item.label, String(req.body.reason).trim());
 
     res.json({
       success: true,
-      message: verified ? `${result.item.label} verified` : `${result.item.label} rejected - the client has been asked to resubmit`,
+      message: decision === 'start_review' ? `${result.item.label} is now under review`
+        : verified ? `${result.item.label} verified` : `${result.item.label} rejected - the client has been asked to resubmit`,
       data: await kyc.adminView(result.doc),
     });
   } catch (error) {
     logger.error('Admin review KYC error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// How an item applies to this client: Not Applicable (with a reason), Not Requested, or ask for it again
+router.put('/clients/:id/kyc/:item/applicability', crm('clients', 'edit'), async (req, res) => {
+  try {
+    if (!kycRequest(req, res)) return;
+    if (!(await Client.exists({ _id: req.params.id }))) return outOfScope(res, 'Client');
+    const result = await kyc.setApplicability(req.params.id, req.params.item, { mode: req.body.mode, reason: req.body.reason }, req.user);
+    if (!result.ok) return res.status(result.status).json({ success: false, message: result.message });
+    await recordAudit(req, 'KYC_APPLICABILITY', 'ClientKyc', `${req.params.id}:${req.params.item}`,
+      { status: result.from }, { status: result.to, reason: result.to === 'Not Applicable' ? String(req.body.reason).trim().slice(0, 500) : undefined });
+    res.json({ success: true, message: `${result.item.label} is now ${result.to.toLowerCase()}`, data: await kyc.adminView(result.doc) });
+  } catch (error) {
+    logger.error('Admin KYC applicability error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// Upload on the client's behalf (e.g. they sent it on WhatsApp): who uploaded it, the source and the
+// date received are recorded, and it starts as Under Review — never Verified (SOP §7.1)
+const kycAdminUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: kyc.MAX_FILE_BYTES, files: 1, fields: 4 } });
+router.put('/clients/:id/kyc/:item/upload', crm('clients', 'edit'), (req, res, next) => {
+  kycAdminUpload.single('file')(req, res, (err) => {
+    if (!err) return next();
+    const message = err.code === 'LIMIT_FILE_SIZE' ? 'The file must be 5MB or smaller.' : 'The upload could not be read. Please try again.';
+    res.status(400).json({ success: false, message });
+  });
+}, async (req, res) => {
+  try {
+    if (!kycRequest(req, res)) return;
+    if (!(await Client.exists({ _id: req.params.id, deletedAt: null }))) return outOfScope(res, 'Client');
+    const received = req.body.receivedAt ? new Date(req.body.receivedAt) : new Date();
+    if (Number.isNaN(received.getTime()) || received > new Date(Date.now() + 60_000)) {
+      return res.status(400).json({ success: false, message: 'Enter the date the document was received (not in the future).' });
+    }
+    const result = await kyc.submitItem(req.params.id, req.params.item, { value: req.body.value, file: req.file },
+      { type: 'admin', admin: req.user, source: req.body.source, receivedAt: received });
+    if (!result.ok) return res.status(result.status).json({ success: false, message: result.message });
+    await recordAudit(req, 'KYC_ADMIN_UPLOAD', 'ClientKyc', `${req.params.id}:${req.params.item}`, null,
+      { item: req.params.item, source: req.body.source, receivedAt: received, status: 'Under Review' });
+    res.json({ success: true, message: `${kyc.ITEMS.find((i) => i.key === req.params.item).label} uploaded and put under review.`, data: await kyc.adminView(result.doc) });
+  } catch (error) {
+    logger.error('Admin KYC upload error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
