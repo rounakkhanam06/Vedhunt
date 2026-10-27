@@ -4,7 +4,7 @@ const mongoose = require('mongoose');
 // (Client Journey SOP §9). Staff raise a request; the client approves or rejects it in the portal, or
 // staff record the answer the client gave another way (WhatsApp, email, in person) with that source.
 // A decided approval is never edited — a change is a new request.
-const KINDS = ['Strategy', 'Budget', 'Creative', 'Other'];
+const KINDS = ['Strategy', 'Budget', 'Creative', 'Other', 'Change request'];
 const STATUSES = ['Pending', 'Approved', 'Rejected', 'Cancelled'];
 // Where the answer came from. 'Client portal' is the client's own click; the rest are staff-recorded.
 const CHANNELS = ['Client portal', 'WhatsApp', 'Email', 'In person', 'Other'];

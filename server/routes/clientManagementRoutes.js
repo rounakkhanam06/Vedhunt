@@ -29,6 +29,8 @@ const invoiceDocument = require('../services/invoiceDocument');
 const ClientCall = require('../models/ClientCall');
 const Approval = require('../models/Approval');
 const approvals = require('../services/approvals');
+const ChangeRequest = require('../models/ChangeRequest');
+const changeRequests = require('../services/changeRequests');
 const PlatformAccess = require('../models/PlatformAccess');
 const platformAccess = require('../services/platformAccess');
 const KpiSetup = require('../models/KpiSetup');
@@ -1211,7 +1213,7 @@ router.get('/clients/:id/approvals', crm('clients', 'view'), async (req, res) =>
     const client = await adClient(req, res);
     if (!client) return;
     const rows = await Approval.find({ client_ref: client._id }).sort({ requestedAt: -1 }).limit(200).lean();
-    res.json({ success: true, data: rows, options: { kinds: Approval.KINDS, channels: approvals.STAFF_CHANNELS } });
+    res.json({ success: true, data: rows, options: { kinds: approvals.MANUAL_KINDS, channels: approvals.STAFF_CHANNELS } });
   } catch (error) {
     logger.error('Admin approvals error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
@@ -1263,6 +1265,94 @@ router.put('/clients/:id/approvals/:approvalId/cancel', crm('clients', 'edit'), 
     res.json({ success: true, data: r.approval });
   } catch (error) {
     logger.error('Admin approval cancel error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// CHANGE REQUESTS — out-of-scope work: quote → client approval → work → separate invoice
+// ══════════════════════════════════════════════════════════════════════════════
+
+router.get('/clients/:id/change-requests', crm('clients', 'view'), async (req, res) => {
+  try {
+    const client = await adClient(req, res);
+    if (!client) return;
+    const rows = await ChangeRequest.find({ client_ref: client._id }).sort({ number: -1 }).limit(200).lean();
+    const [aps, invs] = await Promise.all([
+      Approval.find({ _id: { $in: rows.map((r) => r.approval_ref) } }).lean(),
+      Invoice.find({ _id: { $in: rows.map((r) => r.invoice_ref).filter(Boolean) } }).select('invoiceId unsent paymentStatus').lean(),
+    ]);
+    const apOf = new Map(aps.map((a) => [String(a._id), a]));
+    const invOf = new Map(invs.map((i) => [String(i._id), i]));
+    res.json({
+      success: true,
+      data: rows.map((r) => ({ ...r, stage: changeRequests.stageOf(r, apOf.get(String(r.approval_ref))), approval: apOf.get(String(r.approval_ref)) || null, invoice: invOf.get(String(r.invoice_ref)) || null })),
+    });
+  } catch (error) {
+    logger.error('Admin change requests error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+router.post('/clients/:id/change-requests', crm('clients', 'edit'), async (req, res) => {
+  try {
+    const client = await adClient(req, res);
+    if (!client) return;
+    const r = await changeRequests.create(client._id, req.body, req.user);
+    if (!r.ok) return res.status(r.status).json({ success: false, message: r.message });
+    await recordAudit(req, 'CHANGE_REQUEST_CREATE', 'ChangeRequest', `${client.clientId}:CR-${r.changeRequest.number}`, null, { title: r.changeRequest.title, quoteAmount: r.changeRequest.quoteAmount, estimatedDays: r.changeRequest.estimatedDays });
+    await notifyApprovalRequested(r.approval);
+    res.status(201).json({ success: true, data: r.changeRequest });
+  } catch (error) {
+    logger.error('Admin change request create error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+router.put('/clients/:id/change-requests/:crId/work', crm('clients', 'edit'), async (req, res) => {
+  try {
+    const client = await adClient(req, res);
+    if (!client) return;
+    if (!isValidId(req.params.crId)) return res.status(404).json({ success: false, message: 'Change request not found' });
+    const r = await changeRequests.setWork(req.params.crId, client._id, req.body.status);
+    if (!r.ok) return res.status(r.status).json({ success: false, message: r.message });
+    await recordAudit(req, 'CHANGE_REQUEST_WORK', 'ChangeRequest', `${client.clientId}:CR-${r.changeRequest.number}`, null, { workStatus: r.changeRequest.workStatus });
+    res.json({ success: true, data: r.changeRequest });
+  } catch (error) {
+    logger.error('Admin change request work error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+router.post('/clients/:id/change-requests/:crId/invoice', crm('invoices', 'create'), async (req, res) => {
+  try {
+    const client = await adClient(req, res);
+    if (!client) return;
+    if (!isValidId(req.params.crId)) return res.status(404).json({ success: false, message: 'Change request not found' });
+    const r = await changeRequests.createInvoice(req.params.crId, client._id, req.user);
+    if (!r.ok) return res.status(r.status).json({ success: false, message: r.message });
+    await recordAudit(req, 'CHANGE_REQUEST_INVOICE', 'ChangeRequest', `${client.clientId}:CR-${r.changeRequest.number}`, null, { invoiceId: r.invoice.invoiceId, totalAmount: r.invoice.totalAmount });
+    res.status(201).json({ success: true, message: `Invoice ${r.invoice.invoiceId} created. Check its billing details and send it from Invoices.`, data: { invoiceId: r.invoice.invoiceId, _id: r.invoice._id } });
+  } catch (error) {
+    logger.error('Admin change request invoice error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// Withdraw a request the client has not answered yet (the same as withdrawing its approval)
+router.put('/clients/:id/change-requests/:crId/cancel', crm('clients', 'edit'), async (req, res) => {
+  try {
+    const client = await adClient(req, res);
+    if (!client) return;
+    if (!isValidId(req.params.crId)) return res.status(404).json({ success: false, message: 'Change request not found' });
+    const { cr, error } = await changeRequests.load(req.params.crId, client._id);
+    if (error) return res.status(error.status).json({ success: false, message: error.message });
+    const r = await approvals.cancel(cr.approval_ref, client._id, req.body.reason, req.user);
+    if (!r.ok) return res.status(r.status).json({ success: false, message: r.message });
+    await recordAudit(req, 'CHANGE_REQUEST_CANCEL', 'ChangeRequest', `${client.clientId}:CR-${cr.number}`, null, { reason: r.approval.note });
+    res.json({ success: true, message: 'Change request withdrawn' });
+  } catch (error) {
+    logger.error('Admin change request cancel error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });

@@ -2535,6 +2535,76 @@ describe('client approvals — in the portal, or recorded by staff with the sour
   });
 });
 
+describe('change requests — quote, client approval, work, separate invoice (SOP §10)', () => {
+  const crUrl = () => `/admin/clients/${ids.apprCo}/change-requests`;
+  const body = { title: 'Diwali landing page', description: 'A new landing page for the Diwali sale campaign', quoteAmount: 10000, estimatedDays: 4 };
+  const get = async (id) => (await admin('GET', crUrl())).body.data.find((r) => r._id === id);
+
+  test('a request needs its quote; it creates the client’s approval with the fee written out', async () => {
+    assert.equal((await admin('POST', crUrl(), { ...body, quoteAmount: 0 })).status, 400);
+    const made = await admin('POST', crUrl(), body);
+    assert.equal(made.status, 201, JSON.stringify(made.body));
+    ids.cr = made.body.data._id;
+    const row = await get(ids.cr);
+    assert.equal(row.stage, 'Awaiting client approval');
+    assert.equal(row.approval.kind, 'Change request');
+    assert.match(row.approval.details, /Fee: ₹10,000 \+ 18% GST \(₹1,800\) = ₹11,800/);
+    assert.match(row.approval.details, /4 working days/);
+    const theirs = (await asClient('apprCo', 'GET', '/client/approvals')).body.data.find((a) => a.versionLabel === `CR-${made.body.data.number}`);
+    assert.equal(theirs.amount, 10000);
+    assert.equal(theirs.status, 'Pending');
+  });
+
+  test('nothing starts, and nothing is invoiced, before the client approves', async () => {
+    assert.equal((await admin('PUT', `${crUrl()}/${ids.cr}/work`, { status: 'In progress' })).status, 409);
+    assert.equal((await admin('POST', `${crUrl()}/${ids.cr}/invoice`)).status, 409);
+    const manual = await admin('POST', `/admin/clients/${ids.apprCo}/approvals`, { kind: 'Change request', title: 'Sneaky' });
+    assert.equal(manual.status, 400, 'a change request is raised from Changes, not by hand');
+  });
+
+  test('approved in the portal: work can start, finish, and be invoiced once as a Project / Add-on', async () => {
+    const approval = (await get(ids.cr)).approval;
+    assert.equal((await asClient('apprCo', 'PUT', `/client/approvals/${approval._id}`, { decision: 'approve' })).status, 200);
+    assert.equal((await get(ids.cr)).stage, 'Approved — ready to start');
+    assert.equal((await admin('PUT', `${crUrl()}/${ids.cr}/work`, { status: 'Done' })).status, 200, 'it can be finished directly');
+    assert.equal((await admin('PUT', `${crUrl()}/${ids.cr}/work`, { status: 'In progress' })).status, 409, 'not back to in progress');
+
+    const inv = await admin('POST', `${crUrl()}/${ids.cr}/invoice`);
+    assert.equal(inv.status, 201, JSON.stringify(inv.body));
+    const stored = await require('../../models/Invoice').findById(inv.body.data._id).lean();
+    assert.deepEqual([stored.subtotal, stored.taxAmount, stored.totalAmount, stored.unsent], [10000, 1800, 11800, true]);
+    assert.equal(stored.lineItems[0].revenueType, 'Project / Add-on');
+    assert.match(stored.lineItems[0].description, /^CR-\d+: Diwali landing page/);
+    assert.equal((await asClient('apprCo', 'GET', '/client/invoices')).body.summary.total, 0, 'not sent yet, so not the client’s');
+    assert.equal((await get(ids.cr)).stage, 'Done and invoiced');
+    assert.equal((await admin('POST', `${crUrl()}/${ids.cr}/invoice`)).status, 409, 'one invoice per change request');
+  });
+
+  test('a rejected request cannot start or be invoiced; a pending one can be withdrawn', async () => {
+    const rej = (await admin('POST', crUrl(), body)).body.data._id;
+    await asClient('apprCo', 'PUT', `/client/approvals/${(await get(rej)).approval._id}`, { decision: 'reject', note: 'Too expensive for now' });
+    assert.equal((await get(rej)).stage, 'Rejected by client');
+    assert.equal((await admin('PUT', `${crUrl()}/${rej}/work`, { status: 'In progress' })).status, 409);
+    assert.equal((await admin('POST', `${crUrl()}/${rej}/invoice`)).status, 409);
+
+    const pending = (await admin('POST', crUrl(), body)).body.data._id;
+    assert.equal((await admin('PUT', `${crUrl()}/${pending}/cancel`, { reason: '' })).status, 400);
+    assert.equal((await admin('PUT', `${crUrl()}/${pending}/cancel`, { reason: 'Scope changed again' })).status, 200);
+    assert.equal((await get(pending)).stage, 'Withdrawn');
+    assert.equal((await admin('PUT', `${crUrl()}/${ids.cr}/cancel`, { reason: 'Already approved' })).status, 409, 'an approved one cannot be withdrawn');
+    assert.equal((await asClient('apprOther', 'GET', crUrl())).status, 401, 'not a client page');
+  });
+
+  test('numbers run in order and two invoice clicks make one invoice', async () => {
+    const a = (await admin('POST', crUrl(), body)).body.data;
+    const b = (await admin('POST', crUrl(), body)).body.data;
+    assert.equal(b.number, a.number + 1);
+    await asClient('apprCo', 'PUT', `/client/approvals/${(await get(a._id)).approval._id}`, { decision: 'approve' });
+    const [x, y] = await Promise.all([admin('POST', `${crUrl()}/${a._id}/invoice`), admin('POST', `${crUrl()}/${a._id}/invoice`)]);
+    assert.deepEqual([x.status, y.status].sort(), [201, 409]);
+  });
+});
+
 describe('platform access tracker (SOP §8)', () => {
   const url = () => `/admin/clients/${ids.accessCo}/access`;
   let rowId;

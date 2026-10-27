@@ -3,6 +3,8 @@
 // a staff member together) can never decide the same request twice.
 const Approval = require('../models/Approval');
 const { KINDS, CHANNELS } = require('../models/Approval');
+// A change request is raised from Changes (services/changeRequests.js), never by hand here
+const MANUAL_KINDS = KINDS.filter((k) => k !== 'Change request');
 
 const fail = (status, message) => ({ ok: false, status, message });
 const clip = (v, n) => String(v ?? '').trim().slice(0, n);
@@ -12,7 +14,7 @@ const staffName = (u) => [u?.firstName, u?.lastName].filter(Boolean).join(' ').t
 /** Validate a new request from staff. @returns { value } | { error } */
 function validateRequest(input = {}) {
   const errors = [];
-  if (!KINDS.includes(input.kind)) errors.push(`Choose what is being approved (${KINDS.join(', ')}).`);
+  if (!MANUAL_KINDS.includes(input.kind)) errors.push(`Choose what is being approved (${MANUAL_KINDS.join(', ')}).`);
   const title = clip(input.title, 150);
   if (title.length < 3) errors.push('Give the request a title.');
   let amount;
@@ -80,4 +82,4 @@ function clientView(a) {
   };
 }
 
-module.exports = { validateRequest, decide, cancel, clientView, STAFF_CHANNELS };
+module.exports = { validateRequest, decide, cancel, clientView, STAFF_CHANNELS, MANUAL_KINDS };
