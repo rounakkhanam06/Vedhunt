@@ -11,6 +11,7 @@
 const ClientKyc = require('../models/ClientKyc');
 const OnboardingChecklist = require('../models/OnboardingChecklist');
 const Agreement = require('../models/Agreement');
+const OffboardingChecklist = require('../models/OffboardingChecklist');
 const kyc = require('./kyc');
 const { applicableTemplate } = require('./onboarding');
 const { isAgreementConfigured, needsAgreementAcceptance } = require('./agreementVersioning');
@@ -24,7 +25,7 @@ const COVERED_ELSEWHERE = new Set(['advance_payment', 'contract_signed']);
 const STAGES = [
   'Pending Onboarding', 'Awaiting Payment', 'Awaiting Agreement', 'KYC Pending', 'Access / Setup Pending',
   'Strategy / Approval Pending', 'Ready to Launch', 'Active – In Delivery', 'Payment Overdue', 'Paused',
-  'Suspended', 'Offboarded', 'Archived',
+  'Suspended', 'Offboarding in Progress', 'Offboarded', 'Archived',
 ];
 
 /**
@@ -36,10 +37,11 @@ const STAGES = [
  * @param ctx.globalAgreementVersion
  * @returns {{ stage, reason }}
  */
-function stageOf({ client, finance, isDefaulter, kycStatus, onboarding, globalAgreementVersion = 0 }) {
+function stageOf({ client, finance, isDefaulter, kycStatus, onboarding, globalAgreementVersion = 0, offboarding = false }) {
   if (client.offboardedAt) return { stage: 'Offboarded', reason: 'The engagement has ended.' };
   if (client.deletedAt) return { stage: 'Archived', reason: 'The account is deleted (archived).' };
   if (client.isActive === false) return { stage: 'Suspended', reason: 'Portal login is suspended.' };
+  if (offboarding) return { stage: 'Offboarding in Progress', reason: 'Notice has been given; the offboarding checklist is being completed.' };
   if (client.serviceStatus === 'Hold') return { stage: 'Paused', reason: 'Service is on hold.' };
   if (isDefaulter) return { stage: 'Payment Overdue', reason: 'An invoice is past its due date.' };
   if (client.isTemporaryPassword) return { stage: 'Pending Onboarding', reason: 'The client has not activated the portal yet.' };
@@ -65,11 +67,13 @@ function stageOf({ client, finance, isDefaulter, kycStatus, onboarding, globalAg
  */
 async function stagesFor(rows) {
   const ids = rows.map((r) => r._id);
-  const [kycDocs, checklists, global] = await Promise.all([
+  const [kycDocs, checklists, global, offboardingDocs] = await Promise.all([
     ClientKyc.find({ client_ref: { $in: ids } }).select('client_ref items').lean(),
     OnboardingChecklist.find({ client_ref: { $in: ids } }).select('client_ref items goLive').lean(),
     Agreement.findOne().sort({ version: -1 }).select('version').lean(),
+    OffboardingChecklist.find({ client_ref: { $in: ids }, noticeDate: { $ne: null } }).select('client_ref').lean(),
   ]);
+  const leaving = new Set(offboardingDocs.map((d) => String(d.client_ref)));
   const kycOf = new Map(kycDocs.map((d) => [String(d.client_ref), d]));
   const listOf = new Map(checklists.map((d) => [String(d.client_ref), d]));
   const blankKyc = { items: Object.fromEntries(kyc.ITEMS.map((i) => [i.key, {}])) };
@@ -88,6 +92,7 @@ async function stagesFor(rows) {
       kycStatus: kyc.overall(kycOf.get(k) || blankKyc).status,
       onboarding: { items, live: !!list?.goLive?.isLive },
       globalAgreementVersion: global?.version || 0,
+      offboarding: leaving.has(k),
     }));
   }
   return out;

@@ -29,6 +29,7 @@ const invoiceDocument = require('../services/invoiceDocument');
 const ClientCall = require('../models/ClientCall');
 const Approval = require('../models/Approval');
 const approvals = require('../services/approvals');
+const offboarding = require('../services/offboarding');
 const ChangeRequest = require('../models/ChangeRequest');
 const changeRequests = require('../services/changeRequests');
 const PlatformAccess = require('../models/PlatformAccess');
@@ -606,6 +607,33 @@ router.post('/clients/:id/send-activation', crm('clients', 'edit'), async (req, 
 // Login stays open (they can still see and pay invoices); retainers are not touched.
 // By hand only a Super Admin; the automatic rule is services/autoOffboard.js.
 
+// The offboarding checklist (services/offboarding.js): staff with edit access fill it in; only a
+// Super Admin confirms the closure step and can offboard with steps still open.
+router.get('/clients/:id/offboarding', crm('clients', 'view'), async (req, res) => {
+  try {
+    const client = await adClient(req, res);
+    if (!client) return;
+    res.json({ success: true, data: await offboarding.evaluate(client._id) });
+  } catch (error) {
+    logger.error('Admin offboarding checklist error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+router.put('/clients/:id/offboarding', crm('clients', 'edit'), async (req, res) => {
+  try {
+    const client = await adClient(req, res);
+    if (!client) return;
+    const r = await offboarding.update(client._id, req.body, req.user, { canCloseAccount: (req.user.permissions || []).includes('*') });
+    if (!r.ok) return res.status(r.status).json({ success: false, message: r.message });
+    await recordAudit(req, 'OFFBOARDING_UPDATE', 'Client', client.clientId, null, { ...(req.body.item ? { item: req.body.item, done: req.body.done !== false } : {}), noticeDate: req.body.noticeDate, effectiveDate: req.body.effectiveDate });
+    res.json({ success: true, data: r.checklist });
+  } catch (error) {
+    logger.error('Admin offboarding update error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
 router.post('/clients/:id/offboard', requirePermission('*'), async (req, res) => {
   try {
     if (!isValidId(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid client ID' });
@@ -615,6 +643,9 @@ router.post('/clients/:id/offboard', requirePermission('*'), async (req, res) =>
     const client = await Client.findById(req.params.id);
     if (!client || client.deletedAt) return outOfScope(res, 'Client');
     if (client.offboardedAt) return res.status(409).json({ success: false, message: 'This client is already offboarded.' });
+    // The gate (SOP §14): every checklist step done, or a Super Admin bypasses it and says why
+    const gate = await offboarding.gate(client._id, req.body.bypassReason);
+    if (!gate.ok) return res.status(gate.status).json({ success: false, message: gate.message, open: gate.open });
     client.offboardedAt = new Date();
     client.offboardReason = reason.slice(0, 500);
     client.offboardedBy = req.user._id;
@@ -622,7 +653,10 @@ router.post('/clients/:id/offboard', requirePermission('*'), async (req, res) =>
     client.offboardSource = 'manual';
     await client.save();
     const activeRetainers = await Retainer.countDocuments({ client_ref: client._id, status: 'Active' });
-    await recordAudit(req, 'CLIENT_OFFBOARD', 'Client', client.clientId, null, { reason: client.offboardReason, activeRetainers });
+    await recordAudit(req, 'CLIENT_OFFBOARD', 'Client', client.clientId, null, {
+      reason: client.offboardReason, activeRetainers,
+      ...(gate.bypassed.length ? { checklistBypassed: gate.bypassed, bypassReason: gate.bypassReason } : { checklistComplete: true }),
+    });
     res.json({
       success: true,
       message: activeRetainers

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
-import { Download, Eye, Edit2, Table2, UserMinus, UserCheck, X } from 'lucide-react';
+import { Download, Eye, Edit2, Table2, UserMinus, UserCheck } from 'lucide-react';
 
 // Spreadsheet view of the client list (server/services/clientRegister.js) — the
 // columns of the client's "Client list View" sample: one row per client with
@@ -115,9 +115,6 @@ export function ClientRegisterSummary({ http, base, client }) {
 export default function ClientRegister({ http, base, filters, onView, onEdit, canEdit, canOffboard }) {
   const [fy, setFy] = useState(currentFy());
   const [reload, setReload] = useState(0);
-  const [offboard, setOffboard] = useState(null); // the row being offboarded
-  const [reason, setReason] = useState('');
-  const [busy, setBusy] = useState(false);
 
   // { key, data } — the answer and what it was loaded for; loading until the current request has answered
   const requestKey = JSON.stringify({ fy, filters, reload });
@@ -137,19 +134,7 @@ export default function ClientRegister({ http, base, filters, onView, onEdit, ca
     return () => { cancelled = true; };
   }, [http, base, fy, filters, reload, requestKey]);
 
-  // Offboard = the engagement ended ("In-Active"); login stays open
-  const submitOffboard = async () => {
-    setBusy(true);
-    try {
-      const r = await http.post(`${base}/clients/${offboard._id}/offboard`, { reason });
-      if (r.data.activeRetainers) toast(r.data.message, { icon: '⚠️', duration: 8000 });
-      else toast.success(r.data.message);
-      setOffboard(null);
-      setReload((n) => n + 1);
-    } catch (err) {
-      toast.error(err?.response?.data?.message || 'Could not offboard the client');
-    } finally { setBusy(false); }
-  };
+  // Offboarding itself is the checklist on the client (Offboarding tab); only undoing it is done here
   const onboardAgain = async (row) => {
     if (!window.confirm(`Mark ${row.businessName} as Active again?`)) return;
     try {
@@ -287,7 +272,7 @@ export default function ClientRegister({ http, base, filters, onView, onEdit, ca
                       {canEdit && <button type="button" onClick={() => onEdit(r)} title="Edit" className="p-1.5 text-secondary hover:bg-secondary/10 rounded-lg cursor-pointer"><Edit2 size={14} /></button>}
                       {canOffboard && (r.offboardedAt
                         ? <button type="button" onClick={() => onboardAgain(r)} title="Onboard again (Active)" className="p-1.5 text-green-400 hover:bg-green-500/10 rounded-lg cursor-pointer"><UserCheck size={14} /></button>
-                        : <button type="button" onClick={() => { setOffboard(r); setReason(''); }} title="Offboard (In-Active)" className="p-1.5 text-on-surface-variant hover:bg-surface-container-low rounded-lg cursor-pointer"><UserMinus size={14} /></button>)}
+                        : <button type="button" onClick={() => onView(r, 'offboarding')} title="Offboarding checklist (In-Active)" className="p-1.5 text-on-surface-variant hover:bg-surface-container-low rounded-lg cursor-pointer"><UserMinus size={14} /></button>)}
                     </div>
                   </td>
                 </tr>
@@ -314,30 +299,6 @@ export default function ClientRegister({ http, base, filters, onView, onEdit, ca
           </table>
         </div>
       )}
-      {offboard && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="w-full max-w-md bg-surface border border-outline-variant rounded-2xl shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-outline-variant">
-              <h3 className="text-on-surface font-semibold">Offboard {offboard.businessName}</h3>
-              <button type="button" onClick={() => setOffboard(null)} className="p-1.5 rounded-lg hover:bg-surface-container-low text-on-surface-variant cursor-pointer"><X size={16} /></button>
-            </div>
-            <div className="p-6 space-y-3">
-              <p className="text-xs text-on-surface-variant">The client becomes <strong>In-Active</strong>. Their login stays open so they can still see and pay invoices, and all history is kept. You can mark them Active again later.</p>
-              <textarea rows={3} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Reason (e.g. contract ended on 30 Sep)"
-                className="w-full px-3 py-2 bg-admin-bg border border-outline-variant rounded-xl text-on-surface text-sm focus:outline-none focus:border-secondary resize-none" />
-              <div className="flex gap-3">
-                <button type="button" disabled={busy || reason.trim().length < 5} onClick={submitOffboard}
-                  className="px-5 py-2.5 bg-secondary text-white rounded-xl text-sm font-medium hover:bg-secondary/90 disabled:opacity-50 cursor-pointer">
-                  {busy ? 'Saving…' : 'Offboard'}
-                </button>
-                <button type="button" onClick={() => setOffboard(null)}
-                  className="px-5 py-2.5 bg-admin-bg border border-outline-variant text-on-surface-variant hover:text-on-surface rounded-xl text-sm cursor-pointer">Cancel</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       <p className="px-4 py-2.5 text-[11px] text-on-surface-variant border-t border-outline-variant">
         Package = active retainers per billing cycle (excl. GST); a client without one shows its one-time invoices. Received = paid against sent invoices; months show when the money came in, and add up to Received across all years. In-Active = offboarded.
       </p>

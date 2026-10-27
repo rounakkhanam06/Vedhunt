@@ -2145,10 +2145,14 @@ describe('client register — the spreadsheet view of the client list', () => {
 
   test('offboarding makes a client In-Active without blocking their login; it can be undone', async () => {
     assert.equal((await admin('POST', `/admin/clients/${ids.regMonthly}/offboard`, { reason: 'no' })).status, 400, 'needs a reason');
-    const off = await admin('POST', `/admin/clients/${ids.regMonthly}/offboard`, { reason: 'Contract ended on 30 Sep' });
+    // this client still owes money and has no handover recorded, so the checklist gate stops it
+    const stopped = await admin('POST', `/admin/clients/${ids.regMonthly}/offboard`, { reason: 'Contract ended on 30 Sep' });
+    assert.equal(stopped.status, 409);
+    assert.match(stopped.body.message, /checklist is not complete/);
+    const off = await admin('POST', `/admin/clients/${ids.regMonthly}/offboard`, { reason: 'Contract ended on 30 Sep', bypassReason: 'Balance written off by the owner' });
     assert.equal(off.status, 200, JSON.stringify(off.body));
     assert.equal(off.body.activeRetainers, 2, 'warns that retainers still run');
-    assert.equal((await admin('POST', `/admin/clients/${ids.regMonthly}/offboard`, { reason: 'Contract ended on 30 Sep' })).status, 409);
+    assert.equal((await admin('POST', `/admin/clients/${ids.regMonthly}/offboard`, { reason: 'Contract ended on 30 Sep', bypassReason: 'Balance written off by the owner' })).status, 409);
 
     const r = rowOf(await reg('fy=2026&search=Register'), 'regMonthly');
     assert.equal(r.serviceStatus, 'In-Active');
@@ -2532,6 +2536,87 @@ describe('client approvals — in the portal, or recorded by staff with the sour
     const res = await fetch(`${base}/client/approvals/${r.body.data._id}`, { method: 'PUT', headers: { 'content-type': 'application/json', 'x-preview-token': preview }, body: JSON.stringify({ decision: 'approve' }) });
     assert.equal(res.status, 403);
     assert.equal((await require('../../models/Approval').findById(r.body.data._id).lean()).status, 'Pending');
+  });
+});
+
+describe('offboarding checklist and its gate (SOP §14)', () => {
+  const url = () => `/admin/clients/${ids.offCo}/offboarding`;
+  const offboard = (body) => admin('POST', `/admin/clients/${ids.offCo}/offboard`, { reason: 'Contract ended, notice served', ...body });
+  const open = async () => (await admin('GET', url())).body.data;
+  const key = (d, k) => d.items.find((i) => i.key === k);
+
+  before(async () => {
+    ids.offCo = String((await require('../../models/Client').create({ businessName: 'Offboard Co', contactName: 'Off Person', email: 'offco@example.com', password: 'ClientPass1', isTemporaryPassword: false }))._id);
+  });
+
+  test('the checklist starts empty; the invoice and access steps are worked out by themselves', async () => {
+    const d = await open();
+    assert.equal(d.started, false);
+    assert.equal(d.complete, false);
+    assert.deepEqual(d.items.map((i) => i.key), ['notice', 'final_invoice', 'handover', 'access_revoked', 'retention', 'closure']);
+    assert.equal(key(d, 'final_invoice').done, true, 'nothing is owed');
+    assert.equal(key(d, 'access_revoked').done, true, 'no access recorded');
+
+    const invoice = await inv(ids.offCo, 5000, 10);
+    const access = await admin('POST', `/admin/clients/${ids.offCo}/access`, { platform: 'Website / CMS' });
+    await admin('PUT', `/admin/clients/${ids.offCo}/access/${access.body.data._id}`, { status: 'Granted', permissionLevel: 'Admin' });
+    const after = await open();
+    assert.equal(key(after, 'final_invoice').done, false);
+    assert.match(key(after, 'final_invoice').detail, /1 invoice still owing ₹5,000/);
+    assert.equal(key(after, 'access_revoked').done, false);
+
+    await admin('PUT', `/admin/clients/${ids.offCo}/access/${access.body.data._id}`, { status: 'Revoked', revokeReason: 'Contract ended' });
+    await require('../../models/Invoice').updateOne({ _id: invoice._id }, { $set: { paidAmount: 5000, paymentStatus: 'Paid' } });
+    const settled = await open();
+    assert.equal(key(settled, 'final_invoice').done && key(settled, 'access_revoked').done, true, 'both clear once the invoice is paid and access revoked');
+  });
+
+  test('notice dates are checked; handover and retention need a note; only a Super Admin confirms the closure', async () => {
+    assert.equal((await admin('PUT', url(), { noticeDate: '2099-01-01' })).status, 400, 'not in the future');
+    assert.equal((await admin('PUT', url(), { noticeDate: '2026-10-01', effectiveDate: '2026-09-01' })).status, 400, 'last day before notice');
+    assert.equal((await admin('PUT', url(), { noticeDate: '2026-10-01', effectiveDate: '2026-10-31' })).status, 200);
+    assert.equal((await admin('PUT', url(), { item: 'handover', done: true })).status, 400, 'a note is needed');
+    assert.equal((await admin('PUT', url(), { item: 'access_revoked', done: true, note: 'x' })).status, 400, 'worked out, not typed');
+    assert.equal((await admin('PUT', url(), { item: 'handover', done: true, note: 'Final report and creative files sent by email' })).status, 200);
+
+    const Role = require('../../models/Role');
+    const Admin = require('../../models/Admin');
+    const editor = await Admin.create({ firstName: 'Crm', lastName: 'Offboarder', email: 'crm-offboarder@e2e.test', password: 'Passw0rd!e2e', roles: [(await Role.create({ name: 'CRM_OFFBOARDER', permissions: ['cms.manage'] }))._id] });
+    const token = jwt.sign({ id: editor._id }, JWT_SECRET, { expiresIn: '1h' });
+    assert.equal((await request(token, 'PUT', url(), { item: 'retention', done: true, note: 'KYC files deleted after 30 days' })).status, 200, 'staff with edit access can fill the steps');
+    assert.equal((await request(token, 'PUT', url(), { item: 'closure', done: true, note: 'Approved' })).status, 403, 'but not approve the closure');
+    assert.equal((await request(token, 'POST', `/admin/clients/${ids.offCo}/offboard`, { reason: 'Trying it' })).status, 403, 'nor offboard');
+  });
+
+  test('the gate: open steps stop the offboarding, a bypass needs a reason, a complete list goes straight through', async () => {
+    const d = await open();
+    assert.equal(d.complete, false);
+    assert.deepEqual(d.open, ['Closure approved by a Super Admin']);
+    const stopped = await offboard();
+    assert.equal(stopped.status, 409);
+    assert.match(stopped.body.message, /Closure approved by a Super Admin/);
+    assert.equal((await offboard({ bypassReason: 'ok' })).status, 400, 'the bypass needs a real reason');
+    assert.equal((await require('../../models/Client').findById(ids.offCo).lean()).offboardedAt, undefined, 'nothing was changed by the refusals');
+
+    assert.equal((await admin('PUT', url(), { item: 'closure', done: true, note: 'Approved by the owner on 27 Oct' })).status, 200);
+    assert.equal((await open()).complete, true);
+    assert.equal((await offboard()).status, 200);
+    const log = await require('../../models/AuditLog').findOne({ action: 'CLIENT_OFFBOARD', recordId: (await require('../../models/Client').findById(ids.offCo).lean()).clientId }).lean();
+    assert.equal(log.afterSnapshot.checklistComplete, true);
+  });
+
+  test('a bypass is audited with what was skipped and why; the Offboarding stage shows while the list is open', async () => {
+    const Client = require('../../models/Client');
+    const other = String((await Client.create({ businessName: 'Offboard Bypass Co', contactName: 'Byp Person', email: 'offbypass@example.com', password: 'ClientPass1', isTemporaryPassword: false }))._id);
+    await admin('PUT', `/admin/clients/${other}/offboarding`, { noticeDate: '2026-10-10', effectiveDate: '2026-10-31' });
+    const row = (await admin('GET', `/admin/portfolio?status=all&search=${encodeURIComponent('Offboard Bypass')}`)).body.data[0];
+    assert.equal(row.stage, 'Offboarding in Progress');
+    const done = await admin('POST', `/admin/clients/${other}/offboard`, { reason: 'Client closed their business', bypassReason: 'Owner confirmed by phone; paperwork to follow' });
+    assert.equal(done.status, 200, JSON.stringify(done.body));
+    const log = await require('../../models/AuditLog').findOne({ action: 'CLIENT_OFFBOARD', recordId: (await Client.findById(other).lean()).clientId }).lean();
+    assert.equal(log.afterSnapshot.bypassReason, 'Owner confirmed by phone; paperwork to follow');
+    assert.ok(log.afterSnapshot.checklistBypassed.includes('Handover done (final report, files, learnings)'));
+    assert.equal((await admin('GET', `/admin/portfolio?status=all&search=${encodeURIComponent('Offboard Bypass')}`)).body.data[0].stage, 'Offboarded');
   });
 });
 

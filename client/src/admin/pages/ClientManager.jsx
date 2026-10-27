@@ -17,6 +17,7 @@ import KpiPanel from '../components/clients/KpiPanel';
 import AccessPanel from '../components/clients/AccessPanel';
 import ApprovalsPanel from '../components/clients/ApprovalsPanel';
 import ChangeRequestsPanel from '../components/clients/ChangeRequestsPanel';
+import OffboardingPanel from '../components/clients/OffboardingPanel';
 import { openPortalPreview } from '../../shared/portalPreview';
 import OnboardingPanel from '../components/clients/OnboardingPanel';
 import StrategyPanel from '../components/clients/StrategyPanel';
@@ -60,6 +61,7 @@ const PREVIEW_TABS = [
   { id: 'access', label: 'Access' },
   { id: 'approvals', label: 'Approvals' },
   { id: 'changes', label: 'Changes' },
+  { id: 'offboarding', label: 'Offboarding' },
   { id: 'onboarding', label: 'Onboarding' },
 ];
 
@@ -455,7 +457,7 @@ export default function ClientManager() {
 
       {view === 'register' && (
         <ClientRegister http={http} base={base} filters={registerFilters}
-          onView={(c) => openPreview(c)} onEdit={(c) => openEdit(c)} canEdit={canCrm('clients', 'edit')} canOffboard={isSuperAdmin} />
+          onView={(c, tab) => openPreview(c, tab)} onEdit={(c) => openEdit(c)} canEdit={canCrm('clients', 'edit')} canOffboard={isSuperAdmin} />
       )}
 
       {/* Table */}
@@ -795,6 +797,10 @@ export default function ClientManager() {
               )}
               {previewTab === 'billing' && (
                 <BillingSchedulePanel clientId={previewClient._id} http={http} base={base} canEdit={canCrm('invoices', 'edit')} />
+              )}
+              {previewTab === 'offboarding' && (
+                <OffboardingPanel clientId={previewClient._id} http={http} base={base} canEdit={canCrm('clients', 'edit')} isSuperAdmin={isSuperAdmin}
+                  offboarded={Boolean(previewClient.offboardedAt)} onChanged={() => { refreshPreview(previewClient._id); fetchClients(); }} />
               )}
               {previewTab === 'changes' && (
                 <ChangeRequestsPanel clientId={previewClient._id} http={http} base={base} canEdit={canCrm('clients', 'edit')} canInvoice={canCrm('invoices', 'create')} />
