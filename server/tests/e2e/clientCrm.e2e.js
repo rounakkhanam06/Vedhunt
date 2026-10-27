@@ -2063,6 +2063,105 @@ describe('lead proforma — raised directly, or from a final proposal, and sent 
   });
 });
 
+describe('client register — the spreadsheet view of the client list', () => {
+  const reg = async (query) => (await admin('GET', `/admin/client-register?${query}`)).body.data;
+  const rowOf = (data, key) => data.rows.find((r) => String(r._id) === ids[key]);
+
+  before(async () => {
+    const Client = require('../../models/Client');
+    const Invoice = require('../../models/Invoice');
+    const PaymentProof = require('../../models/PaymentProof');
+    const Retainer = require('../../models/Retainer');
+    const mk = async (key, name, extra = {}) => {
+      const c = await Client.create({ businessName: name, contactName: 'Party Person', email: `${key}@example.com`, phone: '+919800000077', password: 'ClientPass1', isTemporaryPassword: false, ...extra });
+      ids[key] = String(c._id);
+    };
+    await mk('regMonthly', 'Register Monthly Co', { profile: { domains: ['https://mudgar.example/', 'https://second.example/'], onboardingDate: new Date(2026, 6, 1) } });
+    await mk('regOneTime', 'Register OneTime Co');
+    await mk('regNone', 'Register Nothing Co');
+
+    // two retainers on one client (two domains): package is their sum
+    await Retainer.create({ client_ref: ids.regMonthly, packageName: 'Meta Ads', monthlyAmount: 25000, supportHoursPerMonth: 5, contractStartDate: new Date(2026, 6, 1), contractEndDate: new Date(2027, 6, 1) });
+    await Retainer.create({ client_ref: ids.regMonthly, packageName: 'Second domain', monthlyAmount: 15000, supportHoursPerMonth: 5, contractStartDate: new Date(2026, 7, 1), contractEndDate: new Date(2027, 7, 1) });
+
+    const due = new Date(2026, 6, 10);
+    // paid ₹29,500: ₹10,000 by a verified proof in July, the rest marked paid by staff in September
+    const a = await Invoice.create({ client_ref: ids.regMonthly, dueDate: due, subtotal: 25000, taxPercent: 18, taxAmount: 4500, totalAmount: 29500, paidAmount: 29500, paymentStatus: 'Paid', paidOn: new Date(2026, 8, 5), lineItems: [{ description: 'Jul', qty: 1, unitPrice: 25000, amount: 25000 }] });
+    await PaymentProof.create({ invoice_ref: a._id, client_ref: ids.regMonthly, amountPaid: 10000, utrNumber: 'UTRREG000000001', paymentDate: new Date(2026, 6, 12), status: 'Approved', verifiedAt: new Date(2026, 6, 12) });
+    // partly paid in the previous financial year (Feb 2026), the rest still owed
+    await Invoice.create({ client_ref: ids.regMonthly, dueDate: new Date(2026, 1, 10), subtotal: 10000, taxPercent: 18, taxAmount: 1800, totalAmount: 11800, paidAmount: 5000, paidOn: new Date(2026, 1, 20), lineItems: [{ description: 'Feb', qty: 1, unitPrice: 10000, amount: 10000 }] });
+    // saved but not sent: never counted
+    await Invoice.create({ client_ref: ids.regMonthly, dueDate: due, subtotal: 99999, taxPercent: 0, taxAmount: 0, totalAmount: 99999, paidAmount: 99999, unsent: true, lineItems: [{ description: 'Unsent', qty: 1, unitPrice: 99999, amount: 99999 }] });
+
+    await Invoice.create({ client_ref: ids.regOneTime, dueDate: due, subtotal: 11250, taxPercent: 18, taxAmount: 2025, totalAmount: 13275, paidAmount: 8500, paidOn: new Date(2026, 3, 15), lineItems: [{ description: 'Website', qty: 1, unitPrice: 11250, amount: 11250 }] });
+  });
+
+  test('a monthly client: package from its retainers, received split by the month it came in', async () => {
+    const data = await reg('fy=2026&search=Register');
+    assert.equal(data.fyLabel, 'FY 2026-27');
+    assert.deepEqual([data.months[0].label, data.months[11].label], ['Apr-26', 'Mar-27']);
+    const r = rowOf(data, 'regMonthly');
+    assert.equal(r.party, 'Party Person');
+    assert.deepEqual(r.domains, ['https://mudgar.example/', 'https://second.example/']);
+    assert.equal(r.billingType, 'Monthly');
+    assert.equal(r.serviceStatus, 'Active');
+    assert.deepEqual([r.packageAmount, r.gstAmount, r.totalAmount], [40000, 7200, 47200]);
+    assert.equal(r.received, 34500, 'both sent invoices, not the unsent one');
+    assert.equal(r.balance, 6800);
+    const at = (label) => r.months[data.months.findIndex((m) => m.label === label)];
+    assert.equal(at('Jul-26'), 10000, 'the verified proof');
+    assert.equal(at('Sep-26'), 19500, 'the rest, marked paid by staff');
+    assert.equal(r.fyTotal, 29500);
+  });
+
+  test('the months of every year add up to Received — nothing counted twice or lost', async () => {
+    const prev = rowOf(await reg('fy=2025&search=Register'), 'regMonthly');
+    const cur = rowOf(await reg('fy=2026&search=Register'), 'regMonthly');
+    assert.equal(prev.fyTotal, 5000, 'Feb 2026 belongs to FY 2025-26');
+    assert.equal(prev.fyTotal + cur.fyTotal, cur.received);
+  });
+
+  test('a client with no retainer is One Time; one with nothing billed has empty figures', async () => {
+    const data = await reg('fy=2026&search=Register');
+    const one = rowOf(data, 'regOneTime');
+    assert.equal(one.billingType, 'One Time');
+    assert.equal(one.serviceStatus, 'Active', 'In-Active only once offboarded');
+    assert.deepEqual([one.packageAmount, one.gstAmount, one.totalAmount, one.received, one.balance], [11250, 2025, 13275, 8500, 4775]);
+    const none = rowOf(data, 'regNone');
+    assert.equal(none.billingType, null);
+    assert.equal(none.received, 0);
+    assert.equal(none.fyTotal, 0);
+  });
+
+  test('the totals row is the sum of the rows', async () => {
+    const data = await reg('fy=2026&search=Register');
+    const money = data.rows.filter((r) => r.months);
+    for (const key of ['packageAmount', 'received', 'balance', 'fyTotal']) {
+      assert.equal(data.totals[key], Math.round(money.reduce((s, r) => s + (r[key] || 0), 0) * 100) / 100, key);
+    }
+    data.totals.months.forEach((v, i) => assert.equal(v, Math.round(money.reduce((s, r) => s + r.months[i], 0) * 100) / 100));
+  });
+
+  test('offboarding makes a client In-Active without blocking their login; it can be undone', async () => {
+    assert.equal((await admin('POST', `/admin/clients/${ids.regMonthly}/offboard`, { reason: 'no' })).status, 400, 'needs a reason');
+    const off = await admin('POST', `/admin/clients/${ids.regMonthly}/offboard`, { reason: 'Contract ended on 30 Sep' });
+    assert.equal(off.status, 200, JSON.stringify(off.body));
+    assert.equal(off.body.activeRetainers, 2, 'warns that retainers still run');
+    assert.equal((await admin('POST', `/admin/clients/${ids.regMonthly}/offboard`, { reason: 'Contract ended on 30 Sep' })).status, 409);
+
+    const r = rowOf(await reg('fy=2026&search=Register'), 'regMonthly');
+    assert.equal(r.serviceStatus, 'In-Active');
+    assert.equal(r.offboardReason, 'Contract ended on 30 Sep');
+    assert.equal(r.received, 34500, 'money history is kept');
+    assert.equal((await asClient('regMonthly', 'GET', '/client/invoices')).status, 200, 'login still works');
+    assert.ok(await require('../../models/AuditLog').findOne({ action: 'CLIENT_OFFBOARD' }).lean());
+
+    assert.equal((await admin('POST', `/admin/clients/${ids.regMonthly}/onboard-again`)).status, 200);
+    assert.equal(rowOf(await reg('fy=2026&search=Register'), 'regMonthly').serviceStatus, 'Active');
+    assert.equal((await admin('POST', `/admin/clients/${ids.regMonthly}/onboard-again`)).status, 409);
+  });
+});
+
 describe('portal preview — a Super Admin views the Client / Employee Portal as that person, read-only', () => {
   const asPreview = async (token, method, url, body) => {
     const res = await fetch(base + url, {

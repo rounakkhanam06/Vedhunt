@@ -86,6 +86,13 @@ const clientSchema = new mongoose.Schema(
     holdSince: { type: Date },
     holdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin' },
     holdByName: { type: String, trim: true },
+    // Offboarded (client decision, Oct 2026): the engagement has ended — the client is
+    // "In-Active" in the client register. Login is NOT blocked: they can still see and pay
+    // their invoices. Set and undone by staff only (POST /admin/clients/:id/offboard|onboard-again).
+    offboardedAt: { type: Date },
+    offboardReason: { type: String, trim: true, maxlength: 500 },
+    offboardedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin' },
+    offboardedByName: { type: String, trim: true },
     // Suspension (reversible): isActive=false + who/when/why. Internal only —
     // never returned by the client-facing APIs.
     suspendedAt: { type: Date },

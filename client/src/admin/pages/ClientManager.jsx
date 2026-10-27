@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { useCrm } from '../../shared/crmAccess';
 import toast from 'react-hot-toast';
 import {
@@ -10,6 +11,7 @@ import { usePermissions } from '../hooks/usePermissions';
 import PortfolioKpis from '../components/clients/PortfolioKpis';
 import { inr, pct } from '../components/clients/format';
 import ClientProfilePanel from '../components/clients/ClientProfilePanel';
+import ClientRegister, { ClientRegisterSummary } from '../components/clients/ClientRegister';
 import { openPortalPreview } from '../../shared/portalPreview';
 import OnboardingPanel from '../components/clients/OnboardingPanel';
 import StrategyPanel from '../components/clients/StrategyPanel';
@@ -99,6 +101,15 @@ export default function ClientManager() {
   const [acting, setActing] = useState(false);
   const { can } = usePermissions();
   const isSuperAdmin = full && can('*');
+  const [view, setView] = useState('list'); // 'list' | 'register'
+  // The register uses the same filters as the list (one object, so it refetches only when they change)
+  const registerFilters = useMemo(() => ({
+    search: dSearch, sort,
+    ...(statusFilter && { status: statusFilter }),
+    ...(billingFilter && { billing: billingFilter }),
+    ...(sectorFilter && { sector: sectorFilter }),
+    ...(serviceFilter && { service: serviceFilter }),
+  }), [dSearch, sort, statusFilter, billingFilter, sectorFilter, serviceFilter]);
 
   // Debounce search
   useEffect(() => {
@@ -406,7 +417,23 @@ export default function ClientManager() {
         </div>
       </div>
 
+      {/* List or the spreadsheet-style register (same filters) */}
+      <div className="flex gap-2 border-b border-outline-variant" role="tablist" aria-label="Client views">
+        {[['list', 'Clients'], ['register', 'Register (all details)']].map(([id, label]) => (
+          <button key={id} role="tab" aria-selected={view === id} onClick={() => setView(id)}
+            className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px cursor-pointer transition-colors ${view === id ? 'border-secondary text-secondary' : 'border-transparent text-on-surface-variant hover:text-on-surface'}`}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {view === 'register' && (
+        <ClientRegister http={http} base={base} filters={registerFilters}
+          onView={(c) => openPreview(c)} onEdit={(c) => openEdit(c)} canEdit={canCrm('clients', 'edit')} />
+      )}
+
       {/* Table */}
+      {view === 'list' && (
       <div className="bg-surface border border-outline-variant rounded-xl overflow-hidden">
         {loading ? (
           <div className="flex items-center justify-center h-40">
@@ -556,6 +583,7 @@ export default function ClientManager() {
           </div>
         )}
       </div>
+      )}
 
       {/* Create / Edit Modal */}
       {showModal && (
@@ -614,6 +642,17 @@ export default function ClientManager() {
 
               <div>
                 <label className="block text-on-surface-variant text-xs font-medium mb-1.5">Lead Reference (optional)</label>
+                {/* Who the ID is: the linked lead's name, opening the lead in the Admin panel */}
+                {typeof selectedClient?.leadRef === 'object' && selectedClient.leadRef?._id && String(selectedClient.leadRef._id) === String(form.leadRef) && (
+                  <p className="text-xs text-on-surface mb-1.5">
+                    Linked to lead{' '}
+                    {full
+                      ? <Link to={`/admin/leads/${selectedClient.leadRef._id}`} target="_blank" className="font-semibold text-secondary hover:underline">{selectedClient.leadRef.fullName || 'Unnamed lead'}</Link>
+                      : <span className="font-semibold">{selectedClient.leadRef.fullName || 'Unnamed lead'}</span>}
+                    {selectedClient.leadRef.phone && <span className="text-on-surface-variant"> · {selectedClient.leadRef.phone}</span>}
+                    {selectedClient.leadRef.status && <span className="text-on-surface-variant"> · {selectedClient.leadRef.status}</span>}
+                  </p>
+                )}
                 <div className="relative">
                   <Link2 size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant" />
                   <input
@@ -636,6 +675,32 @@ export default function ClientManager() {
                   className="w-full px-4 py-2.5 bg-admin-bg border border-outline-variant rounded-xl text-on-surface text-sm focus:outline-none focus:border-secondary transition-colors resize-none"
                 />
               </div>
+
+              {/* This form is the login/account only — where everything else about the client is changed */}
+              {selectedClient && (
+                <div className="rounded-xl border border-outline-variant bg-admin-bg/60 p-3.5 space-y-2">
+                  <p className="text-on-surface text-xs font-semibold">Other details are edited here</p>
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      ['profile', 'Profile', 'domains, onboarding date, services, platforms, account manager, team, ad budget'],
+                      ['kyc', 'KYC', 'GSTIN, PAN, documents'],
+                      ['billing', 'Billing', 'billing day, first invoice, days to pay'],
+                      ['strategy', 'Strategy', 'campaign strategy'],
+                    ].map(([tab, label, what]) => (
+                      <button key={tab} type="button" title={what}
+                        onClick={() => { setShowModal(false); openPreview(selectedClient, tab); }}
+                        className="px-2.5 py-1 rounded-lg border border-secondary/30 text-secondary text-[11px] font-semibold hover:bg-secondary/10 cursor-pointer">
+                        {label} →
+                      </button>
+                    ))}
+                    {full && (<>
+                      <Link to="/admin/retainers" title="package, monthly amount, billing cycle" className="px-2.5 py-1 rounded-lg border border-secondary/30 text-secondary text-[11px] font-semibold hover:bg-secondary/10">Package / Retainers →</Link>
+                      <Link to="/admin/service-agreement" title="fee, deliverables, agreement terms" className="px-2.5 py-1 rounded-lg border border-secondary/30 text-secondary text-[11px] font-semibold hover:bg-secondary/10">Agreement →</Link>
+                    </>)}
+                  </div>
+                  <p className="text-[10px] text-on-surface-variant">Profile: domains, onboarding date, services, account manager, ad budget · KYC: GSTIN, PAN · Billing: billing day, days to pay · Retainers: package and billing cycle · Offboard: Register tab</p>
+                </div>
+              )}
 
               <div className="flex gap-3 pt-2">
                 <button
@@ -730,6 +795,9 @@ export default function ClientManager() {
                 />
               )}
               {previewTab === 'overview' && (<>
+              {/* The client's register row: status, domains, package, received, balance, month-wise */}
+              <ClientRegisterSummary http={http} base={base} client={previewClient} />
+
               {/* Detailed Grid */}
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 <div className="space-y-1">
@@ -792,8 +860,16 @@ export default function ClientManager() {
               {/* Lead Link */}
               {previewClient.leadRef && (
                 <div className="p-3 bg-secondary/5 border border-secondary/20 rounded-xl">
-                  <p className="text-on-surface-variant text-[10px] uppercase font-bold tracking-wider mb-1">Linked Lead Reference</p>
-                  <p className="text-secondary text-xs font-mono select-all break-all">
+                  <p className="text-on-surface-variant text-[10px] uppercase font-bold tracking-wider mb-1">Converted from lead</p>
+                  {typeof previewClient.leadRef === 'object' && previewClient.leadRef.fullName && (
+                    <p className="text-on-surface text-sm font-medium">
+                      {full
+                        ? <Link to={`/admin/leads/${previewClient.leadRef._id}`} target="_blank" className="text-secondary hover:underline">{previewClient.leadRef.fullName}</Link>
+                        : previewClient.leadRef.fullName}
+                      {previewClient.leadRef.phone && <span className="text-on-surface-variant text-xs"> · {previewClient.leadRef.phone}</span>}
+                    </p>
+                  )}
+                  <p className="text-on-surface-variant text-[11px] font-mono select-all break-all">
                     {typeof previewClient.leadRef === 'object' ? previewClient.leadRef._id : previewClient.leadRef}
                   </p>
                 </div>

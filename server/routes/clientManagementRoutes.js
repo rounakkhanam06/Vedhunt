@@ -26,6 +26,7 @@ const {
 } = require('../services/clientNotify');
 
 const invoiceDocument = require('../services/invoiceDocument');
+const { buildRegister, fyOf } = require('../services/clientRegister');
 const { GST_STATE_CODES } = require('../config/gstStates');
 const { validateGstin, validatePan } = require('../services/kycValidators');
 const { PAGE_CATALOG, pageScope, hasBaseAccess } = require('../config/pageAccess');
@@ -222,6 +223,41 @@ router.get('/portfolio', crm('clients', 'view'), async (req, res) => {
     });
   } catch (error) {
     logger.error('Admin portfolio error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+/**
+ * @route  GET /api/admin/client-register?fy=2026  (+ the same filters as /portfolio)
+ * @desc   The spreadsheet view of the client list (services/clientRegister.js): every
+ *         matching client, with package, received, balance and money received per month
+ *         of the financial year. Money columns follow the same invoice-access rules as /portfolio.
+ */
+router.get('/client-register', crm('clients', 'view'), async (req, res) => {
+  try {
+    const portfolio = await buildPortfolio({
+      clientIds: isScoped(req) ? req.pageScope.clients : undefined,
+      status: req.query.status,
+      sector: req.query.sector,
+      service: req.query.service,
+      accountManager: req.query.accountManager && isValidId(req.query.accountManager) ? req.query.accountManager : undefined,
+      billing: req.query.billing,
+      sort: req.query.sort,
+      search: req.query.search,
+    });
+    const invoiceScope = pageScope(req.user, 'invoices', 'view');
+    const allowed = invoiceScope?.mode === 'clients' ? new Set(invoiceScope.clients) : null;
+    const rows = portfolio.rows.map((row) => {
+      if (invoiceScope === false || (allowed && !allowed.has(String(row._id)))) {
+        const { finance, ...rest } = row;
+        return rest;
+      }
+      return row;
+    });
+    const fy = Number.isInteger(Number(req.query.fy)) && Number(req.query.fy) > 2000 ? Number(req.query.fy) : fyOf(new Date());
+    res.json({ success: true, data: await buildRegister(rows, fy) });
+  } catch (error) {
+    logger.error('Admin client register error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
@@ -519,6 +555,59 @@ router.post('/clients/:id/release', crm('clients', 'edit'), async (req, res) => 
     res.json({ success: true, message: `${client.businessName} is active again` });
   } catch (error) {
     logger.error('Admin release client error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// ─── Offboard / onboard again: the engagement ended ("In-Active" in the register) ──
+// Login stays open (they can still see and pay invoices); retainers are not touched.
+
+router.post('/clients/:id/offboard', crm('clients', 'edit'), async (req, res) => {
+  try {
+    if (!isValidId(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid client ID' });
+    if (!clientAllowed(req, req.params.id)) return outOfScope(res, 'Client');
+    const reason = String(req.body.reason || '').trim();
+    if (reason.length < 5) return res.status(400).json({ success: false, message: 'Give the reason for offboarding (at least 5 characters).' });
+    const client = await Client.findById(req.params.id);
+    if (!client || client.deletedAt) return outOfScope(res, 'Client');
+    if (client.offboardedAt) return res.status(409).json({ success: false, message: 'This client is already offboarded.' });
+    client.offboardedAt = new Date();
+    client.offboardReason = reason.slice(0, 500);
+    client.offboardedBy = req.user._id;
+    client.offboardedByName = [req.user.firstName, req.user.lastName].filter(Boolean).join(' ').trim() || req.user.email;
+    await client.save();
+    const activeRetainers = await Retainer.countDocuments({ client_ref: client._id, status: 'Active' });
+    await recordAudit(req, 'CLIENT_OFFBOARD', 'Client', client.clientId, null, { reason: client.offboardReason, activeRetainers });
+    res.json({
+      success: true,
+      message: activeRetainers
+        ? `${client.businessName} is offboarded. ${activeRetainers} retainer${activeRetainers === 1 ? ' is' : 's are'} still Active — end ${activeRetainers === 1 ? 'it' : 'them'} in Retainers so no new invoices are drafted.`
+        : `${client.businessName} is offboarded`,
+      activeRetainers,
+    });
+  } catch (error) {
+    logger.error('Admin offboard client error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+router.post('/clients/:id/onboard-again', crm('clients', 'edit'), async (req, res) => {
+  try {
+    if (!isValidId(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid client ID' });
+    if (!clientAllowed(req, req.params.id)) return outOfScope(res, 'Client');
+    const client = await Client.findById(req.params.id);
+    if (!client || client.deletedAt) return outOfScope(res, 'Client');
+    if (!client.offboardedAt) return res.status(409).json({ success: false, message: 'This client is not offboarded.' });
+    const before = { offboardedAt: client.offboardedAt, reason: client.offboardReason };
+    client.offboardedAt = undefined;
+    client.offboardReason = undefined;
+    client.offboardedBy = undefined;
+    client.offboardedByName = undefined;
+    await client.save();
+    await recordAudit(req, 'CLIENT_ONBOARD_AGAIN', 'Client', client.clientId, before, null);
+    res.json({ success: true, message: `${client.businessName} is active again` });
+  } catch (error) {
+    logger.error('Admin onboard-again client error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
