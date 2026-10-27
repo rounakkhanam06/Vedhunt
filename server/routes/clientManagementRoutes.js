@@ -27,6 +27,8 @@ const {
 
 const invoiceDocument = require('../services/invoiceDocument');
 const ClientCall = require('../models/ClientCall');
+const PlatformAccess = require('../models/PlatformAccess');
+const platformAccess = require('../services/platformAccess');
 const KpiSetup = require('../models/KpiSetup');
 const KpiPeriodEntry = require('../models/KpiPeriodEntry');
 const kpi = require('../services/kpi');
@@ -1194,6 +1196,77 @@ router.delete('/clients/:id/ad-performance/:rowId', crm('clients', 'edit'), asyn
     res.json({ success: true, message: 'Entry deleted' });
   } catch (error) {
     logger.error('Admin ad performance delete error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// PLATFORM ACCESS — a record of which accounts / assets Vedhunt has access to (no credentials)
+// ══════════════════════════════════════════════════════════════════════════════
+
+router.get('/clients/:id/access', crm('clients', 'view'), async (req, res) => {
+  try {
+    const client = await adClient(req, res);
+    if (!client) return;
+    const rows = await PlatformAccess.find({ client_ref: client._id }).sort({ createdAt: 1 }).lean();
+    res.json({ success: true, data: rows, summary: platformAccess.summarize(rows),
+      options: { platforms: PlatformAccess.PLATFORMS, owners: PlatformAccess.OWNERS, permissions: PlatformAccess.PERMISSIONS, statuses: PlatformAccess.STATUSES } });
+  } catch (error) {
+    logger.error('Admin platform access error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+router.post('/clients/:id/access', crm('clients', 'edit'), async (req, res) => {
+  try {
+    const client = await adClient(req, res);
+    if (!client) return;
+    const { value, error } = platformAccess.validateAccess(req.body);
+    if (error) return res.status(400).json({ success: false, message: error });
+    const row = await PlatformAccess.create({ ...value, client_ref: client._id, updatedBy: req.user._id, updatedByName: staffName(req.user) });
+    await recordAudit(req, 'ACCESS_ADD', 'PlatformAccess', `${client.clientId}:${row.platform}`, null, { platform: row.platform, status: row.status, accountId: row.accountId });
+    res.status(201).json({ success: true, data: row });
+  } catch (error) {
+    logger.error('Admin add platform access error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+router.put('/clients/:id/access/:rowId', crm('clients', 'edit'), async (req, res) => {
+  try {
+    const client = await adClient(req, res);
+    if (!client) return;
+    const existing = isValidId(req.params.rowId) && await PlatformAccess.findOne({ _id: req.params.rowId, client_ref: client._id });
+    if (!existing) return res.status(404).json({ success: false, message: 'Access entry not found' });
+    if (existing.status === 'Revoked') return res.status(409).json({ success: false, message: 'Revoked access is final. Add a new row if it is granted again.' });
+    const { value, error } = platformAccess.validateAccess(req.body, existing);
+    if (error) return res.status(400).json({ success: false, message: error });
+    const before = existing.status;
+    for (const [k, v] of Object.entries(value)) existing.set(k, v);
+    existing.updatedBy = req.user._id;
+    existing.updatedByName = staffName(req.user);
+    await existing.save();
+    await recordAudit(req, existing.status === 'Revoked' ? 'ACCESS_REVOKE' : 'ACCESS_UPDATE', 'PlatformAccess', `${client.clientId}:${existing.platform}`, { status: before }, { status: existing.status, revokeReason: existing.revokeReason });
+    res.json({ success: true, data: existing });
+  } catch (error) {
+    logger.error('Admin update platform access error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// Only a request that was never granted can be removed; anything granted stays on record (revoke it)
+router.delete('/clients/:id/access/:rowId', crm('clients', 'edit'), async (req, res) => {
+  try {
+    const client = await adClient(req, res);
+    if (!client) return;
+    const row = isValidId(req.params.rowId) && await PlatformAccess.findOne({ _id: req.params.rowId, client_ref: client._id });
+    if (!row) return res.status(404).json({ success: false, message: 'Access entry not found' });
+    if (row.status !== 'Requested') return res.status(409).json({ success: false, message: 'Granted access stays on record — revoke it instead.' });
+    await row.deleteOne();
+    await recordAudit(req, 'ACCESS_DELETE', 'PlatformAccess', `${client.clientId}:${row.platform}`, { status: row.status }, null);
+    res.json({ success: true, message: 'Request removed' });
+  } catch (error) {
+    logger.error('Admin delete platform access error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });

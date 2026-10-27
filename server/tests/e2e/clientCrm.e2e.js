@@ -2443,6 +2443,49 @@ describe('payments, receipts, credit notes and the ageing report (SOP §5.2, §1
   });
 });
 
+describe('platform access tracker (SOP §8)', () => {
+  const url = () => `/admin/clients/${ids.accessCo}/access`;
+  let rowId;
+
+  before(async () => {
+    ids.accessCo = String((await require('../../models/Client').create({ businessName: 'Access Co', contactName: 'Acc Person', email: 'accessco@example.com', password: 'ClientPass1', isTemporaryPassword: false }))._id);
+  });
+
+  test('request, grant, verify, revoke — each step dated and audited; no credentials accepted', async () => {
+    assert.equal((await admin('POST', url(), { platform: 'Meta Ads', notes: 'password: abc' })).status, 400, 'credentials refused');
+    const made = await admin('POST', url(), { platform: 'Meta Ads', assetName: 'Revenue Co ad account', accountId: '987654321', assetOwner: 'Client' });
+    assert.equal(made.status, 201, JSON.stringify(made.body));
+    rowId = made.body.data._id;
+    assert.equal(made.body.data.status, 'Requested');
+
+    assert.equal((await admin('PUT', `${url()}/${rowId}`, { status: 'Verified' })).status, 400, 'cannot skip Granted');
+    assert.equal((await admin('PUT', `${url()}/${rowId}`, { status: 'Granted' })).status, 400, 'needs a permission level');
+    const granted = await admin('PUT', `${url()}/${rowId}`, { status: 'Granted', permissionLevel: 'Partner access', date: '2025-01-10' });
+    assert.equal(granted.status, 200, JSON.stringify(granted.body));
+    assert.equal(granted.body.data.grantedAt.slice(0, 10), '2025-01-10');
+    assert.equal((await admin('DELETE', `${url()}/${rowId}`)).status, 409, 'granted access stays on record');
+    assert.equal((await admin('PUT', `${url()}/${rowId}`, { status: 'Verified' })).status, 200);
+
+    assert.equal((await admin('PUT', `${url()}/${rowId}`, { status: 'Revoked' })).status, 400, 'a reason is needed');
+    const revoked = await admin('PUT', `${url()}/${rowId}`, { status: 'Revoked', revokeReason: 'Contract ended, access removed' });
+    assert.equal(revoked.status, 200);
+    assert.equal((await admin('PUT', `${url()}/${rowId}`, { status: 'Granted', permissionLevel: 'Admin' })).status, 409, 'revoked is final');
+    const log = await require('../../models/AuditLog').find({ recordId: /:Meta Ads$/, action: /^ACCESS_/ }).lean();
+    assert.deepEqual(log.map((l) => l.action).sort(), ['ACCESS_ADD', 'ACCESS_REVOKE', 'ACCESS_UPDATE', 'ACCESS_UPDATE']);
+  });
+
+  test('a request that was never granted can be removed; the list shows a summary', async () => {
+    const r = await admin('POST', url(), { platform: 'Google Ads' });
+    assert.equal((await admin('DELETE', `${url()}/${r.body.data._id}`)).status, 200);
+    await admin('POST', url(), { platform: 'Website / CMS' });
+    const list = (await admin('GET', url())).body;
+    assert.equal(list.summary.requested, 1);
+    assert.equal(list.summary.revoked, 1);
+    assert.ok(list.options.platforms.includes('Meta Ads'));
+    assert.equal((await asClient('accessCo', 'GET', url())).status, 401, 'not a client page');
+  });
+});
+
 describe('revenue by type — media spend is never part of it (SOP §5.1)', () => {
   const day = '2025-03-10'; // a quiet month, so the figures below are exactly this test's
   const report = async () => (await admin('GET', '/admin/receivables/revenue?from=2025-03-01&to=2025-03-31')).body.data;
