@@ -2252,6 +2252,151 @@ describe('client calls and the automatic In-Active rule (hold first, then In-Act
   });
 });
 
+describe('KPI setup and report (built from the daily ad entries)', () => {
+  const setupBody = { reportingFrequency: 'Monthly', monthlyBudget: 30000, primaryGoal: 'Purchases', targetCpa: 250, targetRoas: 2.5, grossMarginPercent: 55, businessType: 'E-commerce', accountOwner: 'Vedhunt Performance Team', notes: 'internal only' };
+  const report = async (q) => admin('GET', `/admin/clients/${ids.kpiClient}/kpi-report?${q}`);
+
+  before(async () => {
+    const c = await require('../../models/Client').create({ businessName: 'BreathableSkin KPI', contactName: 'Anjali Tripathi', email: 'kpi@example.com', password: 'ClientPass1', isTemporaryPassword: false });
+    ids.kpiClient = String(c._id);
+    const AdPerformance = require('../../models/AdPerformance');
+    const row = (day, extra) => ({ client_ref: c._id, day, platform: 'Meta', campaignName: 'Purchases', campaignKey: 'purchases', resultType: 'Purchases', ...extra });
+    // The KPI sheet's example month: ₹27,000 of ₹30,000, 54,000 impressions, 1,350 clicks, 90 purchases, ₹67,500 value
+    await AdPerformance.create([
+      row('2026-09-01', { spend: 10000, impressions: 20000, clicks: 500, results: 40, revenue: 25000 }),
+      row('2026-09-15', { spend: 17000, impressions: 34000, clicks: 850, results: 50, revenue: 42500 }),
+      row('2026-09-20', { spend: 1000, impressions: 1000, clicks: 10, results: 0, hidden: true }), // being corrected: hidden from the client
+    ]);
+  });
+
+  test('setup is per platform, validated, and audited', async () => {
+    assert.equal((await admin('PUT', `/admin/clients/${ids.kpiClient}/kpi-setup/Meta`, { ...setupBody, monthlyBudget: 0 })).status, 400);
+    assert.equal((await admin('PUT', `/admin/clients/${ids.kpiClient}/kpi-setup/TikTok`, setupBody)).status, 400);
+    const ok = await admin('PUT', `/admin/clients/${ids.kpiClient}/kpi-setup/Meta`, setupBody);
+    assert.equal(ok.status, 200, JSON.stringify(ok.body));
+    assert.equal((await admin('PUT', `/admin/clients/${ids.kpiClient}/kpi-setup/Google`, { ...setupBody, monthlyBudget: 15000 })).status, 200);
+    const list = (await admin('GET', `/admin/clients/${ids.kpiClient}/kpi-setup`)).body.data;
+    assert.deepEqual(list.map((s) => [s.platform, s.monthlyBudget]), [['Google', 15000], ['Meta', 30000]], 'budgets kept per platform');
+    assert.ok(await require('../../models/AuditLog').findOne({ action: 'KPI_SETUP_CREATE' }).lean());
+  });
+
+  test('the monthly row matches the KPI sheet example (client view, hidden row left out)', async () => {
+    const res = await asClient('kpiClient', 'GET', '/client/kpi-report?frequency=Monthly&from=2026-09-01&to=2026-09-30&platform=Meta');
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    const t = res.body.data.tables[0];
+    const r = t.rows[0];
+    assert.deepEqual(
+      [r.plannedBudget, r.spend, r.remaining, r.utilization, r.spendVsPlan, r.impressions, r.clicks, r.ctr, r.cpc, r.cpm, r.conversions, r.costPerConversion, r.conversionValue, r.roas],
+      [30000, 27000, 3000, 90, -3000, 54000, 1350, 2.5, 20, 500, 90, 300, 67500, 2.5]
+    );
+    assert.equal(r.cpaStatus, 'off_target', '₹300 per purchase against a ₹250 target');
+    assert.equal(r.roasStatus, 'on_target');
+    assert.equal(t.setup.grossMarginPercent, undefined, 'gross margin never reaches the client');
+    assert.equal(t.setup.notes, undefined);
+    assert.equal(t.setup.targetCpa, 250, 'targets are shown');
+  });
+
+  test('staff see every entry; weekly rows plan by calendar days and add up to the month', async () => {
+    const monthly = (await report('frequency=Monthly&from=2026-09-01&to=2026-09-30&platform=Meta')).body.data.tables[0];
+    assert.equal(monthly.rows[0].spend, 28000, 'staff include the hidden row');
+    assert.equal(monthly.setup.grossMarginPercent, 55);
+
+    const weekly = (await report('frequency=Weekly&from=2026-09-01&to=2026-09-30&platform=Meta')).body.data.tables[0];
+    assert.equal(weekly.rows[0].start, '2026-09-01', 'first week clipped to the range');
+    assert.equal(weekly.rows[0].key, '2026-08-31', 'weeks start on Monday');
+    const sum = (k) => Math.round(weekly.rows.reduce((s, x) => s + x[k], 0) * 100) / 100;
+    assert.equal(sum('plannedBudget'), 30000, 'the weeks plan exactly the month');
+    assert.equal(sum('spend'), 28000);
+    assert.equal(weekly.totals.spend, 28000);
+    assert.equal(weekly.totals.plannedBudget, 30000);
+
+    const daily = (await report('frequency=Daily&from=2026-09-01&to=2026-09-30&platform=Meta')).body.data.tables[0];
+    assert.equal(daily.rows.length, 30);
+    assert.equal(daily.rows[0].plannedBudget, 1000, 'September: ₹30,000 ÷ 30 days');
+    assert.equal((await report('frequency=Daily&from=2026-01-01&to=2026-09-30')).status, 400, 'daily is limited to 3 months');
+  });
+
+  test('employees add qualified leads, verified orders and the action; the client only sees them', async () => {
+    const body = { platform: 'Meta', frequency: 'Monthly', periodStart: '2026-09-01', qualifiedLeads: '', verifiedOrders: 82, action: 'Verified 82 orders in the store; moved budget to the best ad set.' };
+    assert.equal((await admin('PUT', `/admin/clients/${ids.kpiClient}/kpi-entry`, { ...body, periodStart: '2026-09-02' })).status, 400, 'a month starts on the 1st');
+    const ok = await admin('PUT', `/admin/clients/${ids.kpiClient}/kpi-entry`, body);
+    assert.equal(ok.status, 200, JSON.stringify(ok.body));
+
+    const staffRow = (await report('frequency=Monthly&from=2026-09-01&to=2026-09-30&platform=Meta')).body.data.tables[0].rows[0];
+    assert.equal(staffRow.verifiedOrders, 82);
+    assert.equal(staffRow.qualifiedLeads, null, 'blank = not known');
+    assert.equal(staffRow.entryUpdatedByName, 'Super Admin');
+
+    const clientRow = (await asClient('kpiClient', 'GET', '/client/kpi-report?frequency=Monthly&from=2026-09-01&to=2026-09-30&platform=Meta')).body.data.tables[0].rows[0];
+    assert.equal(clientRow.verifiedOrders, 82);
+    assert.match(clientRow.action, /moved budget/);
+    assert.equal(clientRow.entryUpdatedByName, undefined, 'who entered it stays internal');
+    assert.equal((await asClient('kpiClient', 'PUT', `/admin/clients/${ids.kpiClient}/kpi-entry`, body)).status, 401, 'the client cannot write');
+
+    // the weekly view has its own entries — a monthly entry is not copied into weeks
+    const weekly = (await report('frequency=Weekly&from=2026-09-01&to=2026-09-30&platform=Meta')).body.data.tables[0];
+    assert.ok(weekly.rows.every((x) => x.verifiedOrders === null));
+  });
+
+  test('the CSV has the KPI sheet columns; a removed setup removes the table', async () => {
+    const res = await fetch(`${base}/admin/clients/${ids.kpiClient}/kpi-report/export.csv?frequency=Monthly&from=2026-09-01&to=2026-09-30&platform=Meta`, { headers: { authorization: `Bearer ${adminToken()}` } });
+    assert.equal(res.status, 200);
+    const csv = await res.text();
+    assert.match(csv, /Period Start,Period End,Client,Platform,Reporting Frequency,Monthly Approved Budget/);
+    assert.match(csv, /2026-09-01,2026-09-30,BreathableSkin KPI,Meta,Monthly,30000,30000,28000/);
+
+    assert.equal((await admin('DELETE', `/admin/clients/${ids.kpiClient}/kpi-setup/Google`)).status, 200);
+    const tables = (await report('frequency=Monthly&from=2026-09-01&to=2026-09-30')).body.data.tables;
+    assert.deepEqual(tables.map((t) => t.platform), ['Meta']);
+  });
+
+  test('a budget change applies from its month; past months keep the old budget', async () => {
+    const put = await admin('PUT', `/admin/clients/${ids.kpiClient}/kpi-setup/Meta`, { ...setupBody, monthlyBudget: 40000, budgetEffectiveFrom: '2026-10' });
+    assert.equal(put.status, 200, JSON.stringify(put.body));
+    assert.deepEqual(put.body.data.budgetHistory.map((h) => [h.month, h.monthlyBudget]), [['2026-10', 40000]], 'the first setup was also from October, so it is replaced');
+
+    // a change from August keeps October's ₹40,000
+    await admin('PUT', `/admin/clients/${ids.kpiClient}/kpi-setup/Meta`, { ...setupBody, monthlyBudget: 30000, budgetEffectiveFrom: '2026-08' });
+    const rows = (await report('frequency=Monthly&from=2026-07-01&to=2026-10-31&platform=Meta')).body.data.tables[0].rows;
+    assert.deepEqual(rows.map((r) => [r.key, r.monthlyBudget]), [['2026-07-01', 30000], ['2026-08-01', 30000], ['2026-09-01', 30000], ['2026-10-01', 40000]]);
+    assert.equal(rows[1].plannedBudget, 30000);
+    const setup = (await admin('GET', `/admin/clients/${ids.kpiClient}/kpi-setup`)).body.data.find((s) => s.platform === 'Meta');
+    assert.equal(setup.monthlyBudget, 40000, 'this month’s budget is shown as current');
+    // saving other fields (the form always sends a month) leaves the history alone
+    const same = await admin('PUT', `/admin/clients/${ids.kpiClient}/kpi-setup/Meta`, { ...setupBody, monthlyBudget: 40000, budgetEffectiveFrom: '2026-10', accountOwner: 'Priya' });
+    assert.equal(same.body.data.budgetHistory.length, setup.budgetHistory.length);
+    assert.equal((await admin('PUT', `/admin/clients/${ids.kpiClient}/kpi-setup/Meta`, { ...setupBody, budgetEffectiveFrom: '2026-13' })).status, 400);
+  });
+
+  test('conversions count only campaigns whose result matches the goal; others are shown apart', async () => {
+    await require('../../models/AdPerformance').create({ client_ref: ids.kpiClient, day: '2026-09-10', platform: 'Meta', campaignName: 'Lead form', campaignKey: 'lead form', resultType: 'Leads', spend: 3000, impressions: 6000, clicks: 150, results: 60 });
+    const r = (await asClient('kpiClient', 'GET', '/client/kpi-report?frequency=Monthly&from=2026-09-01&to=2026-09-30&platform=Meta')).body.data.tables[0].rows[0];
+    assert.equal(r.spend, 30000, 'spend counts every campaign');
+    assert.equal(r.conversions, 90, 'the 60 leads are not purchases');
+    assert.equal(r.otherResults, 60);
+    assert.equal(r.costPerConversion, 300, 'cost from the purchase campaigns only');
+    assert.equal(r.roas, 2.5);
+  });
+
+  test('changing KPIs needs the kpi.manage role permission; seeing the client is enough to view', async () => {
+    const Role = require('../../models/Role');
+    const Admin = require('../../models/Admin');
+    const viewer = await Admin.create({ firstName: 'Crm', lastName: 'Viewer', email: 'kpi-viewer@e2e.test', password: 'Passw0rd!e2e', roles: [(await Role.create({ name: 'CRM_NO_KPI', permissions: ['cms.manage'] }))._id] });
+    const editor = await Admin.create({ firstName: 'Kpi', lastName: 'Editor', email: 'kpi-editor@e2e.test', password: 'Passw0rd!e2e', roles: [(await Role.create({ name: 'CRM_KPI', permissions: ['cms.manage', 'kpi.manage'] }))._id] });
+    const as = (a) => jwt.sign({ id: a._id }, JWT_SECRET, { expiresIn: '1h' });
+    const entry = { platform: 'Meta', frequency: 'Monthly', periodStart: '2026-09-01', qualifiedLeads: 5 };
+
+    assert.equal((await request(as(viewer), 'GET', `/admin/clients/${ids.kpiClient}/kpi-report?frequency=Monthly&from=2026-09-01&to=2026-09-30`)).status, 200);
+    assert.equal((await request(as(viewer), 'PUT', `/admin/clients/${ids.kpiClient}/kpi-entry`, entry)).status, 403);
+    assert.equal((await request(as(viewer), 'PUT', `/admin/clients/${ids.kpiClient}/kpi-setup/Meta`, setupBody)).status, 403);
+    assert.equal((await request(as(viewer), 'DELETE', `/admin/clients/${ids.kpiClient}/kpi-setup/Meta`)).status, 403);
+    assert.equal((await request(as(editor), 'PUT', `/admin/clients/${ids.kpiClient}/kpi-entry`, entry)).status, 200);
+    const perms = await admin('GET', '/rbac/permissions');
+    assert.equal(perms.status, 200);
+    assert.ok(perms.body.permissions.includes('kpi.manage'), 'offered in Role Management');
+  });
+});
+
 describe('portal preview — a Super Admin views the Client / Employee Portal as that person, read-only', () => {
   const asPreview = async (token, method, url, body) => {
     const res = await fetch(base + url, {

@@ -13,6 +13,7 @@ import { inr, pct } from '../components/clients/format';
 import ClientProfilePanel from '../components/clients/ClientProfilePanel';
 import ClientRegister, { ClientRegisterSummary } from '../components/clients/ClientRegister';
 import ClientCallsPanel from '../components/clients/ClientCallsPanel';
+import KpiPanel from '../components/clients/KpiPanel';
 import { openPortalPreview } from '../../shared/portalPreview';
 import OnboardingPanel from '../components/clients/OnboardingPanel';
 import StrategyPanel from '../components/clients/StrategyPanel';
@@ -52,6 +53,7 @@ const PREVIEW_TABS = [
   { id: 'kyc', label: 'KYC' },
   { id: 'billing', label: 'Billing' },
   { id: 'ads', label: 'Ad data' },
+  { id: 'kpi', label: 'KPI' },
   { id: 'onboarding', label: 'Onboarding' },
 ];
 
@@ -71,7 +73,7 @@ const EMPTY_FORM = {
 
 export default function ClientManager() {
   // Admin panel (full access) or Employee Portal (person-wise grants) — shared/crmAccess.js
-  const { http, base, can: canCrm, full } = useCrm();
+  const { http, base, can: canCrm, full, me } = useCrm();
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
@@ -102,6 +104,8 @@ export default function ClientManager() {
   const [acting, setActing] = useState(false);
   const { can } = usePermissions();
   const isSuperAdmin = full && can('*');
+  // Editing KPIs is role-based ('kpi.manage'); in the Employee Portal it is the person's own role
+  const canKpi = full ? can('kpi.manage') : Boolean(me?.permissions?.some((p) => p === '*' || p === 'kpi.manage'));
   const [view, setView] = useState('list'); // 'list' | 'register'
   // The register uses the same filters as the list (one object, so it refetches only when they change)
   const registerFilters = useMemo(() => ({
@@ -779,6 +783,9 @@ export default function ClientManager() {
               )}
               {previewTab === 'billing' && (
                 <BillingSchedulePanel clientId={previewClient._id} http={http} base={base} canEdit={canCrm('invoices', 'edit')} />
+              )}
+              {previewTab === 'kpi' && (
+                <KpiPanel clientId={previewClient._id} http={http} base={base} canEdit={canKpi} />
               )}
               {previewTab === 'ads' && (
                 <AdPerformancePanel clientId={previewClient._id} http={http} base={base} canEdit={canCrm('clients', 'edit')} />

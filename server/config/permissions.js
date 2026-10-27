@@ -54,6 +54,8 @@ const PERMISSION_GROUPS = [
     group: 'Website & Client Portal',
     permissions: [
       { key: 'cms.manage', label: 'Content Manager (CMS) & Client Portal (CRM)' },
+      // Viewing the KPI report comes with access to the client; changing it needs this
+      { key: 'kpi.manage', label: 'Client KPI — edit setup, budgets & report entries' },
       { key: 'newsletter.manage', label: 'Newsletter Subscribers (view, manage, broadcast)' },
       { key: 'services.manage', label: 'Services Management' },
       { key: 'portfolio.manage', label: 'Portfolio Items' },

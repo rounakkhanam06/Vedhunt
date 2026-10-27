@@ -11,6 +11,7 @@ const logger = require('../utils/logger');
 const { getClientAgreement, acceptAgreement } = require('../controllers/agreementController');
 const { buildInvoicePdfBuffer, loadInvoiceContext } = require('../services/invoicePdf');
 const invoiceDocument = require('../services/invoiceDocument');
+const kpi = require('../services/kpi');
 const { uploadTicketAttachment, deleteFromCloudinary } = require('../utils/cloudinary');
 const { notifyTicketStaff, notifyPermissionHolders } = require('../services/staffNotify');
 const multer = require('multer');
@@ -385,6 +386,25 @@ router.get('/performance/export.csv', async (req, res) => {
     res.send(adPerformance.toCsv(data.rows));
   } catch (error) {
     logger.error('Client performance export error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+/**
+ * @route  GET /api/client/kpi-report?frequency=&from=&to=&platform=
+ * @desc   The client's KPI report (services/kpi.js): budget plan vs spend, targets vs actual,
+ *         and the qualified leads / verified orders / actions the team entered. View only;
+ *         gross margin and internal notes are never included.
+ */
+router.get('/kpi-report', async (req, res) => {
+  try {
+    const data = await kpi.kpiReport(req.client._id, {
+      frequency: req.query.frequency, from: req.query.from || undefined, to: req.query.to || undefined, platform: req.query.platform, forClient: true,
+    });
+    if (!data) return res.status(400).json({ success: false, message: 'Choose a valid date range.' });
+    res.json({ success: true, data });
+  } catch (error) {
+    logger.error('Client KPI report error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });

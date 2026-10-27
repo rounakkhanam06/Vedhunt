@@ -27,6 +27,9 @@ const {
 
 const invoiceDocument = require('../services/invoiceDocument');
 const ClientCall = require('../models/ClientCall');
+const KpiSetup = require('../models/KpiSetup');
+const KpiPeriodEntry = require('../models/KpiPeriodEntry');
+const kpi = require('../services/kpi');
 const { buildRegister, fyOf } = require('../services/clientRegister');
 const { GST_STATE_CODES } = require('../config/gstStates');
 const { validateGstin, validatePan } = require('../services/kycValidators');
@@ -1158,6 +1161,130 @@ router.delete('/clients/:id/ad-performance/:rowId', crm('clients', 'edit'), asyn
     res.json({ success: true, message: 'Entry deleted' });
   } catch (error) {
     logger.error('Admin ad performance delete error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// KPI — setup per platform (budget, goal, targets) and the KPI report (services/kpi.js)
+// ══════════════════════════════════════════════════════════════════════════════
+
+const staffName = (u) => [u.firstName, u.lastName].filter(Boolean).join(' ').trim() || u.email;
+
+router.get('/clients/:id/kpi-setup', crm('clients', 'view'), async (req, res) => {
+  try {
+    const client = await adClient(req, res);
+    if (!client) return;
+    res.json({ success: true, data: await KpiSetup.find({ client_ref: client._id }).sort({ platform: 1 }).lean(), platforms: AdPerformance.PLATFORMS, frequencies: KpiSetup.FREQUENCIES, goals: KpiSetup.GOALS });
+  } catch (error) {
+    logger.error('Admin KPI setup error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// Changing KPIs is role-based (client decision, Oct 2026): seeing the client lets you see the
+// report; editing needs the 'kpi.manage' permission (Super Admin has it).
+const kpiEdit = [crm('clients', 'view'), requirePermission('kpi.manage')];
+
+router.put('/clients/:id/kpi-setup/:platform', ...kpiEdit, async (req, res) => {
+  try {
+    const client = await adClient(req, res);
+    if (!client) return;
+    if (!AdPerformance.PLATFORMS.includes(req.params.platform)) return res.status(400).json({ success: false, message: 'Unknown platform' });
+    const { value, error, effectiveFrom } = kpi.validateSetup(req.body);
+    if (error) return res.status(400).json({ success: false, message: error });
+    const before = await KpiSetup.findOne({ client_ref: client._id, platform: req.params.platform }).lean();
+    // A budget change applies from the chosen month (default: this month); past months keep theirs
+    const thisMonth = new Date().toLocaleDateString('en-CA').slice(0, 7);
+    const from = effectiveFrom || thisMonth;
+    // Only a real change touches the history (saving other fields leaves it as it is)
+    if (!before || kpi.budgetForMonth(before, from) !== value.monthlyBudget) {
+      const budgetHistory = kpi.withBudget(before, value.monthlyBudget, from);
+      value.budgetHistory = budgetHistory;
+      value.monthlyBudget = kpi.budgetForMonth({ budgetHistory, monthlyBudget: value.monthlyBudget }, thisMonth);
+    }
+    // Optional fields left blank are cleared, not kept
+    const unset = Object.fromEntries(Object.entries(value).filter(([, v]) => v === undefined).map(([k]) => [k, 1]));
+    const set = Object.fromEntries(Object.entries(value).filter(([, v]) => v !== undefined));
+    const saved = await KpiSetup.findOneAndUpdate(
+      { client_ref: client._id, platform: req.params.platform },
+      { $set: { ...set, updatedBy: req.user._id, updatedByName: staffName(req.user) }, ...(Object.keys(unset).length ? { $unset: unset } : {}) },
+      { upsert: true, new: true, runValidators: true }
+    ).lean();
+    const snap = (s) => s && { monthlyBudget: s.monthlyBudget, budgetHistory: s.budgetHistory, reportingFrequency: s.reportingFrequency, primaryGoal: s.primaryGoal, targetCpa: s.targetCpa, targetRoas: s.targetRoas, grossMarginPercent: s.grossMarginPercent };
+    await recordAudit(req, before ? 'KPI_SETUP_UPDATE' : 'KPI_SETUP_CREATE', 'KpiSetup', `${client.clientId}:${req.params.platform}`, snap(before), snap(saved));
+    res.json({ success: true, data: saved });
+  } catch (error) {
+    logger.error('Admin KPI setup save error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+router.delete('/clients/:id/kpi-setup/:platform', ...kpiEdit, async (req, res) => {
+  try {
+    const client = await adClient(req, res);
+    if (!client) return;
+    const removed = await KpiSetup.findOneAndDelete({ client_ref: client._id, platform: req.params.platform }).lean();
+    if (!removed) return res.status(404).json({ success: false, message: 'No KPI setup for this platform' });
+    // The period entries (qualified leads, actions) are kept: setting the platform up again brings them back
+    await recordAudit(req, 'KPI_SETUP_DELETE', 'KpiSetup', `${client.clientId}:${req.params.platform}`, { monthlyBudget: removed.monthlyBudget }, null);
+    res.json({ success: true, message: 'KPI setup removed' });
+  } catch (error) {
+    logger.error('Admin KPI setup delete error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+const kpiQuery = (req) => ({ frequency: req.query.frequency, from: req.query.from || undefined, to: req.query.to || undefined, platform: req.query.platform });
+
+router.get('/clients/:id/kpi-report', crm('clients', 'view'), async (req, res) => {
+  try {
+    const client = await adClient(req, res);
+    if (!client) return;
+    const data = await kpi.kpiReport(client._id, kpiQuery(req));
+    if (!data) return res.status(400).json({ success: false, message: 'Choose a valid date range (daily up to 3 months, weekly up to a year, monthly up to 2 years).' });
+    res.json({ success: true, data });
+  } catch (error) {
+    logger.error('Admin KPI report error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+router.get('/clients/:id/kpi-report/export.csv', crm('clients', 'view'), async (req, res) => {
+  try {
+    const client = await adClient(req, res);
+    if (!client) return;
+    const data = await kpi.kpiReport(client._id, kpiQuery(req));
+    const table = data?.tables.find((t) => t.platform === req.query.platform) || data?.tables[0];
+    if (!table) return res.status(400).json({ success: false, message: 'Nothing to export for this choice.' });
+    res.set({ 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': `attachment; filename="kpi-${table.platform}-${table.from}-to-${table.to}.csv"`, 'Cache-Control': 'private, no-store' });
+    res.send(`﻿${kpi.toCsv(table, client.businessName)}`);
+  } catch (error) {
+    logger.error('Admin KPI export error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// Qualified leads / verified orders / optimization action for one report row (employees enter, client views)
+router.put('/clients/:id/kpi-entry', ...kpiEdit, async (req, res) => {
+  try {
+    const client = await adClient(req, res);
+    if (!client) return;
+    const { value, error } = kpi.validateEntry(req.body);
+    if (error) return res.status(400).json({ success: false, message: error });
+    const key = { client_ref: client._id, platform: value.platform, frequency: value.frequency, periodStart: value.periodStart };
+    const before = await KpiPeriodEntry.findOne(key).lean();
+    const fields = { qualifiedLeads: value.qualifiedLeads, verifiedOrders: value.verifiedOrders, action: value.action };
+    const set = Object.fromEntries(Object.entries(fields).filter(([, v]) => v !== null));
+    const unset = Object.fromEntries(Object.entries(fields).filter(([, v]) => v === null).map(([k]) => [k, 1]));
+    const saved = await KpiPeriodEntry.findOneAndUpdate(key,
+      { $set: { ...set, updatedBy: req.user._id, updatedByName: staffName(req.user) }, ...(Object.keys(unset).length ? { $unset: unset } : {}) },
+      { upsert: true, new: true }).lean();
+    await recordAudit(req, 'KPI_ENTRY_SAVE', 'KpiPeriodEntry', `${client.clientId}:${value.platform}:${value.frequency}:${value.periodStart}`,
+      before && { qualifiedLeads: before.qualifiedLeads, verifiedOrders: before.verifiedOrders, action: before.action }, fields);
+    res.json({ success: true, data: saved });
+  } catch (error) {
+    logger.error('Admin KPI entry error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });

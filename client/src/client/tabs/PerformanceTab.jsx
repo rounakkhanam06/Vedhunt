@@ -5,6 +5,7 @@ import clientApi from '../../services/clientApi';
 import ColumnChart from '../components/charts/ColumnChart';
 import ChartCard from '../components/charts/ChartCard';
 import { SERIES, inrCompact, inrFull } from '../components/charts/theme';
+import ClientKpiReport from '../components/ClientKpiReport';
 
 const PERIODS = [
   { id: 'today', label: 'Today' }, { id: 'yesterday', label: 'Yesterday' }, { id: 'this_week', label: 'This week' }, { id: 'last_week', label: 'Last week' },
@@ -207,6 +208,9 @@ const PerformanceTab = () => {
           )}
         </div>
       )}
+
+      {/* KPI report: budget plan, targets and the team's actions (shown once KPIs are set up) */}
+      <ClientKpiReport />
     </div>
   );
 };
