@@ -34,6 +34,11 @@ const leaveRequestSchema = new mongoose.Schema(
       type: String,
       trim: true
     },
+    // Chargeable days (no Sundays / holidays), split against the balance when requested and
+    // again when approved (services/leavePolicy.js): days beyond the balance are unpaid (LOP)
+    days: { type: Number },
+    paidDays: { type: Number },
+    unpaidDays: { type: Number, default: 0 },
     // Who decided (HR or the reporting manager) and when
     reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin' },
     reviewedAt: { type: Date }

@@ -73,6 +73,8 @@ export default function LeadCard({ lead, onUpdated, navigate }) {
       setSaving(true);
       await essPost(`/leads/${lead._id}/notes`, { text: noteDraft, visibility: notePrivate ? 'private' : 'shared' });
       toast.success('Note added', { duration: 1000, position: 'bottom-right' });
+      setNoteDraft('');
+      setNotePrivate(false);
       const fresh = await essGet(`/leads/${lead._id}`);
       onUpdated?.(fresh.lead);
       setOpenPanel(null);

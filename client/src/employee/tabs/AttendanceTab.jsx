@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Clock } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Modal from '../../components/ui/Modal';
 import { CorrectionRequestModal, CorrectionRequestList } from '../components/CorrectionRequests';
-import { essPost, essPut, apiError, useEssLeave } from '../lib/ess';
+import MyAttendanceRegister from '../components/MyAttendanceRegister';
+import { essGet, essPost, essPut, apiError, useEssLeave } from '../lib/ess';
 import { toDateInput } from '../lib/datetime';
 import { LateBadge, ApprovalBadge } from '../components/PortalUI';
 
@@ -27,8 +28,15 @@ export default function AttendanceTab({ employee }) {
   const leaveBalances = leave?.leaveBalances || { CL: 0, SL: 0, PL: 0 };
   const leavesUsed = leave?.leavesUsed || { CL: 0, SL: 0, PL: 0 };
   const leavesPending = leave?.leavesPending || {};
-  // Days the employee can still apply for = allowance − used − held by pending requests
-  const availableLeave = (type) => Math.max(0, (leaveBalances[type] || 0) - (leavesUsed[type] || 0) - (leavesPending[type] || 0));
+  // Days the employee can still take paid = earned so far this leave year − used − held by pending requests
+  const availableLeave = (type) => leave?.leavesAvailable?.[type]
+    ?? Math.max(0, (leaveBalances[type] || 0) - (leavesUsed[type] || 0) - (leavesPending[type] || 0));
+  const perPeriod = (type) => {
+    const n = leave?.leavePerPeriod?.[type];
+    if (n == null) return '';
+    const period = type === 'EL' ? leave?.elPeriod : leave?.leaveBalancePeriod;
+    return period === 'Month' ? `${n} per month` : period === 'Probation' ? `${n} for probation` : `${n} per year`;
+  };
 
   const onProbation = employee.employmentStatus === 'Probation' && employee.probation?.isApplicable;
   const availableLeaveTypes = onProbation ? [{ value: 'EL', label: 'Emergency Leave (EL)' }] : LEAVE_TYPES;
@@ -75,7 +83,13 @@ export default function AttendanceTab({ employee }) {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-lg font-bold text-app-text">Leave Balances (Per {leave?.leaveBalancePeriod || 'Year'})</h2>
+      <div>
+        <h2 className="text-lg font-bold text-app-text">Leave Balances</h2>
+        <p className="text-xs text-app-text-muted mt-0.5">
+          {leave?.leaveBalancePeriod === 'Month' ? 'Earned every month and carried forward until the leave year ends.' : 'Allowance for the leave year.'}
+          {leave?.leaveYear?.start && ` Leave year: ${new Date(leave.leaveYear.start).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })} – ${new Date(new Date(leave.leaveYear.end).getTime() - 86400000).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}.`}
+        </p>
+      </div>
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         {onProbation ? (
           <div className="bg-app-card p-4 rounded-xl border border-blue-500/20 flex flex-col justify-between items-center text-center">
@@ -83,6 +97,7 @@ export default function AttendanceTab({ employee }) {
             <div className="text-2xl font-black text-blue-500 font-mono mt-2">
               {availableLeave('EL')} <span className="text-sm text-blue-400/60 font-normal">/ {leaveBalances.EL || 0}</span>
             </div>
+            <div className="text-[11px] text-blue-400/70 mt-1">{perPeriod('EL')}</div>
           </div>
         ) : LEAVE_TYPES.map((lt) => (
           <div key={lt.value} className="bg-app-card p-4 rounded-xl border border-app-border flex flex-col justify-between items-center text-center">
@@ -90,6 +105,7 @@ export default function AttendanceTab({ employee }) {
             <div className="text-2xl font-black text-primary font-mono mt-2">
               {availableLeave(lt.value)} <span className="text-sm text-app-text-muted font-normal">/ {leaveBalances[lt.value] || 0}</span>
             </div>
+            <div className="text-[11px] text-app-text-muted mt-1">{perPeriod(lt.value)}{leavesUsed[lt.value] ? ` · ${leavesUsed[lt.value]} used` : ''}</div>
           </div>
         ))}
         <div className="bg-app-card p-4 rounded-xl border border-app-border flex flex-col gap-2 items-stretch justify-center">
@@ -178,6 +194,8 @@ export default function AttendanceTab({ employee }) {
           </table>
         </div>
       </div>
+
+      <MyAttendanceRegister />
 
       <CorrectionRequestList kind="Attendance" />
 
@@ -297,7 +315,7 @@ export default function AttendanceTab({ employee }) {
                 {availableLeaveTypes.map((lt) => <option key={lt.value} value={lt.value}>{lt.label}</option>)}
               </select>
               <p className={`text-xs mt-1 ${availableLeave(leaveForm.leaveType) === 0 ? 'text-rose-400' : 'text-app-text-muted'}`}>
-                Available: <strong>{availableLeave(leaveForm.leaveType)}</strong> day{availableLeave(leaveForm.leaveType) === 1 ? '' : 's'}
+                Available now: <strong>{availableLeave(leaveForm.leaveType)}</strong> day{availableLeave(leaveForm.leaveType) === 1 ? '' : 's'}
                 {leavesPending[leaveForm.leaveType] ? ` (${leavesPending[leaveForm.leaveType]} pending approval)` : ''} · Sundays and holidays are not counted
               </p>
             </div>
@@ -313,6 +331,7 @@ export default function AttendanceTab({ employee }) {
                   className="w-full text-sm rounded-lg border border-app-border bg-form-input-bg px-4 py-2 text-app-text" />
               </div>
             </div>
+            <LeavePreview leaveType={leaveForm.leaveType} startDate={leaveForm.startDate} endDate={leaveForm.endDate} />
             <div>
               <label className="block text-xs text-app-text-muted mb-1">Reason for Leave</label>
               <textarea required rows={3} placeholder="Please provide a brief reason..." value={leaveForm.reason} onChange={(e) => setLeaveForm((f) => ({ ...f, reason: e.target.value }))}
@@ -324,6 +343,31 @@ export default function AttendanceTab({ employee }) {
           </form>
         </Modal>
       )}
+    </div>
+  );
+}
+
+/** How the chosen dates will be counted: chargeable days, paid from the balance, unpaid beyond it. */
+function LeavePreview({ leaveType, startDate, endDate }) {
+  const [preview, setPreview] = useState(null);
+  useEffect(() => {
+    if (!startDate || !endDate || endDate < startDate) return undefined;
+    let live = true;
+    const t = setTimeout(() => {
+      essGet('/leave-requests/preview', { params: { leaveType, startDate, endDate } })
+        .then((r) => { if (live) setPreview({ key: `${leaveType}|${startDate}|${endDate}`, ...r }); })
+        .catch(() => { if (live) setPreview(null); });
+    }, 250);
+    return () => { live = false; clearTimeout(t); };
+  }, [leaveType, startDate, endDate]);
+  if (!preview || preview.key !== `${leaveType}|${startDate}|${endDate}`) return null;
+  if (!preview.days) return <p className="text-xs text-app-text-muted">These dates are all Sundays or holidays — no leave is needed.</p>;
+  return (
+    <div className={`text-xs rounded-lg border p-3 ${preview.unpaidDays ? 'border-rose-500/30 bg-rose-500/5 text-rose-400' : 'border-app-border text-app-text-muted'}`}>
+      <strong>{preview.days}</strong> day{preview.days === 1 ? '' : 's'} of leave
+      {preview.unpaidDays
+        ? <> · <strong>{preview.paidDays}</strong> paid from your balance, <strong>{preview.unpaidDays}</strong> unpaid (deducted from salary as loss of pay).</>
+        : ' · all paid from your balance.'}
     </div>
   );
 }

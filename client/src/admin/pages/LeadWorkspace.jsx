@@ -299,8 +299,10 @@ export default function LeadWorkspace() {
     try {
       await handleFieldsChange({ callNote: text });
       setCallNoteDraft(null);
+      return true;
     } catch {
       // handleFieldsChange already showed why (e.g. only the caller may change a call's note)
+      return false;
     } finally {
       setNoteSaving(false);
     }

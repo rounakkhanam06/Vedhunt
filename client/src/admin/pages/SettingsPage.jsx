@@ -1362,6 +1362,49 @@ const SettingsPage = () => {
                       />
                     </div>
                   </div>
+                  <p className="text-xs text-app-text-muted mt-3">
+                    {attendanceRules.leaveBalancePeriod === 'Month'
+                      ? 'Earned every month and carried forward until the leave year ends — e.g. CL 1 per month means 6 CL available by the 6th month.'
+                      : 'The full amount is available from the start of the leave year.'}
+                    {' '}Leave beyond the balance can still be requested; the extra days are unpaid (loss of pay). An employee's own allowance can be changed in Employee Manager.
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mt-6 pt-6 border-t border-app-border">
+                    <div>
+                      <label className={labelClasses}>Leave year starts in</label>
+                      <select
+                        name="leaveYearStartMonth"
+                        value={attendanceRules.leaveYearStartMonth || 1}
+                        onChange={(e) => setAttendanceRules((prev) => ({ ...prev, leaveYearStartMonth: Number(e.target.value) }))}
+                        className={inputClasses}
+                      >
+                        {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map((m, i) => (
+                          <option key={m} value={i + 1}>{m}</option>
+                        ))}
+                      </select>
+                      <p className="text-xs text-app-text-muted mt-2">Balances reset at the start of each leave year.</p>
+                    </div>
+                    <div>
+                      <label className={labelClasses}>Emergency Leave (EL) — probation</label>
+                      <select
+                        value={attendanceRules.elPolicy?.mode || 'Month'}
+                        onChange={(e) => setAttendanceRules((prev) => ({ ...prev, elPolicy: { amount: 1, ...prev.elPolicy, mode: e.target.value } }))}
+                        className={inputClasses}
+                      >
+                        <option value="Month">Per month of probation</option>
+                        <option value="Fixed">Fixed for the whole probation</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className={labelClasses}>EL {(attendanceRules.elPolicy?.mode || 'Month') === 'Month' ? 'per month' : 'for the probation'}</label>
+                      <input
+                        type="number" min="0" step="0.5"
+                        value={attendanceRules.elPolicy?.amount ?? 1}
+                        onChange={(e) => setAttendanceRules((prev) => ({ ...prev, elPolicy: { mode: 'Month', ...prev.elPolicy, amount: Number(e.target.value) } }))}
+                        className={inputClasses}
+                      />
+                      <p className="text-xs text-app-text-muted mt-2">Only EL can be used during probation; CL / SL / PL start after confirmation.</p>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}

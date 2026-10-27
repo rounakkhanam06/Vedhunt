@@ -3,7 +3,7 @@
 const LeaveRequest = require('../models/LeaveRequest');
 const Employee = require('../models/Employee');
 const Holiday = require('../models/Holiday');
-const { countChargeableDays, availableDays } = require('./leavePolicy');
+const { countChargeableDays, splitRequest } = require('./leavePolicy');
 const { notifyStaff } = require('./staffNotify');
 
 const ok = (data = {}) => ({ ok: true, ...data });
@@ -48,20 +48,24 @@ async function reviewLeaveRequest(id, status, comment, { reviewerLabel = 'HR', r
   // Only pending requests, to avoid double-processing
   if (leaveRequest.status !== 'Pending') return fail(400, 'Only pending requests can be approved or rejected.');
 
-  const requester = await Employee.findById(leaveRequest.employeeId).select('adminId leaveBalances leavesUsed firstName');
-  // The balance may have changed since the request was made (allowance edited, another leave approved)
+  const requester = await Employee.findById(leaveRequest.employeeId).select('adminId leaveOverrides joinDate probation employmentStatus firstName');
+  // The balance may have changed since the request was made (policy edited, another leave approved),
+  // so the paid / unpaid split is worked out again now; days beyond the balance are unpaid (LOP).
+  let split = null;
   if (status === 'Approved' && requester) {
     const days = await countChargeableDays(leaveRequest.startDate, leaveRequest.endDate);
-    const balance = await availableDays(requester, leaveRequest.leaveType || 'PL', { excludeRequestId: leaveRequest._id });
-    if (days > balance.available) {
-      return fail(400, `Cannot approve: needs ${days} day${days > 1 ? 's' : ''} of ${leaveRequest.leaveType}, but only ${balance.available} ${balance.available === 1 ? 'is' : 'are'} available.`, { code: 'INSUFFICIENT_LEAVE_BALANCE' });
-    }
+    split = await splitRequest(requester, leaveRequest.leaveType || 'PL', leaveRequest.startDate, days, { excludeRequestId: leaveRequest._id });
   }
 
   // Claim the request atomically so HR and the manager can't both process it.
   const claimed = await LeaveRequest.findOneAndUpdate(
     { _id: leaveRequest._id, status: 'Pending' },
-    { $set: { status, ...(comment ? { adminComment: comment } : {}), ...(reviewerId ? { reviewedBy: reviewerId, reviewedAt: new Date() } : {}) } },
+    { $set: {
+      status,
+      ...(split ? { days: split.days, paidDays: split.paidDays, unpaidDays: split.unpaidDays } : {}),
+      ...(comment ? { adminComment: comment } : {}),
+      ...(reviewerId ? { reviewedBy: reviewerId, reviewedAt: new Date() } : {}),
+    } },
     { returnDocument: 'after' }
   );
   if (!claimed) return fail(409, 'This request has already been processed.');
@@ -73,11 +77,17 @@ async function reviewLeaveRequest(id, status, comment, { reviewerLabel = 'HR', r
     await notifyStaff(requester.adminId, {
       type: 'leave_decision',
       title: `Leave ${status.toLowerCase()}: ${claimed.leaveType} ${range}`,
-      message: comment ? `${reviewerLabel} note: ${String(comment).slice(0, 200)}` : `Your leave request was ${status.toLowerCase()}.`,
+      message: [
+        split?.unpaidDays ? `${split.paidDays} paid, ${split.unpaidDays} unpaid (beyond your balance).` : '',
+        comment ? `${reviewerLabel} note: ${String(comment).slice(0, 200)}` : `Your leave request was ${status.toLowerCase()}.`,
+      ].filter(Boolean).join(' '),
       link: '/employee/dashboard?tab=attendance',
     });
   }
-  return ok({ leaveRequest: claimed, message: `Leave request ${status.toLowerCase()} successfully` });
+  return ok({
+    leaveRequest: claimed,
+    message: `Leave request ${status.toLowerCase()} successfully${split?.unpaidDays ? ` — ${split.paidDays} paid, ${split.unpaidDays} unpaid (LOP)` : ''}`,
+  });
 }
 
 module.exports = { reviewLeaveRequest };

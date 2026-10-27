@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { usePageAccess } from '../../shared/crmAccess';
 import toast from 'react-hot-toast';
-import { Calendar, UserCheck, UserX, Clock, AlertTriangle, AlertCircle, FileText, List, Settings2 } from 'lucide-react';
+import { Calendar, UserCheck, UserX, Clock, AlertTriangle, AlertCircle, FileText, List, Settings2, Table2 } from 'lucide-react';
 import LeaveRequestsManager from './LeaveRequestsManager';
 import ActivityMasterSettings from '../components/ActivityMasterSettings';
+import AttendanceRegister from '../components/AttendanceRegister';
 import { formatDuration } from '../../utils/formatDuration';
 
 export default function AttendanceManager() {
@@ -92,6 +93,9 @@ export default function AttendanceManager() {
       <div className="flex border-b border-app-border mb-8 overflow-x-auto">
         <button className={tabClasses('roster')} onClick={() => setActiveTab('roster')}>
           <Calendar size={18} className="shrink-0" /> <span className="whitespace-nowrap">Daily Roster</span>
+        </button>
+        <button className={tabClasses('register')} onClick={() => setActiveTab('register')}>
+          <Table2 size={18} className="shrink-0" /> <span className="whitespace-nowrap">Attendance Register</span>
         </button>
         <button className={tabClasses('leave')} onClick={() => setActiveTab('leave')}>
           <List size={18} className="shrink-0" /> <span className="whitespace-nowrap">Leave Requests</span>
@@ -223,6 +227,8 @@ export default function AttendanceManager() {
       </div>
       </div>
       )}
+
+      {activeTab === 'register' && <AttendanceRegister http={http} root={root} />}
 
       {activeTab === 'leave' && (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">

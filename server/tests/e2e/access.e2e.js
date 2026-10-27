@@ -1200,6 +1200,40 @@ describe('Cross-assignment and lead notes — enforced by the server', () => {
     assert.equal(String(timeline[0].updatedBy), ids[helper]);
   });
 
+  test('only a super admin edits or deletes a note; both are audited and the note leaves every list', async () => {
+    const LeadNote = require('../../models/LeadNote');
+    const AuditLog = require('../../models/AuditLog');
+    const adminNotes = async () => (await call('super', 'GET', `/leads/${ids.collabLead}/notes`)).body.data;
+    const shared = (await adminNotes()).find((n) => n.text === 'HELPER-SHARED');
+    assert.equal(shared.canManage, true);
+    const bdeView = (await call('bde', 'GET', `${ess}/${ids.collabLead}/notes`)).body.notes;
+    assert.ok(bdeView.every((n) => n.canManage === false));
+
+    // Not a super admin: refused, whatever their lead access
+    assert.equal((await call('teamLead', 'PUT', `${g}/leads/${ids.collabLead}/notes/${shared._id}`, { text: 'hijack' })).status, 403);
+    assert.equal((await call('teamLead', 'POST', `${g}/leads/${ids.collabLead}/notes/${shared._id}/remove`)).status, 403);
+
+    assert.equal((await call('super', 'PUT', `/leads/${ids.collabLead}/notes/${shared._id}`, { text: '  ' })).status, 400);
+    const edited = await call('super', 'PUT', `/leads/${ids.collabLead}/notes/${shared._id}`, { text: 'HELPER-SHARED (fixed typo)' });
+    assert.equal(edited.status, 200);
+    assert.equal(edited.body.data.text, 'HELPER-SHARED (fixed typo)');
+    assert.ok(edited.body.data.editedAt);
+    const editLog = await AuditLog.findOne({ action: 'LEAD_NOTE_EDIT', recordId: String(shared._id) }).lean();
+    assert.equal(editLog.beforeSnapshot.text, 'HELPER-SHARED');
+    assert.ok((await call('bde', 'GET', `${ess}/${ids.collabLead}/notes`)).body.notes.some((n) => n.text === 'HELPER-SHARED (fixed typo)'));
+
+    assert.equal((await call('super', 'DELETE', `/leads/${ids.collabLead}/notes/${shared._id}`)).status, 200);
+    assert.equal((await call('super', 'DELETE', `/leads/${ids.collabLead}/notes/${shared._id}`)).status, 404); // already gone
+    assert.ok(!(await adminNotes()).some((n) => String(n._id) === String(shared._id)));
+    assert.ok(!(await call('bde', 'GET', `${ess}/${ids.collabLead}/notes`)).body.notes.some((n) => String(n._id) === String(shared._id)));
+    // Kept, hidden, and audited
+    const doc = await LeadNote.findById(shared._id).lean();
+    assert.ok(doc.deletedAt);
+    assert.equal(String(doc.deletedBy), ids.super);
+    assert.ok(await AuditLog.exists({ action: 'LEAD_NOTE_DELETE', recordId: String(shared._id) }));
+    assert.equal((await call('super', 'PUT', `/leads/${ids.collabLead}/notes/not-an-id`, { text: 'x' })).status, 404);
+  });
+
   test('removing the cross-assignment cuts access on the next request and is audited', async () => {
     assert.equal((await call('super', 'DELETE', `/leads/${ids.collabLead}/share/${ids[helper]}`)).status, 200);
     assert.equal((await call('super', 'DELETE', `/leads/${ids.collabLead}/share/${ids[helper]}`)).status, 404);
@@ -2599,5 +2633,238 @@ describe('Call note — optional text on the call record', () => {
     const stamp = String(lead.lastActivityAt);
     await call('bde', 'PUT', `${ess}/${L.edit}`, { callNote: 'again' });
     assert.equal(String((await doc('edit')).lastActivityAt), stamp, 'last-activity time is only moved by real activity');
+  });
+});
+
+describe('Attendance Register — date range, statuses, hours colour, summaries, Excel', () => {
+  // Week of Mon 9 – Sun 15 Mar 2026 (+ Mon 16) for the grantee, who reports to hrLead
+  const oidOf = (key) => new mongoose.Types.ObjectId(ids[`emp_${key}`]);
+  const db = () => mongoose.connection.db;
+  const at = (day) => new Date(`${day}T00:00:00`);
+  const rows = [
+    { date: at('2026-03-09'), status: 'Present', clockIn: '09:00 AM', clockOut: '06:00 PM' }, // 9h → over
+    { date: at('2026-03-10'), status: 'Present', clockIn: '09:30 AM', clockOut: '05:30 PM', lateByMins: 30 }, // 8h → exact
+    { date: at('2026-03-11'), status: 'Present', clockIn: '09:00 AM', clockOut: '12:00 PM' }, // 3h → under, Half Day
+    // 12 Mar: nothing → Absent · 13 Mar: approved leave · 14 Mar: holiday · 15 Mar: Sunday
+    { date: at('2026-03-16'), status: 'Present', clockIn: '02:00 PM', clockOut: '', missedClockOut: true }, // late, no clock-out → still Present
+  ];
+  let joinDate;
+  let holidayId;
+  let leaveId;
+
+  before(async () => {
+    joinDate = (await db().collection('employees').findOne({ _id: oidOf('grantee') })).joinDate;
+    await db().collection('employees').updateOne({ _id: oidOf('grantee') }, { $set: { joinDate: at('2026-01-01') }, $push: { attendance: { $each: rows } } });
+    holidayId = (await db().collection('holidays').insertOne({ name: 'Register Test Day', date: at('2026-03-14'), createdAt: new Date() })).insertedId;
+    leaveId = (await db().collection('leaverequests').insertOne({
+      employeeId: oidOf('grantee'), leaveType: 'CL', startDate: at('2026-03-13'), endDate: at('2026-03-13'), reason: 'x', status: 'Approved', days: 1, createdAt: new Date(),
+    })).insertedId;
+  });
+  after(async () => {
+    await db().collection('employees').updateOne({ _id: oidOf('grantee') }, { $set: { joinDate }, $pull: { attendance: { date: { $in: rows.map((r) => r.date) } } } });
+    await db().collection('holidays').deleteOne({ _id: holidayId });
+    await db().collection('leaverequests').deleteOne({ _id: leaveId });
+  });
+
+  const register = async (who, url) => {
+    const r = await call(who, 'GET', url);
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    return r.body;
+  };
+
+  test('each day gets its status, times and hours band; totals add up', async () => {
+    const body = await register('super', '/employees/admin/attendance/register?from=2026-03-09&to=2026-03-16');
+    assert.equal(body.dates.length, 8);
+    const g = body.employees.find((e) => String(e._id) === ids.emp_grantee);
+    const by = Object.fromEntries(g.days.map((d) => [d.date, d]));
+    assert.deepEqual(g.days.map((d) => d.status), ['Present', 'Present', 'Half Day', 'Absent', 'Leave', 'Holiday', 'Weekly Off', 'Present']);
+    assert.equal(by['2026-03-09'].workedMinutes, 540);
+    assert.equal(by['2026-03-09'].hoursBand, 'over');
+    assert.equal(by['2026-03-10'].hoursBand, 'exact');
+    assert.equal(by['2026-03-10'].lateByMins, 30);
+    assert.equal(by['2026-03-11'].hoursBand, 'under');
+    assert.equal(by['2026-03-10'].checkIn, '09:30 AM');
+    assert.equal(by['2026-03-10'].checkOut, '05:30 PM');
+    assert.equal(by['2026-03-14'].note, 'Register Test Day');
+    assert.equal(by['2026-03-16'].missedClockOut, true);
+    assert.equal(by['2026-03-16'].workedMinutes, null);
+
+    const s = g.summary;
+    assert.deepEqual([s.present, s.halfDay, s.absent, s.leave, s.holiday, s.weeklyOff], [3, 1, 1, 1, 1, 1]);
+    assert.equal(s.workingDays, 6);
+    assert.equal(s.presentDays, 3.5);
+    assert.equal(s.workedMinutes, 540 + 480 + 180);
+    assert.equal(s.lateDays, 1);
+    assert.equal(s.missedClockOut, 1);
+
+    // Someone who joined later shows those days as not employed, not absent
+    const bde = body.employees.find((e) => String(e._id) === ids.emp_bde);
+    assert.ok(bde.days.every((d) => d.status === 'Not employed'));
+    assert.equal(bde.summary.absent, 0);
+  });
+
+  test('a range across months carries a summary per month; daily = one date', async () => {
+    const body = await register('super', '/employees/admin/attendance/register?from=2026-02-27&to=2026-03-10');
+    const g = body.employees.find((e) => String(e._id) === ids.emp_grantee);
+    assert.deepEqual(g.months.map((m) => m.month), ['2026-02', '2026-03']);
+    assert.equal(g.months[1].present, 2);
+    const one = await register('super', '/employees/admin/attendance/register?from=2026-03-11&to=2026-03-11');
+    assert.deepEqual(one.dates, ['2026-03-11']);
+  });
+
+  test('search narrows to matching employees; bad ranges are refused', async () => {
+    const all = await register('super', '/employees/admin/attendance/register?from=2026-03-09&to=2026-03-09');
+    const name = all.employees.find((e) => String(e._id) === ids.emp_grantee).name.split(' ')[0];
+    const found = await register('super', `/employees/admin/attendance/register?from=2026-03-09&to=2026-03-09&search=${encodeURIComponent(name)}`);
+    assert.ok(found.employees.some((e) => String(e._id) === ids.emp_grantee));
+    assert.ok(found.employees.length < all.employees.length);
+
+    const url = '/employees/admin/attendance/register';
+    assert.equal((await call('super', 'GET', `${url}?from=2026-03-10&to=2026-03-01`)).status, 400);
+    assert.equal((await call('super', 'GET', `${url}?from=2024-01-01&to=2026-03-01`)).status, 400);
+    assert.equal((await call('super', 'GET', `${url}?from=nope`)).status, 400);
+  });
+
+  test('a scoped person sees only their reports; an employee sees only their own record', async () => {
+    const g = '/employee-portal/grants/employees/admin/attendance/register?from=2026-03-09&to=2026-03-15';
+    const scoped = await register('hrLead', g);
+    assert.deepEqual(scoped.employees.map((e) => String(e._id)).sort(), [ids.emp_grantee, ids.emp_legacy].sort());
+    assert.equal((await call('outsider', 'GET', g)).status, 403);
+
+    const mine = await register('grantee', '/employee-portal/ess/attendance/register?from=2026-03-09&to=2026-03-15');
+    assert.equal(String(mine.record._id), ids.emp_grantee);
+    assert.equal(mine.record.summary.present, 2);
+    assert.equal(mine.employees, undefined);
+  });
+
+  test('Excel export: colour-coded workbook with Date-wise, Summary and Monthly sheets', async () => {
+    const ExcelJS = require('exceljs');
+    const get = (who, url) => fetch(base + url, { headers: { authorization: `Bearer ${token(who)}` } });
+    const res = await get('grantee', '/employee-portal/ess/attendance/register/export?from=2026-03-09&to=2026-03-16');
+    assert.equal(res.status, 200);
+    assert.match(res.headers.get('content-type'), /spreadsheetml/);
+    assert.match(res.headers.get('content-disposition'), /my-attendance_2026-03-09_to_2026-03-16\.xlsx/);
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(Buffer.from(await res.arrayBuffer()));
+    assert.deepEqual(wb.worksheets.map((w) => w.name), ['Date-wise', 'Summary', 'Monthly Summary', 'About']);
+    const daily = wb.getWorksheet('Date-wise');
+    assert.equal(daily.rowCount, 1 + 8);
+    const hoursCol = daily.getRow(1).values.indexOf('Working hours');
+    const colour = (r) => daily.getRow(r).getCell(hoursCol).fill?.fgColor?.argb;
+    assert.equal(daily.getRow(2).getCell(hoursCol).value, '9h 00m');
+    assert.equal(colour(2), 'FFC6EFCE'); // > 8h green
+    assert.equal(colour(3), 'FFFFE699'); // = 8h amber
+    assert.equal(colour(4), 'FFFFC7CE'); // < 8h red
+
+    assert.equal((await get('super', '/employees/admin/attendance/register/export?from=2026-03-09&to=2026-03-10')).status, 200);
+    assert.equal((await get('super', '/employees/admin/attendance/register/export?from=bad')).status, 400);
+  });
+
+  test('payroll counts days from the register: clock-in is the source, timesheet only a fallback', async () => {
+    const { computeMonthlyAttendance } = require('../../services/attendanceEngine');
+    const emp = { _id: oidOf('grantee') };
+    // March 2026: 25 working days (31 − 5 Sundays − the 14th holiday). Present 9, 10, 16 (missed clock-out
+    // still counts), Half Day 11, paid leave 13 — no timer entries on any of them. Every other working day: absent.
+    assert.deepEqual(await computeMonthlyAttendance(emp, 3, 2026), { totalDaysInMonth: 31, presentDays: 3.5, paidLeaveDays: 1, lopDays: 20.5 });
+
+    // A day with timer entries but no clock-in falls back to the timer
+    const wl = await db().collection('worklogs').insertOne({
+      employeeId: oidOf('grantee'), project: 'P', task: 'T', activityType: 'Development', isProductive: true,
+      startTime: new Date('2026-03-17T10:00:00'), endTime: new Date('2026-03-17T18:00:00'), duration: 480, createdAt: new Date(),
+    });
+    try {
+      assert.deepEqual(await computeMonthlyAttendance(emp, 3, 2026), { totalDaysInMonth: 31, presentDays: 4.5, paidLeaveDays: 1, lopDays: 19.5 });
+    } finally {
+      await db().collection('worklogs').deleteOne({ _id: wl.insertedId });
+    }
+  });
+});
+
+describe('Monthly leave policy — accrual, unpaid days beyond the balance, payroll LOP', () => {
+  const oidOf = (key) => new mongoose.Types.ObjectId(ids[`emp_${key}`]);
+  const db = () => mongoose.connection.db;
+  const ess = '/employee-portal/ess/leave-requests';
+  const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  // Next month, three working days from the 10th. The leave year is set to begin next month,
+  // so with CL 1 per month only 1 CL has been earned by then.
+  const now = new Date();
+  const first = new Date(now.getFullYear(), now.getMonth() + 1, 10);
+  const dates = [];
+  for (let d = new Date(first); dates.length < 3; d.setDate(d.getDate() + 1)) if (d.getDay() !== 0) dates.push(new Date(d));
+  const [from, , to] = dates;
+  let previousRules;
+  let joinDate;
+  const created = [];
+
+  before(async () => {
+    previousRules = await db().collection('settings').findOne({ key: 'attendance_rules' });
+    await db().collection('settings').updateOne({ key: 'attendance_rules' }, { $set: { value: {
+      halfDayCheckInLimit: '13:00', halfDayHoursThreshold: 4.5,
+      leaveBalancePeriod: 'Month', defaultLeaves: { CL: 1, SL: 1, PL: 1 }, leaveYearStartMonth: first.getMonth() + 1,
+      elPolicy: { mode: 'Month', amount: 1 },
+    } } }, { upsert: true });
+    joinDate = (await db().collection('employees').findOne({ _id: oidOf('grantee') })).joinDate;
+    await db().collection('employees').updateOne({ _id: oidOf('grantee') }, { $set: { joinDate: new Date(2025, 0, 1) } });
+  });
+  after(async () => {
+    if (previousRules) await db().collection('settings').replaceOne({ key: 'attendance_rules' }, previousRules);
+    else await db().collection('settings').deleteOne({ key: 'attendance_rules' });
+    await db().collection('employees').updateOne({ _id: oidOf('grantee') }, { $set: { joinDate } });
+    await db().collection('leaverequests').deleteMany({ _id: { $in: created } });
+  });
+
+  test('beyond the balance is still allowed: the extra days are unpaid, shown before submitting', async () => {
+    const q = `?leaveType=CL&startDate=${ymd(from)}&endDate=${ymd(to)}`;
+    const preview = await call('grantee', 'GET', `${ess}/preview${q}`);
+    assert.equal(preview.status, 200);
+    assert.deepEqual([preview.body.days, preview.body.paidDays, preview.body.unpaidDays], [3, 1, 2]);
+
+    const r = await call('grantee', 'POST', ess, { leaveType: 'CL', startDate: ymd(from), endDate: ymd(to), reason: 'Family function' });
+    assert.equal(r.status, 201, JSON.stringify(r.body));
+    assert.deepEqual([r.body.paidDays, r.body.unpaidDays], [1, 2]);
+    assert.match(r.body.message, /1 paid, 2 unpaid/);
+    created.push(new mongoose.Types.ObjectId(r.body.leaveRequest._id));
+    ids.monthlyLeave = r.body.leaveRequest._id;
+
+    // The pending request holds the one earned CL: SL is separate, a second CL is all unpaid
+    const sl = await call('grantee', 'GET', `${ess}/preview?leaveType=SL&startDate=${ymd(from)}&endDate=${ymd(from)}`);
+    assert.deepEqual([sl.body.paidDays, sl.body.unpaidDays], [1, 0]);
+    const cl = await call('grantee', 'GET', `${ess}/preview?leaveType=CL&startDate=${ymd(from)}&endDate=${ymd(from)}`);
+    assert.deepEqual([cl.body.paidDays, cl.body.unpaidDays], [0, 1]);
+  });
+
+  test('a per-person allowance changes the split; approval re-checks it', async () => {
+    const res = await call('super', 'PUT', `/employees/${ids.emp_grantee}`, { leaveOverrides: { CL: 2, SL: '' } });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    const bal = await call('super', 'GET', `/employees/${ids.emp_grantee}/leave-balance`);
+    assert.equal(bal.body.overrides.CL, 2);
+    assert.ok(bal.body.overrides.SL == null, 'empty = company default');
+    assert.equal((await call('super', 'PUT', `/employees/${ids.emp_grantee}`, { leaveOverrides: { CL: -1 } })).status, 400);
+
+    // Admin list shows this type's balance for the pending request
+    const list = await call('super', 'GET', '/employees/admin/leave-requests');
+    const row = list.body.leaveRequests.find((x) => x._id === ids.monthlyLeave);
+    assert.equal(row.balance.allowance, 2);
+    assert.equal(row.balance.available, 2);
+
+    const ok = await call('super', 'PUT', `/employees/admin/leave-requests/${ids.monthlyLeave}/status`, { status: 'Approved' });
+    assert.equal(ok.status, 200, JSON.stringify(ok.body));
+    const doc = await db().collection('leaverequests').findOne({ _id: new mongoose.Types.ObjectId(ids.monthlyLeave) });
+    assert.deepEqual([doc.days, doc.paidDays, doc.unpaidDays], [3, 2, 1]);
+    assert.match(ok.body.message, /2 paid, 1 unpaid/);
+  });
+
+  test('the register marks the unpaid day and payroll deducts it as LOP', async () => {
+    const reg = await call('super', 'GET', `/employees/admin/attendance/register?from=${ymd(from)}&to=${ymd(to)}`);
+    const g = reg.body.employees.find((e) => String(e._id) === ids.emp_grantee);
+    assert.deepEqual(g.days.filter((d) => d.status === 'Leave').map((d) => d.unpaidLeave), [false, false, true]);
+    assert.equal(g.summary.unpaidLeave, 1);
+
+    const { computeMonthlyAttendance } = require('../../services/attendanceEngine');
+    const month = await computeMonthlyAttendance({ _id: oidOf('grantee') }, from.getMonth() + 1, from.getFullYear());
+    // Next month is still ahead, so its other days are not counted yet
+    assert.equal(month.paidLeaveDays, 2);
+    assert.equal(month.lopDays, 1);
+    await db().collection('employees').updateOne({ _id: oidOf('grantee') }, { $set: { leaveOverrides: { CL: null, SL: null, PL: null, EL: null } } });
   });
 });

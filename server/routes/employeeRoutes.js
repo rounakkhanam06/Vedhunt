@@ -4,6 +4,8 @@ const Employee = require('../models/Employee');
 const Client = require('../models/Client');
 const { TASK_STATUSES } = Employee;
 const { reviewLeaveRequest } = require('../services/leaveReview');
+const attendanceRegister = require('../services/attendanceRegister');
+const { LEAVE_TYPES, availableDays, leaveSummary, getLeaveRules } = require('../services/leavePolicy');
 const { sendResult } = require('../utils/apiResponse');
 const WorkLog = require('../models/WorkLog');
 const Admin = require('../models/Admin');
@@ -631,7 +633,8 @@ scoped.put('/:id', employeeEditGuard, async (req, res) => {
       taskStatusUpdate,
       newGoal,
       newPayslip,
-      leaveBalances
+      leaveBalances,
+      leaveOverrides
     } = req.body;
 
     const employee = await Employee.findById(req.params.id);
@@ -720,6 +723,18 @@ scoped.put('/:id', employeeEditGuard, async (req, res) => {
     if (panNumber) employee.panNumber = encrypt(panNumber.toUpperCase());
     if (aadhaarNumber) employee.aadhaarNumber = encrypt(aadhaarNumber.replace(/\s+/g, ''));
     if (leaveBalances) employee.leaveBalances = leaveBalances;
+    // Per-person allowance (same period as the company policy); empty / null = company default
+    if (leaveOverrides && typeof leaveOverrides === 'object') {
+      for (const type of LEAVE_TYPES) {
+        if (!(type in leaveOverrides)) continue;
+        const v = leaveOverrides[type];
+        const n = v === null || v === '' ? null : Number(v);
+        if (n !== null && (!Number.isFinite(n) || n < 0 || n > 366)) {
+          return res.status(400).json({ success: false, message: `Enter a valid ${type} allowance (0 or more), or leave it empty for the company default.` });
+        }
+        employee.set(`leaveOverrides.${type}`, n);
+      }
+    }
     employee.set(pickProfileFields(req.body));
 
     const historyEntry = (text) => ({ text, by: req.user._id, byName: adminName(req.user), at: new Date() });
@@ -927,8 +942,15 @@ scoped.get('/admin/leave-requests', requirePageAccess('leave', 'view'), async (r
   try {
     const ids = await scopedEmployeeIds(req);
     const leaveRequests = await LeaveRequest.find(ids ? { employeeId: { $in: ids } } : {})
-      .populate('employeeId', 'firstName lastName employeeId leaveBalances leavesUsed')
-      .sort({ createdAt: -1 });
+      .populate('employeeId', 'firstName lastName employeeId leaveOverrides joinDate probation employmentStatus')
+      .sort({ createdAt: -1 })
+      .lean();
+    // Each pending request carries the employee's balance of that type, as of the leave's start date
+    const rules = await getLeaveRules();
+    for (const r of leaveRequests) {
+      if (r.status !== 'Pending' || !r.employeeId) continue;
+      r.balance = await availableDays(r.employeeId, r.leaveType, { asOf: r.startDate, excludeRequestId: r._id, rules });
+    }
     res.json({ success: true, leaveRequests });
   } catch (error) {
     logger.error('Error fetching all leave requests:', error);
@@ -1124,6 +1146,45 @@ scoped.get('/admin/attendance/daily', requirePageAccess('attendance', 'view'), a
     res.json({ success: true, roster });
   } catch (error) {
     logger.error('Error fetching daily roster:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// Admin: Attendance Register — each employee's date-wise attendance for a From–To range
+// (a day, a month or any range up to a year), with summaries. ?from=YYYY-MM-DD&to=YYYY-MM-DD&search=
+scoped.get('/admin/attendance/register', requirePageAccess('attendance', 'view'), async (req, res) => {
+  try {
+    const result = await attendanceRegister.buildRegister({ from: req.query.from, to: req.query.to, search: req.query.search, employeeIds: await scopedEmployeeIds(req) });
+    if (!result.ok) return res.status(result.status).json({ success: false, message: result.message });
+    res.json({ success: true, from: result.from, to: result.to, dates: result.dates, employees: result.employees });
+  } catch (error) {
+    logger.error('Error building attendance register:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// Admin: the same register as an Excel file (Date-wise, Summary, Monthly Summary sheets)
+scoped.get('/admin/attendance/register/export', requirePageAccess('attendance', 'view'), async (req, res) => {
+  try {
+    const result = await attendanceRegister.buildRegister({ from: req.query.from, to: req.query.to, search: req.query.search, employeeIds: await scopedEmployeeIds(req) });
+    if (!result.ok) return res.status(result.status).json({ success: false, message: result.message });
+    await attendanceRegister.sendRegisterWorkbook(res, result);
+  } catch (error) {
+    logger.error('Error exporting attendance register:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// Admin: one employee's leave balances (company policy or their override), for the profile
+scoped.get('/:id/leave-balance', requirePageAccess('employees', 'view'), async (req, res) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) return res.status(404).json({ success: false, message: 'Employee not found' });
+    const employee = await Employee.findById(req.params.id, { leaveOverrides: 1, joinDate: 1, probation: 1, employmentStatus: 1 }).lean();
+    if (!employee || !employeeInScope(await scopedEmployeeIds(req), employee._id)) return res.status(404).json({ success: false, message: 'Employee not found' });
+    const [balances, rules] = await Promise.all([leaveSummary(employee), getLeaveRules()]);
+    res.json({ success: true, balances, overrides: employee.leaveOverrides || {}, rules, onProbation: employee.employmentStatus === 'Probation' });
+  } catch (error) {
+    logger.error('Error fetching leave balance:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });

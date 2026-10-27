@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Lock, Users, X } from 'lucide-react';
+import { Lock, Pencil, Trash2, Users, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const sectionClass = 'bg-app-card border border-app-border rounded-xl p-4 sm:p-5 w-full min-w-0 overflow-hidden';
@@ -25,6 +25,7 @@ export default function LeadCollaborationPanel({ http, leadUrl, lead, canShare =
   const [isPrivate, setIsPrivate] = useState(false);
   const [saving, setSaving] = useState(false);
   const [shareTo, setShareTo] = useState('');
+  const [editing, setEditing] = useState(null); // { id, text } while a super admin edits a note
 
   const ownerId = String(lead.assignedTo?._id || lead.assignedTo || '');
   const sharedWith = lead.sharedWith || [];
@@ -53,6 +54,35 @@ export default function LeadCollaborationPanel({ http, leadUrl, lead, canShare =
       toast.error(err.response?.data?.message || 'Could not save the note');
     } finally {
       setSaving(false);
+    }
+  };
+
+  // Super admin only — the server refuses anyone else (n.canManage comes from it)
+  const saveEdit = async () => {
+    if (!editing?.text.trim()) return;
+    setSaving(true);
+    try {
+      await http.put(`${leadUrl}/notes/${editing.id}`, { text: editing.text });
+      toast.success('Note updated');
+      setEditing(null);
+      loadNotes();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Could not update the note');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const removeNote = async (id) => {
+    if (!window.confirm('Delete this note? It is removed from the lead (kept in the audit log).')) return;
+    try {
+      // POST fallback: some firewalls block DELETE
+      await http.post(`${leadUrl}/notes/${id}/remove`);
+      toast.success('Note deleted');
+      if (editing?.id === id) setEditing(null);
+      loadNotes();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Could not delete the note');
     }
   };
 
@@ -140,10 +170,28 @@ export default function LeadCollaborationPanel({ http, leadUrl, lead, canShare =
           {notes.length === 0 && !lead.remark && <p className="text-sm text-app-text-muted">No notes yet.</p>}
           {notes.map((n) => (
             <div key={n._id} className="border-l-2 border-app-border pl-3">
-              <p className="text-sm text-app-text whitespace-pre-wrap break-words">{n.text}</p>
-              <p className="text-[11px] text-app-text-muted mt-1 flex items-center gap-1.5">
+              {editing?.id === n._id ? (
+                <div className="space-y-2">
+                  <textarea value={editing.text} onChange={(e) => setEditing({ ...editing, text: e.target.value })} rows={3} maxLength={5000} autoFocus
+                    className="w-full bg-app-bg border border-app-border rounded-lg px-3 py-2 text-sm text-app-text focus:outline-none focus:border-primary" />
+                  <div className="flex gap-2">
+                    <button type="button" onClick={saveEdit} disabled={saving || !editing.text.trim()}
+                      className="px-3 py-1 bg-primary hover:bg-primary-hover text-white text-xs font-bold rounded-lg disabled:opacity-50 cursor-pointer">{saving ? 'Saving…' : 'Save'}</button>
+                    <button type="button" onClick={() => setEditing(null)} className="px-3 py-1 text-xs text-app-text-muted hover:text-app-text cursor-pointer">Cancel</button>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-app-text whitespace-pre-wrap break-words">{n.text}</p>
+              )}
+              <p className="text-[11px] text-app-text-muted mt-1 flex items-center gap-1.5 flex-wrap">
                 {n.visibility === 'private' && <span className="inline-flex items-center gap-1 text-amber-400"><Lock size={10} /> Private ·</span>}
-                {n.author?.name || 'Unknown'} · {fmt(n.createdAt)}
+                {n.author?.name || 'Unknown'} · {fmt(n.createdAt)}{n.editedAt && <span title={`Edited ${fmt(n.editedAt)}`}> · edited</span>}
+                {n.canManage && editing?.id !== n._id && (
+                  <>
+                    <button type="button" onClick={() => setEditing({ id: n._id, text: n.text })} className="ml-1 hover:text-primary cursor-pointer" aria-label="Edit note" title="Edit note"><Pencil size={12} /></button>
+                    <button type="button" onClick={() => removeNote(n._id)} className="hover:text-red-400 cursor-pointer" aria-label="Delete note" title="Delete note"><Trash2 size={12} /></button>
+                  </>
+                )}
               </p>
             </div>
           ))}

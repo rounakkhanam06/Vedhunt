@@ -3,7 +3,7 @@
 // (routes/employeePortalRoutes.js). Callers resolve the lead inside their own
 // scope first; everything here records who did what and when:
 //   share / unshare → Lead.sharedWith + AssignmentLog + pipelineHistory
-//   notes           → LeadNote (append-only, author + createdAt)
+//   notes           → LeadNote (author + createdAt; super admin edit / soft delete, audited)
 const mongoose = require('mongoose');
 const Admin = require('../models/Admin');
 const AssignmentLog = require('../models/AssignmentLog');
@@ -13,6 +13,7 @@ const { sendPushToAdmin } = require('../utils/pushNotify');
 const { seesAllLeadNotes } = require('../utils/leadScope');
 const { actionStamp } = require('../utils/leadActivity');
 const logger = require('../utils/logger');
+const { recordAudit } = require('./audit');
 
 const oid = (id) => new mongoose.Types.ObjectId(String(id));
 const fullName = (a) => `${a?.firstName || ''} ${a?.lastName || ''}`.trim() || a?.email || 'Unknown';
@@ -90,17 +91,60 @@ async function unshareLead(lead, adminId, actorId, reason = '') {
 
 /** Notes `user` may read: shared ones, their own private ones, or all for admins. */
 async function listNotes(leadId, user) {
-  const filter = { lead: leadId };
+  const filter = { lead: leadId, deletedAt: null };
   if (!seesAllLeadNotes(user)) filter.$or = [{ visibility: 'shared' }, { author: user._id }];
   const notes = await LeadNote.find(filter).sort({ createdAt: -1 }).populate('author', 'firstName lastName email').lean();
+  const canManage = isSuperAdmin(user);
   return notes.map((n) => ({
     _id: n._id,
     text: n.text,
     visibility: n.visibility,
     createdAt: n.createdAt,
+    editedAt: n.editedAt || null,
     author: n.author ? { _id: n.author._id, name: fullName(n.author) } : null,
     isMine: String(n.author?._id) === String(user._id),
+    canManage,
   }));
+}
+
+/** Only a super admin (permission '*') edits or deletes notes — other people's included. */
+const isSuperAdmin = (user) => Array.isArray(user?.permissions) && user.permissions.includes('*');
+
+async function findManagedNote(lead, user, noteId) {
+  if (!isSuperAdmin(user)) return { error: { ok: false, status: 403, message: 'Only a super admin can edit or delete notes.' } };
+  if (!mongoose.isValidObjectId(noteId)) return { error: { ok: false, status: 404, message: 'Note not found' } };
+  const note = await LeadNote.findOne({ _id: noteId, lead: lead._id, deletedAt: null });
+  if (!note) return { error: { ok: false, status: 404, message: 'Note not found' } };
+  return { note };
+}
+
+/** Super admin: change a note's text (and visibility). The old text goes to the audit log. */
+async function editNote(lead, user, noteId, { text, visibility }, req) {
+  const { note, error } = await findManagedNote(lead, user, noteId);
+  if (error) return error;
+  const body = String(text || '').trim();
+  if (!body) return { ok: false, status: 400, message: 'A note cannot be empty — delete it instead.' };
+  if (body.length > 5000) return { ok: false, status: 400, message: 'Notes are limited to 5000 characters.' };
+  const before = { text: note.text, visibility: note.visibility };
+  note.text = body;
+  if (visibility === 'private' || visibility === 'shared') note.visibility = visibility;
+  note.editedAt = new Date();
+  note.editedBy = user._id;
+  await note.save();
+  await recordAudit(req, 'LEAD_NOTE_EDIT', 'LeadNote', note._id, { lead: lead._id, ...before }, { lead: lead._id, text: note.text, visibility: note.visibility });
+  await note.populate('author', 'firstName lastName email');
+  return { ok: true, note: { _id: note._id, text: note.text, visibility: note.visibility, createdAt: note.createdAt, editedAt: note.editedAt, author: note.author ? { _id: note.author._id, name: fullName(note.author) } : null, isMine: String(note.author?._id) === String(user._id), canManage: true } };
+}
+
+/** Super admin: remove a note from the lead. It is hidden, not erased, and the delete is audited. */
+async function deleteNote(lead, user, noteId, req) {
+  const { note, error } = await findManagedNote(lead, user, noteId);
+  if (error) return error;
+  note.deletedAt = new Date();
+  note.deletedBy = user._id;
+  await note.save();
+  await recordAudit(req, 'LEAD_NOTE_DELETE', 'LeadNote', note._id, { lead: lead._id, text: note.text, visibility: note.visibility, author: note.author }, null);
+  return { ok: true };
 }
 
 async function addNote(lead, user, { text, visibility }) {
@@ -121,7 +165,7 @@ async function addNote(lead, user, { text, visibility }) {
       { $push: { pipelineHistory: { status: 'Note added', date: now, updatedBy: oid(user._id), note: body.slice(0, 200) } }, $set: { updatedAt: now } }
     );
   }
-  return { ok: true, note: { _id: note._id, text: note.text, visibility: note.visibility, createdAt: note.createdAt, author: { _id: user._id, name: fullName(user) }, isMine: true } };
+  return { ok: true, note: { _id: note._id, text: note.text, visibility: note.visibility, createdAt: note.createdAt, author: { _id: user._id, name: fullName(user) }, isMine: true, canManage: isSuperAdmin(user) } };
 }
 
 /**
@@ -130,7 +174,7 @@ async function addNote(lead, user, { text, visibility }) {
  */
 async function latestNotes(leadIds, user) {
   if (!leadIds.length) return new Map();
-  const match = { lead: { $in: leadIds } };
+  const match = { lead: { $in: leadIds }, deletedAt: null };
   if (!seesAllLeadNotes(user)) match.$or = [{ visibility: 'shared' }, { author: user._id }];
   const rows = await LeadNote.aggregate([
     { $match: match },
@@ -162,4 +206,4 @@ async function addImportedNote(leadId, authorId, text, source = 'import') {
   return true;
 }
 
-module.exports = { sharedWithDetails, shareLead, unshareLead, listNotes, addNote, addImportedNote, latestNotes };
+module.exports = { sharedWithDetails, shareLead, unshareLead, listNotes, addNote, editNote, deleteNote, addImportedNote, latestNotes };

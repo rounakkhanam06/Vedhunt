@@ -2,8 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { usePageAccess } from '../../shared/crmAccess';
 import toast from 'react-hot-toast';
 
-// leaveBalances / leavesUsed are per-type objects { CL, SL, PL, EL } — show the total across types
-const sumLeaves = (o) => Object.values(o || {}).reduce((n, v) => n + (Number(v) || 0), 0);
 
 const LeaveRequestsManager = ({ embedded = false }) => {
   // Admin panel (role) or Employee Portal (person-wise grant) — shared/crmAccess.js
@@ -95,16 +93,24 @@ const LeaveRequestsManager = ({ embedded = false }) => {
                 <tr key={req._id} className="hover:bg-app-bg/50 transition-colors">
                   <td className="py-3 px-4">
                     <div className="font-bold text-app-text">{req.employeeId?.firstName} {req.employeeId?.lastName}</div>
-                    <div className="text-xs text-app-text-muted">{req.employeeId?.employeeId}</div>
+                    <div className="text-xs text-app-text-muted">{req.employeeId?.employeeId} · {req.leaveType}</div>
                   </td>
                   <td className="py-3 px-4 font-mono text-app-text">{new Date(req.startDate).toLocaleDateString()}</td>
                   <td className="py-3 px-4 font-mono text-app-text">{new Date(req.endDate).toLocaleDateString()}</td>
                   <td className="py-3 px-4 max-w-[200px] truncate text-app-text" title={req.reason}>{req.reason}</td>
                   <td className="py-3 px-4 text-center whitespace-nowrap">
-                    <div className="text-[11px] text-app-text-muted">Total: {sumLeaves(req.employeeId?.leaveBalances)} | Used: {sumLeaves(req.employeeId?.leavesUsed)}</div>
-                    <div className="text-sm font-bold text-primary">
-                      Remaining: {sumLeaves(req.employeeId?.leaveBalances) - sumLeaves(req.employeeId?.leavesUsed)}
-                    </div>
+                    {/* Pending: the balance of this type as of the leave's start (server/services/leavePolicy.js) */}
+                    {req.balance && (
+                      <>
+                        <div className="text-[11px] text-app-text-muted">{req.leaveType} earned: {req.balance.allowance} | Used: {req.balance.used}{req.balance.pendingDays ? ` | Pending: ${req.balance.pendingDays}` : ''}</div>
+                        <div className="text-sm font-bold text-primary">Available: {req.balance.available}</div>
+                      </>
+                    )}
+                    {req.days != null && (
+                      <div className={`text-[11px] mt-0.5 ${req.unpaidDays ? 'text-rose-400 font-semibold' : 'text-app-text-muted'}`}>
+                        {req.days} day{req.days === 1 ? '' : 's'}{req.unpaidDays ? ` · ${req.paidDays} paid, ${req.unpaidDays} unpaid (LOP)` : ' · all paid'}
+                      </div>
+                    )}
                   </td>
                   <td className="py-3 px-4 text-center">
                     <span className={`px-2 py-0.5 rounded text-xs font-bold ${

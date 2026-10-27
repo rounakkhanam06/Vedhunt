@@ -56,7 +56,7 @@ const TASK_PILL = {
  */
 export default function EmployeeProfile({
   emp, employees = [], canManage, canSalary, onBack, onEdit,
-  access, probation, leaveForm, goalForm, salary,
+  access, probation, leaveForm, goalForm, salary, leaveBalance,
 }) {
   const tabs = [
     { key: 'info', label: 'Employee Information', icon: User },
@@ -77,9 +77,11 @@ export default function EmployeeProfile({
   const openTasks = tasks.filter((t) => t.status !== 'Completed').length;
   const goals = emp.performance || [];
   const pendingGoals = goals.filter((g) => g.status !== 'Achieved').length;
-  const used = emp.leavesUsed || {};
-  const balance = emp.leaveBalances || {};
-  const totalUsed = (used.CL || 0) + (used.SL || 0) + (used.PL || 0);
+  // Balances from the leave policy (server/services/leavePolicy.js), this leave year
+  const balances = leaveBalance?.balances || {};
+  const onProbation = Boolean(leaveBalance?.onProbation);
+  const leaveTypes = onProbation ? [['EL', 'Emergency leave']] : [['CL', 'Casual leave'], ['SL', 'Sick leave'], ['PL', 'Paid leave']];
+  const totalUsed = leaveTypes.reduce((n, [k]) => n + (balances[k]?.used || 0), 0);
   const attendance = [...(emp.attendance || [])].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 10);
   const bankDetails = emp.bankDetails || {};
 
@@ -199,13 +201,16 @@ export default function EmployeeProfile({
       {current === 'leave' && (
         <div className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {[['CL', 'Casual leave'], ['SL', 'Sick leave'], ['PL', 'Paid leave']].map(([k, label]) => {
-              const left = Math.max(0, (balance[k] || 0) - (used[k] || 0));
+            {leaveTypes.map(([k, label]) => {
+              const b = balances[k];
               return (
                 <div key={k} className="bg-app-card border border-app-border rounded-xl p-4">
                   <div className="text-xs text-app-text-muted">{label}</div>
-                  <div className="text-2xl font-extrabold mt-1">{left} <span className="text-sm font-normal text-app-text-muted">/ {balance[k] || 0} left</span></div>
-                  <div className="text-[11px] text-app-text-muted mt-1">{used[k] || 0} used</div>
+                  <div className="text-2xl font-extrabold mt-1">{b ? b.available : '—'} <span className="text-sm font-normal text-app-text-muted">/ {b ? b.allowance : 0} earned</span></div>
+                  <div className="text-[11px] text-app-text-muted mt-1">
+                    {b ? `${b.used} used${b.pendingDays ? ` · ${b.pendingDays} pending` : ''} · ${b.perPeriod} per ${b.period === 'Month' ? 'month' : b.period === 'Probation' ? 'probation' : 'year'}` : 'Loading…'}
+                    {leaveBalance?.overrides?.[k] != null && <span className="text-primary"> · own allowance</span>}
+                  </div>
                 </div>
               );
             })}

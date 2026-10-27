@@ -249,8 +249,10 @@ export default function EmployeeLeadWorkspace() {
       await handleFieldsChange({ callNote: text });
       setCallNoteDraft(null);
       toast.success('Call note saved', { duration: 1500, position: 'bottom-right' });
+      return true;
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to save the note');
+      return false;
     } finally {
       setNoteSaving(false);
     }

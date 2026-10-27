@@ -17,13 +17,14 @@ const { encrypt, decrypt } = require('../utils/encryption');
 const logger = require('../utils/logger');
 const { sendResult: respond } = require('../utils/apiResponse');
 const { notifyTicketReply, notifyTicketStatus } = require('../services/clientNotify');
-const { countChargeableDays, availableDays, findOverlap, startOfDay } = require('../services/leavePolicy');
+const { countChargeableDays, splitRequest, leaveSummary, getLeaveRules, findOverlap, startOfDay } = require('../services/leavePolicy');
 const { notifyPermissionHolders } = require('../services/staffNotify');
 const BankChangeRequest = require('../models/BankChangeRequest');
 const AuditLog = require('../models/AuditLog');
 const bank = require('../services/bankDetails');
 const Settings = require('../models/Settings');
 const workTimer = require('../services/workTimer');
+const attendanceRegister = require('../services/attendanceRegister');
 const { linkableClientsFor } = require('../services/employeeClients');
 const employeeTasks = require('../services/employeeTasks');
 const { getActivityTypes } = require('../services/activityMaster');
@@ -471,6 +472,25 @@ router.get('/ess/dashboard-stats', async (req, res) => {
   }
 });
 
+// How a leave would be counted before it is requested: chargeable days, paid vs unpaid
+router.get('/ess/leave-requests/preview', async (req, res) => {
+  try {
+    const { leaveType, startDate, endDate } = req.query;
+    if (!LEAVE_LABEL[leaveType]) return res.status(400).json({ success: false, message: 'Invalid leave type.' });
+    const start = startOfDay(startDate);
+    const end = startOfDay(endDate || startDate);
+    if (isNaN(start.getTime()) || isNaN(end.getTime()) || start > end) return res.status(400).json({ success: false, message: 'Invalid date range provided.' });
+    const employee = await Employee.findOne({ adminId: req.user._id });
+    if (!employee) return res.status(404).json({ success: false, message: 'Employee not found' });
+    const days = await countChargeableDays(start, end);
+    const split = await splitRequest(employee, leaveType, start, days);
+    res.json({ success: true, days, paidDays: split.paidDays, unpaidDays: split.unpaidDays, available: split.balance.available });
+  } catch (error) {
+    logger.error('Error previewing leave request:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
 // Create Leave Request
 router.post('/ess/leave-requests', async (req, res) => {
   try {
@@ -537,33 +557,34 @@ router.post('/ess/leave-requests', async (req, res) => {
       });
     }
 
-    // Never more than the available balance (pending requests count against it)
-    const balance = await availableDays(employee, leaveType);
-    if (days > balance.available) {
-      return res.status(400).json({
-        success: false,
-        code: 'INSUFFICIENT_LEAVE_BALANCE',
-        message: `Not enough ${LEAVE_LABEL[leaveType]} balance: this request needs ${days} day${days > 1 ? 's' : ''}, you have ${balance.available} available${balance.pendingDays ? ` (${balance.pendingDays} already pending)` : ''}.`,
-        balance: { ...balance, requested: days },
-      });
-    }
+    // Paid up to the available balance (pending requests count against it); the rest is unpaid (LOP)
+    const split = await splitRequest(employee, leaveType, start, days);
 
     const leaveRequest = await LeaveRequest.create({
       employeeId: employee._id,
       leaveType,
       startDate: start,
       endDate: end,
-      reason
+      reason,
+      days: split.days,
+      paidDays: split.paidDays,
+      unpaidDays: split.unpaidDays,
     });
 
     // Reporting manager first, HR as fallback
     await notifyApprover(employee, {
       type: 'leave_request',
       title: `Leave request from ${employee.firstName} ${employee.lastName}`,
-      message: `${LEAVE_LABEL[leaveType]} · ${days} day${days > 1 ? 's' : ''} · ${fmtDay(start)} – ${fmtDay(end)}`,
+      message: `${LEAVE_LABEL[leaveType]} · ${days} day${days > 1 ? 's' : ''}${split.unpaidDays ? ` (${split.unpaidDays} unpaid)` : ''} · ${fmtDay(start)} – ${fmtDay(end)}`,
     }, '/admin/leave-requests');
 
-    res.status(201).json({ success: true, message: 'Leave request submitted successfully.', leaveRequest, days });
+    res.status(201).json({
+      success: true,
+      message: split.unpaidDays
+        ? `Leave request submitted: ${split.paidDays} paid, ${split.unpaidDays} unpaid (beyond your balance).`
+        : 'Leave request submitted successfully.',
+      leaveRequest, days, paidDays: split.paidDays, unpaidDays: split.unpaidDays,
+    });
   } catch (error) {
     logger.error('Error creating leave request:', error);
     res.status(500).json({ success: false, message: 'Server error' });
@@ -595,6 +616,35 @@ router.put('/ess/leave-requests/:id/cancel', async (req, res) => {
 });
 
 // Get Leave Requests for Logged-in Employee
+// My attendance for a From–To range (same register as HR sees, for this employee only)
+const ownRegister = async (req) => {
+  const me = await Employee.findOne({ adminId: req.user._id }, { _id: 1 }).lean();
+  if (!me) return { ok: false, status: 404, message: 'Employee not found' };
+  return attendanceRegister.buildRegister({ from: req.query.from, to: req.query.to, employeeIds: [me._id] });
+};
+
+router.get('/ess/attendance/register', async (req, res) => {
+  try {
+    const result = await ownRegister(req);
+    if (!result.ok) return res.status(result.status).json({ success: false, message: result.message });
+    res.json({ success: true, from: result.from, to: result.to, dates: result.dates, record: result.employees[0] || null });
+  } catch (error) {
+    logger.error('Error building own attendance register:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+router.get('/ess/attendance/register/export', async (req, res) => {
+  try {
+    const result = await ownRegister(req);
+    if (!result.ok) return res.status(result.status).json({ success: false, message: result.message });
+    await attendanceRegister.sendRegisterWorkbook(res, result, 'my-attendance');
+  } catch (error) {
+    logger.error('Error exporting own attendance register:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
 router.get('/ess/leave-requests', async (req, res) => {
   try {
     const employee = await Employee.findOne({ adminId: req.user._id });
@@ -602,22 +652,22 @@ router.get('/ess/leave-requests', async (req, res) => {
 
     const requests = await LeaveRequest.find({ employeeId: employee._id }).sort({ createdAt: -1 });
 
-    const Settings = require('../models/Settings');
-    const settings = await Settings.findOne({ key: 'attendance_rules' });
-    const leaveBalancePeriod = settings?.value?.leaveBalancePeriod || 'Year';
-
-    const leavesPending = {};
-    for (const type of Object.keys(LEAVE_LABEL)) {
-      leavesPending[type] = (await availableDays(employee, type)).pendingDays;
-    }
+    // Balances from the admin's leave policy (services/leavePolicy.js): leaveBalances = earned so
+    // far this leave year, leavesUsed = approved paid days this year, leavesPending = held by pending
+    const [summary, rules] = await Promise.all([leaveSummary(employee), getLeaveRules()]);
+    const pick = (key) => Object.fromEntries(Object.entries(summary).map(([t, b]) => [t, b[key]]));
 
     res.json({
       success: true,
       leaveRequests: requests,
-      leaveBalances: employee.leaveBalances,
-      leavesUsed: employee.leavesUsed,
-      leavesPending,
-      leaveBalancePeriod
+      leaveBalances: pick('allowance'),
+      leavesUsed: pick('used'),
+      leavesPending: pick('pendingDays'),
+      leavesAvailable: pick('available'),
+      leavePerPeriod: pick('perPeriod'),
+      leaveBalancePeriod: rules.period,
+      elPeriod: summary.EL.period,
+      leaveYear: { start: summary.CL.yearStart, end: summary.CL.yearEnd },
     });
   } catch (error) {
     logger.error('Error fetching leave requests:', error);

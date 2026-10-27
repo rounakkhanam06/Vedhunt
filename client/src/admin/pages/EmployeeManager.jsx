@@ -130,6 +130,11 @@ const EmployeeManager = () => {
   const [newCL, setNewCL] = useState('');
   const [newSL, setNewSL] = useState('');
   const [newPL, setNewPL] = useState('');
+  const [newEL, setNewEL] = useState('');
+  const [leaveBalance, setLeaveBalance] = useState(null);
+  const fetchLeaveBalance = (id) => http.get(`${root}/employees/${id}/leave-balance`)
+    .then((r) => setLeaveBalance({ ...r.data, employeeId: id }))
+    .catch(() => setLeaveBalance(null));
 
   // Salary History
   const [salaryHistory, setSalaryHistory] = useState([]);
@@ -180,9 +185,12 @@ const EmployeeManager = () => {
 
   useEffect(() => {
     if (selectedEmp) {
-      setNewCL(selectedEmp.leaveBalances?.CL ?? 6);
-      setNewSL(selectedEmp.leaveBalances?.SL ?? 6);
-      setNewPL(selectedEmp.leaveBalances?.PL ?? 12);
+      // Per-person allowance; empty = the company policy (Settings → Attendance Rules)
+      setNewCL(selectedEmp.leaveOverrides?.CL ?? '');
+      setNewSL(selectedEmp.leaveOverrides?.SL ?? '');
+      setNewPL(selectedEmp.leaveOverrides?.PL ?? '');
+      setNewEL(selectedEmp.leaveOverrides?.EL ?? '');
+      fetchLeaveBalance(selectedEmp._id);
       if (canSalary) fetchSalaryHistory(selectedEmp._id);
       setShowRevisionForm(false);
       setChangeRoleId('');
@@ -623,20 +631,20 @@ const EmployeeManager = () => {
         if (!goalTargetDate) { toast.error('Goal target date is required.'); return; }
         payload.newGoal = { goal: goalText, targetDate: goalTargetDate, status: 'Pending' };
       } else if (type === 'leaveBalances') {
-        const cl = Number(newCL);
-        const sl = Number(newSL);
-        const pl = Number(newPL);
-        if (cl < 0 || isNaN(cl) || sl < 0 || isNaN(sl) || pl < 0 || isNaN(pl)) { toast.error('Enter valid non-negative leave balances.'); return; }
-        payload.leaveBalances = { CL: cl, SL: sl, PL: pl };
+        const values = { CL: newCL, SL: newSL, PL: newPL, EL: newEL };
+        const overrides = Object.fromEntries(Object.entries(values).map(([k, v]) => [k, String(v).trim() === '' ? null : Number(v)]));
+        if (Object.values(overrides).some((v) => v !== null && (isNaN(v) || v < 0))) { toast.error('Enter 0 or more, or leave a box empty for the company default.'); return; }
+        payload.leaveOverrides = overrides;
       }
       const res = await http.put(`${root}/employees/${selectedEmp._id}`, payload);
       if (res.data.success) {
-        toast.success(`${type.charAt(0).toUpperCase() + type.slice(1)} added successfully!`);
+        toast.success(type === 'leaveBalances' ? 'Leave allowance saved.' : `${type.charAt(0).toUpperCase() + type.slice(1)} added successfully!`);
         const updatedRes = await http.get(`${root}/employees`);
         const found = updatedRes.data.employees.find(e => e._id === selectedEmp._id);
         setSelectedEmp(found);
         setEmployees(updatedRes.data.employees);
         setGoalText(''); setGoalTargetDate('');
+        if (type === 'leaveBalances') fetchLeaveBalance(selectedEmp._id);
       }
     } catch {
       toast.error('Failed to add details.');
@@ -669,6 +677,7 @@ const EmployeeManager = () => {
       {showProfile && (
         <EmployeeProfile
           emp={selectedEmp}
+          leaveBalance={leaveBalance?.employeeId === selectedEmp._id ? leaveBalance : null}
           employees={employees}
           canManage={canManage}
           canSalary={canSalary}
@@ -927,11 +936,14 @@ const EmployeeManager = () => {
           leaveForm={canManage ? (<>
               {/* Update Leave Balance */}
               {canManage && (<div className="space-y-3">
-                <h3 className="text-sm font-bold text-app-text-muted flex items-center gap-1.5">Update Leave Balances</h3>
-                <div className="flex gap-2">
-                  <input type="number" placeholder="CL" title="Casual Leave" className="w-16 text-xs rounded-lg border border-app-border bg-form-input-bg px-2 py-2 text-app-text placeholder-app-text-muted focus:outline-none" value={newCL} onChange={e => setNewCL(e.target.value)} />
-                  <input type="number" placeholder="SL" title="Sick Leave" className="w-16 text-xs rounded-lg border border-app-border bg-form-input-bg px-2 py-2 text-app-text placeholder-app-text-muted focus:outline-none" value={newSL} onChange={e => setNewSL(e.target.value)} />
-                  <input type="number" placeholder="PL" title="Paid Leave" className="w-16 text-xs rounded-lg border border-app-border bg-form-input-bg px-2 py-2 text-app-text placeholder-app-text-muted focus:outline-none" value={newPL} onChange={e => setNewPL(e.target.value)} />
+                <h3 className="text-sm font-bold text-app-text-muted flex items-center gap-1.5">Leave Allowance (this employee)</h3>
+                <p className="text-[11px] text-app-text-muted">Same period as the company policy (per month or per year). Leave a box empty to use the company default.</p>
+                <div className="flex gap-2 flex-wrap">
+                  {[['CL', 'Casual Leave', newCL, setNewCL], ['SL', 'Sick Leave', newSL, setNewSL], ['PL', 'Paid Leave', newPL, setNewPL], ['EL', 'Emergency Leave (probation)', newEL, setNewEL]].map(([key, title, value, setValue]) => (
+                    <input key={key} type="number" min="0" step="0.5" placeholder={`${key} (default)`} title={title} aria-label={title}
+                      className="w-24 text-xs rounded-lg border border-app-border bg-form-input-bg px-2 py-2 text-app-text placeholder-app-text-muted focus:outline-none"
+                      value={value} onChange={(e) => setValue(e.target.value)} />
+                  ))}
                   <button onClick={() => handleAddSubItem('leaveBalances')} className="px-4 rounded-lg bg-orange-600/20 text-orange-400 border border-orange-500/20 text-xs font-semibold hover:bg-orange-600 hover:text-white transition-all cursor-pointer">Update</button>
                 </div>
               </div>)}

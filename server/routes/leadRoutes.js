@@ -6,7 +6,7 @@ const {
   assignLead, bulkAssignLeads, getAssignmentHistory, getAllAssignmentLogs, lockLead, unlockLead,
   importLeads, previewImportLeads, getImportStatus,
   getLeadTasks, createLeadTask, completeLeadTask,
-  getLeadNotes, addLeadNote, shareLeadWith, unshareLeadWith,
+  getLeadNotes, addLeadNote, editLeadNote, deleteLeadNote, shareLeadWith, unshareLeadWith,
   previewBulkAssign, getBulkAssignRuns
 } = require('../controllers/leadController');
 const authMiddleware = require('../middleware/authMiddleware');
@@ -54,6 +54,10 @@ scoped.delete('/:id/share/:adminId', leads('assign'), unshareLeadWith);
 scoped.post('/:id/share/:adminId/remove', leads('assign'), unshareLeadWith);
 scoped.get('/:id/notes', leads('view'), getLeadNotes);
 scoped.post('/:id/notes', leads('view'), addLeadNote);
+// Super admin only (checked in services/leadCollaboration.js)
+scoped.put('/:id/notes/:noteId', leads('view'), editLeadNote);
+scoped.delete('/:id/notes/:noteId', leads('view'), deleteLeadNote);
+scoped.post('/:id/notes/:noteId/remove', leads('view'), deleteLeadNote);
 scoped.post('/:id/lock', leads('edit'), lockLead);
 scoped.post('/:id/unlock', leads('view'), unlockLead);
 scoped.put('/:id', leads('edit'), updateLead);

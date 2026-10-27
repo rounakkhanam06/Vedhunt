@@ -1019,6 +1019,34 @@ exports.addLeadNote = async (req, res, next) => {
   }
 };
 
+// @desc    Super admin: edit a note's text / visibility (old text kept in the audit log)
+// @route   PUT /api/leads/:id/notes/:noteId
+// @access  Private (super admin)
+exports.editLeadNote = async (req, res, next) => {
+  try {
+    const lead = await findLeadRaw(req.params.id, await leadFilter(req));
+    if (!lead) return notFound(res);
+    respondResult(res, await collaboration.editNote(lead, req.user, req.params.noteId, req.body, req));
+  } catch (error) {
+    logger.error('Error editing lead note:', error);
+    next(error);
+  }
+};
+
+// @desc    Super admin: delete a note (hidden, kept for the audit trail)
+// @route   DELETE /api/leads/:id/notes/:noteId  (POST …/remove as a fallback)
+// @access  Private (super admin)
+exports.deleteLeadNote = async (req, res, next) => {
+  try {
+    const lead = await findLeadRaw(req.params.id, await leadFilter(req));
+    if (!lead) return notFound(res);
+    respondResult(res, await collaboration.deleteNote(lead, req.user, req.params.noteId, req));
+  } catch (error) {
+    logger.error('Error deleting lead note:', error);
+    next(error);
+  }
+};
+
 // @desc    Cross-assign: give another BD access while the owner keeps the lead
 // @route   POST /api/leads/:id/share
 // @access  Private (leads.assign)

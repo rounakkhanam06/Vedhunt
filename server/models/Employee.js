@@ -184,6 +184,15 @@ const employeeSchema = new mongoose.Schema(
       PL: { type: Number, default: 12 },
       EL: { type: Number, default: 0 }  // Emergency Leave — probation only
     },
+    // Per-person leave allowance replacing the company one (Settings → Attendance Rules), in the
+    // same period (per month / per year). Empty = company default. Balances are computed by
+    // services/leavePolicy.js; leaveBalances / leavesUsed are kept only as legacy fields.
+    leaveOverrides: {
+      CL: { type: Number, default: null },
+      SL: { type: Number, default: null },
+      PL: { type: Number, default: null },
+      EL: { type: Number, default: null }
+    },
     leavesUsed: {
       CL: { type: Number, default: 0 },
       SL: { type: Number, default: 0 },
