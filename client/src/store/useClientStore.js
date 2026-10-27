@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import clientService from '../services/clientService';
+import { getPreview, endPreview } from '../shared/portalPreview';
 
 /**
  * Client Portal Auth Store
@@ -24,6 +25,8 @@ export const useClientStore = create((set) => ({
   },
 
   logout: async () => {
+    // A preview tab has no session of its own: leave the real login in this browser alone
+    if (getPreview('client')) return endPreview();
     try {
       await clientService.logout();
     } catch (_) {
@@ -39,7 +42,7 @@ export const useClientStore = create((set) => ({
       const data = await clientService.getMe();
       set({ client: data.client, isAuthenticated: true, isInitializing: false });
     } catch (_) {
-      localStorage.removeItem('clientToken');
+      if (!getPreview('client')) localStorage.removeItem('clientToken');
       set({ client: null, isAuthenticated: false, isInitializing: false });
     }
   },

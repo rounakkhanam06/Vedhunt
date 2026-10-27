@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { useEmployeeStore } from '../store/useEmployeeStore';
 import toast from 'react-hot-toast';
+import { getPreview } from '../shared/portalPreview';
 
 const employeeApi = axios.create({
   baseURL: import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:5000/api'),
@@ -12,6 +13,13 @@ const employeeApi = axios.create({
 
 employeeApi.interceptors.request.use(
   (config) => {
+    // A Super Admin's read-only preview tab (shared/portalPreview.js) uses only its preview token
+    const preview = getPreview('employee');
+    if (preview) {
+      config.headers['X-Preview-Token'] = preview.token;
+      delete config.headers['Authorization'];
+      return config;
+    }
     const token = localStorage.getItem('employeeToken');
     if (token) {
       config.headers['Authorization'] = `Bearer ${token}`;
@@ -44,6 +52,12 @@ employeeApi.interceptors.response.use(
 
     if (error.response && error.response.status === 413) {
       toast.error('File size is too large! Please compress the image to under 1MB and try again.');
+      return Promise.reject(error);
+    }
+
+    // Preview: nothing to refresh, and no real session to log out
+    if (getPreview('employee')) {
+      if (error.response?.data?.preview) toast.error('Preview is read-only — nothing can be changed here.', { id: 'preview-read-only' });
       return Promise.reject(error);
     }
 

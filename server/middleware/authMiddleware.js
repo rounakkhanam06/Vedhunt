@@ -20,6 +20,8 @@ const buildAuth = ({ allowPortal = false } = {}) => async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    // A portal preview token (utils/portalPreview.js) is never an Admin panel login
+    if (decoded.preview) return res.status(401).json({ success: false, message: 'Not authorized, token failed' });
     req.user = await Admin.findById(decoded.id)
       .select('-password')
       .populate('roles');

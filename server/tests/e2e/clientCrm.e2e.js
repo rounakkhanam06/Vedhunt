@@ -2062,3 +2062,84 @@ describe('lead proforma — raised directly, or from a final proposal, and sent 
     assert.equal((await require('../../models/Proposal').findById(first._id).lean()).status, 'Superseded');
   });
 });
+
+describe('portal preview — a Super Admin views the Client / Employee Portal as that person, read-only', () => {
+  const asPreview = async (token, method, url, body) => {
+    const res = await fetch(base + url, {
+      method,
+      headers: { 'content-type': 'application/json', 'x-preview-token': token },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+    let json = null;
+    try { json = await res.json(); } catch { /* non-JSON */ }
+    return { status: res.status, body: json, cache: res.headers.get('cache-control') };
+  };
+  let clientPreview;
+  let employeeId;
+  let limitedToken;
+
+  before(async () => {
+    const Role = require('../../models/Role');
+    const Admin = require('../../models/Admin');
+    const Employee = require('../../models/Employee');
+    const role = await Role.create({ name: 'BDE_PREVIEW', permissions: ['ess.access', 'leads.view'], isEmployeeRole: true });
+    const a = await Admin.create({ firstName: 'Priya', lastName: 'Preview', email: 'priya-preview@e2e.test', password: 'Passw0rd!e2e', roles: [role._id], employeeId: 'VH-PRV-1', isTemporaryPassword: true });
+    employeeId = (await Employee.collection.insertOne({ employeeId: 'VH-PRV-1', adminId: a._id, firstName: 'Priya', lastName: 'Preview', email: 'priya-preview@e2e.test', phone: '9800000001', roleDept: 'Sales', joinDate: new Date(), salaryCTC: 1, employmentStatus: 'Permanent' })).insertedId;
+    // an admin who is not a Super Admin
+    const crmRole = await Role.create({ name: 'CRM_ONLY_PREVIEW', permissions: ['cms.manage'] });
+    const limited = await Admin.create({ firstName: 'Crm', lastName: 'Only', email: 'crm-only-preview@e2e.test', password: 'Passw0rd!e2e', roles: [crmRole._id] });
+    limitedToken = jwt.sign({ id: limited._id }, JWT_SECRET, { expiresIn: '1h' });
+  });
+
+  test('a Super Admin opens the client portal as that client and sees their data', async () => {
+    const res = await admin('POST', `/admin/portal-preview/client/${ids.docClient}`);
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    clientPreview = res.body.data.token;
+    assert.equal(res.body.data.name, 'Doc Client');
+
+    const me = await asPreview(clientPreview, 'GET', '/client/auth/me');
+    assert.equal(me.status, 200);
+    assert.equal(me.body.client.businessName, 'Doc Client');
+    assert.equal(me.body.preview.kind, 'client');
+    assert.match(me.cache, /no-store/, 'never cached publicly');
+    const invoices = await asPreview(clientPreview, 'GET', '/client/invoices');
+    assert.equal(invoices.status, 200);
+    assert.ok(invoices.body.summary.total > 0, 'the proforma / tax invoices the client was sent');
+    assert.ok(await require('../../models/AuditLog').findOne({ action: 'PORTAL_PREVIEW' }).lean());
+  });
+
+  test('the preview is read-only and is not an Admin panel login', async () => {
+    const note = await asPreview(clientPreview, 'PUT', '/client/auth/profile', { contactName: 'Hacker Name' });
+    assert.equal(note.status, 403);
+    assert.equal(note.body.preview, true);
+    assert.equal((await asPreview(clientPreview, 'POST', '/client/payments', {})).status, 403);
+    assert.equal((await require('../../models/Client').findById(ids.docClient).lean()).contactName, 'Owner Person');
+
+    // as a bearer token it is refused by the admin panel and by the other portal
+    assert.equal((await request(clientPreview, 'GET', '/admin/clients')).status, 401);
+    assert.equal((await asPreview(clientPreview, 'GET', '/employee/auth/me')).status, 401);
+  });
+
+  test('the employee portal preview shows the portal as set up, even with a temporary password', async () => {
+    const res = await admin('POST', `/admin/portal-preview/employee/${employeeId}`);
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    const me = await asPreview(res.body.data.token, 'GET', '/employee/auth/me');
+    assert.equal(me.status, 200, JSON.stringify(me.body));
+    assert.equal(me.body.employee.employeeId, 'VH-PRV-1');
+    assert.equal(me.body.employee.isTemporaryPassword, false);
+    assert.equal(me.body.preview.kind, 'employee');
+    assert.equal((await asPreview(res.body.data.token, 'GET', '/employee-portal/ess/leads')).status, 200);
+    assert.equal((await asPreview(res.body.data.token, 'POST', '/employee/auth/reset-temp-password', { newPassword: 'Xx12345678!' })).status, 403);
+    assert.equal((await request(res.body.data.token, 'GET', '/admin/clients')).status, 401, 'never an admin login');
+  });
+
+  test('only a Super Admin can open a preview, and it ends when they stop being one', async () => {
+    assert.equal((await request(limitedToken, 'POST', `/admin/portal-preview/client/${ids.docClient}`)).status, 403);
+    assert.equal((await admin('POST', '/admin/portal-preview/client/not-an-id')).status, 404);
+    assert.equal((await admin('POST', `/admin/portal-preview/client/${ids.delta}`)).status, 409, 'a suspended client has no portal');
+
+    // a preview token made for someone who is not (or no longer) a Super Admin is refused
+    const forged = jwt.sign({ id: ids.docClient, tv: 0, preview: { kind: 'client', by: String(new mongoose.Types.ObjectId()) } }, JWT_SECRET, { expiresIn: '5m' });
+    assert.equal((await asPreview(forged, 'GET', '/client/auth/me')).status, 401);
+  });
+});

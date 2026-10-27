@@ -2,10 +2,12 @@ import { useState, useEffect, useCallback } from 'react';
 import { useCrm } from '../../shared/crmAccess';
 import InvoiceDraftsPanel from '../components/InvoiceDraftsPanel';
 import { openPdf } from '../../employee/lib/ess';
+import { openPortalPreview } from '../../shared/portalPreview';
+import { usePermissions } from '../hooks/usePermissions';
 import toast from 'react-hot-toast';
 import {
   FileText, Plus, Search, X, Save, IndianRupee,
-  ChevronLeft, ChevronRight, Trash2, Edit2, Filter, Eye, Send,
+  ChevronLeft, ChevronRight, Trash2, Edit2, Filter, Eye, Send, MonitorSmartphone,
 } from 'lucide-react';
 
 const DOC_TYPES = ['Tax Invoice', 'Proforma Invoice'];
@@ -28,7 +30,10 @@ const emptyForm = () => ({
 
 export default function InvoiceManager() {
   // Admin panel (full access) or Employee Portal (person-wise grants) — shared/crmAccess.js
-  const { http, base, can: canCrm } = useCrm();
+  const { http, base, can: canCrm, full } = useCrm();
+  // Super Admin (Admin panel): open the client's own portal, read-only, to see what they got
+  const { can } = usePermissions();
+  const canPreviewPortal = full && can('*');
   const [invoices, setInvoices] = useState([]);
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -331,6 +336,14 @@ export default function InvoiceManager() {
                           className="p-1.5 text-on-surface-variant hover:bg-surface-container-low rounded-lg cursor-pointer">
                           <Eye size={14} />
                         </button>
+                        {canPreviewPortal && !inv.unsent && inv.client_ref?._id && (
+                          <button title="See it in the client's portal (read-only)"
+                            onClick={() => openPortalPreview(http, 'client', inv.client_ref._id, '/client/dashboard?tab=billing')
+                              .catch((err) => toast.error(err?.response?.data?.message || 'Could not open the preview'))}
+                            className="p-1.5 text-on-surface-variant hover:bg-surface-container-low rounded-lg cursor-pointer">
+                            <MonitorSmartphone size={14} />
+                          </button>
+                        )}
                         {canCrm('invoices', 'edit') && (<button onClick={() => openSend(inv)} title={inv.unsent ? 'Send to client' : 'Send again / as another type'}
                           className={`p-1.5 rounded-lg cursor-pointer ${inv.unsent ? 'text-white bg-secondary hover:bg-secondary/90' : 'text-secondary hover:bg-secondary/10'}`}>
                           <Send size={14} />

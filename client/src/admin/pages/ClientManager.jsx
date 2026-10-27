@@ -10,6 +10,7 @@ import { usePermissions } from '../hooks/usePermissions';
 import PortfolioKpis from '../components/clients/PortfolioKpis';
 import { inr, pct } from '../components/clients/format';
 import ClientProfilePanel from '../components/clients/ClientProfilePanel';
+import { openPortalPreview } from '../../shared/portalPreview';
 import OnboardingPanel from '../components/clients/OnboardingPanel';
 import StrategyPanel from '../components/clients/StrategyPanel';
 import KycPanel from '../components/clients/KycPanel';
@@ -668,12 +669,22 @@ export default function ClientManager() {
                   <p className="text-on-surface-variant text-xs">{previewClient.clientId}</p>
                 </div>
               </div>
-              <button
-                onClick={() => setPreviewClient(null)}
-                className="p-1.5 rounded-lg hover:bg-surface-container-low text-on-surface-variant cursor-pointer transition-colors"
-              >
-                <X size={18} />
-              </button>
+              <div className="flex items-center gap-2">
+                {/* Super Admin: open the real Client Portal as this client, read-only */}
+                {full && can('*') && previewClient.isActive !== false && !previewClient.deletedAt && (
+                  <button type="button" title="Open the Client Portal as this client (read-only)"
+                    onClick={() => openPortalPreview(http, 'client', previewClient._id).catch((err) => toast.error(err?.response?.data?.message || 'Could not open the preview'))}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-secondary/40 text-secondary text-xs font-semibold hover:bg-secondary/10 cursor-pointer">
+                    <Eye size={14} /> View as client
+                  </button>
+                )}
+                <button
+                  onClick={() => setPreviewClient(null)}
+                  className="p-1.5 rounded-lg hover:bg-surface-container-low text-on-surface-variant cursor-pointer transition-colors"
+                >
+                  <X size={18} />
+                </button>
+              </div>
             </div>
 
             <div role="tablist" aria-label="Client sections" className="shrink-0 flex gap-1 px-4 sm:px-6 border-b border-outline-variant overflow-x-auto">

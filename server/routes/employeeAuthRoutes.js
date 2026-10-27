@@ -215,13 +215,15 @@ router.get('/me', employeeAuthMiddleware, async (req, res) => {
       lastName: req.user.lastName,
       email: req.user.email,
       employeeId: req.user.employeeId,
-      isTemporaryPassword: req.user.isTemporaryPassword,
+      // A Super Admin's preview (utils/portalPreview.js) shows the portal as it is once set up
+      isTemporaryPassword: req.preview ? false : req.user.isTemporaryPassword,
       permissions: req.user.permissions,
       segment: req.user.segment,
       portalModules: req.user.portalModules,
       access: grantSummary(req.user),
       ...flags
-    }
+    },
+    ...(req.preview ? { preview: req.preview } : {}),
   });
 });
 

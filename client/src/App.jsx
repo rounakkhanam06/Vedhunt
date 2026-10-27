@@ -6,6 +6,7 @@ import { HelmetProvider } from 'react-helmet-async';
 import 'lenis/dist/lenis.css';
 
 import SEOSchemas from './components/seo/SEOSchemas';
+import PreviewBanner from './components/PreviewBanner';
 
 
 export default function App() {
@@ -15,6 +16,7 @@ export default function App() {
       <ThemeProvider>
         <ContactInfoProvider>
           <RouterProvider router={router} />
+          <PreviewBanner />
         </ContactInfoProvider>
       </ThemeProvider>
     </HelmetProvider>

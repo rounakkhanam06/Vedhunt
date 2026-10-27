@@ -1,5 +1,6 @@
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import { getPreview } from '../shared/portalPreview';
 
 /**
  * Separate Axios instance for the Client Portal.
@@ -18,6 +19,13 @@ const clientApi = axios.create({
 // ─── Request Interceptor — attach clientToken ─────────────────────────────────
 clientApi.interceptors.request.use(
   (config) => {
+    // A Super Admin's read-only preview tab (shared/portalPreview.js) uses only its preview token
+    const preview = getPreview('client');
+    if (preview) {
+      config.headers['X-Preview-Token'] = preview.token;
+      delete config.headers['Authorization'];
+      return config;
+    }
     const token = localStorage.getItem('clientToken');
     if (token) {
       config.headers['Authorization'] = `Bearer ${token}`;
@@ -46,6 +54,12 @@ clientApi.interceptors.response.use(
 
     if (error.response?.status === 413) {
       toast.error('File too large. Please use a smaller file.');
+      return Promise.reject(error);
+    }
+
+    // Preview: nothing to refresh, and no real session to log out
+    if (getPreview('client')) {
+      if (error.response?.data?.preview) toast.error('Preview is read-only — nothing can be changed here.', { id: 'preview-read-only' });
       return Promise.reject(error);
     }
 

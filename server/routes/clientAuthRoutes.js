@@ -177,7 +177,10 @@ router.post('/refresh', async (req, res) => {
 // @access Private
 // ─────────────────────────────────────────────────────────────────────────────
 router.get('/me', clientAuthMiddleware, (req, res) => {
-  res.json({ success: true, client: safeClientProfile(req.client) });
+  const client = safeClientProfile(req.client);
+  // A Super Admin's preview (utils/portalPreview.js): shown as a set-up client, with a banner
+  if (req.preview) return res.json({ success: true, client: { ...client, isTemporaryPassword: false }, preview: req.preview });
+  res.json({ success: true, client });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

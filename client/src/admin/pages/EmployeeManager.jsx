@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { usePageAccess } from '../../shared/crmAccess';
 import CrmAccessEditor from '../components/CrmAccessEditor';
+import { openPortalPreview } from '../../shared/portalPreview';
 import EmployeeProfile from '../components/EmployeeProfile';
 import toast from 'react-hot-toast';
 import { Plus, Trash2, Eye, Shield, Award, AlertCircle, CheckCircle, Search, IndianRupee, Copy, Check, ExternalLink, Info, Key, Power, Clock, UserCheck, UserX, ChevronDown, ChevronUp } from 'lucide-react';
@@ -700,6 +701,14 @@ const EmployeeManager = () => {
                     ? 'Account is active. Deactivating will immediately revoke login access to the portal.'
                     : 'Account is deactivated. Employee cannot log in or perform any actions.'}
                 </p>
+                {/* Super Admin: open the real Employee Portal as this person, read-only */}
+                {!inPortal && can('*') && selectedEmp.adminId?.isActive && (
+                  <button type="button" title="Open the Employee Portal as this employee (read-only)"
+                    onClick={() => openPortalPreview(http, 'employee', selectedEmp._id).catch((err) => toast.error(err?.response?.data?.message || 'Could not open the preview'))}
+                    className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-semibold border border-primary/40 text-primary hover:bg-primary/10 cursor-pointer">
+                    <Eye size={14} /> View as employee
+                  </button>
+                )}
               </div>
 
               <div className="bg-orange-500/5 border border-orange-500/10 rounded-xl p-4 space-y-3">

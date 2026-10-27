@@ -4,6 +4,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import './index.css'
 import App from './App.jsx'
+import { capturePreviewFromUrl } from './shared/portalPreview'
+
+// A Super Admin's "View as client / employee" tab: keep the hand-over before anything reads auth
+capturePreviewFromUrl()
 
 const queryClient = new QueryClient({
   defaultOptions: {

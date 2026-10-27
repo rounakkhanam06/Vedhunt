@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import employeeService from '../services/employeeService';
+import { getPreview, endPreview } from '../shared/portalPreview';
 
 export const useEmployeeStore = create((set) => ({
   employee: null,
@@ -25,6 +26,8 @@ export const useEmployeeStore = create((set) => ({
   },
 
   logout: async () => {
+    // A preview tab has no session of its own: leave the real login in this browser alone
+    if (getPreview('employee')) return endPreview();
     try {
       await employeeService.logout();
     } catch (_) {
@@ -39,7 +42,7 @@ export const useEmployeeStore = create((set) => ({
       const data = await employeeService.getMe();
       set({ employee: data.employee, isAuthenticated: true, isInitializing: false });
     } catch (_) {
-      localStorage.removeItem('employeeToken');
+      if (!getPreview('employee')) localStorage.removeItem('employeeToken');
       set({ employee: null, isAuthenticated: false, isInitializing: false });
     }
   },

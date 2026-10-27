@@ -81,13 +81,15 @@ const publicCache = (req, res, next) => {
   // refresh race). Without this, a single such request can get a CDN/proxy
   // to cache the admin response as "public" for minutes, showing stale
   // data (e.g. an already-deleted record) until the cache expires.
+  // A Super Admin's portal preview carries its token in X-Preview-Token, not Authorization
+  const signedIn = Boolean(req.headers.authorization || req.headers['x-preview-token']);
   if (req.path.startsWith('/admin')) {
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.set('Pragma', 'no-cache');
     res.set('Expires', '0');
-  } else if (req.method === 'GET' && !req.headers.authorization) {
+  } else if (req.method === 'GET' && !signedIn) {
     res.set('Cache-Control', 'public, max-age=120, s-maxage=240, stale-while-revalidate=60');
-  } else if (req.method === 'GET' && req.headers.authorization) {
+  } else if (req.method === 'GET' && signedIn) {
     // Explicitly prevent caching for admin requests
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.set('Pragma', 'no-cache');
@@ -183,6 +185,9 @@ app.use('/api/client', clientPortalRoutes); // all protected by clientAuthMiddle
 app.use('/api/employee/auth', employeeAuthRoutes);
 app.use('/api/employee-portal', employeePortalRoutes); // all protected by employeeAuthMiddleware internally
 app.use('/api/corrections', correctionAdminRoutes); // attendance/timesheet correction approvals (admin)
+
+// Super Admin "View as client / employee" — read-only portal previews
+app.use('/api/admin/portal-preview', require('./routes/portalPreviewRoutes'));
 
 // Admin management of client portal data (clients, invoices, projects, retainers, tickets)
 app.use('/api/admin', clientManagementRoutes);

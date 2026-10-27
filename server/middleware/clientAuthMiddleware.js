@@ -4,6 +4,7 @@ const { mustResetPassword, PASSWORD_RESET_REQUIRED } = require('../utils/tempPas
 const TEMP_PASSWORD_ALLOWED = ['/api/client/auth/me', '/api/client/auth/reset-temp-password', '/api/client/auth/logout'];
 const logger = require('../utils/logger');
 const Client = require('../models/Client');
+const { portalToken, checkPreview } = require('../utils/portalPreview');
 
 /**
  * Client Portal Auth Middleware
@@ -16,16 +17,9 @@ const Client = require('../models/Client');
  */
 const clientAuthMiddleware = async (req, res, next) => {
   try {
-    let token = req.cookies.clientToken;
-
-    // Fall back to Authorization header for cross-domain compatibility
-    if (
-      !token &&
-      req.headers.authorization &&
-      req.headers.authorization.startsWith('Bearer')
-    ) {
-      token = req.headers.authorization.split(' ')[1];
-    }
+    // A Super Admin's read-only preview (utils/portalPreview.js), else the cookie,
+    // else the Authorization header for cross-domain compatibility
+    const token = portalToken(req, 'clientToken');
 
     if (!token) {
       return res
@@ -66,7 +60,11 @@ const clientAuthMiddleware = async (req, res, next) => {
         .json({ success: false, message: 'Session expired, please login again' });
     }
 
-    if (mustResetPassword(req, req.client.isTemporaryPassword, TEMP_PASSWORD_ALLOWED)) {
+    const refused = await checkPreview(req, decoded, 'client');
+    if (refused) return res.status(refused[0]).json(refused[1]);
+
+    // A preview shows the portal as it is once the client is set up
+    if (!req.preview && mustResetPassword(req, req.client.isTemporaryPassword, TEMP_PASSWORD_ALLOWED)) {
       return res.status(403).json(PASSWORD_RESET_REQUIRED);
     }
 
