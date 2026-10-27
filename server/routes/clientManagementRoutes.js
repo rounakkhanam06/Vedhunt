@@ -26,6 +26,7 @@ const {
 } = require('../services/clientNotify');
 
 const invoiceDocument = require('../services/invoiceDocument');
+const ClientCall = require('../models/ClientCall');
 const { buildRegister, fyOf } = require('../services/clientRegister');
 const { GST_STATE_CODES } = require('../config/gstStates');
 const { validateGstin, validatePan } = require('../services/kycValidators');
@@ -561,8 +562,9 @@ router.post('/clients/:id/release', crm('clients', 'edit'), async (req, res) => 
 
 // ─── Offboard / onboard again: the engagement ended ("In-Active" in the register) ──
 // Login stays open (they can still see and pay invoices); retainers are not touched.
+// By hand only a Super Admin; the automatic rule is services/autoOffboard.js.
 
-router.post('/clients/:id/offboard', crm('clients', 'edit'), async (req, res) => {
+router.post('/clients/:id/offboard', requirePermission('*'), async (req, res) => {
   try {
     if (!isValidId(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid client ID' });
     if (!clientAllowed(req, req.params.id)) return outOfScope(res, 'Client');
@@ -575,6 +577,7 @@ router.post('/clients/:id/offboard', crm('clients', 'edit'), async (req, res) =>
     client.offboardReason = reason.slice(0, 500);
     client.offboardedBy = req.user._id;
     client.offboardedByName = [req.user.firstName, req.user.lastName].filter(Boolean).join(' ').trim() || req.user.email;
+    client.offboardSource = 'manual';
     await client.save();
     const activeRetainers = await Retainer.countDocuments({ client_ref: client._id, status: 'Active' });
     await recordAudit(req, 'CLIENT_OFFBOARD', 'Client', client.clientId, null, { reason: client.offboardReason, activeRetainers });
@@ -591,23 +594,67 @@ router.post('/clients/:id/offboard', crm('clients', 'edit'), async (req, res) =>
   }
 });
 
-router.post('/clients/:id/onboard-again', crm('clients', 'edit'), async (req, res) => {
+router.post('/clients/:id/onboard-again', requirePermission('*'), async (req, res) => {
   try {
     if (!isValidId(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid client ID' });
     if (!clientAllowed(req, req.params.id)) return outOfScope(res, 'Client');
     const client = await Client.findById(req.params.id);
     if (!client || client.deletedAt) return outOfScope(res, 'Client');
     if (!client.offboardedAt) return res.status(409).json({ success: false, message: 'This client is not offboarded.' });
-    const before = { offboardedAt: client.offboardedAt, reason: client.offboardReason };
+    const before = { offboardedAt: client.offboardedAt, reason: client.offboardReason, source: client.offboardSource };
     client.offboardedAt = undefined;
     client.offboardReason = undefined;
     client.offboardedBy = undefined;
     client.offboardedByName = undefined;
+    client.offboardSource = undefined;
     await client.save();
     await recordAudit(req, 'CLIENT_ONBOARD_AGAIN', 'Client', client.clientId, before, null);
     res.json({ success: true, message: `${client.businessName} is active again` });
   } catch (error) {
     logger.error('Admin onboard-again client error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// ─── Calls to a client (payment / account follow-up) ─────────────────────────
+// Unanswered calls feed the automatic In-Active rule (services/autoOffboard.js).
+
+router.get('/clients/:id/calls', crm('clients', 'view'), async (req, res) => {
+  try {
+    if (!isValidId(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid client ID' });
+    if (!clientAllowed(req, req.params.id)) return outOfScope(res, 'Client');
+    const calls = await ClientCall.find({ client_ref: req.params.id }).sort({ calledAt: -1 }).limit(100).lean();
+    res.json({ success: true, data: calls });
+  } catch (error) {
+    logger.error('Admin client calls error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+router.post('/clients/:id/calls', crm('clients', 'edit'), async (req, res) => {
+  try {
+    if (!isValidId(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid client ID' });
+    if (!clientAllowed(req, req.params.id)) return outOfScope(res, 'Client');
+    if (typeof req.body.connected !== 'boolean') return res.status(400).json({ success: false, message: 'Say whether the client answered.' });
+    const client = await Client.findById(req.params.id).select('clientId deletedAt').lean();
+    if (!client || client.deletedAt) return outOfScope(res, 'Client');
+    const purpose = ['Payment follow-up', 'Account follow-up', 'Other'].includes(req.body.purpose) ? req.body.purpose : 'Payment follow-up';
+    // A call can be logged after it happened, but not in the future
+    const at = req.body.calledAt ? new Date(req.body.calledAt) : new Date();
+    if (Number.isNaN(at.getTime()) || at > new Date(Date.now() + 60_000)) return res.status(400).json({ success: false, message: 'Enter when the call was made (not in the future).' });
+    const call = await ClientCall.create({
+      client_ref: client._id,
+      connected: req.body.connected,
+      purpose,
+      note: String(req.body.note || '').trim().slice(0, 1000),
+      calledAt: at,
+      calledBy: req.user._id,
+      calledByName: [req.user.firstName, req.user.lastName].filter(Boolean).join(' ').trim() || req.user.email,
+    });
+    await recordAudit(req, 'CLIENT_CALL_LOG', 'Client', client.clientId, null, { connected: call.connected, purpose, calledAt: call.calledAt });
+    res.status(201).json({ success: true, data: call });
+  } catch (error) {
+    logger.error('Admin log client call error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });

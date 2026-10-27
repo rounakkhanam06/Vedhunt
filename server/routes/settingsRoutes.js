@@ -8,6 +8,7 @@ const activityMaster = require('../services/activityMaster');
 const clientEmailPolicy = require('../services/clientEmailPolicy');
 const clientPolicies = require('../services/clientPolicies');
 const { runAutoHold } = require('../services/autoHold');
+const { runAutoOffboard } = require('../services/autoOffboard');
 const { recordAudit } = require('../services/audit');
 
 // Public route to get contact info
@@ -191,14 +192,26 @@ router.put('/admin/settings/client-email-notifications', authMiddleware, require
 
 // Super Admin rules: when an unpaid client goes on hold, and how extra retainer hours are billed.
 // Only a Super Admin ('*') can read or change them.
+const allPolicies = async () => ({
+  autoHold: await clientPolicies.getAutoHold(),
+  autoOffboard: await clientPolicies.getAutoOffboard(),
+  extraHours: await clientPolicies.getExtraHours(),
+  billing: await clientPolicies.getBilling(),
+});
+
 router.get('/admin/settings/client-policies', authMiddleware, requirePermission('*'), async (req, res) => {
-  res.json({ success: true, autoHold: await clientPolicies.getAutoHold(), extraHours: await clientPolicies.getExtraHours(), billing: await clientPolicies.getBilling() });
+  res.json({ success: true, ...(await allPolicies()) });
 });
 
 router.put('/admin/settings/client-policies', authMiddleware, requirePermission('*'), async (req, res) => {
   try {
-    const before = { autoHold: await clientPolicies.getAutoHold(), extraHours: await clientPolicies.getExtraHours(), billing: await clientPolicies.getBilling() };
+    const before = await allPolicies();
     const out = {};
+    if (req.body.autoOffboard !== undefined) {
+      const { value, error } = clientPolicies.validateAutoOffboard(req.body.autoOffboard);
+      if (error) return res.status(400).json({ success: false, message: error });
+      out.autoOffboard = await clientPolicies.saveAutoOffboard(value);
+    }
     if (req.body.autoHold !== undefined) {
       const { value, error } = clientPolicies.validateAutoHold(req.body.autoHold);
       if (error) return res.status(400).json({ success: false, message: error });
@@ -216,7 +229,7 @@ router.put('/admin/settings/client-policies', authMiddleware, requirePermission(
     }
     if (!Object.keys(out).length) return res.status(400).json({ success: false, message: 'Nothing to save.' });
     await recordAudit(req, 'CLIENT_POLICY_UPDATE', 'Settings', 'client-policies', before, { ...before, ...out });
-    res.json({ success: true, autoHold: out.autoHold || before.autoHold, extraHours: out.extraHours || before.extraHours, billing: out.billing || before.billing });
+    res.json({ success: true, ...before, ...out });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Server error' });
   }
@@ -226,6 +239,16 @@ router.put('/admin/settings/client-policies', authMiddleware, requirePermission(
 router.post('/admin/settings/client-policies/run-auto-hold', authMiddleware, requirePermission('*'), async (req, res) => {
   try {
     const result = await runAutoHold();
+    res.json({ success: true, ...result });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// Run the automatic In-Active check right now (the same pass the daily job does)
+router.post('/admin/settings/client-policies/run-auto-offboard', authMiddleware, requirePermission('*'), async (req, res) => {
+  try {
+    const result = await runAutoOffboard();
     res.json({ success: true, ...result });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Server error' });

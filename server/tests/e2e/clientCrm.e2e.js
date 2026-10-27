@@ -2160,6 +2160,96 @@ describe('client register — the spreadsheet view of the client list', () => {
     assert.equal(rowOf(await reg('fy=2026&search=Register'), 'regMonthly').serviceStatus, 'Active');
     assert.equal((await admin('POST', `/admin/clients/${ids.regMonthly}/onboard-again`)).status, 409);
   });
+
+  test('only a Super Admin offboards by hand', async () => {
+    const Role = require('../../models/Role');
+    const Admin = require('../../models/Admin');
+    const role = await Role.create({ name: 'CRM_EDIT_OFFBOARD', permissions: ['cms.manage'] });
+    const a = await Admin.create({ firstName: 'Crm', lastName: 'Editor', email: 'crm-offboard@e2e.test', password: 'Passw0rd!e2e', roles: [role._id] });
+    const token = jwt.sign({ id: a._id }, JWT_SECRET, { expiresIn: '1h' });
+    assert.equal((await request(token, 'POST', `/admin/clients/${ids.regOneTime}/offboard`, { reason: 'Trying without rights' })).status, 403);
+    assert.equal((await request(token, 'POST', `/admin/clients/${ids.regOneTime}/calls`, { connected: false })).status, 201, 'but can log calls');
+  });
+});
+
+describe('client calls and the automatic In-Active rule (hold first, then In-Active)', () => {
+  const Client = () => require('../../models/Client');
+  const policy = (autoOffboard) => admin('PUT', '/admin/settings/client-policies', { autoOffboard });
+  const run = async () => (await admin('POST', '/admin/settings/client-policies/run-auto-offboard')).body;
+  const call = (key, connected, daysAgo = 0) => admin('POST', `/admin/clients/${ids[key]}/calls`, { connected, calledAt: new Date(Date.now() - daysAgo * DAY).toISOString() });
+  const mk = async (key, { hold = true, overdueDays = 60 } = {}) => {
+    const c = await Client().create({
+      businessName: `Silent ${key}`, contactName: 'Silent Person', email: `${key}@example.com`, password: 'ClientPass1', isTemporaryPassword: false,
+      ...(hold ? { serviceStatus: 'Hold', holdReason: 'Payment overdue', holdSince: new Date(Date.now() - 20 * DAY), holdSource: 'auto' } : {}),
+    });
+    ids[key] = String(c._id);
+    await inv(ids[key], 5000, -overdueDays);
+  };
+
+  before(async () => {
+    await mk('silentA'); // on hold, overdue 60 days, will not answer
+    await mk('silentB'); // on hold, answered the latest call
+    await mk('silentC', { hold: false }); // not on hold
+    await mk('silentD', { overdueDays: 10 }); // on hold but not overdue long enough
+    await mk('silentE'); // on hold, but its unanswered calls were before the hold
+  });
+
+  test('calls are logged with validation, newest first', async () => {
+    assert.equal((await admin('POST', `/admin/clients/${ids.silentA}/calls`, {})).status, 400, 'answered or not is required');
+    assert.equal((await admin('POST', `/admin/clients/${ids.silentA}/calls`, { connected: false, calledAt: new Date(Date.now() + 2 * DAY).toISOString() })).status, 400, 'not in the future');
+    for (const key of ['silentA', 'silentC', 'silentD']) {
+      for (const d of [3, 2, 1]) assert.equal((await call(key, false, d)).status, 201);
+    }
+    await call('silentB', false, 3); await call('silentB', false, 2); await call('silentB', true, 1);
+    for (const d of [40, 35, 30]) await call('silentE', false, d);
+    const list = (await admin('GET', `/admin/clients/${ids.silentB}/calls`)).body.data;
+    assert.equal(list[0].connected, true, 'newest first');
+    assert.equal(list[0].calledByName, 'Super Admin');
+  });
+
+  test('switched off by default: nothing happens', async () => {
+    const got = (await admin('GET', '/admin/settings/client-policies')).body;
+    assert.deepEqual(got.autoOffboard, { enabled: false, daysOverdue: 45, unansweredCalls: 3 });
+    const r = await run();
+    assert.equal(r.enabled, false);
+    assert.equal((await Client().findById(ids.silentA).lean()).offboardedAt, undefined);
+  });
+
+  test('settings are validated and Super Admin only', async () => {
+    assert.equal((await policy({ enabled: true, daysOverdue: 0, unansweredCalls: 3 })).status, 400);
+    assert.equal((await policy({ enabled: true, daysOverdue: 30, unansweredCalls: 0 })).status, 400);
+    const ok = await policy({ enabled: true, daysOverdue: 30, unansweredCalls: 3 });
+    assert.equal(ok.status, 200, JSON.stringify(ok.body));
+    assert.deepEqual(ok.body.autoOffboard, { enabled: true, daysOverdue: 30, unansweredCalls: 3 });
+    assert.ok(ok.body.autoHold && ok.body.billing, 'the other rules are returned unchanged');
+  });
+
+  test('only a held, long-overdue client that did not answer the last calls since the hold goes In-Active', async () => {
+    const r = await run();
+    assert.deepEqual(r.offboarded, [ids.silentA]);
+    const a = await Client().findById(ids.silentA).lean();
+    assert.equal(a.offboardSource, 'auto');
+    assert.match(a.offboardReason, /not answered/);
+    assert.equal(a.isActive, true, 'login stays open');
+    for (const key of ['silentB', 'silentC', 'silentD', 'silentE']) {
+      assert.equal((await Client().findById(ids[key]).lean()).offboardedAt, undefined, key);
+    }
+    const row = (await admin('GET', `/admin/client-register?search=${encodeURIComponent('Silent silentA')}`)).body.data.rows[0];
+    assert.equal(row.serviceStatus, 'In-Active');
+    assert.equal(row.offboardSource, 'auto');
+    assert.ok(await require('../../models/AuditLog').findOne({ action: 'CLIENT_OFFBOARD', 'afterSnapshot.source': 'auto' }).lean());
+  });
+
+  test('it is never undone by itself, even after paying — a Super Admin marks them Active', async () => {
+    await require('../../models/Invoice').updateMany({ client_ref: ids.silentA }, { $set: { paymentStatus: 'Paid', paidAmount: 5000, paidOn: new Date() } });
+    assert.deepEqual((await run()).offboarded, []);
+    assert.ok((await Client().findById(ids.silentA).lean()).offboardedAt, 'still In-Active');
+    assert.equal((await admin('POST', `/admin/clients/${ids.silentA}/onboard-again`)).status, 200);
+    const a = await Client().findById(ids.silentA).lean();
+    assert.equal(a.offboardedAt, undefined);
+    assert.equal(a.offboardSource, undefined);
+    await policy({ enabled: false, daysOverdue: 45, unansweredCalls: 3 });
+  });
 });
 
 describe('portal preview — a Super Admin views the Client / Employee Portal as that person, read-only', () => {

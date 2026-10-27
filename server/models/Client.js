@@ -93,6 +93,8 @@ const clientSchema = new mongoose.Schema(
     offboardReason: { type: String, trim: true, maxlength: 500 },
     offboardedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin' },
     offboardedByName: { type: String, trim: true },
+    // 'manual' (a Super Admin) or 'auto' (unpaid + not answering calls — services/autoOffboard.js)
+    offboardSource: { type: String, enum: ['manual', 'auto'] },
     // Suspension (reversible): isActive=false + who/when/why. Internal only —
     // never returned by the client-facing APIs.
     suspendedAt: { type: Date },

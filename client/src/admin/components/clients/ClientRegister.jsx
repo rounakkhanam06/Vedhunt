@@ -110,7 +110,8 @@ export function ClientRegisterSummary({ http, base, client }) {
   );
 }
 
-export default function ClientRegister({ http, base, filters, onView, onEdit, canEdit }) {
+// canOffboard: Super Admin only (the server refuses everyone else)
+export default function ClientRegister({ http, base, filters, onView, onEdit, canEdit, canOffboard }) {
   const [fy, setFy] = useState(currentFy());
   const [reload, setReload] = useState(0);
   const [offboard, setOffboard] = useState(null); // the row being offboarded
@@ -261,7 +262,7 @@ export default function ClientRegister({ http, base, filters, onView, onEdit, ca
                   <td className={`${td} text-center border-b border-outline-variant`}>
                     <span title={r.offboardReason ? `Offboarded ${day(r.offboardedAt)}: ${r.offboardReason}` : undefined}
                       className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-bold ${STATUS_CLS[r.serviceStatus] || STATUS_CLS['In-Active']}`}>{r.serviceStatus}</span>
-                    {r.offboardedAt && <span className="block text-[10px] text-on-surface-variant mt-0.5">since {day(r.offboardedAt)}</span>}
+                    {r.offboardedAt && <span className="block text-[10px] text-on-surface-variant mt-0.5">{r.offboardSource === 'auto' ? 'auto · ' : ''}since {day(r.offboardedAt)}</span>}
                     {r.state === 'inactive' && <span className="block text-[10px] text-red-400 mt-0.5">login suspended</span>}
                   </td>
                   {showMoney && (r.months ? (<>
@@ -281,7 +282,7 @@ export default function ClientRegister({ http, base, filters, onView, onEdit, ca
                     <div className="flex items-center justify-center gap-1">
                       <button type="button" onClick={() => onView(r)} title="Open client" className="p-1.5 text-blue-400 hover:bg-blue-500/10 rounded-lg cursor-pointer"><Eye size={14} /></button>
                       {canEdit && <button type="button" onClick={() => onEdit(r)} title="Edit" className="p-1.5 text-secondary hover:bg-secondary/10 rounded-lg cursor-pointer"><Edit2 size={14} /></button>}
-                      {canEdit && (r.offboardedAt
+                      {canOffboard && (r.offboardedAt
                         ? <button type="button" onClick={() => onboardAgain(r)} title="Onboard again (Active)" className="p-1.5 text-green-400 hover:bg-green-500/10 rounded-lg cursor-pointer"><UserCheck size={14} /></button>
                         : <button type="button" onClick={() => { setOffboard(r); setReason(''); }} title="Offboard (In-Active)" className="p-1.5 text-on-surface-variant hover:bg-surface-container-low rounded-lg cursor-pointer"><UserMinus size={14} /></button>)}
                     </div>

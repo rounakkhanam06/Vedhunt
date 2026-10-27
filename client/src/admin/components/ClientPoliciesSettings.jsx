@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { PauseCircle, Clock, Save, Play, CalendarClock } from 'lucide-react';
+import { PauseCircle, Clock, Save, Play, CalendarClock, UserMinus } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
 
@@ -41,14 +41,21 @@ export default function ClientPoliciesSettings() {
   const [hold, setHold] = useState(null);
   const [extra, setExtra] = useState(null);
   const [billing, setBilling] = useState(null);
+  const [off, setOff] = useState(null); // automatic In-Active
   const [saved, setSaved] = useState({});
   const [busy, setBusy] = useState('');
   const [running, setRunning] = useState(false);
+  const [runningOff, setRunningOff] = useState(false);
+
+  const apply = (data) => {
+    setHold(data.autoHold); setExtra(data.extraHours); setBilling(data.billing); setOff(data.autoOffboard);
+    setSaved({ hold: data.autoHold, extra: data.extraHours, billing: data.billing, off: data.autoOffboard });
+  };
 
   useEffect(() => {
     let live = true;
     api.get('/admin/settings/client-policies')
-      .then((res) => { if (live) { setHold(res.data.autoHold); setExtra(res.data.extraHours); setBilling(res.data.billing); setSaved({ hold: res.data.autoHold, extra: res.data.extraHours, billing: res.data.billing }); } })
+      .then((res) => { if (live) apply(res.data); })
       .catch((err) => toast.error(err.response?.data?.message || 'Could not load the client rules.'));
     return () => { live = false; };
   }, []);
@@ -56,13 +63,22 @@ export default function ClientPoliciesSettings() {
   const save = async (which) => {
     setBusy(which);
     try {
-      const body = which === 'hold' ? { autoHold: hold } : which === 'billing' ? { billing } : { extraHours: extra };
+      const body = { hold: { autoHold: hold }, billing: { billing }, extra: { extraHours: extra }, off: { autoOffboard: off } }[which];
       const res = await api.put('/admin/settings/client-policies', body);
-      setHold(res.data.autoHold); setExtra(res.data.extraHours); setBilling(res.data.billing);
-      setSaved({ hold: res.data.autoHold, extra: res.data.extraHours, billing: res.data.billing });
+      apply(res.data);
       toast.success('Saved');
     } catch (err) { toast.error(err.response?.data?.message || 'Could not save'); }
     finally { setBusy(''); }
+  };
+
+  const runOffNow = async () => {
+    setRunningOff(true);
+    try {
+      const res = await api.post('/admin/settings/client-policies/run-auto-offboard');
+      if (!res.data.enabled) toast('The rule is switched off, so nothing was changed.');
+      else toast.success(`${res.data.offboarded.length} client(s) marked In-Active.`);
+    } catch (err) { toast.error(err.response?.data?.message || 'Could not run the check'); }
+    finally { setRunningOff(false); }
   };
 
   const runNow = async () => {
@@ -75,8 +91,9 @@ export default function ClientPoliciesSettings() {
     finally { setRunning(false); }
   };
 
-  if (!hold || !extra || !billing) return <p className="text-sm text-app-text-muted">Loading…</p>;
+  if (!hold || !extra || !billing || !off) return <p className="text-sm text-app-text-muted">Loading…</p>;
   const holdDirty = JSON.stringify(hold) !== JSON.stringify(saved.hold);
+  const offDirty = JSON.stringify(off) !== JSON.stringify(saved.off);
   const billingDirty = JSON.stringify(billing) !== JSON.stringify(saved.billing);
   const extraDirty = JSON.stringify(extra) !== JSON.stringify(saved.extra);
   const num = (setter) => (k) => (e) => setter((v) => ({ ...v, [k]: e.target.value === '' ? '' : Number(e.target.value) }));
@@ -118,6 +135,29 @@ export default function ClientPoliciesSettings() {
         <button type="button" onClick={runNow} disabled={running || holdDirty} title={holdDirty ? 'Save first' : ''}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-app-border text-xs text-app-text hover:border-primary/40 disabled:opacity-50 cursor-pointer">
           <Play size={12} /> {running ? 'Checking…' : 'Run the check now'}
+        </button>
+      </Section>
+
+      <Section icon={UserMinus} title="Automatic In-Active (offboard)" onSave={() => save('off')} saving={busy === 'off'} dirty={offDirty}
+        intro="Hold first, then In-Active: a client already on hold that still has not paid and has not answered the last calls logged since the hold is marked In-Active. Their login stays open. It is never undone automatically — a Super Admin marks them Active again. A daily check runs at 10:15 AM.">
+        <label className="flex items-center gap-2 text-sm font-medium text-app-text cursor-pointer">
+          <input type="checkbox" role="switch" checked={off.enabled} onChange={(e) => setOff((o) => ({ ...o, enabled: e.target.checked }))} className="w-4 h-4 accent-[#FF5A1F]" />
+          Mark In-Active automatically <span className="text-xs font-normal text-app-text-muted">({off.enabled ? 'on' : 'off — a Super Admin can still do it by hand'})</span>
+        </label>
+        <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 ${off.enabled ? '' : 'opacity-50'}`}>
+          <Field label="Days overdue" hint="Oldest unpaid invoice, counted from its due date.">
+            <input type="number" min="1" max="365" step="1" className={inputCls} value={off.daysOverdue} onChange={num(setOff)('daysOverdue')} disabled={!off.enabled} />
+          </Field>
+          <Field label="Unanswered calls in a row" hint="The last calls logged on the client (Overview → Calls) since the hold.">
+            <input type="number" min="1" max="20" step="1" className={inputCls} value={off.unansweredCalls} onChange={num(setOff)('unansweredCalls')} disabled={!off.enabled} />
+          </Field>
+        </div>
+        {off.enabled && hold.enabled && off.daysOverdue <= hold.daysOverdue && (
+          <p className="text-xs text-amber-500">In-Active is set at {off.daysOverdue} days, but hold only starts at {hold.daysOverdue}. Use more days here than for the hold.</p>
+        )}
+        <button type="button" onClick={runOffNow} disabled={runningOff || offDirty} title={offDirty ? 'Save first' : ''}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-app-border text-xs text-app-text hover:border-primary/40 disabled:opacity-50 cursor-pointer">
+          <Play size={12} /> {runningOff ? 'Checking…' : 'Run the check now'}
         </button>
       </Section>
 

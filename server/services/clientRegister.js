@@ -135,6 +135,7 @@ async function buildRegister(rows, fy, now = new Date()) {
       serviceStatus: r.offboardedAt ? 'In-Active' : r.state === 'hold' ? 'On hold' : 'Active',
       offboardedAt: r.offboardedAt || null,
       offboardReason: r.offboardReason,
+      offboardSource: r.offboardSource,
       billingType: pkg.billingType,
       packageNames: pkg.packageNames,
     };

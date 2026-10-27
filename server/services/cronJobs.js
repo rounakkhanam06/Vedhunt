@@ -9,6 +9,7 @@ const { runPayrollTick } = require('./payrollCron');
 const { startProbationScheduler } = require('./probationScheduler');
 const { runOnboardingAlerts } = require('./onboardingAlerts');
 const { runAutoHold } = require('./autoHold');
+const { runAutoOffboard } = require('./autoOffboard');
 const { generateDrafts } = require('./billingSchedule');
 
 const startCronJobs = () => {
@@ -261,6 +262,17 @@ const startCronJobs = () => {
       if (r.held.length || r.released.length) logger.info(`Auto-hold: ${r.held.length} held, ${r.released.length} released.`);
     } catch (error) {
       logger.error('Error in Auto-hold cron:', error);
+    }
+  });
+
+  // 11. Automatic In-Active for clients on hold that still don't pay or answer calls — only when
+  // a Super Admin has switched the rule on. Daily, 10:15 AM (after the auto-hold pass).
+  cron.schedule('15 10 * * *', async () => {
+    try {
+      const r = await runAutoOffboard();
+      if (r.offboarded.length) logger.info(`Auto In-Active: ${r.offboarded.length} client(s) marked In-Active.`);
+    } catch (error) {
+      logger.error('Error in Auto In-Active cron:', error);
     }
   });
 

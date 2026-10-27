@@ -12,6 +12,7 @@ import PortfolioKpis from '../components/clients/PortfolioKpis';
 import { inr, pct } from '../components/clients/format';
 import ClientProfilePanel from '../components/clients/ClientProfilePanel';
 import ClientRegister, { ClientRegisterSummary } from '../components/clients/ClientRegister';
+import ClientCallsPanel from '../components/clients/ClientCallsPanel';
 import { openPortalPreview } from '../../shared/portalPreview';
 import OnboardingPanel from '../components/clients/OnboardingPanel';
 import StrategyPanel from '../components/clients/StrategyPanel';
@@ -429,7 +430,7 @@ export default function ClientManager() {
 
       {view === 'register' && (
         <ClientRegister http={http} base={base} filters={registerFilters}
-          onView={(c) => openPreview(c)} onEdit={(c) => openEdit(c)} canEdit={canCrm('clients', 'edit')} />
+          onView={(c) => openPreview(c)} onEdit={(c) => openEdit(c)} canEdit={canCrm('clients', 'edit')} canOffboard={isSuperAdmin} />
       )}
 
       {/* Table */}
@@ -797,6 +798,7 @@ export default function ClientManager() {
               {previewTab === 'overview' && (<>
               {/* The client's register row: status, domains, package, received, balance, month-wise */}
               <ClientRegisterSummary http={http} base={base} client={previewClient} />
+              <ClientCallsPanel http={http} base={base} clientId={previewClient._id} canLog={canCrm('clients', 'edit')} />
 
               {/* Detailed Grid */}
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">

@@ -8,6 +8,11 @@ const EXTRA_KEY = 'retainer_extra_hours';
 const BILLING_KEY = 'recurring_invoice_defaults';
 
 const AUTO_HOLD_DEFAULTS = { enabled: false, daysOverdue: 15, minOverdueAmount: 0, autoRelease: true };
+// In-Active (offboarded) automatically: a client already on hold that still owes money
+// past `daysOverdue` and has not answered the last `unansweredCalls` calls logged since the hold.
+// Never undone automatically — a Super Admin marks them Active again (client decision, Oct 2026).
+const AUTO_OFFBOARD_KEY = 'client_auto_offboard';
+const AUTO_OFFBOARD_DEFAULTS = { enabled: false, daysOverdue: 45, unansweredCalls: 3 };
 const EXTRA_DEFAULTS = { mode: 'track_only', ratePerHour: 0, freeHours: 0, roundTo: 0.5, gstPercent: 18 };
 const ROUNDING = [0.25, 0.5, 1];
 // Recurring invoices: the client asked for 7 or 10 days to pay; the rest is per-client
@@ -32,6 +37,14 @@ function validateAutoHold(input = {}) {
   if (!Number.isFinite(min) || min < 0) return { error: 'Minimum overdue amount must be zero or more.' };
   v.minOverdueAmount = r2(min);
   return { value: v };
+}
+
+function validateAutoOffboard(input = {}) {
+  const days = Number(input.daysOverdue);
+  if (!Number.isInteger(days) || days < 1 || days > 365) return { error: 'Days overdue must be a whole number from 1 to 365.' };
+  const calls = Number(input.unansweredCalls);
+  if (!Number.isInteger(calls) || calls < 1 || calls > 20) return { error: 'Unanswered calls must be a whole number from 1 to 20.' };
+  return { value: { enabled: !!input.enabled, daysOverdue: days, unansweredCalls: calls } };
 }
 
 function validateExtraHours(input = {}) {
@@ -77,6 +90,7 @@ function validateBilling(input = {}) {
 
 const getBilling = () => read(BILLING_KEY, BILLING_DEFAULTS);
 const getAutoHold = () => read(AUTO_HOLD_KEY, AUTO_HOLD_DEFAULTS);
+const getAutoOffboard = () => read(AUTO_OFFBOARD_KEY, AUTO_OFFBOARD_DEFAULTS);
 const getExtraHours = () => read(EXTRA_KEY, EXTRA_DEFAULTS);
 
 async function save(key, value) {
@@ -89,4 +103,5 @@ module.exports = {
   BILLING_DEFAULTS, validateBilling, getBilling, saveBilling: (v) => save(BILLING_KEY, v),
   validateAutoHold, validateExtraHours, extraCharge, getAutoHold, getExtraHours,
   saveAutoHold: (v) => save(AUTO_HOLD_KEY, v), saveExtraHours: (v) => save(EXTRA_KEY, v),
+  AUTO_OFFBOARD_DEFAULTS, validateAutoOffboard, getAutoOffboard, saveAutoOffboard: (v) => save(AUTO_OFFBOARD_KEY, v),
 };

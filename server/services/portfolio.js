@@ -59,7 +59,7 @@ async function buildPortfolio(opts = {}, now = new Date()) {
   if (opts.clientIds) base._id = { $in: opts.clientIds };
 
   const allClients = await Client.find(base,
-    'clientId businessName contactName email phone isActive deletedAt createdAt profile serviceStatus holdReason holdSince offboardedAt offboardReason')
+    'clientId businessName contactName email phone isActive deletedAt createdAt profile serviceStatus holdReason holdSince offboardedAt offboardReason offboardSource')
     .populate('profile.accountManager', 'firstName lastName')
     .lean();
 
@@ -84,6 +84,7 @@ async function buildPortfolio(opts = {}, now = new Date()) {
       holdSince: c.serviceStatus === 'Hold' ? c.holdSince : undefined,
       offboardedAt: c.offboardedAt || null,
       offboardReason: c.offboardedAt ? c.offboardReason || '' : undefined,
+      offboardSource: c.offboardedAt ? c.offboardSource || 'manual' : undefined,
       profile: { ...(c.profile || {}), accountManager: manager?._id || null },
       accountManagerName: manager ? [manager.firstName, manager.lastName].filter(Boolean).join(' ') : null,
       teamSize: (c.profile?.dedicatedTeam || []).length,
