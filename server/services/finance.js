@@ -80,7 +80,7 @@ async function applyPaymentToInvoice(invoiceId, amount, { paidOn = new Date(), m
  * overdue amount, oldest overdue due date and days overdue.
  */
 async function portfolioFinance({ clientIds, now = new Date() } = {}) {
-  const match = {};
+  const match = { unsent: { $ne: true } }; // an invoice not sent to the client yet is not owed
   if (clientIds) match.client_ref = { $in: clientIds };
 
   const rows = await Invoice.aggregate([

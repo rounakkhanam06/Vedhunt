@@ -7,6 +7,37 @@ const lineItemSchema = new mongoose.Schema(
     qty: { type: Number, required: true, min: 1, default: 1 },
     unitPrice: { type: Number, required: true, min: 0 },
     amount: { type: Number, required: true, min: 0 }, // qty * unitPrice
+    sac: { type: String, trim: true, maxlength: 12 }, // HSN / SAC printed on the proforma / tax invoice
+  },
+  { _id: false }
+);
+
+const DOCUMENT_TYPES = ['Proforma Invoice', 'Tax Invoice'];
+
+// Who the invoice is made out to, filled by staff from the client's details.
+// The Client record has no billing address or state, so they live on the invoice.
+const billingSchema = new mongoose.Schema(
+  {
+    name: { type: String, trim: true, maxlength: 150 },
+    address: { type: String, trim: true, maxlength: 400 },
+    phone: { type: String, trim: true, maxlength: 20 },
+    gstin: { type: String, trim: true, uppercase: true, maxlength: 15 },
+    pan: { type: String, trim: true, uppercase: true, maxlength: 10 },
+    placeOfSupply: { type: String, trim: true, maxlength: 60 }, // a GST state name — decides IGST vs CGST + SGST
+  },
+  { _id: false }
+);
+
+// One entry per document type the invoice has been sent as. The number is
+// allocated when it is first sent and never changes (services/invoiceDocument.js).
+const documentSchema = new mongoose.Schema(
+  {
+    type: { type: String, enum: DOCUMENT_TYPES, required: true },
+    number: { type: Number, required: true },
+    date: { type: Date, required: true }, // typed by staff
+    sentAt: { type: Date },
+    sentBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin' },
+    sentByName: { type: String, trim: true },
   },
   { _id: false }
 );
@@ -68,6 +99,11 @@ const invoiceSchema = new mongoose.Schema(
       hours: { type: Number },
     },
     paymentMethod: { type: String, trim: true },
+    billing: { type: billingSchema, default: undefined },
+    documents: { type: [documentSchema], default: [] },
+    // True on invoices made by staff and not sent yet: the client does not see
+    // them and they are not counted as receivables. Absent on older invoices.
+    unsent: { type: Boolean },
     // Internal admin notes — NEVER sent to client (select: false)
     notes: { type: String, trim: true, select: false },
   },
@@ -88,6 +124,11 @@ invoiceSchema.index(
   { unique: true, partialFilterExpression: { 'extraHours.month': { $exists: true } } }
 );
 invoiceSchema.index({ client_ref: 1, paymentStatus: 1 });
+// A proforma / tax invoice number is used once per type
+invoiceSchema.index(
+  { 'documents.type': 1, 'documents.number': 1 },
+  { unique: true, partialFilterExpression: { 'documents.number': { $exists: true } } }
+);
 
 // ─── Auto-generate invoiceId ─────────────────────────────────────────────────
 invoiceSchema.pre('save', async function () {
@@ -129,3 +170,4 @@ invoiceSchema.post('findOne', function (doc) {
 
 const Invoice = mongoose.model('Invoice', invoiceSchema);
 module.exports = Invoice;
+module.exports.DOCUMENT_TYPES = DOCUMENT_TYPES;

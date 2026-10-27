@@ -1,11 +1,17 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useCrm } from '../../shared/crmAccess';
 import InvoiceDraftsPanel from '../components/InvoiceDraftsPanel';
+import { openPdf } from '../../employee/lib/ess';
 import toast from 'react-hot-toast';
 import {
   FileText, Plus, Search, X, Save, IndianRupee,
-  ChevronLeft, ChevronRight, Trash2, Edit2, Filter,
+  ChevronLeft, ChevronRight, Trash2, Edit2, Filter, Eye, Send,
 } from 'lucide-react';
+
+const DOC_TYPES = ['Tax Invoice', 'Proforma Invoice'];
+const today = () => new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD in local time
+const emptyBilling = () => ({ name: '', address: '', phone: '', gstin: '', pan: '', placeOfSupply: '' });
+const inputCls = 'w-full px-3 py-2.5 bg-admin-bg border border-outline-variant rounded-xl text-on-surface text-sm focus:outline-none focus:border-secondary';
 
 const STATUS_COLORS = {
   Paid:    'bg-green-500/10 text-green-400 border-green-500/20',
@@ -14,9 +20,10 @@ const STATUS_COLORS = {
 };
 
 const emptyForm = () => ({
-  client_ref: '', dueDate: '', notes: '',
-  lineItems: [{ description: '', qty: 1, unitPrice: '' }],
-  taxPercent: 0, paymentStatus: 'Unpaid',
+  client_ref: '', issueDate: today(), dueDate: '', notes: '',
+  lineItems: [{ description: '', qty: 1, unitPrice: '', sac: '' }],
+  taxPercent: 18, paymentStatus: 'Unpaid',
+  billing: emptyBilling(),
 });
 
 export default function InvoiceManager() {
@@ -34,12 +41,65 @@ export default function InvoiceManager() {
   const [editTarget, setEditTarget] = useState(null);
   const [form, setForm] = useState(emptyForm());
   const [saving, setSaving] = useState(false);
+  const [docInfo, setDocInfo] = useState({ states: [], next: {} }); // GST states + next proforma / tax invoice numbers
+  const [sendTarget, setSendTarget] = useState(null);
+  const [sendForm, setSendForm] = useState({ type: 'Tax Invoice', date: today() });
+  const [sending, setSending] = useState(false);
 
   // Fetch clients for dropdown
   useEffect(() => {
     http.get(`${base}/client-options`, { params: { page: 'invoices' } })
       .then(r => setClients(r.data.data || []));
   }, [http, base]);
+
+  const refreshDocInfo = useCallback(() => {
+    http.get(`${base}/invoice-documents/info`).then((r) => setDocInfo(r.data.data)).catch(() => {});
+  }, [http, base]);
+  useEffect(() => { refreshDocInfo(); }, [refreshDocInfo]);
+
+  // Billing details for a client: their last invoice, else the client record / KYC GSTIN
+  const loadBillingDefaults = async (clientId) => {
+    if (!clientId) return;
+    try {
+      const r = await http.get(`${base}/invoice-documents/billing-defaults/${clientId}`);
+      setForm((p) => (p.client_ref === clientId ? { ...p, billing: { ...emptyBilling(), ...r.data.data } } : p));
+    } catch { /* the fields stay empty to type in */ }
+  };
+
+  const setBilling = (k, v) => setForm((p) => {
+    const billing = { ...p.billing, [k]: v };
+    // The first two digits of a GSTIN are the state code
+    if (k === 'gstin' && !p.billing.placeOfSupply) {
+      const state = docInfo.states.find((s) => s.code === v.trim().slice(0, 2));
+      if (state) billing.placeOfSupply = state.name;
+    }
+    return { ...p, billing };
+  });
+
+  const viewDocument = (inv, type) => {
+    const sent = inv.documents?.[inv.documents.length - 1];
+    const docType = type || sent?.type || 'Tax Invoice';
+    openPdf(`${base}/invoices/${inv._id}/document?type=${encodeURIComponent(docType)}`, { http })
+      .catch(() => toast.error('Could not open the invoice PDF'));
+  };
+
+  const openSend = (inv) => {
+    setSendTarget(inv);
+    setSendForm({ type: inv.documents?.[0]?.type || 'Tax Invoice', date: (inv.issueDate || '').split('T')[0] || today() });
+  };
+
+  const sendInvoice = async () => {
+    setSending(true);
+    try {
+      const r = await http.post(`${base}/invoices/${sendTarget._id}/send`, sendForm);
+      toast.success(r.data.message);
+      setSendTarget(null);
+      fetchInvoices();
+      refreshDocInfo();
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Could not send the invoice');
+    } finally { setSending(false); }
+  };
 
   const fetchInvoices = useCallback(async () => {
     setLoading(true);
@@ -82,16 +142,21 @@ export default function InvoiceManager() {
   const openCreate = () => { setEditTarget(null); setForm(emptyForm()); setShowModal(true); };
   const openEdit = (inv) => {
     setEditTarget(inv);
+    const clientId = inv.client_ref?._id || '';
     setForm({
-      client_ref: inv.client_ref?._id || '',
+      client_ref: clientId,
+      issueDate: inv.issueDate?.split('T')[0] || today(),
       dueDate: inv.dueDate?.split('T')[0] || '',
       notes: inv.notes || '',
-      lineItems: inv.lineItems?.length ? inv.lineItems : [{ description: '', qty: 1, unitPrice: '' }],
+      lineItems: inv.lineItems?.length ? inv.lineItems.map((i) => ({ ...i, sac: i.sac || '' })) : [{ description: '', qty: 1, unitPrice: '', sac: '' }],
       taxPercent: inv.taxPercent || 0,
       // Overdue is worked out from the due date and balance, so it is never an editable status
       paymentStatus: inv.paymentStatus === 'Paid' ? 'Paid' : 'Unpaid',
+      billing: { ...emptyBilling(), ...(inv.billing || {}) },
     });
     setShowModal(true);
+    // e.g. an invoice approved from a billing schedule has no billing details yet
+    if (!inv.billing) loadBillingDefaults(clientId);
   };
 
   const handleSubmit = async (e) => {
@@ -104,7 +169,8 @@ export default function InvoiceManager() {
         description: i.description,
         qty: Number(i.qty || 1),
         unitPrice: Number(i.unitPrice || 0),
-        amount: Number(i.qty || 1) * Number(i.unitPrice || 0)
+        amount: Number(i.qty || 1) * Number(i.unitPrice || 0),
+        sac: (i.sac || '').trim(),
       }));
 
       const payload = { ...form, lineItems: mappedLineItems, subtotal, taxAmount, totalAmount };
@@ -113,7 +179,7 @@ export default function InvoiceManager() {
         toast.success('Invoice updated');
       } else {
         await http.post(`${base}/invoices`, payload);
-        toast.success('Invoice created');
+        toast.success('Invoice saved. View it, then Send it to the client.');
       }
       setShowModal(false);
       fetchInvoices();
@@ -144,7 +210,7 @@ export default function InvoiceManager() {
       return { ...p, lineItems: items };
     });
 
-  const addLineItem = () => setForm(p => ({ ...p, lineItems: [...p.lineItems, { description: '', qty: 1, unitPrice: '' }] }));
+  const addLineItem = () => setForm(p => ({ ...p, lineItems: [...p.lineItems, { description: '', qty: 1, unitPrice: '', sac: '' }] }));
   const removeLineItem = (i) => setForm(p => ({ ...p, lineItems: p.lineItems.filter((_, idx) => idx !== i) }));
 
   const { subtotal, taxAmount, totalAmount } = computeTotals(form.lineItems, form.taxPercent);
@@ -224,7 +290,17 @@ export default function InvoiceManager() {
               <tbody className="divide-y divide-outline-variant">
                 {invoices.map(inv => (
                   <tr key={inv._id} className="hover:bg-surface-container-low transition-colors">
-                    <td className="px-4 py-3 font-mono text-secondary text-xs">{inv.invoiceId}</td>
+                    <td className="px-4 py-3">
+                      <p className="font-mono text-secondary text-xs">{inv.invoiceId}</p>
+                      {inv.unsent ? (
+                        <span className="inline-block mt-0.5 text-[10px] font-semibold text-amber-500">Not sent yet</span>
+                      ) : (inv.documents || []).map((d) => (
+                        <button key={d.type} type="button" onClick={() => viewDocument(inv, d.type)}
+                          className="block mt-0.5 text-[10px] text-on-surface-variant hover:text-secondary cursor-pointer">
+                          {d.type} #{d.number}
+                        </button>
+                      ))}
+                    </td>
                     <td className="px-4 py-3">
                       <p className="text-on-surface font-medium text-xs">{inv.client_ref?.businessName || '—'}</p>
                       <p className="text-on-surface-variant text-[10px]">{inv.client_ref?.clientId}</p>
@@ -251,6 +327,14 @@ export default function InvoiceManager() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-center gap-2">
+                        <button onClick={() => viewDocument(inv)} title="View PDF"
+                          className="p-1.5 text-on-surface-variant hover:bg-surface-container-low rounded-lg cursor-pointer">
+                          <Eye size={14} />
+                        </button>
+                        {canCrm('invoices', 'edit') && (<button onClick={() => openSend(inv)} title={inv.unsent ? 'Send to client' : 'Send again / as another type'}
+                          className={`p-1.5 rounded-lg cursor-pointer ${inv.unsent ? 'text-white bg-secondary hover:bg-secondary/90' : 'text-secondary hover:bg-secondary/10'}`}>
+                          <Send size={14} />
+                        </button>)}
                         {canCrm('invoices', 'edit') && (<button onClick={() => openEdit(inv)} title="Edit"
                           className="p-1.5 text-secondary hover:bg-secondary/10 rounded-lg cursor-pointer">
                           <Edit2 size={14} />
@@ -298,18 +382,46 @@ export default function InvoiceManager() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-on-surface-variant text-xs font-medium mb-1.5">Client *</label>
-                  <select value={form.client_ref} onChange={e => setForm(p => ({ ...p, client_ref: e.target.value }))} required
+                  <select value={form.client_ref} disabled={!!editTarget} required
+                    onChange={e => { const id = e.target.value; setForm(p => ({ ...p, client_ref: id, billing: emptyBilling() })); loadBillingDefaults(id); }}
                     className="w-full px-3 py-2.5 bg-admin-bg border border-outline-variant rounded-xl text-on-surface text-sm focus:outline-none focus:border-secondary">
                     <option value="">Select client…</option>
                     {clients.map(c => <option key={c._id} value={c._id}>{c.businessName} — {c.clientId}</option>)}
                   </select>
                 </div>
-                <div>
-                  <label className="block text-on-surface-variant text-xs font-medium mb-1.5">Due Date *</label>
-                  <input type="date" required value={form.dueDate} onChange={e => setForm(p => ({ ...p, dueDate: e.target.value }))}
-                    className="w-full px-3 py-2.5 bg-admin-bg border border-outline-variant rounded-xl text-on-surface text-sm focus:outline-none focus:border-secondary [color-scheme:dark]" />
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-on-surface-variant text-xs font-medium mb-1.5">Invoice Date *</label>
+                    <input type="date" required value={form.issueDate} onChange={e => setForm(p => ({ ...p, issueDate: e.target.value }))}
+                      className="w-full px-3 py-2.5 bg-admin-bg border border-outline-variant rounded-xl text-on-surface text-sm focus:outline-none focus:border-secondary [color-scheme:dark]" />
+                  </div>
+                  <div>
+                    <label className="block text-on-surface-variant text-xs font-medium mb-1.5">Due Date *</label>
+                    <input type="date" required value={form.dueDate} onChange={e => setForm(p => ({ ...p, dueDate: e.target.value }))}
+                      className="w-full px-3 py-2.5 bg-admin-bg border border-outline-variant rounded-xl text-on-surface text-sm focus:outline-none focus:border-secondary [color-scheme:dark]" />
+                  </div>
                 </div>
               </div>
+
+              {/* Billed to — printed in "Customer Detail" on the proforma / tax invoice */}
+              <fieldset className="border border-outline-variant rounded-xl p-4 space-y-3">
+                <legend className="px-1 text-on-surface-variant text-xs font-medium">Billing details (printed on the invoice)</legend>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <input value={form.billing.name} onChange={(e) => setBilling('name', e.target.value)} placeholder="Name (billed to)" className={inputCls} />
+                  <input value={form.billing.phone} onChange={(e) => setBilling('phone', e.target.value)} placeholder="Phone" className={inputCls} />
+                </div>
+                <textarea value={form.billing.address} onChange={(e) => setBilling('address', e.target.value)} rows={2} placeholder="Billing address (needed to send)"
+                  className={`${inputCls} resize-none`} />
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <input value={form.billing.gstin} onChange={(e) => setBilling('gstin', e.target.value.toUpperCase())} maxLength={15} placeholder="GSTIN (optional)" className={`${inputCls} font-mono`} />
+                  <input value={form.billing.pan} onChange={(e) => setBilling('pan', e.target.value.toUpperCase())} maxLength={10} placeholder="PAN (optional)" className={`${inputCls} font-mono`} />
+                  <select value={form.billing.placeOfSupply} onChange={(e) => setBilling('placeOfSupply', e.target.value)} className={inputCls}>
+                    <option value="">Place of supply…</option>
+                    {docInfo.states.map((s) => <option key={s.code} value={s.name}>{s.name} ({s.code})</option>)}
+                  </select>
+                </div>
+                <p className="text-[11px] text-on-surface-variant">Maharashtra → CGST + SGST; any other state → IGST.</p>
+              </fieldset>
 
               {/* Line Items */}
               <div>
@@ -322,16 +434,20 @@ export default function InvoiceManager() {
                 </div>
                 <div className="space-y-2">
                   {form.lineItems.map((item, i) => (
-                    <div key={i} className="grid grid-cols-12 gap-2 items-center">
-                      <input type="text" value={item.description} placeholder="Description" required
+                    <div key={i} className="grid grid-cols-12 gap-2 items-start">
+                      <textarea value={item.description} rows={2} required
+                        placeholder={'Service (first line, bold)\nDetails, one per line'}
                         onChange={e => updateLineItem(i, 'description', e.target.value)}
-                        className="col-span-6 px-3 py-2 bg-admin-bg border border-outline-variant rounded-lg text-on-surface text-xs focus:outline-none focus:border-secondary" />
+                        className="col-span-12 sm:col-span-5 px-3 py-2 bg-admin-bg border border-outline-variant rounded-lg text-on-surface text-xs focus:outline-none focus:border-secondary resize-y" />
+                      <input type="text" value={item.sac || ''} maxLength={12} placeholder="HSN/SAC"
+                        onChange={e => updateLineItem(i, 'sac', e.target.value)}
+                        className="col-span-3 sm:col-span-2 px-2 py-2 bg-admin-bg border border-outline-variant rounded-lg text-on-surface text-xs focus:outline-none focus:border-secondary font-mono" />
                       <input type="number" value={item.qty} min={1} placeholder="Qty"
                         onChange={e => updateLineItem(i, 'qty', e.target.value)}
-                        className="col-span-2 px-2 py-2 bg-admin-bg border border-outline-variant rounded-lg text-on-surface text-xs focus:outline-none focus:border-secondary text-center" />
-                      <input type="number" value={item.unitPrice} min={0} placeholder="₹ Unit Price" required
+                        className="col-span-3 sm:col-span-2 px-2 py-2 bg-admin-bg border border-outline-variant rounded-lg text-on-surface text-xs focus:outline-none focus:border-secondary text-center" />
+                      <input type="number" value={item.unitPrice} min={0} placeholder="₹ Rate" required
                         onChange={e => updateLineItem(i, 'unitPrice', e.target.value)}
-                        className="col-span-3 px-2 py-2 bg-admin-bg border border-outline-variant rounded-lg text-on-surface text-xs focus:outline-none focus:border-secondary" />
+                        className="col-span-5 sm:col-span-2 px-2 py-2 bg-admin-bg border border-outline-variant rounded-lg text-on-surface text-xs focus:outline-none focus:border-secondary" />
                       {form.lineItems.length > 1 && (
                         <button type="button" onClick={() => removeLineItem(i)} className="col-span-1 text-red-400 hover:text-red-300 cursor-pointer flex justify-center">
                           <X size={14} />
@@ -379,7 +495,7 @@ export default function InvoiceManager() {
                 <button type="submit" disabled={saving}
                   className="flex items-center gap-2 px-5 py-2.5 bg-secondary text-white rounded-xl text-sm font-medium hover:bg-secondary/90 disabled:opacity-60 cursor-pointer">
                   {saving ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Save size={14} />}
-                  {editTarget ? 'Update' : 'Create Invoice'}
+                  {editTarget ? 'Update' : 'Save Invoice'}
                 </button>
                 <button type="button" onClick={() => setShowModal(false)}
                   className="px-5 py-2.5 bg-admin-bg border border-outline-variant text-on-surface-variant hover:text-on-surface rounded-xl text-sm cursor-pointer">
@@ -390,6 +506,55 @@ export default function InvoiceManager() {
           </div>
         </div>
       )}
+
+      {/* Send as Proforma / Tax Invoice */}
+      {sendTarget && (() => {
+        const already = (sendTarget.documents || []).find((d) => d.type === sendForm.type);
+        const nextNo = sendForm.type === 'Tax Invoice' ? docInfo.next.taxInvoice : docInfo.next.proforma;
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <div className="w-full max-w-md bg-surface border border-outline-variant rounded-2xl shadow-2xl overflow-hidden">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-outline-variant">
+                <h3 className="text-on-surface font-semibold">Send {sendTarget.invoiceId}</h3>
+                <button onClick={() => setSendTarget(null)} className="p-1.5 rounded-lg hover:bg-surface-container-low text-on-surface-variant cursor-pointer"><X size={16} /></button>
+              </div>
+              <div className="p-6 space-y-4">
+                <div>
+                  <p className="text-on-surface-variant text-xs font-medium mb-1.5">Send as</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {DOC_TYPES.map((t) => (
+                      <button key={t} type="button" onClick={() => setSendForm((p) => ({ ...p, type: t }))}
+                        className={`px-3 py-2.5 rounded-xl text-sm font-medium border cursor-pointer ${sendForm.type === t ? 'bg-secondary/15 text-secondary border-secondary/40' : 'bg-admin-bg text-on-surface-variant border-outline-variant'}`}>
+                        {t}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-on-surface-variant text-xs font-medium mb-1.5">{sendForm.type === 'Tax Invoice' ? 'Invoice Date' : 'Proforma Date'} *</label>
+                  <input type="date" required value={sendForm.date} onChange={(e) => setSendForm((p) => ({ ...p, date: e.target.value }))}
+                    className={`${inputCls} [color-scheme:dark]`} />
+                </div>
+                <p className="text-xs text-on-surface-variant">
+                  {already
+                    ? <>Already sent as {already.type} #{already.number}. Sending again keeps the number, uses this date and notifies the client again.</>
+                    : <>This will be {sendForm.type} <strong className="text-on-surface">#{nextNo ?? '…'}</strong>. The number can&apos;t be changed after sending.</>}
+                </p>
+                <div className="flex flex-wrap gap-3">
+                  <button type="button" disabled={sending || !sendForm.date} onClick={sendInvoice}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-secondary text-white rounded-xl text-sm font-medium hover:bg-secondary/90 disabled:opacity-60 cursor-pointer">
+                    <Send size={14} /> {sending ? 'Sending…' : 'Send to client'}
+                  </button>
+                  <button type="button" onClick={() => openPdf(`${base}/invoices/${sendTarget._id}/document?type=${encodeURIComponent(sendForm.type)}&date=${sendForm.date}`, { http }).catch(() => toast.error('Could not open the invoice PDF'))}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-admin-bg border border-outline-variant text-on-surface-variant hover:text-on-surface rounded-xl text-sm cursor-pointer">
+                    <Eye size={14} /> Preview
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

@@ -34,9 +34,12 @@ function buildProposalRouters(leadScope) {
     const result = await proposals.renderPdf(req.params.id, req.user, leadScope(req));
     if (!result.ok) return respond(res, result);
     const { buffer, proposal } = result;
+    const filename = proposal.kind === 'Proforma'
+      ? `Proforma-${proposal.proformaNumber || 'draft'}.pdf`
+      : `Proposal-${proposal.proposalNumber}-v${proposal.version}.pdf`;
     res.set({
       'Content-Type': 'application/pdf',
-      'Content-Disposition': `${req.query.download === '1' ? 'attachment' : 'inline'}; filename="Proposal-${proposal.proposalNumber}-v${proposal.version}.pdf"`,
+      'Content-Disposition': `${req.query.download === '1' ? 'attachment' : 'inline'}; filename="${filename}"`,
       'Content-Length': buffer.length,
       'Cache-Control': 'private, no-store',
     });
@@ -62,8 +65,8 @@ function buildProposalRouters(leadScope) {
   });
 
   proposalRouter.post('/:id/share', async (req, res) => {
-    const { channel, recipient, message } = req.body;
-    respond(res, await proposals.share(req.user, req.params.id, { channel, recipient, message }, leadScope(req)));
+    const { channel, recipient, message, document } = req.body;
+    respond(res, await proposals.share(req.user, req.params.id, { channel, recipient, message, document }, leadScope(req)));
   });
 
   return { leadProposalRouter, proposalRouter };

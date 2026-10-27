@@ -46,7 +46,7 @@ function EditDraft({ draft, http, base, onClose, onSaved }) {
           <button type="button" onClick={onClose} aria-label="Close" className="p-1.5 rounded-lg hover:bg-surface-container-low text-on-surface-variant cursor-pointer"><X size={18} /></button>
         </div>
         <div className="p-5 space-y-4">
-          <p className="text-xs text-on-surface-variant">Covers {fmt(draft.periodStart)} to {fmt(draft.periodEnd)}. Nothing is sent to the client until you approve it.</p>
+          <p className="text-xs text-on-surface-variant">Covers {fmt(draft.periodStart)} to {fmt(draft.periodEnd)}. Nothing reaches the client until you approve it and then send it from Invoices.</p>
           <div className="space-y-2">
             {items.map((it, i) => (
               <div key={i} className="grid grid-cols-[1fr_4.5rem_7rem_auto] gap-2 items-start">
@@ -117,7 +117,7 @@ export default function InvoiceDraftsPanel({ http, base, canApprove, canEdit, on
     if (reason !== null) act(d._id, 'skip', { reason });
   };
   const approve = (d) => {
-    if (window.confirm(`Create and send ${inr(d.totalAmount)} to ${d.client?.businessName}? They will be notified.`)) act(d._id, 'approve');
+    if (window.confirm(`Create the ${inr(d.totalAmount)} invoice for ${d.client?.businessName}? It is saved, not sent: add the billing details and Send it from Invoices.`)) act(d._id, 'approve');
   };
 
   if (!data) return <div className="flex justify-center py-10"><div className="w-6 h-6 border-2 border-secondary/30 border-t-secondary rounded-full animate-spin" /></div>;
@@ -125,7 +125,7 @@ export default function InvoiceDraftsPanel({ http, base, canApprove, canEdit, on
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-xs text-on-surface-variant max-w-xl">These invoices were created from the clients&apos; billing schedules. The client sees nothing until you approve. Correct any that look wrong first.</p>
+        <p className="text-xs text-on-surface-variant max-w-xl">These invoices were created from the clients&apos; billing schedules. The client sees nothing until you approve and send it as a Proforma or Tax Invoice. Correct any that look wrong first.</p>
         <label className="flex items-center gap-2 text-xs text-on-surface-variant cursor-pointer"><input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} /> Show approved and skipped</label>
       </div>
 

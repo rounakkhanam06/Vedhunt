@@ -25,6 +25,9 @@ const {
   notifyInvoiceCreated, notifyAgreementUpdated, notifyTicketReply, notifyTicketStatus, notifyKycRejected, notifyKycVerified, notifyAccountHold, notifyAccountReleased, notifyOnboardingRequest,
 } = require('../services/clientNotify');
 
+const invoiceDocument = require('../services/invoiceDocument');
+const { GST_STATE_CODES } = require('../config/gstStates');
+const { validateGstin, validatePan } = require('../services/kycValidators');
 const { PAGE_CATALOG, pageScope, hasBaseAccess } = require('../config/pageAccess');
 const requirePageAccess = require('../middleware/requirePageAccess');
 const { isScoped, clientAllowed, scopedClientRef, outOfScope } = require('../utils/clientScope');
@@ -1158,7 +1161,7 @@ router.post('/invoice-drafts/:id/approve', crm('invoices', 'create'), async (req
     if (!r.ok) return res.status(r.status).json({ success: false, message: r.message });
     await recordAudit(req, 'INVOICE_DRAFT_APPROVE', 'InvoiceDraft', `${before.client_ref}:${before.invoiceDate}`, draftSnap(before),
       { ...draftSnap(r.draft), invoiceId: r.invoice.invoiceId, corrected: !!r.draft.corrected });
-    res.json({ success: true, message: `Invoice ${r.invoice.invoiceId} sent to the client`, data: { invoiceId: r.invoice.invoiceId, _id: r.invoice._id } });
+    res.json({ success: true, message: `Invoice ${r.invoice.invoiceId} created. Add its billing details and send it from Invoices.`, data: { invoiceId: r.invoice.invoiceId, _id: r.invoice._id } });
   } catch (error) {
     logger.error('Admin approve invoice draft error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
@@ -1454,6 +1457,56 @@ router.get('/invoices/:id', crm('invoices', 'view'), async (req, res) => {
   }
 });
 
+// Who the invoice is made out to. Blank fields are dropped; a GSTIN / PAN that is
+// filled in must be valid. Returns { value } (undefined when nothing was given) or { error }.
+function cleanBilling(input) {
+  if (!input || typeof input !== 'object') return { value: undefined };
+  const value = {};
+  for (const key of ['name', 'address', 'phone', 'placeOfSupply']) {
+    const v = String(input[key] ?? '').trim();
+    if (v) value[key] = v;
+  }
+  if (value.placeOfSupply && !GST_STATE_CODES[value.placeOfSupply]) return { error: 'Choose the place of supply from the list.' };
+  for (const [key, check] of [['gstin', validateGstin], ['pan', validatePan]]) {
+    if (!String(input[key] ?? '').trim()) continue;
+    const r = check(input[key]);
+    if (!r.ok) return { error: r.error };
+    value[key] = r.value;
+  }
+  return { value: Object.keys(value).length ? value : undefined };
+}
+
+/**
+ * @route  GET /api/admin/invoice-documents/info
+ * @desc   What the "Send as" dialog and the billing form need: GST states and the next
+ *         proforma / tax invoice numbers.
+ */
+router.get('/invoice-documents/info', crm('invoices', 'view'), async (req, res) => {
+  try {
+    const [proforma, taxInvoice] = await Promise.all([invoiceDocument.nextNumber('Proforma Invoice'), invoiceDocument.nextNumber('Tax Invoice')]);
+    res.json({
+      success: true,
+      data: { states: Object.entries(GST_STATE_CODES).map(([name, code]) => ({ name, code })), next: { proforma, taxInvoice } },
+    });
+  } catch (error) {
+    logger.error('Admin invoice document info error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+/** Billing details to start an invoice for this client from (last invoice → client record → KYC GSTIN). */
+router.get('/invoice-documents/billing-defaults/:clientId', crm('invoices', 'view'), async (req, res) => {
+  try {
+    if (!isValidId(req.params.clientId) || !clientAllowed(req, req.params.clientId)) return outOfScope(res, 'Client');
+    const data = await invoiceDocument.billingDefaults(req.params.clientId);
+    if (!data) return outOfScope(res, 'Client');
+    res.json({ success: true, data });
+  } catch (error) {
+    logger.error('Admin invoice billing defaults error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
 router.post('/invoices', crm('invoices', 'create'), async (req, res) => {
   try {
     const { client_ref, issueDate, dueDate, lineItems, subtotal, taxPercent, taxAmount, totalAmount, notes } = req.body;
@@ -1462,22 +1515,26 @@ router.post('/invoices', crm('invoices', 'create'), async (req, res) => {
       return res.status(400).json({ success: false, message: 'client_ref, dueDate, lineItems and totalAmount are required' });
     }
     if (!clientAllowed(req, client_ref)) return res.status(403).json({ success: false, message: "You can't create invoices for this client." });
+    const billing = cleanBilling(req.body.billing);
+    if (billing.error) return res.status(400).json({ success: false, message: billing.error });
 
+    // Saved, not sent: the client sees it (and it counts as owed) only after Send
     const invoice = await Invoice.create({
       client_ref, issueDate, dueDate, lineItems,
       subtotal: subtotal || totalAmount,
       taxPercent: taxPercent || 0,
       taxAmount: taxAmount || 0,
       totalAmount,
+      billing: billing.value,
+      unsent: true,
       notes,
     });
     await recordAudit(req, 'INVOICE_CREATE', 'Invoice', invoice.invoiceId, null, {
       invoiceId: invoice.invoiceId, client_ref: invoice.client_ref, totalAmount: invoice.totalAmount,
       taxAmount: invoice.taxAmount, dueDate: invoice.dueDate,
     });
-    await notifyInvoiceCreated(invoice);
 
-    res.status(201).json({ success: true, message: 'Invoice created', data: { invoiceId: invoice.invoiceId, _id: invoice._id } });
+    res.status(201).json({ success: true, message: 'Invoice saved. Send it to the client when it is ready.', data: { invoiceId: invoice.invoiceId, _id: invoice._id } });
   } catch (error) {
     logger.error('Admin create invoice error:', error);
     if (error.name === 'ValidationError') {
@@ -1496,6 +1553,13 @@ router.put('/invoices/:id', crm('invoices', 'edit'), async (req, res) => {
     if (!existing || !clientAllowed(req, existing.client_ref)) return outOfScope(res, 'Invoice');
     const update = { ...req.body };
     delete update._id; delete update.invoiceId; delete update.client_ref;
+    // Set only by sending (services/invoiceDocument.js)
+    delete update.documents; delete update.unsent;
+    if ('billing' in update) {
+      const billing = cleanBilling(update.billing);
+      if (billing.error) return res.status(400).json({ success: false, message: billing.error });
+      update.billing = billing.value || null;
+    }
 
     // Overdue is derived from the due date and balance — it is never stored as a typed status
     if (update.paymentStatus === 'Overdue') update.paymentStatus = 'Unpaid';
@@ -1530,13 +1594,71 @@ router.put('/invoices/:id', crm('invoices', 'edit'), async (req, res) => {
   }
 });
 
+/**
+ * @route  GET /api/admin/invoices/:id/document?type=Tax Invoice&date=YYYY-MM-DD
+ * @desc   The invoice as a Proforma / Tax Invoice PDF, for staff to look at. Once it has been
+ *         sent as that type this is exactly what the client gets; before that it is a
+ *         preview (number "DRAFT").
+ */
+router.get('/invoices/:id/document', crm('invoices', 'view'), async (req, res) => {
+  try {
+    if (!isValidId(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid invoice ID' });
+    const invoice = await Invoice.findById(req.params.id).lean();
+    if (!invoice || !clientAllowed(req, invoice.client_ref)) return outOfScope(res, 'Invoice');
+    const client = await Client.findById(invoice.client_ref).select('businessName phone').lean();
+    const { buffer, type, number } = await invoiceDocument.renderDocument(invoice, client || {}, {
+      type: req.query.type, previewDate: invoiceDocument.parseDay(req.query.date) || undefined,
+    });
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `${req.query.download === '1' ? 'attachment' : 'inline'}; filename="${type.replace(/ /g, '-')}-${number || 'draft'}.pdf"`,
+      'Content-Length': buffer.length,
+      'Cache-Control': 'private, no-store',
+    });
+    res.send(buffer);
+  } catch (error) {
+    logger.error('Admin invoice document error:', error);
+    res.status(500).json({ success: false, message: 'Could not generate the invoice PDF' });
+  }
+});
+
+/**
+ * @route  POST /api/admin/invoices/:id/send   { type: 'Proforma Invoice' | 'Tax Invoice', date: 'YYYY-MM-DD' }
+ * @desc   Send the invoice to the client as that document: allocates its number the first time,
+ *         records the date staff typed, makes the invoice visible to the client and notifies them.
+ */
+router.post('/invoices/:id/send', crm('invoices', 'edit'), async (req, res) => {
+  try {
+    if (!isValidId(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid invoice ID' });
+    const existing = await Invoice.findById(req.params.id, { client_ref: 1 }).lean();
+    if (!existing || !clientAllowed(req, existing.client_ref)) return outOfScope(res, 'Invoice');
+
+    const r = await invoiceDocument.sendInvoice(req.params.id, { type: req.body.type, date: req.body.date }, req.user);
+    if (!r.ok) return res.status(r.status).json({ success: false, message: r.message });
+    await recordAudit(req, 'INVOICE_SEND', 'Invoice', r.invoice.invoiceId, null, {
+      invoiceId: r.invoice.invoiceId, type: r.document.type, number: r.document.number, date: r.document.date, resent: !r.created,
+    });
+    res.json({
+      success: true,
+      message: `${r.document.type} ${r.document.number} ${r.created ? 'sent' : 'sent again'} to the client`,
+      data: { _id: r.invoice._id, invoiceId: r.invoice.invoiceId, document: r.document },
+    });
+  } catch (error) {
+    logger.error('Admin send invoice error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
 router.delete('/invoices/:id', crm('invoices', 'delete'), async (req, res) => {
   try {
     if (!isValidId(req.params.id)) {
       return res.status(400).json({ success: false, message: 'Invalid invoice ID' });
     }
-    const existing = await Invoice.findById(req.params.id, { client_ref: 1 }).lean();
+    const existing = await Invoice.findById(req.params.id, { client_ref: 1, documents: 1 }).lean();
     if (!existing || !clientAllowed(req, existing.client_ref)) return outOfScope(res, 'Invoice');
+    // A tax invoice number is issued once; deleting it would leave a gap in the sequence
+    const taxDoc = (existing.documents || []).find((d) => d.type === 'Tax Invoice');
+    if (taxDoc) return res.status(409).json({ success: false, message: `This invoice was sent as Tax Invoice ${taxDoc.number}, so it can't be deleted.` });
     const removed = await Invoice.findByIdAndDelete(req.params.id);
     if (removed) {
       await recordAudit(req, 'INVOICE_DELETE', 'Invoice', removed.invoiceId, {

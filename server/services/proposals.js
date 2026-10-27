@@ -12,6 +12,7 @@ const { appendLeadActivity } = require('./leadLifecycle');
 const { buildProposalPdfBuffer } = require('./proposalPdf');
 const { inr, getCompanyProfile } = require('./pdfBranding');
 const { buildProformaPdfBuffer } = require('./proformaPdf');
+const { highestDocumentNumber } = require('./invoiceDocument');
 const { uploadBuffer } = require('../utils/cloudinary');
 const { sendEmail } = require('../utils/sendEmail');
 const logger = require('../utils/logger');
@@ -53,17 +54,20 @@ function cleanItems(items) {
   return { items: clean };
 }
 
-function cleanInput(input = {}) {
+const KINDS = ['Proposal', 'Proforma'];
+
+function cleanInput(input = {}, kind = 'Proposal') {
   const details = {};
   for (const [key, max] of Object.entries(DETAIL_LIMITS)) {
     details[key] = String(input.details?.[key] ?? '').trim().slice(0, max);
   }
   const { items, error: itemError } = cleanItems(input.items);
   if (!details.service && items?.length) details.service = items.map((i) => i.service).join(', ').slice(0, 200);
+  // A direct proforma has no proposal body — only who it is for and what is billed
   const missing = [
     !details.clientName && 'Client / business name',
-    !details.requirement && 'Requirement',
-    !details.scope && 'Scope',
+    kind === 'Proposal' && !details.requirement && 'Requirement',
+    kind === 'Proposal' && !details.scope && 'Scope',
   ].filter(Boolean);
   if (missing.length) return { error: `Please fill in: ${missing.join(', ')}.` };
   if (itemError) return { error: itemError };
@@ -71,7 +75,7 @@ function cleanInput(input = {}) {
 
   const validityDays = input.validityDays === undefined || input.validityDays === '' ? 15 : Number(input.validityDays);
   if (!(validityDays >= 1 && validityDays <= 180)) return { error: 'Validity must be between 1 and 180 days.' };
-  const title = String(input.title || '').trim().slice(0, 80) || 'Business Proposal';
+  const title = String(input.title || '').trim().slice(0, 80) || (kind === 'Proforma' ? 'Proforma Invoice' : 'Business Proposal');
 
   return { value: { title, details, items, validityDays } };
 }
@@ -112,14 +116,20 @@ async function listForLead(leadId, leadFilter) {
 async function createDraft(user, leadId, input, leadFilter) {
   const lead = await findLeadRaw(leadId, leadFilter);
   if (!lead) return fail(404, 'Lead not found');
-  const { value, error } = cleanInput(input);
+
+  let kind = KINDS.includes(input.kind) ? input.kind : 'Proposal';
+  let base = null;
+  if (input.basedOn) {
+    base = await loadOwned(input.basedOn, leadFilter);
+    if (base.error) return base.error;
+    kind = base.proposal.kind || 'Proposal'; // a new version stays what it was
+  }
+  const { value, error } = cleanInput(input, kind);
   if (error) return fail(400, error);
 
   let numbering = null; // { proposalNumber, sequence } — kept when revising
   let version = 1;
-  if (input.basedOn) {
-    const base = await loadOwned(input.basedOn, leadFilter);
-    if (base.error) return base.error;
+  if (base) {
     if (String(base.proposal.lead) !== String(lead._id)) return fail(400, 'That proposal belongs to a different lead.');
     if (await Proposal.exists({ proposalNumber: base.proposal.proposalNumber, status: 'Draft' })) {
       return fail(409, 'A draft revision of this proposal already exists — edit that one.');
@@ -133,7 +143,9 @@ async function createDraft(user, leadId, input, leadFilter) {
     try {
       const proposal = await Proposal.create({
         ...value,
-        ...(numbering || await nextProposalNumber()),
+        // A direct proforma uses no proposal number; it is known by its proforma number
+        ...(numbering || (kind === 'Proforma' ? { proposalNumber: `PI-${new mongoose.Types.ObjectId()}` } : await nextProposalNumber())),
+        kind,
         version,
         lead: lead._id,
         leadCode: lead.leadId,
@@ -151,7 +163,7 @@ async function updateDraft(proposalId, input, leadFilter) {
   const { proposal, error: loadError } = await loadOwned(proposalId, leadFilter);
   if (loadError) return loadError;
   if (proposal.status !== 'Draft') return fail(400, 'Only a draft can be edited. Create a new version instead.');
-  const { value, error } = cleanInput(input);
+  const { value, error } = cleanInput(input, proposal.kind);
   if (error) return fail(400, error);
   proposal.set(value);
   await proposal.save();
@@ -179,17 +191,39 @@ async function preparedByForProposal(proposal, user) {
   return preparedByOf(author || user);
 }
 
+const isProforma = (proposal) => proposal.kind === 'Proforma';
+// The proforma PDF; before its number is allocated (a draft direct proforma) it prints "DRAFT"
+const proformaPdf = (proposal) => buildProformaPdfBuffer({ ...proposal.toObject(), proformaNumber: proposal.proformaNumber || 'DRAFT' });
+
+/** The document's own PDF: the proposal, or — for a direct proforma — the proforma itself. */
 async function renderPdf(proposalId, user, leadFilter) {
   const { proposal, error } = await loadOwned(proposalId, leadFilter);
   if (error) return error;
-  const buffer = await buildProposalPdfBuffer(proposal, await preparedByForProposal(proposal, user));
+  const buffer = isProforma(proposal)
+    ? await proformaPdf(proposal)
+    : await buildProposalPdfBuffer(proposal, await preparedByForProposal(proposal, user));
   return ok({ buffer, proposal });
 }
 
 async function finalize(user, proposalId, leadFilter) {
   const { proposal, lead, error } = await loadOwned(proposalId, leadFilter);
   if (error) return error;
-  if (proposal.status !== 'Draft') return fail(400, `This proposal is already ${proposal.status.toLowerCase()}.`);
+  if (proposal.status !== 'Draft') return fail(400, `This ${isProforma(proposal) ? 'proforma' : 'proposal'} is already ${proposal.status.toLowerCase()}.`);
+
+  if (isProforma(proposal)) {
+    // A direct proforma: final = its proforma number is allocated and it can no longer change
+    proposal.status = 'Final';
+    proposal.finalizedAt = new Date();
+    proposal.finalizedBy = user._id;
+    await proposal.save();
+    await Proposal.updateMany(
+      { proposalNumber: proposal.proposalNumber, version: { $lt: proposal.version }, status: { $ne: 'Superseded' } },
+      { $set: { status: 'Superseded' } }
+    );
+    const numbered = await ensureProformaNumber(user, proposal, lead);
+    if (numbered) return numbered;
+    return ok({ proposal });
+  }
 
   proposal.status = 'Final';
   proposal.finalizedAt = new Date();
@@ -226,17 +260,21 @@ async function finalize(user, proposalId, leadFilter) {
  * attached; WhatsApp is opened by the employee's browser, so this returns
  * the message text (with the PDF link) for the client to open.
  */
-async function share(user, proposalId, { channel, recipient, message }, leadFilter) {
+async function share(user, proposalId, { channel, recipient, message, document }, leadFilter) {
   const { proposal, lead, error } = await loadOwned(proposalId, leadFilter);
   if (error) return error;
-  if (!['Final', 'Shared'].includes(proposal.status)) return fail(400, 'Generate the final proposal before sharing it.');
+  const what = isProforma(proposal) ? 'proforma' : 'proposal';
+  if (!['Final', 'Shared'].includes(proposal.status)) return fail(400, `Generate the final ${what} before sharing it.`);
   if (!['Email', 'WhatsApp'].includes(channel)) return fail(400, 'Choose Email or WhatsApp.');
   const to = String(recipient || '').trim();
   if (channel === 'Email' && !EMAIL_RE.test(to)) return fail(400, 'Enter a valid recipient email.');
   if (channel === 'WhatsApp' && to.replace(/\D/g, '').length < 10) return fail(400, 'Enter a valid WhatsApp number.');
   const note = String(message || '').trim().slice(0, 2000);
-  const reference = `${proposal.proposalNumber} v${proposal.version}`;
 
+  // A direct proforma only ever sends its proforma; a proposal sends itself or its proforma
+  if (isProforma(proposal) || document === 'Proforma') return shareProforma(user, proposal, lead, { channel, to, note });
+
+  const reference = `${proposal.proposalNumber} v${proposal.version}`;
   let whatsappText = null;
   if (channel === 'Email') {
     const buffer = await buildProposalPdfBuffer(proposal, await preparedByForProposal(proposal, user));
@@ -264,7 +302,7 @@ async function share(user, proposalId, { channel, recipient, message }, leadFilt
   }
 
   const sharedAt = new Date();
-  proposal.shares.push({ channel, recipient: to, sharedAt, sharedBy: user._id });
+  proposal.shares.push({ document: 'Proposal', channel, recipient: to, sharedAt, sharedBy: user._id });
   proposal.status = 'Shared';
   await proposal.save();
   await appendLeadActivity(lead._id, {
@@ -276,20 +314,83 @@ async function share(user, proposalId, { channel, recipient, message }, leadFilt
   return ok({ proposal, whatsappText, missingPdfLink: channel === 'WhatsApp' && !proposal.pdfUrl });
 }
 
+/** Sends the proforma (allocating its number first if needed) and records it on the lead timeline. */
+async function shareProforma(user, proposal, lead, { channel, to, note }) {
+  const numbered = await ensureProformaNumber(user, proposal, lead);
+  if (numbered) return numbered;
+  const buffer = await buildProformaPdfBuffer(proposal);
+  const no = proposal.proformaNumber;
+  const clientName = proposal.details.contactPerson || proposal.details.clientName;
+
+  let whatsappText = null;
+  if (channel === 'Email') {
+    const name = (await preparedByOf(user)).name || 'Vedhunt';
+    try {
+      await sendEmail({
+        email: to,
+        subject: `Proforma Invoice ${no} — Vedhunt InfoTech`,
+        html: `<div style="font-family:Arial,sans-serif;color:#222;max-width:560px">
+          <p>${(note || `Dear ${clientName},\n\nPlease find attached our proforma invoice No. ${no}.`)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/\n/g, '<br>')}</p>
+          <p>Total: <strong>${inr(proposal.totalAmount)}</strong> (incl. GST)</p>
+          <p>Regards,<br>${name}<br>Vedhunt InfoTech Pvt Ltd</p></div>`,
+        attachments: [{ filename: `Proforma-${no}.pdf`, content: buffer.toString('base64') }],
+      });
+    } catch (err) {
+      return fail(502, 'The email could not be sent. Please try again in a moment.');
+    }
+  } else {
+    if (!proposal.proformaPdfUrl) {
+      try {
+        const uploaded = await uploadBuffer(buffer, { folder: 'vedhunt-proposals', public_id: `Proforma-${no}.pdf`, resource_type: 'raw' });
+        proposal.proformaPdfUrl = uploaded.secure_url;
+      } catch (err) {
+        logger.error(`Proforma PDF upload failed for ${no}:`, err.message);
+      }
+    }
+    whatsappText = [
+      note || `Hello ${clientName}, please find our proforma invoice.`,
+      `Proforma Invoice No. ${no} · Total ${inr(proposal.totalAmount)} (incl. GST)`,
+      proposal.proformaPdfUrl,
+    ].filter(Boolean).join('\n\n');
+  }
+
+  proposal.shares.push({ document: 'Proforma', channel, recipient: to, sharedAt: new Date(), sharedBy: user._id });
+  proposal.status = 'Shared';
+  await proposal.save();
+  await appendLeadActivity(lead._id, {
+    status: `Proforma invoice shared via ${channel}`,
+    note: `Proforma No. ${no} → ${to} · ${inr(proposal.totalAmount)}`,
+    actorId: user._id,
+  });
+  return ok({ proposal, whatsappText, missingPdfLink: channel === 'WhatsApp' && !proposal.proformaPdfUrl });
+}
+
 /**
- * Proforma invoice for a final proposal. The proforma number is allocated
- * once (continuing the company sequence) and reused on every re-download.
+ * Proforma invoice for a final proposal (or a final direct proforma). The proforma
+ * number is allocated once (continuing the company sequence) and reused on every re-download.
  */
 async function renderProforma(user, proposalId, leadFilter) {
   const { proposal, lead, error } = await loadOwned(proposalId, leadFilter);
   if (error) return error;
-  if (!['Final', 'Shared'].includes(proposal.status)) return fail(400, 'Generate the final proposal before raising a proforma invoice.');
+  if (!['Final', 'Shared'].includes(proposal.status)) {
+    return fail(400, isProforma(proposal) ? 'Generate the final proforma first.' : 'Generate the final proposal before raising a proforma invoice.');
+  }
+  const numbered = await ensureProformaNumber(user, proposal, lead);
+  if (numbered) return numbered;
+  const buffer = await buildProformaPdfBuffer(proposal);
+  return ok({ buffer, proposal });
+}
 
+/** Allocates the proforma number the first time; returns a failure result, or null when it is set. */
+async function ensureProformaNumber(user, proposal, lead) {
   if (!proposal.proformaNumber) {
     const { proformaNumberStart } = await getCompanyProfile();
     for (let attempt = 0; attempt < 3 && !proposal.proformaNumber; attempt += 1) {
       const last = await Proposal.findOne({ proformaNumber: { $ne: null } }, { proformaNumber: 1 }).sort({ proformaNumber: -1 }).lean();
-      const number = Math.max((last?.proformaNumber || 0) + 1, proformaNumberStart || 1);
+      // Proformas sent from Invoice Manager share this series
+      const lastInvoiceProforma = await highestDocumentNumber('Proforma Invoice');
+      const number = Math.max((last?.proformaNumber || 0) + 1, lastInvoiceProforma + 1, proformaNumberStart || 1);
       try {
         const updated = await Proposal.findOneAndUpdate(
           { _id: proposal._id, proformaNumber: null },
@@ -301,7 +402,9 @@ async function renderProforma(user, proposalId, leadFilter) {
           proposal.proformaDate = updated.proformaDate;
           await appendLeadActivity(lead._id, {
             status: 'Proforma invoice generated',
-            note: `Proforma No. ${number} for ${proposal.proposalNumber} v${proposal.version} · ${inr(proposal.totalAmount)}`,
+            note: isProforma(proposal)
+              ? `Proforma No. ${number} (direct) · ${inr(proposal.totalAmount)}`
+              : `Proforma No. ${number} for ${proposal.proposalNumber} v${proposal.version} · ${inr(proposal.totalAmount)}`,
             actorId: user._id,
           });
         } else {
@@ -315,9 +418,7 @@ async function renderProforma(user, proposalId, leadFilter) {
     }
     if (!proposal.proformaNumber) return fail(409, 'Could not allocate a proforma number. Please try again.');
   }
-
-  const buffer = await buildProformaPdfBuffer(proposal);
-  return ok({ buffer, proposal });
+  return null;
 }
 
 module.exports = { listForLead, createDraft, updateDraft, renderPdf, renderProforma, finalize, share };

@@ -32,6 +32,16 @@ const COMPANY_DEFAULTS = {
   // portal (proposal VH-PROP-…-220, proforma 32); raise them via Settings if needed.
   proposalSequenceStart: 221,
   proformaNumberStart: 33,
+  // Tax invoices have their own series. Set this to the next number to issue
+  // (company_profile in Settings) if invoices were already raised outside the portal.
+  taxInvoiceNumberStart: 1,
+  // Printed under "Terms and Conditions" on the proforma / tax invoice sent from Invoice Manager
+  invoiceTerms: [
+    'Subject to our home Jurisdiction.',
+    'Our Responsibility Ceases as soon as goods leave our Premises.',
+    'Goods once sold will not be taken back.',
+    'Delivery Ex-Premises.',
+  ],
   bank: {
     bankName: 'Kotak Mahindra Bank',
     branch: 'Kalyan West',

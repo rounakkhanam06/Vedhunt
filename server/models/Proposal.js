@@ -29,6 +29,9 @@ const proposalSchema = new mongoose.Schema(
     version: { type: Number, default: 1 },
     lead: { type: mongoose.Schema.Types.ObjectId, ref: 'Lead', required: true, index: true },
     leadCode: { type: String, trim: true }, // Lead.leadId at creation, for display
+    // 'Proforma' = a proforma invoice raised straight from the lead, with no proposal
+    // behind it: only client, billing and items; "final" allocates its proforma number.
+    kind: { type: String, enum: ['Proposal', 'Proforma'], default: 'Proposal' },
     status: { type: String, enum: ['Draft', 'Final', 'Shared', 'Superseded'], default: 'Draft' },
     title: { type: String, trim: true, default: 'Business Proposal' }, // e.g. "Performance Marketing Proposal"
 
@@ -77,8 +80,10 @@ const proposalSchema = new mongoose.Schema(
     // Assigned the first time a proforma invoice is generated from this version
     proformaNumber: { type: Number },
     proformaDate: { type: Date },
+    proformaPdfUrl: { type: String, trim: true }, // stored copy for the WhatsApp link
 
     shares: [{
+      document: { type: String, enum: ['Proposal', 'Proforma'], default: 'Proposal' },
       channel: { type: String, enum: ['Email', 'WhatsApp'] },
       recipient: { type: String, trim: true },
       sharedAt: { type: Date, default: Date.now },

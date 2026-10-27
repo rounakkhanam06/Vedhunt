@@ -17,7 +17,7 @@ function invoiceMoney(inv) {
 exports.getFinancialOverview = async (req, res) => {
   try {
     const [invoices, projects] = await Promise.all([
-      Invoice.find({}, { totalAmount: 1, paidAmount: 1, paymentStatus: 1, project_ref: 1 }).lean(),
+      Invoice.find({ unsent: { $ne: true } }, { totalAmount: 1, paidAmount: 1, paymentStatus: 1, project_ref: 1 }).lean(),
       Project.find({}, { projectId: 1, projectName: 1, client_ref: 1, totalPrice: 1, status: 1 })
         .populate('client_ref', 'businessName contactName').lean(),
     ]);

@@ -643,12 +643,16 @@ describe('client notifications — the bell', () => {
 
   before(async () => { baseline = (await list()).notifications.length; });
 
-  test('a new invoice from staff reaches the client bell, unread, with a link to billing', async () => {
+  test('an invoice from staff reaches the client bell, unread, with a link to billing — once it is sent', async () => {
     const res = await admin('POST', '/admin/invoices', {
       client_ref: ids.beta, dueDate: new Date(Date.now() + 10 * DAY).toISOString(), totalAmount: 5000,
       lineItems: [{ description: 'Retainer', qty: 1, unitPrice: 5000, amount: 5000 }],
+      billing: { address: '12 MG Road, Pune', placeOfSupply: 'Maharashtra' },
     });
     assert.equal(res.status, 201, JSON.stringify(res.body));
+    assert.equal((await list()).notifications.length, baseline, 'saving alone tells the client nothing');
+    const sent = await admin('POST', `/admin/invoices/${res.body.data._id}/send`, { type: 'Tax Invoice', date: '2026-07-03' });
+    assert.equal(sent.status, 200, JSON.stringify(sent.body));
     const body = await list();
     const n = ofType(body, 'invoice_created')[0];
     assert.ok(n, 'invoice_created notification exists');
@@ -720,8 +724,10 @@ describe('client notifications — the bell', () => {
     const res = await admin('POST', '/admin/invoices', {
       client_ref: ids.delta, dueDate: new Date(Date.now() + 5 * DAY).toISOString(), totalAmount: 100,
       lineItems: [{ description: 'x', qty: 1, unitPrice: 100, amount: 100 }],
+      billing: { address: '1 Test Street', placeOfSupply: 'Maharashtra' },
     });
     assert.equal(res.status, 201);
+    assert.equal((await admin('POST', `/admin/invoices/${res.body.data._id}/send`, { type: 'Proforma Invoice', date: '2026-07-03' })).status, 200);
     assert.equal(await ClientNotification.countDocuments({ client: ids.delta }), before);
     // leave Delta as it was — later tests expect it to have no invoices
     await require('../../models/Invoice').deleteMany({ client_ref: ids.delta });
@@ -1477,12 +1483,19 @@ describe('recurring invoices: schedule, drafts, correction and approval', () => 
     assert.deepEqual([a.status, b.status].sort(), [200, 409], 'two approvers create one invoice');
     assert.equal(await require('../../models/Invoice').countDocuments({ client_ref: ids.kappa }), 1);
 
+    // Approved, but not sent: the client sees nothing until staff send it as a Proforma / Tax Invoice
+    assert.equal((await asClient('kappa', 'GET', '/client/invoices')).body.summary.total, 0);
+    assert.equal((await asClient('kappa', 'GET', '/client/notifications')).body.notifications.some((n) => n.type === 'invoice_created'), false);
+    const stored = await require('../../models/Invoice').findOne({ client_ref: ids.kappa }).lean();
+    assert.equal(stored.unsent, true);
+    assert.equal((await admin('PUT', `/admin/invoices/${stored._id}`, { billing: { address: '5 Park Street, Kolkata', placeOfSupply: 'West Bengal' } })).status, 200);
+    assert.equal((await admin('POST', `/admin/invoices/${stored._id}/send`, { type: 'Tax Invoice', date: todayStr })).status, 200);
+
     const mine = (await asClient('kappa', 'GET', '/client/invoices')).body;
     assert.equal(mine.summary.total, 1);
     assert.equal(mine.data[0].totalAmount, 16520);
     assert.match(mine.data[0].lineItems[0].description, /corrected/);
     assert.ok((await asClient('kappa', 'GET', '/client/notifications')).body.notifications.some((n) => n.type === 'invoice_created'));
-    const stored = await require('../../models/Invoice').findOne({ client_ref: ids.kappa }).lean();
     assert.equal(stored.scheduled.invoiceDate, todayStr);
     assert.equal((await draftOf('kappa')).status, 'Approved');
     assert.ok(await require('../../models/AuditLog').findOne({ action: 'INVOICE_DRAFT_APPROVE' }).lean());
@@ -1828,5 +1841,224 @@ describe('Won leads whose client account could not be created are recorded for a
     const token = jwt.sign({ id: a._id }, JWT_SECRET, { expiresIn: '1h' });
     assert.equal((await request(token, 'GET', '/employee-portal/crm/client-creation-issues')).status, 403);
     assert.equal((await request(token, 'POST', '/employee-portal/crm/client-creation-issues/scan')).status, 403);
+  });
+});
+
+describe('invoice documents — one layout, sent as a Proforma Invoice or a Tax Invoice', () => {
+  const Invoice = () => require('../../models/Invoice');
+  const pages = (buf) => (buf.toString('latin1').match(/\/Type \/Page\b/g) || []).length;
+  const pdf = async (token, url) => {
+    const res = await fetch(base + url, { headers: { authorization: `Bearer ${token}` } });
+    return { status: res.status, type: res.headers.get('content-type'), disposition: res.headers.get('content-disposition'), buffer: Buffer.from(await res.arrayBuffer()) };
+  };
+  const sendAs = (id, type, date) => admin('POST', `/admin/invoices/${id}/send`, { type, date });
+  const make = async (extra = {}) => {
+    const res = await admin('POST', '/admin/invoices', {
+      client_ref: ids.docClient, dueDate: new Date(Date.now() + 7 * DAY).toISOString(), issueDate: '2026-07-03',
+      lineItems: [
+        { description: 'Performance marketing\nMeta Ads Management\nGoogle Ads', qty: 1, unitPrice: 5932.5, amount: 5932.5, sac: '998361' },
+        { description: 'Creative support', qty: 2, unitPrice: 1000, amount: 2000 },
+      ],
+      subtotal: 7932.5, taxPercent: 18, taxAmount: 1427.85, totalAmount: 9360.35,
+      billing: { name: 'Femelo', address: 'D-5 block, Noida, Uttar Pradesh - 201318', placeOfSupply: 'Uttar Pradesh' },
+      ...extra,
+    });
+    assert.equal(res.status, 201, JSON.stringify(res.body));
+    return res.body.data._id;
+  };
+
+  before(async () => {
+    const c = await require('../../models/Client').create({
+      businessName: 'Doc Client', contactName: 'Owner Person', email: 'docclient@example.com', phone: '+919800000009',
+      password: 'ClientPass1', isTemporaryPassword: false,
+    });
+    ids.docClient = String(c._id);
+  });
+
+  test('a saved invoice is hidden from the client and is not owed until it is sent', async () => {
+    const id = await make({ dueDate: new Date(Date.now() - 20 * DAY).toISOString() });
+    assert.equal((await Invoice().findById(id).lean()).unsent, true);
+    assert.equal((await asClient('docClient', 'GET', '/client/invoices')).body.summary.total, 0);
+    assert.equal((await asClient('docClient', 'GET', `/client/invoices/${id}`)).status, 404);
+    assert.equal((await pdf(clientToken('docClient'), `/client/invoices/${id}/pdf`)).status, 404);
+    assert.equal((await asClient('docClient', 'GET', '/client/overview')).body.data.billing.overdueInvoices, 0, 'unsent is not overdue');
+
+    assert.equal((await sendAs(id, 'Tax Invoice', '2026-07-03')).status, 200);
+    assert.equal((await asClient('docClient', 'GET', '/client/invoices')).body.summary.total, 1);
+    assert.equal((await asClient('docClient', 'GET', '/client/overview')).body.data.billing.overdueInvoices, 1);
+    const mine = (await asClient('docClient', 'GET', `/client/invoices/${id}`)).body.data;
+    assert.equal(mine.documents[0].type, 'Tax Invoice');
+    assert.equal(mine.documents[0].sentByName, undefined, 'who sent it stays internal');
+  });
+
+  test('staff can look at the PDF before sending; it is one page', async () => {
+    const id = await make();
+    const tax = await pdf(adminToken(), `/admin/invoices/${id}/document?type=${encodeURIComponent('Tax Invoice')}&date=2026-07-03`);
+    assert.equal(tax.status, 200);
+    assert.match(tax.type, /application\/pdf/);
+    assert.equal(tax.buffer.subarray(0, 4).toString(), '%PDF');
+    assert.equal(pages(tax.buffer), 1);
+    const pro = await pdf(adminToken(), `/admin/invoices/${id}/document?type=${encodeURIComponent('Proforma Invoice')}`);
+    assert.equal(pro.status, 200);
+    assert.equal(pages(pro.buffer), 1);
+    assert.equal((await Invoice().findById(id).lean()).unsent, true, 'looking does not send');
+    assert.equal((await pdf(adminToken(), '/admin/invoices/not-an-id/document')).status, 400);
+  });
+
+  test('sending needs a date, a billing address and a place of supply', async () => {
+    const noBilling = await make({ billing: undefined });
+    assert.equal((await sendAs(noBilling, 'Tax Invoice', '2026-07-03')).status, 400);
+    const id = await make();
+    assert.equal((await sendAs(id, 'Tax Invoice', undefined)).status, 400, 'date missing');
+    assert.equal((await sendAs(id, 'Tax Invoice', '2026-02-31')).status, 400, 'not a real date');
+    assert.equal((await sendAs(id, 'Credit Note', '2026-07-03')).status, 400);
+    assert.equal((await Invoice().findById(id).lean()).documents.length, 0);
+  });
+
+  test('numbers: each type has its own series, a number is kept on resend, the date can change', async () => {
+    const a = await make();
+    const b = await make();
+    const t1 = (await sendAs(a, 'Tax Invoice', '2026-07-03')).body.data.document.number;
+    const t2 = (await sendAs(b, 'Tax Invoice', '2026-07-04')).body.data.document.number;
+    assert.equal(t2, t1 + 1);
+
+    const again = await sendAs(a, 'Tax Invoice', '2026-07-09');
+    assert.equal(again.body.data.document.number, t1, 'same number on resend');
+    assert.equal(new Date(again.body.data.document.date).getDate(), 9, 'the date typed last is kept');
+    assert.match(again.body.message, /again/);
+
+    // the same invoice can also go out as a proforma, from the proforma series
+    const p = (await sendAs(a, 'Proforma Invoice', '2026-07-03')).body.data.document.number;
+    const stored = await Invoice().findById(a).lean();
+    assert.deepEqual(stored.documents.map((d) => d.type).sort(), ['Proforma Invoice', 'Tax Invoice']);
+    assert.ok(p >= 33, 'continues the proforma series');
+    const info = (await admin('GET', '/admin/invoice-documents/info')).body.data;
+    assert.equal(info.next.taxInvoice, t2 + 1);
+    assert.ok(info.next.proforma > p);
+    assert.ok(info.states.some((s) => s.name === 'Maharashtra' && s.code === '27'));
+  });
+
+  test('the client downloads the sent document: a PDF, and an older invoice keeps the simple layout', async () => {
+    const id = await make();
+    await sendAs(id, 'Proforma Invoice', '2026-07-03');
+    const res = await pdf(clientToken('docClient'), `/client/invoices/${id}/pdf`);
+    assert.equal(res.status, 200);
+    assert.match(res.disposition, /Proforma-Invoice-\d+\.pdf/);
+    assert.equal(pages(res.buffer), 1);
+
+    const legacy = await inv(ids.docClient, 500, 5);
+    const old = await pdf(clientToken('docClient'), `/client/invoices/${legacy._id}/pdf`);
+    assert.equal(old.status, 200);
+    assert.match(old.disposition, /Invoice-VH-INV/);
+  });
+
+  test('billing is validated, defaults come from the last invoice, and documents cannot be written by hand', async () => {
+    const bad = await admin('POST', '/admin/invoices', {
+      client_ref: ids.docClient, dueDate: new Date(Date.now() + DAY).toISOString(), totalAmount: 100,
+      lineItems: [{ description: 'x', qty: 1, unitPrice: 100, amount: 100 }], billing: { gstin: '27AALCV0172E1ZX' },
+    });
+    assert.equal(bad.status, 400);
+    const id = await make({ billing: { address: '1 Road', placeOfSupply: 'Goa', gstin: '27aalcv0172e1zd' } });
+    assert.equal((await Invoice().findById(id).lean()).billing.gstin, '27AALCV0172E1ZD', 'normalised');
+    assert.equal((await admin('PUT', `/admin/invoices/${id}`, { billing: { placeOfSupply: 'Atlantis' } })).status, 400);
+
+    await admin('PUT', `/admin/invoices/${id}`, { unsent: false, documents: [{ type: 'Tax Invoice', number: 999, date: new Date() }] });
+    const after = await Invoice().findById(id).lean();
+    assert.equal(after.unsent, true);
+    assert.equal(after.documents.length, 0);
+
+    const defaults = (await admin('GET', `/admin/invoice-documents/billing-defaults/${ids.docClient}`)).body.data;
+    assert.equal(defaults.name.length > 0, true);
+    assert.equal(defaults.address.length > 0, true, "the last invoice's address is offered");
+    assert.equal((await admin('GET', '/admin/invoice-documents/billing-defaults/not-an-id')).status, 404);
+  });
+
+  test('a tax invoice cannot be deleted (the number would leave a gap); a proforma-only invoice can', async () => {
+    const taxed = await make();
+    await sendAs(taxed, 'Tax Invoice', '2026-07-03');
+    assert.equal((await admin('DELETE', `/admin/invoices/${taxed}`)).status, 409);
+    const proforma = await make();
+    await sendAs(proforma, 'Proforma Invoice', '2026-07-03');
+    assert.equal((await admin('DELETE', `/admin/invoices/${proforma}`)).status, 200);
+  });
+
+  test('the send is audited', async () => {
+    assert.ok(await require('../../models/AuditLog').findOne({ action: 'INVOICE_SEND' }).lean());
+  });
+});
+
+describe('lead proforma — raised directly, or from a final proposal, and sent from the lead', () => {
+  let leadId;
+  const S = '/admin/sales';
+  const items = [{ service: 'Performance Marketing – Meta Ads Management', sac: '998361', uom: 'Month', qty: 1, rate: 20000, gstPercent: 18 }];
+  const details = { clientName: 'Mumbai Shopper', contactPerson: 'Sahil', email: 'sahil@example.com', phone: '+917400100000', address: '1 Linking Road, Mumbai', placeOfSupply: 'Maharashtra' };
+  const timeline = async () => (await mongoose.connection.db.collection('leads').findOne({ _id: leadId })).pipelineHistory || [];
+
+  before(async () => {
+    leadId = (await mongoose.connection.db.collection('leads').insertOne({
+      leadId: 'VH-261015-901', fullName: 'Sahil chaudhary', phone: '9811100901', email: 'sahil@example.com', status: 'Working',
+      pipelineHistory: [], createdAt: new Date(), updatedAt: new Date(),
+    })).insertedId;
+  });
+
+  test('a direct proforma needs no proposal text, prints DRAFT until final, then gets a number', async () => {
+    const made = await admin('POST', `${S}/leads/${leadId}/proposals`, { kind: 'Proforma', details, items });
+    assert.equal(made.status, 201, JSON.stringify(made.body));
+    const p = made.body.proposal;
+    assert.equal(p.kind, 'Proforma');
+    assert.equal(p.title, 'Proforma Invoice');
+    assert.equal(p.sequence, undefined, 'does not use up a proposal number');
+
+    const draftPdf = await fetch(`${base}${S}/proposals/${p._id}/pdf`, { headers: { authorization: `Bearer ${adminToken()}` } });
+    assert.equal(draftPdf.status, 200);
+    assert.match(draftPdf.headers.get('content-disposition'), /Proforma-draft\.pdf/);
+    assert.equal((await admin('GET', `${S}/proposals/${p._id}/proforma`)).status, 400, 'no number before final');
+    assert.equal((await admin('POST', `${S}/proposals/${p._id}/share`, { channel: 'WhatsApp', recipient: '+917400100000' })).status, 400, 'cannot send a draft');
+
+    const fin = await admin('POST', `${S}/proposals/${p._id}/finalize`);
+    assert.equal(fin.status, 200, JSON.stringify(fin.body));
+    assert.ok(fin.body.proposal.proformaNumber >= 33);
+    assert.ok((await timeline()).some((h) => h.status === 'Proforma invoice generated'));
+    assert.equal((await admin('PUT', `${S}/proposals/${p._id}`, { kind: 'Proforma', details, items })).status, 400, 'final is locked');
+
+    const sent = await admin('POST', `${S}/proposals/${p._id}/share`, { channel: 'WhatsApp', recipient: '+917400100000' });
+    assert.equal(sent.status, 200, JSON.stringify(sent.body));
+    assert.match(sent.body.whatsappText, new RegExp(`Proforma Invoice No\\. ${fin.body.proposal.proformaNumber}`));
+    assert.equal(sent.body.proposal.shares[0].document, 'Proforma');
+    assert.ok((await timeline()).some((h) => h.status === 'Proforma invoice shared via WhatsApp'));
+  });
+
+  test('a proposal still needs its text; once final, its proforma can be sent from the same place', async () => {
+    assert.equal((await admin('POST', `${S}/leads/${leadId}/proposals`, { details, items })).status, 400, 'requirement and scope');
+    const made = await admin('POST', `${S}/leads/${leadId}/proposals`, { details: { ...details, requirement: 'Leads', scope: 'Meta ads' }, items });
+    assert.equal(made.status, 201, JSON.stringify(made.body));
+    const id = made.body.proposal._id;
+    assert.match(made.body.proposal.proposalNumber, /^VH-PROP-/);
+    assert.equal((await admin('POST', `${S}/proposals/${id}/finalize`)).status, 200);
+
+    const sent = await admin('POST', `${S}/proposals/${id}/share`, { channel: 'WhatsApp', recipient: '+917400100000', document: 'Proforma' });
+    assert.equal(sent.status, 200, JSON.stringify(sent.body));
+    const no = sent.body.proposal.proformaNumber;
+    assert.ok(no);
+    assert.match(sent.body.whatsappText, /Proforma Invoice No\./);
+    // the proforma number is kept: opening it later gives the same one
+    assert.equal((await admin('GET', `${S}/proposals/${id}/proforma`)).status, 200);
+    assert.equal((await require('../../models/Proposal').findById(id).lean()).proformaNumber, no);
+
+    const proposalShare = await admin('POST', `${S}/proposals/${id}/share`, { channel: 'WhatsApp', recipient: '+917400100000' });
+    assert.equal(proposalShare.status, 200);
+    assert.match(proposalShare.body.whatsappText, /Proposal: VH-PROP-/);
+    assert.deepEqual(proposalShare.body.proposal.shares.map((s) => s.document), ['Proforma', 'Proposal']);
+  });
+
+  test('a new version of a direct proforma stays a proforma and gets its own number when final', async () => {
+    const first = (await require('../../models/Proposal').findOne({ lead: leadId, kind: 'Proforma' }).lean());
+    const rev = await admin('POST', `${S}/leads/${leadId}/proposals`, { basedOn: String(first._id), details, items: [{ ...items[0], rate: 25000 }] });
+    assert.equal(rev.status, 201, JSON.stringify(rev.body));
+    assert.equal(rev.body.proposal.kind, 'Proforma');
+    assert.equal(rev.body.proposal.version, 2);
+    const fin = await admin('POST', `${S}/proposals/${rev.body.proposal._id}/finalize`);
+    assert.ok(fin.body.proposal.proformaNumber > first.proformaNumber);
+    assert.equal((await require('../../models/Proposal').findById(first._id).lean()).status, 'Superseded');
   });
 });

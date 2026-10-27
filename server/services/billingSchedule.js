@@ -14,7 +14,6 @@ const Retainer = require('../models/Retainer');
 const Client = require('../models/Client');
 const { dayOf, addDays } = require('./adPerformance');
 const { getBilling } = require('./clientPolicies');
-const { notifyInvoiceCreated } = require('./clientNotify');
 const { notifyPermissionHolders } = require('./staffNotify');
 const logger = require('../utils/logger');
 
@@ -273,7 +272,7 @@ async function rebuildDraft(id) {
   return { ok: true, draft };
 }
 
-/** Approve: turns the draft into a real invoice and tells the client. Exactly once. */
+/** Approve: turns the draft into a real invoice, saved but not yet sent to the client. Exactly once. */
 async function approveDraft(id, user) {
   // Claim first, so a double click or two approvers cannot both create an invoice
   const draft = await InvoiceDraft.findOneAndUpdate(
@@ -292,10 +291,12 @@ async function approveDraft(id, user) {
       client_ref: draft.client_ref, issueDate: new Date(), dueDate: draft.dueDate, lineItems: draft.lineItems,
       subtotal: draft.subtotal, taxPercent: draft.taxPercent, taxAmount: draft.taxAmount, totalAmount: draft.totalAmount,
       scheduled: { invoiceDate: draft.invoiceDate, periodStart: draft.periodStart, periodEnd: draft.periodEnd },
+      // Saved, not sent: staff add the billing details and send it as a Proforma / Tax Invoice
+      // from Invoice Manager (services/invoiceDocument.js), which is when the client sees it.
+      unsent: true,
     });
     draft.invoice_ref = invoice._id;
     await draft.save();
-    await notifyInvoiceCreated(invoice);
     return { ok: true, draft, invoice };
   } catch (err) {
     // Not issued: hand the draft back so it can be tried again

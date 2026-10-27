@@ -29,7 +29,7 @@ exports.submitPaymentProof = async (req, res) => {
     }
 
     // Verify invoice belongs to the client
-    const invoice = await Invoice.findOne({ _id: invoice_ref, client_ref: req.client._id });
+    const invoice = await Invoice.findOne({ _id: invoice_ref, client_ref: req.client._id, unsent: { $ne: true } });
     if (!invoice) {
       return res.status(404).json({ message: 'Invoice not found or unauthorized' });
     }

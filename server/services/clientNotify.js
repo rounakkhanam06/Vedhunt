@@ -86,6 +86,23 @@ const notifyInvoiceCreated = (invoice) =>
     ctaLabel: 'View invoice',
   });
 
+// Staff send an invoice as a Proforma Invoice or a Tax Invoice (services/invoiceDocument.js)
+const notifyInvoiceSent = (invoice, document) =>
+  notifyClient({
+    clientId: invoice.client_ref,
+    type: 'invoice_created',
+    emailEvent: 'invoice_created',
+    title: `${document.type} ${document.number} — ${invoice.invoiceId || ''}`.trim(),
+    message: `${money(invoice.totalAmount)} due by ${date(invoice.dueDate)}.`,
+    link: '/client/dashboard?tab=billing',
+    emailLines: [
+      `A <strong>${escapeHtml(document.type)} ${escapeHtml(document.number)}</strong> dated ${escapeHtml(date(document.date))} has been issued to you (ref ${escapeHtml(invoice.invoiceId || '')}).`,
+      `Amount: <strong>${escapeHtml(money(invoice.totalAmount))}</strong><br>Due date: <strong>${escapeHtml(date(invoice.dueDate))}</strong>`,
+      'You can view, download and pay it from the Billing section of your portal.',
+    ],
+    ctaLabel: 'View invoice',
+  });
+
 const notifyPaymentApproved = (payment, invoice) =>
   notifyClient({
     clientId: payment.client_ref,
@@ -256,6 +273,7 @@ module.exports = {
   notifyAccountReleased,
   notifyKycVerified,
   notifyInvoiceCreated,
+  notifyInvoiceSent,
   notifyPaymentApproved,
   notifyPaymentRejected,
   notifyTicketReply,

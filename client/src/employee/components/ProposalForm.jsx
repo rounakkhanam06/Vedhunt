@@ -26,8 +26,15 @@ const GROUPS = [
     ['exclusions', 'Exclusions (one per line)', 2], ['notes', 'Special notes', 2]]],
 ];
 
-/** Proposal fields + Service Master line items. Controlled: `form` / `setForm` live in ProposalWorkflow. */
+// A direct proforma needs only who it is for, billing and the items
+const PROFORMA_GROUPS = new Set(['Client', 'Billing (for the proforma invoice)']);
+
+/**
+ * Proposal fields + Service Master line items. Controlled: `form` / `setForm` live in ProposalWorkflow.
+ * form.kind 'Proforma' = a proforma invoice raised straight from the lead (no proposal text).
+ */
 export default function ProposalForm({ form, setForm, portal = 'employee' }) {
+  const isProforma = form.kind === 'Proforma';
   const proposals = proposalApi(portal);
   const { data: masters } = useQuery({ queryKey: proposals.keys.masters, queryFn: () => proposals.get('/proposal-masters'), staleTime: Infinity });
   const services = masters?.services || [];
@@ -45,7 +52,7 @@ export default function ProposalForm({ form, setForm, portal = 'employee' }) {
 
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      {!isProforma && (<div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div className="sm:col-span-2">
           <label className={label}>Proposal title</label>
           <input className={field} list="proposal-titles" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} />
@@ -55,9 +62,9 @@ export default function ProposalForm({ form, setForm, portal = 'employee' }) {
           <label className={label}>Valid for (days)</label>
           <input type="number" min="1" max="180" className={field} value={form.validityDays} onChange={(e) => setForm((f) => ({ ...f, validityDays: e.target.value }))} />
         </div>
-      </div>
+      </div>)}
 
-      {GROUPS.map(([title, fields]) => (
+      {GROUPS.filter(([title]) => !isProforma || PROFORMA_GROUPS.has(title)).map(([title, fields]) => (
         <fieldset key={title} className="space-y-3">
           <legend className="text-xs font-bold text-primary uppercase tracking-wider mb-2">{title}</legend>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

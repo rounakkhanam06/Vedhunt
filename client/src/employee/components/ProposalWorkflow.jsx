@@ -20,9 +20,16 @@ const field = 'w-full bg-form-input-bg border border-app-border rounded-lg px-3 
 const label = 'block text-[10px] font-bold text-app-text-muted uppercase tracking-wider mb-1';
 const btn = 'flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-colors cursor-pointer disabled:opacity-50';
 
-function formFromLead(lead) {
+const isProforma = (p) => p?.kind === 'Proforma';
+// What a card / header calls the document
+const docName = (p) => (isProforma(p)
+  ? (p.proformaNumber ? `Proforma #${p.proformaNumber}` : 'Proforma (draft)')
+  : `${p.proposalNumber} v${p.version}`);
+
+function formFromLead(lead, kind = 'Proposal') {
   return {
-    title: 'Business Proposal',
+    kind,
+    title: kind === 'Proforma' ? 'Proforma Invoice' : 'Business Proposal',
     validityDays: 15,
     details: {
       clientName: lead.businessName || lead.fullName || '',
@@ -39,6 +46,7 @@ function formFromLead(lead) {
   };
 }
 const formFromProposal = (p) => ({
+  kind: p.kind || 'Proposal',
   title: p.title || 'Business Proposal',
   validityDays: p.validityDays,
   details: { ...p.details },
@@ -96,23 +104,18 @@ export default function ProposalWorkflow({ lead, onClose, onLeadChanged, portal 
   const [basedOn, setBasedOn] = useState(null); // revising a final proposal
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [share, setShare] = useState({ channel: 'Email', recipient: '', message: '', app: 'web' });
-
-  useEffect(() => {
-    if (!isLoading && proposals.length === 0 && view === 'list') openForm(null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoading]);
+  const [share, setShare] = useState({ channel: 'Email', recipient: '', message: '', app: 'web', document: 'Proposal' });
 
   const refresh = (proposal) => {
     queryClient.invalidateQueries({ queryKey: api.keys.proposals(lead._id) });
     if (proposal) setCurrent(proposal);
   };
 
-  function openForm(source, { revise = false } = {}) {
+  function openForm(source, { revise = false, kind = 'Proposal' } = {}) {
     setError('');
     setBasedOn(revise ? source._id : null);
     setCurrent(revise ? null : source);
-    setForm(source ? formFromProposal(source) : formFromLead(lead));
+    setForm(source ? formFromProposal(source) : formFromLead(lead, kind));
     setView('form');
   }
 
@@ -134,27 +137,39 @@ export default function ProposalWorkflow({ lead, onClose, onLeadChanged, portal 
   };
 
   const finalize = async () => {
-    if (!window.confirm('Generate the final proposal? It can no longer be edited — changes will need a new version.')) return;
+    const what = isProforma(current) ? 'proforma' : 'proposal';
+    const extra = isProforma(current) ? ' Its proforma number is allocated now.' : '';
+    if (!window.confirm(`Generate the final ${what}? It can no longer be edited — changes will need a new version.${extra}`)) return;
     setBusy(true);
     try {
       const res = await api.post(`/proposals/${current._id}/finalize`);
-      toast.success('Final proposal generated');
+      toast.success(isProforma(res.proposal) ? `Proforma #${res.proposal.proformaNumber} generated` : 'Final proposal generated');
       refresh(res.proposal);
       onLeadChanged?.();
     } catch (err) {
-      toast.error(apiError(err, 'Could not generate the final proposal.'));
+      toast.error(apiError(err, `Could not generate the final ${what}.`));
     } finally {
       setBusy(false);
     }
   };
 
-  const openShare = (proposal) => {
+  const shareMessage = (proposal, document) => {
+    const name = proposal.details?.contactPerson || proposal.details?.clientName;
+    return document === 'Proforma'
+      ? `Dear ${name},\n\nPlease find attached our proforma invoice. Kindly arrange the payment so we can begin.`
+      : `Dear ${name},\n\nPlease find attached our proposal for ${proposal.details?.service}. Happy to walk you through it.`;
+  };
+
+  // document: what to send — a direct proforma always sends its proforma
+  const openShare = (proposal, document = 'Proposal') => {
+    const doc = isProforma(proposal) ? 'Proforma' : document;
     setCurrent(proposal);
     const saved = me?.preferences?.whatsappApp;
     setShare({
       channel: 'Email',
+      document: doc,
       recipient: proposal.details?.email || lead.email || '',
-      message: `Dear ${proposal.details?.contactPerson || proposal.details?.clientName},\n\nPlease find attached our proposal for ${proposal.details?.service}. Happy to walk you through it.`,
+      message: shareMessage(proposal, doc),
       app: saved && saved !== 'ask' ? saved : 'web',
     });
     setError('');
@@ -165,12 +180,12 @@ export default function ProposalWorkflow({ lead, onClose, onLeadChanged, portal 
     setBusy(true);
     setError('');
     try {
-      const res = await api.post(`/proposals/${current._id}/share`, { channel: share.channel, recipient: share.recipient, message: share.message });
+      const res = await api.post(`/proposals/${current._id}/share`, { channel: share.channel, recipient: share.recipient, message: share.message, document: share.document });
       if (share.channel === 'WhatsApp') {
         openWhatsApp(buildWhatsAppUrl(share.app, share.recipient, res.whatsappText));
         if (res.missingPdfLink) toast('The PDF link is unavailable — download the PDF and attach it in WhatsApp.', { icon: '⚠️' });
       }
-      toast.success(`Proposal shared via ${share.channel}`);
+      toast.success(`${share.document === 'Proforma' ? 'Proforma invoice' : 'Proposal'} shared via ${share.channel}`);
       refresh(res.proposal);
       onLeadChanged?.();
       setView('list');
@@ -186,31 +201,40 @@ export default function ProposalWorkflow({ lead, onClose, onLeadChanged, portal 
     .then(() => { queryClient.invalidateQueries({ queryKey: api.keys.proposals(lead._id) }); onLeadChanged?.(); })
     .catch(() => toast.error('Could not generate the proforma invoice.'));
 
-  const download = (p) => api.openPdf(`/proposals/${p._id}/pdf?download=1`, { download: true, filename: `Proposal-${p.proposalNumber}-v${p.version}.pdf` })
+  const download = (p) => api.openPdf(`/proposals/${p._id}/pdf?download=1`, { download: true, filename: isProforma(p) ? `Proforma-${p.proformaNumber || 'draft'}.pdf` : `Proposal-${p.proposalNumber}-v${p.version}.pdf` })
     .catch(() => toast.error('Could not download the PDF.'));
 
   const hasDraftRevision = (p) => proposals.some((x) => x.proposalNumber === p.proposalNumber && x.status === 'Draft');
-  const back = proposals.length > 0 && view !== 'list' && (
+  const back = view !== 'list' && (
     <button type="button" onClick={() => setView('list')} className="text-xs font-semibold text-app-text-muted hover:text-app-text flex items-center gap-1 mb-4 cursor-pointer">
-      <ArrowLeft size={14} /> All proposals
+      <ArrowLeft size={14} /> All proposals & proformas
     </button>
   );
+  const final = (p) => ['Final', 'Shared'].includes(p.status);
 
   return (
-    <Modal title="Proposal" subtitle={`${lead.leadId} · ${lead.fullName}`} onClose={onClose} size={view === 'preview' ? 'xl' : 'lg'}>
+    <Modal title="Proposal & Proforma" subtitle={`${lead.leadId} · ${lead.fullName}`} onClose={onClose} size={view === 'preview' ? 'xl' : 'lg'}>
       {back}
 
       {view === 'list' && (
         <div className="space-y-3">
-          <button type="button" onClick={() => openForm(null)} className={`${btn} bg-primary text-white hover:bg-primary-hover`}>
-            <Plus size={14} /> New proposal
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => openForm(null)} className={`${btn} bg-primary text-white hover:bg-primary-hover`}>
+              <Plus size={14} /> New proposal
+            </button>
+            <button type="button" onClick={() => openForm(null, { kind: 'Proforma' })} className={`${btn} border border-primary/50 text-primary hover:bg-primary/10`}>
+              <Receipt size={14} /> New proforma invoice
+            </button>
+          </div>
+          <p className="text-[11px] text-app-text-muted">A proforma can be raised directly, or from a final proposal.</p>
+          {!isLoading && proposals.length === 0 && <p className="text-sm text-app-text-muted">Nothing yet for this lead.</p>}
           {isLoading ? <p className="text-sm text-app-text-muted">Loading…</p> : proposals.map((p) => (
             <div key={p._id} className="p-4 rounded-xl border border-app-border bg-form-input-bg">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <FileText size={14} className="text-primary" />
-                  <span className="font-mono text-sm font-semibold text-app-text">{p.proposalNumber} v{p.version}</span>
+                  {isProforma(p) ? <Receipt size={14} className="text-primary" /> : <FileText size={14} className="text-primary" />}
+                  <span className="font-mono text-sm font-semibold text-app-text">{docName(p)}</span>
+                  {isProforma(p) && <span className="px-2 py-0.5 text-[10px] font-bold uppercase rounded border border-primary/30 text-primary">Direct proforma</span>}
                   <span className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded border ${STATUS_CLASS[p.status]}`}>{p.status}</span>
                 </div>
                 <span className="text-sm font-bold text-app-text">{fmtINR(p.totalAmount)} <span className="text-[11px] font-normal text-app-text-muted">incl. GST</span></span>
@@ -220,18 +244,21 @@ export default function ProposalWorkflow({ lead, onClose, onLeadChanged, portal 
               </p>
               {p.shares?.length > 0 && (
                 <ul className="mt-2 space-y-0.5">
-                  {p.shares.map((s) => <li key={s._id} className="text-[11px] text-emerald-400">Shared via {s.channel} to {s.recipient} · {fmtDateTime(s.sharedAt)}</li>)}
+                  {p.shares.map((s) => <li key={s._id} className="text-[11px] text-emerald-400">{s.document === 'Proforma' && !isProforma(p) ? 'Proforma shared' : 'Shared'} via {s.channel} to {s.recipient} · {fmtDateTime(s.sharedAt)}</li>)}
                 </ul>
               )}
               <div className="flex flex-wrap gap-2 mt-3">
                 <button type="button" className={`${btn} border border-app-border text-app-text hover:border-primary/40`} onClick={() => { setCurrent(p); setView('preview'); }}><Eye size={13} /> Preview</button>
                 {p.status === 'Draft' && <button type="button" className={`${btn} border border-app-border text-app-text hover:border-primary/40`} onClick={() => openForm(p)}><Pencil size={13} /> Edit</button>}
-                {['Final', 'Shared'].includes(p.status) && <button type="button" className={`${btn} bg-emerald-600 text-white hover:bg-emerald-700`} onClick={() => openShare(p)}><Send size={13} /> Share</button>}
-                {['Final', 'Shared'].includes(p.status) && !hasDraftRevision(p) && (
+                {final(p) && <button type="button" className={`${btn} bg-emerald-600 text-white hover:bg-emerald-700`} onClick={() => openShare(p)}><Send size={13} /> {isProforma(p) ? 'Send proforma' : 'Share proposal'}</button>}
+                {final(p) && !isProforma(p) && (
+                  <button type="button" className={`${btn} bg-emerald-600/80 text-white hover:bg-emerald-700`} onClick={() => openShare(p, 'Proforma')}><Send size={13} /> Send proforma</button>
+                )}
+                {final(p) && !hasDraftRevision(p) && (
                   <button type="button" className={`${btn} border border-app-border text-app-text hover:border-primary/40`} onClick={() => openForm(p, { revise: true })}><Copy size={13} /> New version</button>
                 )}
                 <button type="button" className={`${btn} border border-app-border text-app-text hover:border-primary/40`} onClick={() => download(p)}><Download size={13} /> PDF</button>
-                {['Final', 'Shared'].includes(p.status) && (
+                {final(p) && !isProforma(p) && (
                   <button type="button" className={`${btn} border border-app-border text-app-text hover:border-primary/40`} onClick={() => proforma(p)}>
                     <Receipt size={13} /> {p.proformaNumber ? `Proforma #${p.proformaNumber}` : 'Proforma invoice'}
                   </button>
@@ -257,21 +284,25 @@ export default function ProposalWorkflow({ lead, onClose, onLeadChanged, portal 
         <div className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              <span className="font-mono text-sm font-semibold text-app-text">{current.proposalNumber} v{current.version}</span>
+              <span className="font-mono text-sm font-semibold text-app-text">{docName(current)}</span>
               <span className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded border ${STATUS_CLASS[current.status]}`}>{current.status}</span>
             </div>
             <div className="flex flex-wrap gap-2">
               {current.status === 'Draft' && (
                 <>
                   <button type="button" className={`${btn} border border-app-border text-app-text hover:border-primary/40`} onClick={() => openForm(current)}><Pencil size={13} /> Edit</button>
-                  <button type="button" disabled={busy} className={`${btn} bg-primary text-white hover:bg-primary-hover`} onClick={finalize}><CheckCircle2 size={13} /> {busy ? 'Generating…' : 'Generate final'}</button>
+                  <button type="button" disabled={busy} className={`${btn} bg-primary text-white hover:bg-primary-hover`} onClick={finalize}><CheckCircle2 size={13} /> {busy ? 'Generating…' : isProforma(current) ? 'Generate proforma' : 'Generate final'}</button>
                 </>
               )}
-              {['Final', 'Shared'].includes(current.status) && (
+              {final(current) && !isProforma(current) && (
                 <>
                   <button type="button" className={`${btn} border border-app-border text-app-text hover:border-primary/40`} onClick={() => proforma(current)}><Receipt size={13} /> Proforma</button>
-                  <button type="button" className={`${btn} bg-emerald-600 text-white hover:bg-emerald-700`} onClick={() => openShare(current)}><Send size={13} /> Share</button>
+                  <button type="button" className={`${btn} bg-emerald-600/80 text-white hover:bg-emerald-700`} onClick={() => openShare(current, 'Proforma')}><Send size={13} /> Send proforma</button>
+                  <button type="button" className={`${btn} bg-emerald-600 text-white hover:bg-emerald-700`} onClick={() => openShare(current)}><Send size={13} /> Share proposal</button>
                 </>
+              )}
+              {final(current) && isProforma(current) && (
+                <button type="button" className={`${btn} bg-emerald-600 text-white hover:bg-emerald-700`} onClick={() => openShare(current)}><Send size={13} /> Send proforma</button>
               )}
             </div>
           </div>
@@ -281,6 +312,19 @@ export default function ProposalWorkflow({ lead, onClose, onLeadChanged, portal 
 
       {view === 'share' && current && (
         <div className="space-y-4">
+          {!isProforma(current) && (
+            <div>
+              <label className={label}>Send</label>
+              <div className="flex bg-form-input-bg border border-app-border p-1 rounded-lg text-xs font-bold">
+                {[['Proposal', 'Proposal'], ['Proforma', 'Proforma invoice']].map(([doc, text]) => (
+                  <button key={doc} type="button" onClick={() => setShare((s) => ({ ...s, document: doc, message: shareMessage(current, doc) }))}
+                    className={`flex-1 py-1.5 rounded-md cursor-pointer ${share.document === doc ? 'bg-primary text-white' : 'text-app-text-muted hover:text-app-text'}`}>
+                    {text}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="flex bg-form-input-bg border border-app-border p-1 rounded-lg text-xs font-bold">
             {['Email', 'WhatsApp'].map((channel) => (
               <button key={channel} type="button"
@@ -306,7 +350,9 @@ export default function ProposalWorkflow({ lead, onClose, onLeadChanged, portal 
             <label className={label}>Message</label>
             <textarea rows={5} className={`${field} resize-y`} value={share.message} onChange={(e) => setShare((s) => ({ ...s, message: e.target.value }))} />
             <p className="text-[11px] text-app-text-muted mt-1">
-              {share.channel === 'Email' ? 'The PDF is attached automatically.' : 'The proposal summary and PDF link are added below your message.'}
+              {share.channel === 'Email'
+                ? `The ${share.document === 'Proforma' ? 'proforma' : 'proposal'} PDF is attached automatically.`
+                : `The ${share.document === 'Proforma' ? 'proforma' : 'proposal'} summary and PDF link are added below your message.`}
             </p>
           </div>
           {error && <p className="text-xs text-rose-400" role="alert">{error}</p>}

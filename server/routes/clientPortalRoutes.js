@@ -10,6 +10,7 @@ const ClientNotification = require('../models/ClientNotification');
 const logger = require('../utils/logger');
 const { getClientAgreement, acceptAgreement } = require('../controllers/agreementController');
 const { buildInvoicePdfBuffer, loadInvoiceContext } = require('../services/invoicePdf');
+const invoiceDocument = require('../services/invoiceDocument');
 const { uploadTicketAttachment, deleteFromCloudinary } = require('../utils/cloudinary');
 const { notifyTicketStaff, notifyPermissionHolders } = require('../services/staffNotify');
 const multer = require('multer');
@@ -85,7 +86,7 @@ router.get('/invoices', async (req, res) => {
   try {
     const { page, limit, skip } = parsePagination(req.query);
     const now = new Date();
-    const base = { client_ref: req.client._id };
+    const base = { client_ref: req.client._id, unsent: { $ne: true } }; // saved-but-unsent invoices are not the client's yet
     // Overdue is derived (balance still owed + past due date), so filter and
     // count on the derived status — matching what the table shows.
     const statusQuery = {
@@ -100,7 +101,7 @@ router.get('/invoices', async (req, res) => {
 
     const [invoices, total, allCount, paidCount, unpaidCount, overdueCount] = await Promise.all([
       Invoice.find(filter)
-        .select('-notes') // strip internal notes
+        .select('-notes -documents.sentBy -documents.sentByName') // strip internal notes and who sent it
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
@@ -142,8 +143,9 @@ router.get('/invoices/:id', async (req, res) => {
     const invoice = await Invoice.findOne({
       _id: req.params.id,
       client_ref: req.client._id, // Ownership check
+      unsent: { $ne: true },
     })
-      .select('-notes')
+      .select('-notes -documents.sentBy -documents.sentByName')
       .lean();
 
     if (!invoice) {
@@ -185,12 +187,18 @@ router.get('/invoices/:id/pdf', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid invoice ID' });
     }
 
-    const invoice = await Invoice.findOne({ _id: req.params.id, client_ref: req.client._id }).lean();
+    const invoice = await Invoice.findOne({ _id: req.params.id, client_ref: req.client._id, unsent: { $ne: true } }).lean();
     if (!invoice) {
       return res.status(404).json({ success: false, message: 'Invoice not found' });
     }
-    const pdf = await buildInvoicePdfBuffer(finance.withDerived(invoice), req.client, await loadInvoiceContext());
-    const filename = `Invoice-${(invoice.invoiceId || invoice._id).toString().replace(/[^\w-]/g, '_')}.pdf`;
+    // Sent as a Proforma / Tax Invoice: the GST document staff sent. Older invoices keep the simple layout.
+    const sentDoc = invoiceDocument.latestDocument(invoice);
+    const pdf = sentDoc
+      ? (await invoiceDocument.renderDocument(invoice, req.client, { type: sentDoc.type })).buffer
+      : await buildInvoicePdfBuffer(finance.withDerived(invoice), req.client, await loadInvoiceContext());
+    const filename = sentDoc
+      ? `${sentDoc.type.replace(/ /g, '-')}-${sentDoc.number}.pdf`
+      : `Invoice-${(invoice.invoiceId || invoice._id).toString().replace(/[^\w-]/g, '_')}.pdf`;
     res.set({
       'Content-Type': 'application/pdf',
       'Content-Disposition': `attachment; filename="${filename}"`,
