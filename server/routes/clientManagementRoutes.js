@@ -2122,6 +2122,26 @@ router.get('/receivables/ageing', crm('invoices', 'view'), async (req, res) => {
   }
 });
 
+/**
+ * @route  GET /api/admin/receivables/revenue?from=YYYY-MM-DD&to=YYYY-MM-DD   (default: this month)
+ * @desc   Revenue by type (retainer / one-time setup / project / other), credit notes, GST and cash
+ *         collected, with the clients' media spend shown apart (it is not Vedhunt's revenue).
+ */
+router.get('/receivables/revenue', crm('invoices', 'view'), async (req, res) => {
+  try {
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    const from = req.query.from || `${now.getFullYear()}-${pad(now.getMonth() + 1)}-01`;
+    const to = req.query.to || `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+    const data = await receivables.revenueReport({ from, to, clientIds: isScoped(req) ? req.pageScope.clients : undefined });
+    if (!data) return res.status(400).json({ success: false, message: 'Choose a valid from and to date.' });
+    res.json({ success: true, data });
+  } catch (error) {
+    logger.error('Admin revenue report error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
 router.delete('/invoices/:id', crm('invoices', 'delete'), async (req, res) => {
   try {
     if (!isValidId(req.params.id)) {

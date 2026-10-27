@@ -3,6 +3,7 @@ import { useCrm } from '../../shared/crmAccess';
 import InvoiceDraftsPanel from '../components/InvoiceDraftsPanel';
 import InvoicePaymentsModal from '../components/InvoicePaymentsModal';
 import AgeingPanel from '../components/AgeingPanel';
+import RevenuePanel from '../components/RevenuePanel';
 import { openPdf } from '../../employee/lib/ess';
 import { openPortalPreview } from '../../shared/portalPreview';
 import { usePermissions } from '../hooks/usePermissions';
@@ -13,6 +14,8 @@ import {
 } from 'lucide-react';
 
 const DOC_TYPES = ['Tax Invoice', 'Proforma Invoice'];
+// What each line is revenue for. Ad spend is not here: it is never on a Vedhunt invoice.
+const REVENUE_TYPES = ['Retainer', 'One-time setup', 'Project / Add-on', 'Other'];
 const today = () => new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD in local time
 const emptyBilling = () => ({ name: '', address: '', phone: '', gstin: '', pan: '', placeOfSupply: '' });
 const inputCls = 'w-full px-3 py-2.5 bg-admin-bg border border-outline-variant rounded-xl text-on-surface text-sm focus:outline-none focus:border-secondary';
@@ -25,7 +28,7 @@ const STATUS_COLORS = {
 
 const emptyForm = () => ({
   client_ref: '', issueDate: today(), dueDate: '', notes: '',
-  lineItems: [{ description: '', qty: 1, unitPrice: '', sac: '' }],
+  lineItems: [{ description: '', qty: 1, unitPrice: '', sac: '', revenueType: 'Retainer' }],
   taxPercent: 18, paymentStatus: 'Unpaid',
   billing: emptyBilling(),
 });
@@ -156,7 +159,7 @@ export default function InvoiceManager() {
       issueDate: inv.issueDate?.split('T')[0] || today(),
       dueDate: inv.dueDate?.split('T')[0] || '',
       notes: inv.notes || '',
-      lineItems: inv.lineItems?.length ? inv.lineItems.map((i) => ({ ...i, sac: i.sac || '' })) : [{ description: '', qty: 1, unitPrice: '', sac: '' }],
+      lineItems: inv.lineItems?.length ? inv.lineItems.map((i) => ({ ...i, sac: i.sac || '', revenueType: i.revenueType || 'Other' })) : [{ description: '', qty: 1, unitPrice: '', sac: '', revenueType: 'Retainer' }],
       taxPercent: inv.taxPercent || 0,
       // Overdue is worked out from the due date and balance, so it is never an editable status
       paymentStatus: inv.paymentStatus === 'Paid' ? 'Paid' : 'Unpaid',
@@ -179,6 +182,7 @@ export default function InvoiceManager() {
         unitPrice: Number(i.unitPrice || 0),
         amount: Number(i.qty || 1) * Number(i.unitPrice || 0),
         sac: (i.sac || '').trim(),
+        revenueType: i.revenueType || 'Other',
       }));
 
       const payload = { ...form, lineItems: mappedLineItems, subtotal, taxAmount, totalAmount };
@@ -218,7 +222,7 @@ export default function InvoiceManager() {
       return { ...p, lineItems: items };
     });
 
-  const addLineItem = () => setForm(p => ({ ...p, lineItems: [...p.lineItems, { description: '', qty: 1, unitPrice: '', sac: '' }] }));
+  const addLineItem = () => setForm(p => ({ ...p, lineItems: [...p.lineItems, { description: '', qty: 1, unitPrice: '', sac: '', revenueType: 'Retainer' }] }));
   const removeLineItem = (i) => setForm(p => ({ ...p, lineItems: p.lineItems.filter((_, idx) => idx !== i) }));
 
   const { subtotal, taxAmount, totalAmount } = computeTotals(form.lineItems, form.taxPercent);
@@ -242,7 +246,7 @@ export default function InvoiceManager() {
       </div>
 
       <div className="flex gap-2 border-b border-outline-variant" role="tablist" aria-label="Invoice views">
-        {[['invoices', 'Invoices'], ['drafts', 'Awaiting approval'], ['ageing', 'Ageing']].map(([id, label]) => (
+        {[['invoices', 'Invoices'], ['drafts', 'Awaiting approval'], ['ageing', 'Ageing'], ['revenue', 'Revenue']].map(([id, label]) => (
           <button key={id} role="tab" aria-selected={view === id} onClick={() => setView(id)}
             className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px cursor-pointer transition-colors flex items-center gap-2 ${view === id ? 'border-secondary text-secondary' : 'border-transparent text-on-surface-variant hover:text-on-surface'}`}>
             {label}
@@ -252,6 +256,7 @@ export default function InvoiceManager() {
       </div>
 
       {view === 'ageing' && <AgeingPanel http={http} base={base} />}
+      {view === 'revenue' && <RevenuePanel http={http} base={base} />}
 
       {view === 'drafts' && (
         <InvoiceDraftsPanel http={http} base={base} canApprove={canCrm('invoices', 'create')} canEdit={canCrm('invoices', 'edit')}
@@ -457,6 +462,11 @@ export default function InvoiceManager() {
                 <div className="space-y-2">
                   {form.lineItems.map((item, i) => (
                     <div key={i} className="grid grid-cols-12 gap-2 items-start">
+                      <select value={item.revenueType || 'Other'} aria-label="Revenue type" title="What this line is revenue for"
+                        onChange={e => updateLineItem(i, 'revenueType', e.target.value)}
+                        className="col-span-12 px-2 py-1.5 bg-admin-bg border border-outline-variant rounded-lg text-on-surface-variant text-[11px] focus:outline-none focus:border-secondary">
+                        {REVENUE_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+                      </select>
                       <textarea value={item.description} rows={2} required
                         placeholder={'Service (first line, bold)\nDetails, one per line'}
                         onChange={e => updateLineItem(i, 'description', e.target.value)}

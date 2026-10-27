@@ -10,6 +10,7 @@
 const BillingSchedule = require('../models/BillingSchedule');
 const InvoiceDraft = require('../models/InvoiceDraft');
 const Invoice = require('../models/Invoice');
+const { REVENUE_TYPES } = require('../models/Invoice');
 const Retainer = require('../models/Retainer');
 const Client = require('../models/Client');
 const { dayOf, addDays } = require('./adPerformance');
@@ -104,7 +105,7 @@ async function buildContents(schedule, client, invoiceDate, policy) {
 
   const lineItems = retainers.filter((r) => r.monthlyAmount > 0).map((r) => ({
     description: `${r.packageName} — ${label(period.start)} to ${label(period.end)}`,
-    qty: 1, unitPrice: r.monthlyAmount, amount: r.monthlyAmount,
+    qty: 1, unitPrice: r.monthlyAmount, amount: r.monthlyAmount, revenueType: 'Retainer',
   }));
   const t = totals(lineItems, policy.gstPercent);
   const dueDate = new Date(`${addDays(invoiceDate, schedule.dueDays)}T23:59:59`);
@@ -220,7 +221,9 @@ function cleanItems(input) {
     if (!Number.isFinite(unitPrice) || unitPrice < 0) return { error: `"${description}": the price must be zero or more.` };
     if (!Number.isInteger(qty) || qty < 1 || qty > 1000) return { error: `"${description}": quantity must be a whole number of 1 or more.` };
     const price = r2(unitPrice); // the amount is worked out from the price shown, so a line always adds up
-    items.push({ description: description.slice(0, 300), qty, unitPrice: price, amount: r2(price * qty) });
+    // A draft is a retainer invoice unless staff say otherwise
+    const revenueType = REVENUE_TYPES.includes(it?.revenueType) ? it.revenueType : 'Retainer';
+    items.push({ description: description.slice(0, 300), qty, unitPrice: price, amount: r2(price * qty), revenueType });
   }
   return { items };
 }

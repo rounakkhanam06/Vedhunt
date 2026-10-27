@@ -47,7 +47,7 @@ async function createInvoice(retainerId, month, now = new Date()) {
       dueDate: new Date(now.getTime() + 7 * DAY_MS),
       lineItems: [{
         description: `Extra hours — ${retainer.packageName}, ${p.label} (${p.billableHours}h at ₹${p.policy.ratePerHour}/h)`,
-        qty: 1, unitPrice: p.amount, amount: p.amount,
+        qty: 1, unitPrice: p.amount, amount: p.amount, revenueType: 'Project / Add-on',
       }],
       subtotal: p.amount, taxPercent: p.policy.gstPercent, taxAmount: p.gst, totalAmount: p.total,
       extraHours: { retainer_ref: retainer._id, month, hours: p.billableHours },

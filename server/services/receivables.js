@@ -207,6 +207,65 @@ function ageingCsv(report) {
     .map((r) => r.map(esc).join(',')).join('\n');
 }
 
+// ── Revenue by type (SOP §5.1) ──────────────────────────────────────────────
+const { REVENUE_TYPES } = require('../models/Invoice');
+const AdPerformance = require('../models/AdPerformance');
+const dayStr = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+/**
+ * Vedhunt's revenue in a period, kept apart by type, with the other money figures that must not
+ * be mistaken for it:
+ *   • revenue      — taxable value (excl. GST) of invoices SENT in the period, per line type,
+ *                    less credit notes dated in the period. An invoice is not revenue "collected".
+ *   • gst          — tax on those invoices and credit notes (not revenue either)
+ *   • collected    — cash actually received in the period (incl. GST)
+ *   • mediaSpend   — the client's ad spend from the ad data; never part of Vedhunt's revenue
+ * @param opts { from, to: 'YYYY-MM-DD' inclusive, clientIds }
+ */
+async function revenueReport({ from, to, clientIds }) {
+  const start = parseDay(from);
+  const end = parseDay(to);
+  if (!start || !end || start > end) return null;
+  const endOfDay = new Date(end.getFullYear(), end.getMonth(), end.getDate(), 23, 59, 59, 999);
+  const startOfDay = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+  const scope = clientIds ? { client_ref: { $in: clientIds } } : {};
+
+  const [invoices, notes, payments, ads] = await Promise.all([
+    Invoice.find({ ...scope, unsent: { $ne: true }, issueDate: { $gte: startOfDay, $lte: endOfDay } }).select('lineItems subtotal taxAmount').lean(),
+    CreditNote.find({ ...scope, date: { $gte: startOfDay, $lte: endOfDay } }).select('amount taxAmount').lean(),
+    PaymentProof.find({ ...scope, status: 'Approved', paymentDate: { $gte: startOfDay, $lte: endOfDay } }).select('amountPaid').lean(),
+    AdPerformance.find({ ...scope, day: { $gte: dayStr(start), $lte: dayStr(end) } }).select('platform spend').lean(),
+  ]);
+
+  const types = new Map([...REVENUE_TYPES, 'Untyped'].map((t) => [t, { type: t, taxable: 0, lines: 0 }]));
+  let gst = 0;
+  for (const inv of invoices) {
+    gst += Number(inv.taxAmount) || 0;
+    for (const li of inv.lineItems || []) {
+      const row = types.get(li.revenueType) || types.get('Untyped');
+      row.taxable = round2(row.taxable + (Number(li.amount) || 0));
+      row.lines += 1;
+    }
+  }
+  const credited = round2(notes.reduce((s, n) => s + n.amount, 0));
+  const creditedTax = round2(notes.reduce((s, n) => s + n.taxAmount, 0));
+  const rows = [...types.values()].filter((r) => r.lines > 0 || REVENUE_TYPES.includes(r.type));
+  const billed = round2(rows.reduce((s, r) => s + r.taxable, 0));
+
+  const spendBy = new Map();
+  for (const a of ads) spendBy.set(a.platform, round2((spendBy.get(a.platform) || 0) + (Number(a.spend) || 0)));
+  return {
+    from, to,
+    types: rows,
+    billed, creditNotes: credited, netRevenue: round2(billed - credited),
+    gst: round2(gst - creditedTax),
+    invoices: invoices.length, creditNoteCount: notes.length,
+    collected: round2(payments.reduce((s, p) => s + p.amountPaid, 0)),
+    mediaSpend: { total: round2([...spendBy.values()].reduce((s, v) => s + v, 0)), byPlatform: [...spendBy.entries()].map(([platform, spend]) => ({ platform, spend })).sort((a, b) => b.spend - a.spend) },
+  };
+}
+
 module.exports = {
+  revenueReport,
   PAYMENT_METHODS, BUCKETS, pastDay, allocateReceipt, recordPayment, createCreditNote, bucketOf, ageingReport, ageingCsv,
 };

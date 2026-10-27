@@ -10,6 +10,7 @@ const lineItemSchema = new mongoose.Schema(
     qty: { type: Number, default: 1, min: 1 },
     unitPrice: { type: Number, required: true, min: 0 },
     amount: { type: Number, required: true, min: 0 },
+    revenueType: { type: String, enum: ['Retainer', 'One-time setup', 'Project / Add-on', 'Other'] },
   },
   { _id: false }
 );

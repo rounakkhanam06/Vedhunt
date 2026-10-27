@@ -303,7 +303,9 @@ describe('recurring invoices — dates and drafts', () => {
     assert.ok(bs.cleanItems([{ description: ' ', unitPrice: 5 }]).error);
     assert.ok(bs.cleanItems([{ description: 'x', unitPrice: -1 }]).error);
     assert.ok(bs.cleanItems([{ description: 'x', unitPrice: 5, qty: 1.5 }]).error);
-    assert.deepEqual(bs.cleanItems([{ description: ' Fee ', unitPrice: '100.505', qty: 2 }]).items, [{ description: 'Fee', qty: 2, unitPrice: 100.51, amount: 201.02 }]);
+    assert.deepEqual(bs.cleanItems([{ description: ' Fee ', unitPrice: '100.505', qty: 2 }]).items, [{ description: 'Fee', qty: 2, unitPrice: 100.51, amount: 201.02, revenueType: 'Retainer' }]);
+    assert.equal(bs.cleanItems([{ description: 'Setup', unitPrice: 5000, revenueType: 'One-time setup' }]).items[0].revenueType, 'One-time setup');
+    assert.equal(bs.cleanItems([{ description: 'Ads', unitPrice: 5, revenueType: 'Media spend' }]).items[0].revenueType, 'Retainer', 'media spend is not a revenue type');
   });
   test('schedule settings are validated and default the days to pay', () => {
     assert.equal(bs.validateSchedule({ billingDay: 20, startDate: '2026-11-20', active: true }, 7).value.dueDays, 7);

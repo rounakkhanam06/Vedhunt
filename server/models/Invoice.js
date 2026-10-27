@@ -1,8 +1,13 @@
 const mongoose = require('mongoose');
 
 // ─── Line Item Sub-Schema ─────────────────────────────────────────────────────
+// What a line is revenue for (Client Journey SOP §5.1). Media spend is NOT a revenue type: ad budget
+// paid to Meta / Google is tracked from the ad data and never on a Vedhunt invoice.
+const REVENUE_TYPES = ['Retainer', 'One-time setup', 'Project / Add-on', 'Other'];
+
 const lineItemSchema = new mongoose.Schema(
   {
+    revenueType: { type: String, enum: REVENUE_TYPES }, // absent on older invoices ("Untyped" in the report)
     description: { type: String, required: true, trim: true },
     qty: { type: Number, required: true, min: 1, default: 1 },
     unitPrice: { type: Number, required: true, min: 0 },
@@ -174,3 +179,4 @@ invoiceSchema.post('findOne', function (doc) {
 const Invoice = mongoose.model('Invoice', invoiceSchema);
 module.exports = Invoice;
 module.exports.DOCUMENT_TYPES = DOCUMENT_TYPES;
+module.exports.REVENUE_TYPES = REVENUE_TYPES;

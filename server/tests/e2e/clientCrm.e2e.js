@@ -2443,6 +2443,62 @@ describe('payments, receipts, credit notes and the ageing report (SOP §5.2, §1
   });
 });
 
+describe('revenue by type — media spend is never part of it (SOP §5.1)', () => {
+  const day = '2025-03-10'; // a quiet month, so the figures below are exactly this test's
+  const report = async () => (await admin('GET', '/admin/receivables/revenue?from=2025-03-01&to=2025-03-31')).body.data;
+  const typeOf = (r, t) => r.types.find((x) => x.type === t);
+
+  before(async () => {
+    const Client = require('../../models/Client');
+    ids.rev = String((await Client.create({ businessName: 'Revenue Co', contactName: 'Rev Person', email: 'rev@example.com', password: 'ClientPass1', isTemporaryPassword: false }))._id);
+    const make = async (extra) => (await admin('POST', '/admin/invoices', {
+      client_ref: ids.rev, issueDate: day, dueDate: '2025-03-25', taxPercent: 18, billing: { address: '1 Road', placeOfSupply: 'Goa' }, ...extra,
+    }));
+    const a = await make({ lineItems: [
+      { description: 'Retainer March', qty: 1, unitPrice: 20000, amount: 20000, revenueType: 'Retainer' },
+      { description: 'Setup', qty: 1, unitPrice: 5000, amount: 5000, revenueType: 'One-time setup' },
+    ], subtotal: 25000, taxAmount: 4500, totalAmount: 29500 });
+    assert.equal(a.status, 201, JSON.stringify(a.body));
+    ids.revA = a.body.data._id;
+    assert.equal((await make({ lineItems: [{ description: 'Landing page', qty: 1, unitPrice: 8000, amount: 8000, revenueType: 'Project / Add-on' }], subtotal: 8000, taxAmount: 1440, totalAmount: 9440 })).status, 201);
+    assert.equal((await make({ lineItems: [{ description: 'Old style line', qty: 1, unitPrice: 1000, amount: 1000 }], subtotal: 1000, taxAmount: 180, totalAmount: 1180 })).status, 201, 'a line without a type is still accepted');
+    assert.equal((await make({ lineItems: [{ description: 'Ad spend', qty: 1, unitPrice: 100, amount: 100, revenueType: 'Media spend' }], subtotal: 100, totalAmount: 100 })).status, 400, 'media spend is not a revenue type');
+    // none of these are sent yet
+    await require('../../models/AdPerformance').create({ client_ref: ids.rev, day, platform: 'Meta', campaignName: 'C', campaignKey: 'c', spend: 30000 });
+  });
+
+  test('unsent invoices are not revenue', async () => {
+    const r = await report();
+    assert.equal(r.billed, 0);
+    assert.equal(r.invoices, 0);
+  });
+
+  test('once sent: revenue per type (excl. GST), GST apart, media spend apart', async () => {
+    const list = (await admin('GET', `/admin/invoices?client_ref=${ids.rev}`)).body.data;
+    for (const inv of list) assert.equal((await admin('POST', `/admin/invoices/${inv._id}/send`, { type: 'Proforma Invoice', date: day })).status, 200);
+    const r = await report();
+    assert.deepEqual([typeOf(r, 'Retainer').taxable, typeOf(r, 'One-time setup').taxable, typeOf(r, 'Project / Add-on').taxable, typeOf(r, 'Untyped').taxable], [20000, 5000, 8000, 1000]);
+    assert.equal(r.billed, 34000);
+    assert.equal(r.gst, 6120);
+    assert.equal(r.invoices, 3);
+    assert.equal(r.mediaSpend.total, 30000, 'shown, but not added to revenue');
+    assert.deepEqual(r.mediaSpend.byPlatform, [{ platform: 'Meta', spend: 30000 }]);
+    assert.equal(r.netRevenue, 34000);
+  });
+
+  test('credit notes reduce revenue; cash collected is its own figure', async () => {
+    assert.equal((await admin('POST', `/admin/invoices/${ids.revA}/credit-notes`, { amount: 2000, reason: 'Discount for the setup', date: '2025-03-20' })).status, 201);
+    assert.equal((await admin('POST', `/admin/invoices/${ids.revA}/payments`, { amount: 5000, method: 'Cash', date: '2025-03-22' })).status, 201);
+    const r = await report();
+    assert.equal(r.creditNotes, 2000);
+    assert.equal(r.netRevenue, 32000);
+    assert.equal(r.gst, 5760, 'GST on the credit note comes off too');
+    assert.equal(r.collected, 5000);
+    assert.equal((await admin('GET', '/admin/receivables/revenue?from=2025-03-31&to=2025-03-01')).status, 400);
+    assert.equal((await report()).types.every((t) => t.type !== 'Media spend'), true);
+  });
+});
+
 describe('KYC — admin-assisted upload, Under Review and Not Applicable (SOP §7)', () => {
   const jpg = () => Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(200, 4)]);
   const GSTIN = '27AALCV0172E1ZD';
