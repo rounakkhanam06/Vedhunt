@@ -181,6 +181,12 @@ const InvoiceModal = ({ invoiceId, onClose }) => {
                         {fmt(data.data.totalAmount)}
                       </td>
                     </tr>
+                    {data.data.creditedAmount > 0 && (
+                      <tr className="border-t border-border-default">
+                        <td colSpan={2} className="px-4 py-2 text-[#3B82F6] text-xs text-right">Credit notes</td>
+                        <td className="px-4 py-2 text-[#3B82F6] text-xs text-right">- {fmt(data.data.creditedAmount)}</td>
+                      </tr>
+                    )}
                     {data.data.paidAmount > 0 && (
                       <tr className="border-t border-border-default bg-[#22C55E]/5">
                         <td colSpan={2} className="px-4 py-3 text-[#22C55E] font-semibold text-sm text-right">Paid Amount</td>
@@ -193,13 +199,40 @@ const InvoiceModal = ({ invoiceId, onClose }) => {
                       <tr className="border-t border-border-default bg-primary/5">
                         <td colSpan={2} className="px-4 py-3 text-primary font-bold text-sm text-right">Remaining Due</td>
                         <td className="px-4 py-3 text-primary font-bold text-sm text-right">
-                          {fmt(Math.max(0, data.data.totalAmount - (data.data.paidAmount || 0)))}
+                          {fmt(data.data.balance ?? Math.max(0, data.data.totalAmount - (data.data.creditedAmount || 0) - (data.data.paidAmount || 0)))}
                         </td>
                       </tr>
                     )}
                   </tfoot>
                 </table>
               </div>
+
+              {/* Receipts for accepted payments, and credit notes */}
+              {(data.data.payments?.some((p) => p.receiptNumber) || data.data.creditNotes?.length > 0) && (
+                <div className="rounded-xl border border-border-default overflow-hidden">
+                  <div className="px-4 py-3 bg-bg-surface/40 border-b border-border-default">
+                    <h4 className="text-white text-sm font-semibold flex items-center gap-2"><FileText size={16} className="text-primary" /> Receipts &amp; credit notes</h4>
+                  </div>
+                  <ul className="divide-y divide-border-default/40">
+                    {(data.data.payments || []).filter((p) => p.receiptNumber).map((p) => (
+                      <li key={p._id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 text-xs">
+                        <span className="text-white font-medium">{fmt(p.amountPaid)} paid</span>
+                        <span className="text-[#9CA3AF]">{new Date(p.paymentDate).toLocaleDateString('en-IN')}{p.method ? ` · ${p.method}` : ''}</span>
+                        <button type="button" onClick={() => clientService.downloadDocumentPdf(`/client/invoices/${invoiceId}/payments/${p._id}/receipt`, `Receipt-${p.receiptNumber}.pdf`).catch(() => toast.error('Could not download the receipt'))}
+                          className="ml-auto flex items-center gap-1 text-primary font-medium hover:underline cursor-pointer"><DownloadCloud size={13} /> Receipt #{p.receiptNumber}</button>
+                      </li>
+                    ))}
+                    {(data.data.creditNotes || []).map((n) => (
+                      <li key={n._id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 text-xs">
+                        <span className="text-[#3B82F6] font-medium">- {fmt(n.totalAmount)} credited</span>
+                        <span className="text-[#9CA3AF]">{new Date(n.date).toLocaleDateString('en-IN')} · {n.reason}</span>
+                        <button type="button" onClick={() => clientService.downloadDocumentPdf(`/client/invoices/${invoiceId}/credit-notes/${n._id}/pdf`, `Credit-Note-${n.number}.pdf`).catch(() => toast.error('Could not download the credit note'))}
+                          className="ml-auto flex items-center gap-1 text-primary font-medium hover:underline cursor-pointer"><DownloadCloud size={13} /> CN-{n.number}</button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
               {/* Payment Proof History */}
               {!loadingHistory && paymentHistory.length > 0 && (

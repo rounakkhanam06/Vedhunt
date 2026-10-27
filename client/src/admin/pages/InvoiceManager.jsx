@@ -1,13 +1,15 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useCrm } from '../../shared/crmAccess';
 import InvoiceDraftsPanel from '../components/InvoiceDraftsPanel';
+import InvoicePaymentsModal from '../components/InvoicePaymentsModal';
+import AgeingPanel from '../components/AgeingPanel';
 import { openPdf } from '../../employee/lib/ess';
 import { openPortalPreview } from '../../shared/portalPreview';
 import { usePermissions } from '../hooks/usePermissions';
 import toast from 'react-hot-toast';
 import {
   FileText, Plus, Search, X, Save, IndianRupee,
-  ChevronLeft, ChevronRight, Trash2, Edit2, Filter, Eye, Send, MonitorSmartphone,
+  ChevronLeft, ChevronRight, Trash2, Edit2, Filter, Eye, Send, MonitorSmartphone, Wallet,
 } from 'lucide-react';
 
 const DOC_TYPES = ['Tax Invoice', 'Proforma Invoice'];
@@ -47,6 +49,7 @@ export default function InvoiceManager() {
   const [form, setForm] = useState(emptyForm());
   const [saving, setSaving] = useState(false);
   const [docInfo, setDocInfo] = useState({ states: [], next: {} }); // GST states + next proforma / tax invoice numbers
+  const [paymentsFor, setPaymentsFor] = useState(null); // the invoice whose payments / credit notes are open
   const [sendTarget, setSendTarget] = useState(null);
   const [sendForm, setSendForm] = useState({ type: 'Tax Invoice', date: today() });
   const [sending, setSending] = useState(false);
@@ -239,7 +242,7 @@ export default function InvoiceManager() {
       </div>
 
       <div className="flex gap-2 border-b border-outline-variant" role="tablist" aria-label="Invoice views">
-        {[['invoices', 'Invoices'], ['drafts', 'Awaiting approval']].map(([id, label]) => (
+        {[['invoices', 'Invoices'], ['drafts', 'Awaiting approval'], ['ageing', 'Ageing']].map(([id, label]) => (
           <button key={id} role="tab" aria-selected={view === id} onClick={() => setView(id)}
             className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px cursor-pointer transition-colors flex items-center gap-2 ${view === id ? 'border-secondary text-secondary' : 'border-transparent text-on-surface-variant hover:text-on-surface'}`}>
             {label}
@@ -247,6 +250,8 @@ export default function InvoiceManager() {
           </button>
         ))}
       </div>
+
+      {view === 'ageing' && <AgeingPanel http={http} base={base} />}
 
       {view === 'drafts' && (
         <InvoiceDraftsPanel http={http} base={base} canApprove={canCrm('invoices', 'create')} canEdit={canCrm('invoices', 'edit')}
@@ -344,6 +349,10 @@ export default function InvoiceManager() {
                             <MonitorSmartphone size={14} />
                           </button>
                         )}
+                        {!inv.unsent && (<button onClick={() => setPaymentsFor(inv)} title="Payments, receipts and credit notes"
+                          className="p-1.5 text-on-surface-variant hover:bg-surface-container-low rounded-lg cursor-pointer">
+                          <Wallet size={14} />
+                        </button>)}
                         {canCrm('invoices', 'edit') && (<button onClick={() => openSend(inv)} title={inv.unsent ? 'Send to client' : 'Send again / as another type'}
                           className={`p-1.5 rounded-lg cursor-pointer ${inv.unsent ? 'text-white bg-secondary hover:bg-secondary/90' : 'text-secondary hover:bg-secondary/10'}`}>
                           <Send size={14} />
@@ -518,6 +527,11 @@ export default function InvoiceManager() {
             </form>
           </div>
         </div>
+      )}
+
+      {paymentsFor && (
+        <InvoicePaymentsModal invoice={paymentsFor} http={http} base={base} canEdit={canCrm('invoices', 'edit')}
+          onClose={() => setPaymentsFor(null)} onChanged={fetchInvoices} />
       )}
 
       {/* Send as Proforma / Tax Invoice */}

@@ -7,7 +7,13 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 
-const invoiceBalance = (inv) => round2(Math.max(0, (Number(inv.totalAmount) || 0) - (Number(inv.paidAmount) || 0)));
+// What the client has to pay in all: the invoice total less any credit notes issued against it.
+// totalAmount itself is never rewritten, so the invoice as issued stays on record.
+const netTotal = (inv) => round2((Number(inv.totalAmount) || 0) - (Number(inv.creditedAmount) || 0));
+// The same figure inside a Mongo expression / aggregation
+const NET_TOTAL = { $subtract: ['$totalAmount', { $ifNull: ['$creditedAmount', 0] }] };
+
+const invoiceBalance = (inv) => round2(Math.max(0, netTotal(inv) - (Number(inv.paidAmount) || 0)));
 
 /** Whole days past due for an invoice that still has a balance; 0 otherwise. */
 const daysOverdue = (inv, now = new Date()) => {
@@ -45,13 +51,13 @@ const withDerived = (inv, now = new Date()) => {
 const overdueFilter = (now = new Date()) => ({
   paymentStatus: { $ne: 'Paid' },
   dueDate: { $lt: now },
-  $expr: { $gt: ['$totalAmount', '$paidAmount'] },
+  $expr: { $gt: [NET_TOTAL, '$paidAmount'] },
 });
 
 /** Mongo filter for invoices that are open (still owe money) but not yet overdue. */
 const unpaidNotOverdueFilter = (now = new Date()) => ({
   paymentStatus: { $ne: 'Paid' },
-  $expr: { $gt: ['$totalAmount', '$paidAmount'] },
+  $expr: { $gt: [NET_TOTAL, '$paidAmount'] },
   $or: [{ dueDate: null }, { dueDate: { $gte: now } }],
 });
 
@@ -65,7 +71,7 @@ async function applyPaymentToInvoice(invoiceId, amount, { paidOn = new Date(), m
   const amt = round2(amount);
   let invoice = await Invoice.findByIdAndUpdate(invoiceId, { $inc: { paidAmount: amt } }, { new: true });
   if (!invoice) return null;
-  if (invoice.paidAmount >= invoice.totalAmount && invoice.paymentStatus !== 'Paid') {
+  if (invoice.paidAmount >= netTotal(invoice) && invoice.paymentStatus !== 'Paid') {
     const set = { paymentStatus: 'Paid', paidOn };
     if (method) set.paymentMethod = method;
     invoice = await Invoice.findByIdAndUpdate(invoiceId, { $set: set }, { new: true });
@@ -88,15 +94,15 @@ async function portfolioFinance({ clientIds, now = new Date() } = {}) {
     {
       $project: {
         client_ref: 1,
-        totalAmount: 1,
+        net: NET_TOTAL,
         paidAmount: 1,
         dueDate: 1,
-        balance: { $max: [0, { $subtract: ['$totalAmount', '$paidAmount'] }] },
+        balance: { $max: [0, { $subtract: [NET_TOTAL, '$paidAmount'] }] },
         overdue: {
           $and: [
             { $ne: ['$paymentStatus', 'Paid'] },
             { $lt: ['$dueDate', now] },
-            { $gt: ['$totalAmount', '$paidAmount'] },
+            { $gt: [NET_TOTAL, '$paidAmount'] },
           ],
         },
       },
@@ -104,7 +110,7 @@ async function portfolioFinance({ clientIds, now = new Date() } = {}) {
     {
       $group: {
         _id: '$client_ref',
-        billed: { $sum: '$totalAmount' },
+        billed: { $sum: '$net' }, // net of credit notes
         received: { $sum: '$paidAmount' },
         outstanding: { $sum: '$balance' },
         overdueAmount: { $sum: { $cond: ['$overdue', '$balance', 0] } },
@@ -144,6 +150,6 @@ async function portfolioFinance({ clientIds, now = new Date() } = {}) {
 }
 
 module.exports = {
-  round2, invoiceBalance, daysOverdue, isOverdue, collectionPercent, withDerived,
+  round2, netTotal, NET_TOTAL, invoiceBalance, daysOverdue, isOverdue, collectionPercent, withDerived,
   overdueFilter, unpaidNotOverdueFilter, applyPaymentToInvoice, portfolioFinance,
 };

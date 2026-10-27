@@ -22,7 +22,7 @@ const AuditLog = require('../models/AuditLog');
 const PaymentProof = require('../models/PaymentProof');
 const ClientNotification = require('../models/ClientNotification');
 const {
-  notifyInvoiceCreated, notifyAgreementUpdated, notifyTicketReply, notifyTicketStatus, notifyKycRejected, notifyKycVerified, notifyAccountHold, notifyAccountReleased, notifyOnboardingRequest,
+  notifyInvoiceCreated, notifyPaymentApproved, notifyCreditNote, notifyAgreementUpdated, notifyTicketReply, notifyTicketStatus, notifyKycRejected, notifyKycVerified, notifyAccountHold, notifyAccountReleased, notifyOnboardingRequest,
 } = require('../services/clientNotify');
 
 const invoiceDocument = require('../services/invoiceDocument');
@@ -32,6 +32,9 @@ const KpiPeriodEntry = require('../models/KpiPeriodEntry');
 const kpi = require('../services/kpi');
 const { buildRegister, fyOf } = require('../services/clientRegister');
 const { STAGES } = require('../services/clientStage');
+const receivables = require('../services/receivables');
+const { buildReceiptPdf, buildCreditNotePdf } = require('../services/receiptPdf');
+const CreditNote = require('../models/CreditNote');
 const { GST_STATE_CODES } = require('../config/gstStates');
 const { validateGstin, validatePan } = require('../services/kycValidators');
 const { PAGE_CATALOG, pageScope, hasBaseAccess } = require('../config/pageAccess');
@@ -1891,12 +1894,16 @@ router.put('/invoices/:id', crm('invoices', 'edit'), async (req, res) => {
     if (!isValidId(req.params.id)) {
       return res.status(400).json({ success: false, message: 'Invalid invoice ID' });
     }
-    const existing = await Invoice.findById(req.params.id, { client_ref: 1 }).lean();
+    const existing = await Invoice.findById(req.params.id, { client_ref: 1, creditedAmount: 1 }).lean();
     if (!existing || !clientAllowed(req, existing.client_ref)) return outOfScope(res, 'Invoice');
     const update = { ...req.body };
     delete update._id; delete update.invoiceId; delete update.client_ref;
-    // Set only by sending (services/invoiceDocument.js)
-    delete update.documents; delete update.unsent;
+    // Set only by sending (services/invoiceDocument.js) and by credit notes (services/receivables.js)
+    delete update.documents; delete update.unsent; delete update.creditedAmount;
+    // Credit notes are issued against the invoice's amounts: change those with a new credit note, not by editing
+    if (existing.creditedAmount > 0 && ['lineItems', 'subtotal', 'taxPercent', 'taxAmount', 'totalAmount'].some((k) => k in update)) {
+      return res.status(409).json({ success: false, message: 'Credit notes have been issued on this invoice, so its amounts can no longer be edited. Issue another credit note instead.' });
+    }
     if ('billing' in update) {
       const billing = cleanBilling(update.billing);
       if (billing.error) return res.status(400).json({ success: false, message: billing.error });
@@ -1910,9 +1917,10 @@ router.put('/invoices/:id', crm('invoices', 'edit'), async (req, res) => {
     // marking Paid records the full amount as received (and when), and moving
     // a fully-paid invoice back to Unpaid clears that auto-filled payment.
     if (update.paymentStatus) {
-      const current = await Invoice.findById(req.params.id, { totalAmount: 1, paidAmount: 1, paidOn: 1 }).lean();
+      const current = await Invoice.findById(req.params.id, { totalAmount: 1, creditedAmount: 1, paidAmount: 1, paidOn: 1 }).lean();
       if (current) {
-        const total = Number(update.totalAmount ?? current.totalAmount) || 0;
+        // What is owed in all: the invoice less its credit notes
+        const total = (Number(update.totalAmount ?? current.totalAmount) || 0) - (Number(current.creditedAmount) || 0);
         const paid = Number(update.paidAmount ?? current.paidAmount) || 0;
         if (update.paymentStatus === 'Paid') {
           if (paid < total) update.paidAmount = total;
@@ -1991,6 +1999,129 @@ router.post('/invoices/:id/send', crm('invoices', 'edit'), async (req, res) => {
   }
 });
 
+// ─── Payments, receipts and credit notes on an invoice (services/receivables.js) ──
+
+const pdfReply = (res, buffer, filename) => {
+  res.set({
+    'Content-Type': 'application/pdf',
+    'Content-Disposition': `inline; filename="${filename}"`,
+    'Content-Length': buffer.length,
+    'Cache-Control': 'private, no-store',
+  });
+  res.send(buffer);
+};
+
+// Loads the invoice for these routes, honouring a person's client scope
+async function receivableInvoice(req, res) {
+  if (!isValidId(req.params.id)) { res.status(400).json({ success: false, message: 'Invalid invoice ID' }); return null; }
+  const invoice = await Invoice.findById(req.params.id).lean();
+  if (!invoice || !clientAllowed(req, invoice.client_ref)) { outOfScope(res, 'Invoice'); return null; }
+  return invoice;
+}
+
+router.get('/invoices/:id/payments', crm('invoices', 'view'), async (req, res) => {
+  try {
+    const invoice = await receivableInvoice(req, res);
+    if (!invoice) return;
+    const [payments, creditNotes] = await Promise.all([
+      PaymentProof.find({ invoice_ref: invoice._id }).sort({ paymentDate: -1, createdAt: -1 }).lean(),
+      CreditNote.find({ invoice_ref: invoice._id }).sort({ number: 1 }).lean(),
+    ]);
+    res.json({
+      success: true,
+      data: {
+        invoice: finance.withDerived({ ...invoice, notes: undefined }),
+        payments, creditNotes, methods: receivables.PAYMENT_METHODS,
+      },
+    });
+  } catch (error) {
+    logger.error('Admin invoice payments error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+router.post('/invoices/:id/payments', crm('invoices', 'edit'), async (req, res) => {
+  try {
+    const invoice = await receivableInvoice(req, res);
+    if (!invoice) return;
+    const r = await receivables.recordPayment(invoice._id, req.body, req.user);
+    if (!r.ok) return res.status(r.status).json({ success: false, message: r.message });
+    await recordAudit(req, 'PAYMENT_RECORD', 'Payment', r.payment._id, null, {
+      invoiceId: invoice.invoiceId, amount: r.payment.amountPaid, method: r.payment.method, reference: r.payment.utrNumber,
+      receiptNumber: r.payment.receiptNumber, invoicePaid: r.invoice.paidAmount, invoiceStatus: r.invoice.paymentStatus,
+    });
+    await notifyPaymentApproved(r.payment, r.invoice);
+    res.status(201).json({ success: true, message: `Payment recorded — receipt ${r.payment.receiptNumber}`, data: r.payment });
+  } catch (error) {
+    logger.error('Admin record payment error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+router.get('/invoices/:id/payments/:paymentId/receipt', crm('invoices', 'view'), async (req, res) => {
+  try {
+    const invoice = await receivableInvoice(req, res);
+    if (!invoice) return;
+    const payment = isValidId(req.params.paymentId) && await PaymentProof.findOne({ _id: req.params.paymentId, invoice_ref: invoice._id, status: 'Approved' }).lean();
+    if (!payment || !payment.receiptNumber) return res.status(404).json({ success: false, message: 'Receipt not found' });
+    const client = await Client.findById(invoice.client_ref).select('businessName').lean();
+    pdfReply(res, await buildReceiptPdf(payment, invoice, client || {}), `Receipt-${payment.receiptNumber}.pdf`);
+  } catch (error) {
+    logger.error('Admin receipt error:', error);
+    res.status(500).json({ success: false, message: 'Could not generate the receipt' });
+  }
+});
+
+router.post('/invoices/:id/credit-notes', crm('invoices', 'edit'), async (req, res) => {
+  try {
+    const invoice = await receivableInvoice(req, res);
+    if (!invoice) return;
+    const r = await receivables.createCreditNote(invoice._id, req.body, req.user);
+    if (!r.ok) return res.status(r.status).json({ success: false, message: r.message });
+    await recordAudit(req, 'CREDIT_NOTE_CREATE', 'CreditNote', r.creditNote.number, null, {
+      number: r.creditNote.number, invoiceId: invoice.invoiceId, amount: r.creditNote.amount, taxAmount: r.creditNote.taxAmount,
+      totalAmount: r.creditNote.totalAmount, reason: r.creditNote.reason, creditedAmount: r.invoice.creditedAmount, invoiceStatus: r.invoice.paymentStatus,
+    });
+    await notifyCreditNote(r.creditNote, r.invoice);
+    res.status(201).json({ success: true, message: `Credit note CN-${r.creditNote.number} issued`, data: r.creditNote });
+  } catch (error) {
+    logger.error('Admin credit note error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+router.get('/invoices/:id/credit-notes/:noteId/pdf', crm('invoices', 'view'), async (req, res) => {
+  try {
+    const invoice = await receivableInvoice(req, res);
+    if (!invoice) return;
+    const note = isValidId(req.params.noteId) && await CreditNote.findOne({ _id: req.params.noteId, invoice_ref: invoice._id }).lean();
+    if (!note) return res.status(404).json({ success: false, message: 'Credit note not found' });
+    const client = await Client.findById(invoice.client_ref).select('businessName').lean();
+    pdfReply(res, await buildCreditNotePdf(note, invoice, client || {}), `Credit-Note-${note.number}.pdf`);
+  } catch (error) {
+    logger.error('Admin credit note PDF error:', error);
+    res.status(500).json({ success: false, message: 'Could not generate the credit note' });
+  }
+});
+
+/**
+ * @route  GET /api/admin/receivables/ageing   (?format=csv)
+ * @desc   What is still owed, per client, by how long it has been overdue (net of credit notes and payments).
+ */
+router.get('/receivables/ageing', crm('invoices', 'view'), async (req, res) => {
+  try {
+    const report = await receivables.ageingReport({ clientIds: isScoped(req) ? req.pageScope.clients : undefined });
+    if (req.query.format === 'csv') {
+      res.set({ 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': `attachment; filename="receivables-ageing-${new Date().toLocaleDateString('en-CA')}.csv"`, 'Cache-Control': 'private, no-store' });
+      return res.send(`﻿${receivables.ageingCsv(report)}`);
+    }
+    res.json({ success: true, data: report });
+  } catch (error) {
+    logger.error('Admin ageing report error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
 router.delete('/invoices/:id', crm('invoices', 'delete'), async (req, res) => {
   try {
     if (!isValidId(req.params.id)) {
@@ -1998,6 +2129,9 @@ router.delete('/invoices/:id', crm('invoices', 'delete'), async (req, res) => {
     }
     const existing = await Invoice.findById(req.params.id, { client_ref: 1, documents: 1 }).lean();
     if (!existing || !clientAllowed(req, existing.client_ref)) return outOfScope(res, 'Invoice');
+    // Credit notes and receipts are numbered documents that point at the invoice
+    if (await CreditNote.exists({ invoice_ref: existing._id })) return res.status(409).json({ success: false, message: 'Credit notes have been issued on this invoice, so it can’t be deleted.' });
+    if (await PaymentProof.exists({ invoice_ref: existing._id, receiptNumber: { $ne: null } })) return res.status(409).json({ success: false, message: 'Receipts have been issued for payments on this invoice, so it can’t be deleted.' });
     // A tax invoice number is issued once; deleting it would leave a gap in the sequence
     const taxDoc = (existing.documents || []).find((d) => d.type === 'Tax Invoice');
     if (taxDoc) return res.status(409).json({ success: false, message: `This invoice was sent as Tax Invoice ${taxDoc.number}, so it can't be deleted.` });

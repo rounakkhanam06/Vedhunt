@@ -11,6 +11,9 @@ const logger = require('../utils/logger');
 const { getClientAgreement, acceptAgreement } = require('../controllers/agreementController');
 const { buildInvoicePdfBuffer, loadInvoiceContext } = require('../services/invoicePdf');
 const invoiceDocument = require('../services/invoiceDocument');
+const PaymentProof = require('../models/PaymentProof');
+const CreditNote = require('../models/CreditNote');
+const { buildReceiptPdf, buildCreditNotePdf } = require('../services/receiptPdf');
 const kpi = require('../services/kpi');
 const { uploadTicketAttachment, deleteFromCloudinary } = require('../utils/cloudinary');
 const { notifyTicketStaff, notifyPermissionHolders } = require('../services/staffNotify');
@@ -170,10 +173,50 @@ router.get('/invoices/:id', async (req, res) => {
       // Settings might not have these fields yet — non-fatal
     }
 
-    res.json({ success: true, data: derivedInvoice, paymentInfo });
+    // What has been paid (with receipts) and credited, for the client's own statement
+    const [payments, creditNotes] = await Promise.all([
+      PaymentProof.find({ invoice_ref: invoice._id, status: 'Approved' }).select('amountPaid paymentDate method utrNumber receiptNumber').sort({ paymentDate: 1 }).lean(),
+      CreditNote.find({ invoice_ref: invoice._id }).select('number date amount taxAmount totalAmount reason').sort({ number: 1 }).lean(),
+    ]);
+    res.json({ success: true, data: { ...derivedInvoice, payments, creditNotes }, paymentInfo });
   } catch (error) {
     logger.error('Client get invoice detail error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// The client's own receipt / credit note PDFs (only for their own, sent invoices)
+const ownInvoice = (req) => (mongoose.Types.ObjectId.isValid(req.params.id)
+  ? Invoice.findOne({ _id: req.params.id, client_ref: req.client._id, unsent: { $ne: true } }).lean()
+  : null);
+const sendPdf = (res, buffer, filename) => {
+  res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="${filename}"`, 'Content-Length': buffer.length, 'Cache-Control': 'private, no-store' });
+  res.send(buffer);
+};
+
+router.get('/invoices/:id/payments/:paymentId/receipt', async (req, res) => {
+  try {
+    const invoice = await ownInvoice(req);
+    const payment = invoice && mongoose.Types.ObjectId.isValid(req.params.paymentId)
+      && await PaymentProof.findOne({ _id: req.params.paymentId, invoice_ref: invoice._id, status: 'Approved' }).lean();
+    if (!payment || !payment.receiptNumber) return res.status(404).json({ success: false, message: 'Receipt not found' });
+    sendPdf(res, await buildReceiptPdf(payment, invoice, req.client), `Receipt-${payment.receiptNumber}.pdf`);
+  } catch (error) {
+    logger.error('Client receipt error:', error);
+    res.status(500).json({ success: false, message: 'Could not generate the receipt' });
+  }
+});
+
+router.get('/invoices/:id/credit-notes/:noteId/pdf', async (req, res) => {
+  try {
+    const invoice = await ownInvoice(req);
+    const note = invoice && mongoose.Types.ObjectId.isValid(req.params.noteId)
+      && await CreditNote.findOne({ _id: req.params.noteId, invoice_ref: invoice._id }).lean();
+    if (!note) return res.status(404).json({ success: false, message: 'Credit note not found' });
+    sendPdf(res, await buildCreditNotePdf(note, invoice, req.client), `Credit-Note-${note.number}.pdf`);
+  } catch (error) {
+    logger.error('Client credit note error:', error);
+    res.status(500).json({ success: false, message: 'Could not generate the credit note' });
   }
 });
 

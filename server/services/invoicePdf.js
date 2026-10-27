@@ -120,7 +120,8 @@ function buildInvoicePdfBuffer(invoice, client, { company, paymentInfo }) {
     // ── Totals ──────────────────────────────────────────────────────────────
     if (y + 120 > bottomLimit) { doc.addPage(); y = doc.page.margins.top; }
     const paid = Number(invoice.paidAmount) || 0;
-    const balance = Math.max(0, (Number(invoice.totalAmount) || 0) - paid);
+    const credited = Number(invoice.creditedAmount) || 0;
+    const balance = Math.max(0, (Number(invoice.totalAmount) || 0) - credited - paid);
     const rows = [['Subtotal', money(invoice.subtotal)]];
     if (invoice.taxPercent > 0) rows.push([`Tax (${invoice.taxPercent}%)`, money(invoice.taxAmount)]);
     const labelX = left + width - 250;
@@ -136,6 +137,12 @@ function buildInvoicePdfBuffer(invoice, client, { company, paymentInfo }) {
     doc.text('Total', labelX, y + 4, { width: 150 });
     doc.text(money(invoice.totalAmount), labelX + 150, y + 4, { width: 100, align: 'right' });
     y += 28;
+    if (credited > 0) {
+      doc.font('Helvetica').fontSize(10).fillColor('#2563EB');
+      doc.text('Credit notes', labelX, y, { width: 150 });
+      doc.text(`- ${money(credited)}`, labelX + 150, y, { width: 100, align: 'right' });
+      y += 16;
+    }
     if (paid > 0) {
       doc.font('Helvetica').fontSize(10).fillColor('#16A34A');
       doc.text('Paid', labelX, y, { width: 150 });

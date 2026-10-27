@@ -2300,6 +2300,149 @@ describe('client accounts are activated by an emailed link — no password is ev
   });
 });
 
+describe('payments, receipts, credit notes and the ageing report (SOP §5.2, §11)', () => {
+  const Invoice = () => require('../../models/Invoice');
+  const today = new Date().toLocaleDateString('en-CA');
+  const pdfOf = async (token, url) => {
+    const res = await fetch(base + url, { headers: { authorization: `Bearer ${token}` } });
+    return { status: res.status, type: res.headers.get('content-type'), head: Buffer.from(await res.arrayBuffer()).subarray(0, 4).toString() };
+  };
+  const pay = (invoice, body) => admin('POST', `/admin/invoices/${invoice}/payments`, { date: today, ...body });
+  const credit = (invoice, body) => admin('POST', `/admin/invoices/${invoice}/credit-notes`, { date: today, ...body });
+  const detail = async (invoice) => (await admin('GET', `/admin/invoices/${invoice}`)).body.data;
+
+  before(async () => {
+    const Client = require('../../models/Client');
+    for (const [key, name] of [['rcv', 'Receivables Co'], ['rcvOther', 'Receivables Other'], ['age', 'Ageing Co']]) {
+      ids[key] = String((await Client.create({ businessName: name, contactName: 'Rcv Person', email: `${key}@example.com`, password: 'ClientPass1', isTemporaryPassword: false }))._id);
+    }
+    // ₹10,000 + 18% GST, 40 days overdue
+    ids.rcvA = String((await inv(ids.rcv, 11800, -40, { subtotal: 10000, taxPercent: 18, taxAmount: 1800 }))._id);
+    ids.rcvUnsent = String((await inv(ids.rcv, 3000, 5, { unsent: true }))._id);
+  });
+
+  test('staff record a payment: method, reference, date; the invoice and its receipt follow', async () => {
+    assert.equal((await pay(ids.rcvUnsent, { amount: 100, method: 'Cash' })).status, 409, 'not on an unsent invoice');
+    assert.equal((await pay(ids.rcvA, { amount: 0, method: 'Cash' })).status, 400);
+    assert.equal((await pay(ids.rcvA, { amount: 99999, method: 'Cash' })).status, 400, 'more than the balance');
+    assert.equal((await pay(ids.rcvA, { amount: 1000, method: 'Barter' })).status, 400, 'unknown method');
+    assert.equal((await pay(ids.rcvA, { amount: 1000, method: 'UPI' })).status, 400, 'UPI needs a reference');
+    assert.equal((await pay(ids.rcvA, { amount: 1000, method: 'Cash', date: '2099-01-01' })).status, 400, 'not in the future');
+
+    const first = await pay(ids.rcvA, { amount: 1000, method: 'UPI', reference: 'UTR-RCV-0001', note: 'Part payment' });
+    assert.equal(first.status, 201, JSON.stringify(first.body));
+    const cash = await pay(ids.rcvA, { amount: 800, method: 'Cash' });
+    assert.equal(cash.status, 201, 'cash needs no reference');
+    assert.equal(cash.body.data.receiptNumber, first.body.data.receiptNumber + 1, 'receipts are numbered in order');
+    assert.equal((await pay(ids.rcvA, { amount: 100, method: 'Bank Transfer', reference: 'UTR-RCV-0001' })).status, 409, 'a reference is used once');
+
+    const d = await detail(ids.rcvA);
+    assert.equal(d.paidAmount, 1800);
+    assert.equal(d.balance, 10000);
+    assert.equal(d.paymentStatus, 'Overdue');
+
+    const list = (await admin('GET', `/admin/invoices/${ids.rcvA}/payments`)).body.data;
+    assert.deepEqual(list.payments.map((p) => [p.method, p.amountPaid, p.source]).sort(), [['Cash', 800, 'staff'], ['UPI', 1000, 'staff']]);
+    assert.ok(await require('../../models/AuditLog').findOne({ action: 'PAYMENT_RECORD' }).lean());
+  });
+
+  test('receipts are PDFs the client can also download; nobody else can', async () => {
+    const list = (await admin('GET', `/admin/invoices/${ids.rcvA}/payments`)).body.data.payments;
+    const upi = list.find((p) => p.method === 'UPI');
+    const staff = await pdfOf(adminToken(), `/admin/invoices/${ids.rcvA}/payments/${upi._id}/receipt`);
+    assert.deepEqual([staff.status, staff.type, staff.head], [200, 'application/pdf', '%PDF']);
+    assert.equal((await pdfOf(clientToken('rcv'), `/client/invoices/${ids.rcvA}/payments/${upi._id}/receipt`)).status, 200);
+    assert.equal((await pdfOf(clientToken('rcvOther'), `/client/invoices/${ids.rcvA}/payments/${upi._id}/receipt`)).status, 404, 'another client');
+    assert.equal((await pdfOf(adminToken(), `/admin/invoices/${ids.rcvA}/payments/not-an-id/receipt`)).status, 404);
+
+    const mine = (await asClient('rcv', 'GET', `/client/invoices/${ids.rcvA}`)).body.data;
+    assert.equal(mine.payments.length, 2);
+    assert.equal(mine.payments.find((p) => p.method === 'UPI').utrNumber, 'UTR-RCV-0001');
+    assert.ok(mine.payments.every((p) => p.receiptNumber));
+  });
+
+  test('a client’s own payment proof gets a method and a receipt number when staff approve it', async () => {
+    const invoice = await inv(ids.rcv, 2000, 10);
+    const p = await proof(invoice._id, ids.rcv, 2000, 'UTRAPPROVE00001');
+    assert.equal((await admin('PUT', `/admin/payments/${p._id}/approve`, { method: 'Magic' })).status, 400, 'a bad method is refused before anything is credited');
+    const ok = await admin('PUT', `/admin/payments/${p._id}/approve`, { method: 'UPI' });
+    assert.equal(ok.status, 200, JSON.stringify(ok.body));
+    assert.equal(ok.body.data.method, 'UPI');
+    assert.ok(ok.body.data.receiptNumber > 0);
+    assert.equal((await detail(invoice._id)).paymentStatus, 'Paid');
+  });
+
+  test('a credit note lowers what is owed; the invoice as issued stays as it was', async () => {
+    assert.equal((await credit(ids.rcvUnsent, { amount: 100, reason: 'Not sent yet' })).status, 409);
+    assert.equal((await credit(ids.rcvA, { amount: 0, reason: 'Discount agreed' })).status, 400);
+    assert.equal((await credit(ids.rcvA, { amount: 500, reason: 'no' })).status, 400, 'a reason is needed');
+    assert.equal((await credit(ids.rcvA, { amount: 500, reason: 'Future note', date: '2099-01-01' })).status, 400);
+    assert.equal((await credit(ids.rcvA, { amount: 9000, reason: 'More than is owed' })).status, 400, '₹10,620 with GST is over the ₹10,000 balance');
+
+    const one = await credit(ids.rcvA, { amount: 2000, reason: 'Goodwill discount agreed with the client' });
+    assert.equal(one.status, 201, JSON.stringify(one.body));
+    assert.deepEqual([one.body.data.taxAmount, one.body.data.totalAmount], [360, 2360], 'the invoice’s 18% GST is applied');
+
+    const d = await detail(ids.rcvA);
+    assert.equal(d.totalAmount, 11800, 'the invoice as issued is unchanged');
+    assert.equal(d.creditedAmount, 2360);
+    assert.equal(d.balance, 7640);
+
+    const two = await credit(ids.rcvA, { amount: 1000, reason: 'Second correction' });
+    assert.equal(two.body.data.number, one.body.data.number + 1, 'credit notes are numbered in order');
+    assert.equal((await detail(ids.rcvA)).balance, 6460);
+
+    // the client sees it, can download it, and their overdue figure is net of it
+    const mine = (await asClient('rcv', 'GET', `/client/invoices/${ids.rcvA}`)).body.data;
+    assert.equal(mine.creditNotes.length, 2);
+    assert.equal(mine.balance, 6460);
+    assert.equal((await pdfOf(clientToken('rcv'), `/client/invoices/${ids.rcvA}/credit-notes/${one.body.data._id}/pdf`)).head, '%PDF');
+    assert.equal((await pdfOf(adminToken(), `/admin/invoices/${ids.rcvA}/credit-notes/${one.body.data._id}/pdf`)).head, '%PDF');
+    assert.equal((await pdfOf(clientToken('rcvOther'), `/client/invoices/${ids.rcvA}/credit-notes/${one.body.data._id}/pdf`)).status, 404);
+    const overview = (await asClient('rcv', 'GET', '/client/overview')).body.data.billing;
+    assert.equal(overview.overdueAmount, 6460, 'overdue is what is still owed after credit notes and payments');
+    assert.ok(await require('../../models/AuditLog').findOne({ action: 'CREDIT_NOTE_CREATE' }).lean());
+  });
+
+  test('an invoice with credit notes cannot be re-priced or deleted; paying the rest settles it', async () => {
+    assert.equal((await admin('PUT', `/admin/invoices/${ids.rcvA}`, { totalAmount: 5000 })).status, 409);
+    assert.equal((await admin('PUT', `/admin/invoices/${ids.rcvA}`, { creditedAmount: 0 })).status, 200, 'the credited amount cannot be written by hand');
+    assert.equal((await detail(ids.rcvA)).creditedAmount, 3540, 'it is unchanged');
+    assert.equal((await admin('DELETE', `/admin/invoices/${ids.rcvA}`)).status, 409);
+
+    const rest = await pay(ids.rcvA, { amount: 6460, method: 'Bank Transfer', reference: 'NEFT-RCV-SETTLE' });
+    assert.equal(rest.status, 201, JSON.stringify(rest.body));
+    const d = await detail(ids.rcvA);
+    assert.equal(d.paymentStatus, 'Paid');
+    assert.equal(d.balance, 0);
+    assert.equal(d.paymentMethod, 'Bank Transfer', 'the invoice records how it was settled');
+    assert.equal((await pay(ids.rcvA, { amount: 1, method: 'Cash' })).status, 409, 'nothing left to pay');
+    assert.equal((await credit(ids.rcvA, { amount: 1, reason: 'Nothing is owed any more' })).status, 400);
+  });
+
+  test('ageing: what is still owed, by how overdue, net of credit notes and payments', async () => {
+    await inv(ids.age, 1000, -10); // 1–30
+    await inv(ids.age, 2000, -45); // 31–60
+    await inv(ids.age, 3000, -75); // 61–90
+    const old = await inv(ids.age, 4000, -120); // over 90
+    await inv(ids.age, 5000, 5); // not due
+    await inv(ids.age, 700, -20, { paidAmount: 700, paymentStatus: 'Paid' }); // settled: not listed
+    await inv(ids.age, 900, -20, { unsent: true }); // not sent: not owed
+    await Invoice().updateOne({ _id: old._id }, { $set: { paidAmount: 1500, creditedAmount: 500 } }); // ₹2,000 left
+
+    const report = (await admin('GET', '/admin/receivables/ageing')).body.data;
+    const row = report.rows.find((r) => r.clientRef === ids.age);
+    assert.deepEqual([row.notDue, row.d1_30, row.d31_60, row.d61_90, row.d90plus, row.total, row.invoices], [5000, 1000, 2000, 3000, 2000, 13000, 5]);
+    assert.equal(report.totals.total, report.rows.reduce((s, r) => Math.round((s + r.total) * 100) / 100, 0), 'the total row is the sum of the rows');
+    assert.deepEqual(report.buckets.map((b) => b.key), ['notDue', 'd1_30', 'd31_60', 'd61_90', 'd90plus']);
+
+    const csv = await (await fetch(`${base}/admin/receivables/ageing?format=csv`, { headers: { authorization: `Bearer ${adminToken()}` } })).text();
+    assert.match(csv, /Client ID,Client,Not due yet \(₹\),1–30 days/);
+    assert.match(csv, /Ageing Co,5000,1000,2000,3000,2000,13000,5/);
+    assert.equal((await request(null, 'GET', '/admin/receivables/ageing')).status, 401);
+  });
+});
+
 describe('KYC — admin-assisted upload, Under Review and Not Applicable (SOP §7)', () => {
   const jpg = () => Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(200, 4)]);
   const GSTIN = '27AALCV0172E1ZD';

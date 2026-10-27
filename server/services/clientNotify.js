@@ -103,6 +103,17 @@ const notifyInvoiceSent = (invoice, document) =>
     ctaLabel: 'View invoice',
   });
 
+// A credit note lowers what the client owes. In-app only: no email event is switched on for it
+const notifyCreditNote = (note, invoice) =>
+  notifyClient({
+    clientId: note.client_ref,
+    type: 'invoice_created',
+    title: `Credit note CN-${note.number} — ${invoice?.invoiceId || ''}`.trim(),
+    message: `${money(note.totalAmount)} credited. ${note.reason}`,
+    link: '/client/dashboard?tab=billing',
+    emailLines: [],
+  });
+
 const notifyPaymentApproved = (payment, invoice) =>
   notifyClient({
     clientId: payment.client_ref,
@@ -111,13 +122,13 @@ const notifyPaymentApproved = (payment, invoice) =>
     title: `Payment received${invoice?.invoiceId ? ` for ${invoice.invoiceId}` : ''}`,
     message: invoice?.paymentStatus === 'Paid'
       ? `${money(payment.amountPaid)} verified. The invoice is now fully paid.`
-      : `${money(payment.amountPaid)} verified. Remaining: ${money(Math.max(0, (invoice?.totalAmount || 0) - (invoice?.paidAmount || 0)))}.`,
+      : `${money(payment.amountPaid)} verified. Remaining: ${money(Math.max(0, (invoice?.totalAmount || 0) - (invoice?.creditedAmount || 0) - (invoice?.paidAmount || 0)))}.`,
     link: '/client/dashboard?tab=billing',
     emailLines: [
       `We have verified your payment of <strong>${escapeHtml(money(payment.amountPaid))}</strong>${payment.utrNumber ? ` (UTR ${escapeHtml(payment.utrNumber)})` : ''}${invoice?.invoiceId ? ` against invoice <strong>${escapeHtml(invoice.invoiceId)}</strong>` : ''}.`,
       invoice?.paymentStatus === 'Paid'
         ? 'The invoice is now marked as <strong>Paid in full</strong>. Thank you!'
-        : `Remaining balance: <strong>${escapeHtml(money(Math.max(0, (invoice?.totalAmount || 0) - (invoice?.paidAmount || 0))))}</strong>.`,
+        : `Remaining balance: <strong>${escapeHtml(money(Math.max(0, (invoice?.totalAmount || 0) - (invoice?.creditedAmount || 0) - (invoice?.paidAmount || 0))))}</strong>.`,
     ],
     ctaLabel: 'View billing',
   });
@@ -274,6 +285,7 @@ module.exports = {
   notifyKycVerified,
   notifyInvoiceCreated,
   notifyInvoiceSent,
+  notifyCreditNote,
   notifyPaymentApproved,
   notifyPaymentRejected,
   notifyTicketReply,

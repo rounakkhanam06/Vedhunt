@@ -5,6 +5,8 @@ const { isScoped, clientAllowed } = require('../utils/clientScope');
 const { notifyPaymentApproved, notifyPaymentRejected } = require('../services/clientNotify');
 const { applyPaymentToInvoice, invoiceBalance, round2 } = require('../services/finance');
 const { recordAudit } = require('../services/audit');
+const { PAYMENT_METHODS } = require('../models/PaymentProof');
+const { allocateReceipt } = require('../services/receivables');
 
 /**
  * @desc    Submit a new payment proof
@@ -136,9 +138,14 @@ exports.approvePayment = async (req, res) => {
 
     // Claim the proof atomically: only one request can move it out of
     // Pending, so a double-click or concurrent reviewer can't credit it twice.
+    // Staff may say how it was paid when they approve (the client's proof only has the reference)
+    const method = req.body?.method;
+    if (method !== undefined && method !== '' && !PAYMENT_METHODS.includes(method)) {
+      return res.status(400).json({ message: `Payment method must be one of ${PAYMENT_METHODS.join(', ')}.` });
+    }
     const payment = await PaymentProof.findOneAndUpdate(
       { _id: id, status: 'Pending' },
-      { $set: { status: 'Approved', verifiedBy: req.user._id, verifiedAt: new Date() } },
+      { $set: { status: 'Approved', verifiedBy: req.user._id, verifiedAt: new Date(), ...(method ? { method } : {}) } },
       { new: true }
     );
     if (!payment) {
@@ -150,16 +157,18 @@ exports.approvePayment = async (req, res) => {
     try {
       invoice = await applyPaymentToInvoice(payment.invoice_ref, payment.amountPaid, {
         paidOn: payment.paymentDate || new Date(),
+        method: payment.method,
       });
       if (!invoice) throw new Error('Invoice not found');
     } catch (err) {
       // The invoice wasn't credited, so put the proof back for another attempt
-      await PaymentProof.updateOne({ _id: id }, { $set: { status: 'Pending' }, $unset: { verifiedBy: 1, verifiedAt: 1 } });
+      await PaymentProof.updateOne({ _id: id }, { $set: { status: 'Pending' }, $unset: { verifiedBy: 1, verifiedAt: 1, method: 1 } });
       throw err;
     }
+    payment.receiptNumber = await allocateReceipt(payment._id);
 
     await recordAudit(req, 'PAYMENT_APPROVE', 'Payment', payment._id, { status: 'Pending', invoicePaid: round2(invoice.paidAmount - payment.amountPaid) }, {
-      status: 'Approved', amount: payment.amountPaid, utr: payment.utrNumber,
+      status: 'Approved', amount: payment.amountPaid, utr: payment.utrNumber, method: payment.method, receiptNumber: payment.receiptNumber,
       invoiceId: invoice.invoiceId, invoicePaid: invoice.paidAmount, invoiceStatus: invoice.paymentStatus,
     });
     await notifyPaymentApproved(payment, invoice);

@@ -35,6 +35,9 @@ const COMPANY_DEFAULTS = {
   // Tax invoices have their own series. Set this to the next number to issue
   // (company_profile in Settings) if invoices were already raised outside the portal.
   taxInvoiceNumberStart: 1,
+  // Credit notes and payment receipts each have their own series (company_profile can raise these)
+  creditNoteNumberStart: 1,
+  receiptNumberStart: 1,
   // Printed under "Terms and Conditions" on the proforma / tax invoice sent from Invoice Manager
   invoiceTerms: [
     'Subject to our home Jurisdiction.',

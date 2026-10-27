@@ -68,6 +68,19 @@ const clientService = {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   },
 
+  // A receipt or credit note PDF for one of the client's own invoices
+  downloadDocumentPdf: async (path, filename) => {
+    const { data } = await clientApi.get(path, { responseType: 'blob' });
+    const url = URL.createObjectURL(new Blob([data], { type: 'application/pdf' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  },
+
   // ─── Projects ────────────────────────────────────────────────────────────
   getProjects: async (params = {}) => {
     const { data } = await clientApi.get('/client/projects', { params });

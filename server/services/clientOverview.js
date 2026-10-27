@@ -127,7 +127,7 @@ function buildActions({ billing, tickets, retainer, kyc, hold, onboarding }) {
 async function buildOverview(clientId, now = new Date()) {
   const [{ perClient }, unpaid, pendingProofs, projects, retainers, tickets, strategy, kycDoc, clientDoc, onboardingDoc] = await Promise.all([
     finance.portfolioFinance({ clientIds: [clientId], now }),
-    Invoice.find({ client_ref: clientId, unsent: { $ne: true }, paymentStatus: { $ne: 'Paid' }, $expr: { $gt: ['$totalAmount', '$paidAmount'] } })
+    Invoice.find({ client_ref: clientId, unsent: { $ne: true }, paymentStatus: { $ne: 'Paid' }, $expr: { $gt: [finance.NET_TOTAL, '$paidAmount'] } })
       .select('-notes').sort({ dueDate: 1 }).limit(20).lean(),
     PaymentProof.countDocuments({ client_ref: clientId, status: 'Pending' }),
     Project.find({ client_ref: clientId, status: { $in: ['Active', 'On Hold'] } })

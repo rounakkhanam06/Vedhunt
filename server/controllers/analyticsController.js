@@ -8,7 +8,7 @@ const Project = require('../models/Project');
  * pending = whatever is still owed.
  */
 function invoiceMoney(inv) {
-  const total = Number(inv.totalAmount) || 0;
+  const total = (Number(inv.totalAmount) || 0) - (Number(inv.creditedAmount) || 0); // net of credit notes
   const paid = Number(inv.paidAmount) || 0;
   if (inv.paymentStatus === 'Paid') return { earned: Math.max(total, paid), pending: 0 };
   return { earned: paid, pending: Math.max(0, total - paid) };
@@ -17,7 +17,7 @@ function invoiceMoney(inv) {
 exports.getFinancialOverview = async (req, res) => {
   try {
     const [invoices, projects] = await Promise.all([
-      Invoice.find({ unsent: { $ne: true } }, { totalAmount: 1, paidAmount: 1, paymentStatus: 1, project_ref: 1 }).lean(),
+      Invoice.find({ unsent: { $ne: true } }, { totalAmount: 1, creditedAmount: 1, paidAmount: 1, paymentStatus: 1, project_ref: 1 }).lean(),
       Project.find({}, { projectId: 1, projectName: 1, client_ref: 1, totalPrice: 1, status: 1 })
         .populate('client_ref', 'businessName contactName').lean(),
     ]);
