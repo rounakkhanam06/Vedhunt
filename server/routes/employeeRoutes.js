@@ -1163,6 +1163,19 @@ scoped.get('/admin/attendance/register', requirePageAccess('attendance', 'view')
   }
 });
 
+// Admin: worked vs standard hours (8 h × working days, Sundays and holidays excluded)
+// per employee for one month — the Employees list column. ?month=YYYY-MM
+scoped.get('/admin/attendance/monthly-hours', requirePageAccess('attendance', 'view'), async (req, res) => {
+  try {
+    const result = await attendanceRegister.monthlyHours({ month: req.query.month, employeeIds: await scopedEmployeeIds(req) });
+    if (!result.ok) return res.status(result.status).json({ success: false, message: result.message });
+    res.json({ success: true, month: result.month, employees: result.employees });
+  } catch (error) {
+    logger.error('Error building monthly hours:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
 // Admin: the same register as an Excel file (Date-wise, Summary, Monthly Summary sheets)
 scoped.get('/admin/attendance/register/export', requirePageAccess('attendance', 'view'), async (req, res) => {
   try {

@@ -67,7 +67,7 @@ function parseRange(fromStr, toStr) {
 
 const emptyTotals = () => ({
   present: 0, halfDay: 0, absent: 0, leave: 0, unpaidLeave: 0, holiday: 0, weeklyOff: 0,
-  lateDays: 0, missedClockOut: 0, workedMinutes: 0, daysWithHours: 0,
+  lateDays: 0, missedClockOut: 0, workedMinutes: 0, daysWithHours: 0, standardDays: 0, standardDaysToDate: 0,
 });
 
 function addToTotals(t, day) {
@@ -78,6 +78,12 @@ function addToTotals(t, day) {
   else if (day.status === 'Holiday') t.holiday += 1;
   else if (day.status === 'Weekly Off') t.weeklyOff += 1;
   if (day.lateByMins > 0) t.lateDays += 1;
+  // Standard hours: every day of employment except Sundays and holidays, 8 h each
+  // (leave days included — they are still working days, just not worked)
+  if (!day.offDay && day.status !== 'Not employed') {
+    t.standardDays += 1;
+    if (day.status !== 'Upcoming') t.standardDaysToDate += 1;
+  }
   if (day.missedClockOut) t.missedClockOut += 1;
   if (day.workedMinutes != null) { t.workedMinutes += day.workedMinutes; t.daysWithHours += 1; }
 }
@@ -90,6 +96,8 @@ function finishTotals(t) {
     // Present days with a half day counted as 0.5
     presentDays: t.present + t.halfDay / 2,
     avgMinutes: t.daysWithHours ? Math.round(t.workedMinutes / t.daysWithHours) : null,
+    standardMinutes: t.standardDays * STANDARD_MINUTES,
+    standardMinutesToDate: t.standardDaysToDate * STANDARD_MINUTES,
   };
 }
 
@@ -406,4 +414,31 @@ async function sendRegisterWorkbook(res, register, namePart = 'attendance-regist
   res.send(Buffer.from(buffer));
 }
 
-module.exports = { buildRegister, registerWorkbook, sendRegisterWorkbook, hoursBand, parseRange, MAX_RANGE_DAYS };
+/**
+ * Worked vs standard hours per employee for one calendar month ("YYYY-MM") —
+ * the register's monthly totals without the day-by-day rows.
+ */
+async function monthlyHours({ month, employeeIds = null }) {
+  const m = /^(\d{4})-(\d{2})$/.exec(String(month || ''));
+  if (!m) return { ok: false, status: 400, message: 'Please choose a valid month.' };
+  const last = new Date(Number(m[1]), Number(m[2]), 0).getDate();
+  const result = await buildRegister({ from: `${m[1]}-${m[2]}-01`, to: `${m[1]}-${m[2]}-${pad(last)}`, employeeIds });
+  if (!result.ok) return result;
+  return {
+    ok: true,
+    month: `${m[1]}-${m[2]}`,
+    employees: result.employees.map((e) => ({
+      _id: e._id,
+      workedMinutes: e.summary.workedMinutes,
+      standardMinutes: e.summary.standardMinutes,
+      standardDays: e.summary.standardDays,
+      standardMinutesToDate: e.summary.standardMinutesToDate,
+      presentDays: e.summary.presentDays,
+      leave: e.summary.leave,
+      holiday: e.summary.holiday,
+      missedClockOut: e.summary.missedClockOut,
+    })),
+  };
+}
+
+module.exports = { monthlyHours, buildRegister, registerWorkbook, sendRegisterWorkbook, hoursBand, parseRange, MAX_RANGE_DAYS };

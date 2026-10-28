@@ -75,6 +75,39 @@ const Field = ({ label, hint, error, touched, children, optional }) => (
   </div>
 );
 
+// 9030 → "150h 30m"
+const hm = (minutes) => `${Math.floor((minutes || 0) / 60)}h${minutes % 60 ? ` ${minutes % 60}m` : ''}`;
+
+/** "142h 30m / 176h" with a bar; green at or above the standard, amber from 90%, red below. */
+const HoursCell = ({ hours }) => {
+  if (!hours) return <span className="text-app-text-muted">—</span>;
+  const { workedMinutes, standardMinutes, standardMinutesToDate, standardDays, presentDays, leave, holiday, missedClockOut } = hours;
+  if (!standardMinutes) return <span className="text-app-text-muted">—</span>;
+  // Judged against the hours due so far, so the current month isn't red mid-way
+  const pct = standardMinutesToDate ? Math.round((workedMinutes / standardMinutesToDate) * 100) : 0;
+  const tone = pct >= 100 ? 'bg-emerald-500 text-emerald-400' : pct >= 90 ? 'bg-amber-500 text-amber-400' : 'bg-rose-500 text-rose-400';
+  const title = [
+    `${standardDays} working days × 8h = ${hm(standardMinutes)}`,
+    standardMinutesToDate < standardMinutes ? `${hm(standardMinutesToDate)} due so far` : '',
+    `${presentDays} days present`, leave ? `${leave} on leave` : '', holiday ? `${holiday} holidays excluded` : '',
+    missedClockOut ? `${missedClockOut} missed clock-out (no hours counted)` : ''
+  ].filter(Boolean).join(' · ');
+  return (
+    <div className="min-w-[130px]" title={title}>
+      <div className="text-app-text text-[13px]">
+        <span className="font-semibold">{hm(workedMinutes)}</span>
+        <span className="text-app-text-muted"> / {hm(standardMinutes)}</span>
+      </div>
+      <div className="flex items-center gap-2 mt-1">
+        <div className="h-1.5 flex-1 rounded-full bg-app-border overflow-hidden">
+          <div className={`h-full rounded-full ${tone.split(' ')[0]}`} style={{ width: `${Math.min(pct, 100)}%` }} />
+        </div>
+        <span className={`text-[11px] font-bold ${tone.split(' ')[1]}`}>{pct}%</span>
+      </div>
+    </div>
+  );
+};
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 const profileInput = 'w-full text-sm rounded-lg border border-app-border bg-form-input-bg p-2.5 text-app-text focus:outline-none focus:ring-1 focus:ring-orange-500';
 
@@ -150,6 +183,19 @@ const EmployeeManager = () => {
   const [isProbationSubmitting, setIsProbationSubmitting] = useState(false);
 
   useEffect(() => { fetchEmployees(); if (canManage) fetchRoles(); }, []);
+
+  // Worked vs standard hours for the chosen month (8 h × working days, Sundays
+  // and holidays excluded) — services/attendanceRegister.js monthlyHours
+  const canSeeHours = allowed('attendance.manage', 'attendance', 'view');
+  const thisMonth = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; })();
+  const [hoursMonth, setHoursMonth] = useState(thisMonth);
+  const [hoursById, setHoursById] = useState({});
+  useEffect(() => {
+    if (!canSeeHours) return;
+    http.get(`${root}/employees/admin/attendance/monthly-hours`, { params: { month: hoursMonth } })
+      .then((res) => setHoursById(Object.fromEntries((res.data?.employees || []).map((e) => [String(e._id), e]))))
+      .catch(() => toast.error('Failed to load working hours'));
+  }, [canSeeHours, hoursMonth]);
 
   useEffect(() => {
     if ((isModalOpen || isDetailOpen) && roles.length === 0) {
@@ -1120,6 +1166,18 @@ const EmployeeManager = () => {
             className="w-full bg-form-input-bg border border-app-border rounded-lg pl-10 pr-4 py-2 text-sm text-app-text placeholder-app-text-muted focus:outline-none focus:ring-1 focus:ring-orange-500 transition-colors"
           />
         </div>
+        {canSeeHours && (
+          <label className="flex items-center gap-2 text-xs text-app-text-muted whitespace-nowrap">
+            <Clock size={14} /> Hours for
+            <input
+              type="month"
+              value={hoursMonth}
+              max={thisMonth}
+              onChange={(e) => e.target.value && setHoursMonth(e.target.value)}
+              className="bg-form-input-bg border border-app-border rounded-lg px-2 py-1.5 text-sm text-app-text focus:outline-none focus:ring-1 focus:ring-orange-500"
+            />
+          </label>
+        )}
       </div>
 
       {/* Table */}
@@ -1146,6 +1204,7 @@ const EmployeeManager = () => {
                     <th className="px-6 py-4 whitespace-nowrap">Role & Dept</th>
                     <th className="px-6 py-4 whitespace-nowrap">Status</th>
                     <th className="px-6 py-4 whitespace-nowrap">Joined</th>
+                    {canSeeHours && <th className="px-6 py-4 whitespace-nowrap" title="Hours worked ÷ standard hours (8 h per working day; Sundays and holidays excluded)">Working Hours</th>}
                     <th className="px-6 py-4 text-right whitespace-nowrap">Actions</th>
                   </tr>
                 </thead>
@@ -1166,6 +1225,7 @@ const EmployeeManager = () => {
                         </span>
                       </td>
                       <td className="px-6 py-4 text-app-text-muted whitespace-nowrap">{new Date(emp.joinDate).toLocaleDateString()}</td>
+                      {canSeeHours && <td className="px-6 py-4 whitespace-nowrap"><HoursCell hours={hoursById[String(emp._id)]} /></td>}
                       <td className="px-6 py-4 text-right space-x-2 whitespace-nowrap">
                         <button
                           onClick={() => openProfile(emp)}
