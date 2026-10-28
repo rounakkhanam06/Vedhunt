@@ -262,7 +262,9 @@ if (process.env.NODE_ENV === 'production') {
         htmlData = htmlData.replace('</head>', `${metaTags}</head>`);
       }
 
-      res.send(htmlData);
+      // No such (active) service: the app shows its own not-found screen, and
+      // crawlers get a real 404 instead of a page that looks valid
+      res.status(serviceMain ? 200 : 404).send(htmlData);
     } catch (error) {
       console.error('Error serving dynamic OG tags:', error);
       res.sendFile(path.resolve(clientBuildPath, 'index.html'));

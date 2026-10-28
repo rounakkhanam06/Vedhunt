@@ -177,9 +177,10 @@ const BlogDetail = () => {
             </p>
           )}
           
-          {post.contentBlocks && post.contentBlocks.map((block) => {
+          {post.contentBlocks && post.contentBlocks.map((block, i) => {
             const BlockComponent = blockRenderer[block.type] || DefaultBlock;
-            return <BlockComponent key={block.id || Math.random()} {...block.data} />;
+            // Blocks are a fixed list for the post, so the position is a stable fallback key
+            return <BlockComponent key={block.id || `block-${i}`} {...block.data} />;
           })}
         </motion.div>
 

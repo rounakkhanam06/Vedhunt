@@ -25,24 +25,20 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
+        // Only the core runtime gets a shared chunk. Matching on the package
+        // folder matters: a plain includes('react') also caught every library
+        // with "react" in its path (charts, editors, toasts…) and shipped the
+        // admin panel's libraries to every visitor in one ~950 kB file. Other
+        // libraries are left to Vite, so each lands with the pages that use it.
         manualChunks(id) {
-          if (id.includes('node_modules')) {
-            if (id.includes('react') || id.includes('react-dom') || id.includes('react-router-dom')) {
-              return 'vendor-react';
-            }
-            if (id.includes('framer-motion')) {
-              return 'vendor-framer';
-            }
-            if (id.includes('lucide-react')) {
-              return 'vendor-lucide';
-            }
-            if (id.includes('@splinetool')) {
-              return 'vendor-spline';
-            }
-            if (id.includes('@tanstack')) {
-              return 'vendor-query';
-            }
-            return 'vendor';
+          if (/[\\/]node_modules[\\/](react|react-dom|react-router|react-router-dom|scheduler)[\\/]/.test(id)) {
+            return 'vendor-react';
+          }
+          if (/[\\/]node_modules[\\/]framer-motion[\\/]/.test(id)) {
+            return 'vendor-framer';
+          }
+          if (/[\\/]node_modules[\\/]@splinetool[\\/]/.test(id)) {
+            return 'vendor-spline';
           }
         },
       },
