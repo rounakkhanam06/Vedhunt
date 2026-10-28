@@ -1,15 +1,14 @@
 import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, Clock, ChevronDown, ChevronUp } from 'lucide-react';
-import LeadCard from '../components/LeadCard';
+import LeadTable from '../components/LeadTable';
 import LeadSearch from '../components/LeadSearch';
 import Pagination from '../components/Pagination';
 import { PAGE_SIZES } from '../lib/pagination';
 import { Spinner, EmptyCard, TabHeader } from '../components/PortalUI';
-import { useEssLeads, essKeys } from '../lib/ess';
+import { useEssLeads } from '../lib/ess';
 import { fmtDateTime, toDateInput } from '../lib/datetime';
-import { followUpBucket, isCallPending, needsNextAction, isPaymentPending, isWonThisMonth, mergeLead, leadListCounts, isWorkingLead, isDroppedHoldLead, hasFollowUp, CLOSED_OR_HOLD, DROPPED_OR_HOLD } from '../lib/leads';
+import { followUpBucket, isCallPending, needsNextAction, isPaymentPending, isWonThisMonth, leadListCounts, isWorkingLead, isDroppedHoldLead, hasFollowUp, CLOSED_OR_HOLD, DROPPED_OR_HOLD } from '../lib/leads';
 import { FOLLOW_UP_TYPES, INTEREST_LEVELS } from '../../shared/leadConstants';
 import { SERVICES_REQUIRED_OPTIONS, LEAD_PRIORITY_LEVELS } from '../../shared/serviceQualification';
 
@@ -151,7 +150,6 @@ function DueList({ leads, tone, onOpen }) {
 /** Raw Leads, Working Leads and Follow-ups — three views over the same assigned-leads list. */
 export default function LeadListsTab({ view }) {
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
   const { data: leads = [], isLoading } = useEssLeads();
   const counts = leadListCounts(leads);
@@ -202,17 +200,10 @@ export default function LeadListsTab({ view }) {
   };
   const clearDates = () => { setDateFrom(''); setDateTo(''); setConnected('All'); setSort(''); setAttrs(NO_ATTR_FILTERS); };
 
-  const updateLead = (updated) => {
-    queryClient.setQueryData(essKeys.leads, (list = []) => list.map((l) => (l._id === updated._id ? mergeLead(l, updated) : l)));
-    queryClient.invalidateQueries({ queryKey: essKeys.today });
-  };
   const clearTo = (tab) => navigate(`/employee/dashboard?tab=${tab}`);
   const openLead = (lead) => navigate(`/employee/leads/${lead._id}`);
-  const cards = (list) => (
-    <div className="grid grid-cols-1 gap-4">
-      {pageOf(list).map((lead) => <LeadCard key={lead._id} lead={lead} navigate={navigate} onUpdated={updateLead} />)}
-    </div>
-  );
+  // Compact table on every screen; on phones its detail columns fold under the name
+  const cards = (list) => <LeadTable leads={pageOf(list)} onOpen={openLead} />;
 
   // `shown` = rows in the list below; `base` = the whole list before filters (null when a drill-down looks past it)
   let shown = null;
