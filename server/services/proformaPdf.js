@@ -302,7 +302,6 @@ async function buildBillDocPdfBuffer(spec) {
     ly = doc.y + 1;
   }
   ly += 4;
-  box(L, termsTop, leftW, ly - termsTop);
 
   // Right column
   let ry = y;
@@ -332,6 +331,8 @@ async function buildBillDocPdfBuffer(spec) {
   box(rightX, ry, rightW, signBottom - ry);
   box(rightX, signBottom, rightW, 16);
   t('Authorised Signatory', rightX, signBottom + 4, { size: 8, bold: true, width: rightW, align: 'center' });
+  // Terms box runs down to the same bottom line as the signatory, so both columns end level
+  box(L, termsTop, leftW, signBottom + 16 - termsTop);
 
   doc.end();
   return done;
