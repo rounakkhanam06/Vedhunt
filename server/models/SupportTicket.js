@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { nextSequenceId } = require('../utils/nextSequenceId');
 
 // ─── SLA definitions by priority (in hours) ──────────────────────────────────
 const SLA_HOURS = {
@@ -91,8 +92,7 @@ supportTicketSchema.index({ client_ref: 1, status: 1 });
 supportTicketSchema.pre('save', async function () {
   if (this.isNew) {
     // Generate ticket ID: VH-TK-XXXX
-    const count = await this.constructor.countDocuments();
-    this.ticketId = `VH-TK-${String(count + 1).padStart(4, '0')}`;
+    this.ticketId = await nextSequenceId(this.constructor, 'ticketId', 'VH-TK-');
 
     // Auto-compute SLA deadline based on priority
     const slaHours = SLA_HOURS[this.priority] || SLA_HOURS.Medium;

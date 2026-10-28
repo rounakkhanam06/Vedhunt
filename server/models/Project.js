@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { nextSequenceId } = require('../utils/nextSequenceId');
 
 // ─── Milestone Sub-Schema ─────────────────────────────────────────────────────
 const milestoneSchema = new mongoose.Schema(
@@ -95,8 +96,7 @@ projectSchema.index({ teamMembers: 1 });
 // ─── Auto-generate projectId ─────────────────────────────────────────────────
 projectSchema.pre('save', async function () {
   if (!this.projectId) {
-    const count = await this.constructor.countDocuments();
-    this.projectId = `VH-PRJ-${String(count + 1).padStart(4, '0')}`;
+    this.projectId = await nextSequenceId(this.constructor, 'projectId', 'VH-PRJ-');
   }
 });
 

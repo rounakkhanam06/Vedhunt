@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { nextSequenceId } = require('../utils/nextSequenceId');
 
 const retainerSchema = new mongoose.Schema(
   {
@@ -69,8 +70,7 @@ retainerSchema.index({ client_ref: 1, createdAt: -1 });
 // ─── Auto-generate retainerId ─────────────────────────────────────────────────
 retainerSchema.pre('save', async function () {
   if (!this.retainerId) {
-    const count = await this.constructor.countDocuments();
-    this.retainerId = `VH-RET-${String(count + 1).padStart(4, '0')}`;
+    this.retainerId = await nextSequenceId(this.constructor, 'retainerId', 'VH-RET-');
   }
 });
 

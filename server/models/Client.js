@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { nextSequenceId } = require('../utils/nextSequenceId');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 
@@ -234,10 +235,7 @@ clientSchema.index({ 'profile.services': 1 });
 
 // ─── Auto-generate clientId on first save ────────────────────────────────────
 clientSchema.pre('save', async function () {
-  if (!this.clientId) {
-    const count = await this.constructor.countDocuments();
-    this.clientId = `VH-CL-${String(count + 1).padStart(4, '0')}`;
-  }
+  if (!this.clientId) this.clientId = await nextSequenceId(this.constructor, 'clientId', 'VH-CL-');
 });
 
 // ─── Hash password before saving ─────────────────────────────────────────────
