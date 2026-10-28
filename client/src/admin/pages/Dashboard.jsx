@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   UserPlus, IndianRupee, Clock, Briefcase, AlertTriangle,
-  Wallet, UserX, Gauge, Download, Trophy, PhoneOff, ArrowUp, ArrowDown
+  Wallet, UserX, Gauge, Download, Trophy, PhoneOff, ArrowUp, ArrowDown, ArrowRight
 } from 'lucide-react';
 import { ResponsiveContainer, ComposedChart, Bar, Line, PieChart, Pie, Cell, Tooltip, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
 import analyticsService from '../../services/analyticsService';
@@ -249,6 +249,13 @@ const Dashboard = () => {
               <div className="flex items-center gap-1 text-[10px] font-medium text-[#9CA3AF]">
                 Across all clients
               </div>
+            </Link>
+          </div>
+        )}
+        {can('cms.manage') && (
+          <div className="flex justify-end mt-3">
+            <Link to="/admin/financial-overview" className="inline-flex items-center gap-1.5 text-xs font-semibold text-secondary hover:opacity-80">
+              Full Financial Overview <ArrowRight size={14} />
             </Link>
           </div>
         )}
