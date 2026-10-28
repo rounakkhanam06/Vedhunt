@@ -3,7 +3,8 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import employeeApi from '../../services/employeeApi';
 import toast from 'react-hot-toast';
-import { ArrowLeft, Phone, Mail, Play, Square, Clock, FileText, PhoneCall, CalendarClock, ListChecks, FileSignature } from 'lucide-react';
+import { ArrowLeft, Phone, Play, Square, Clock, FileText, PhoneCall, CalendarClock, ListChecks, FileSignature } from 'lucide-react';
+import EmailAction from '../../shared/EmailAction';
 import { NOT_CONNECTED_REASONS, INTEREST_LEVELS, LOST_DROPPED_REASONS, FOLLOWUP_TRIGGER_INTEREST_LEVELS, PAYMENT_STATUS_OPTIONS, NEXT_ACTION_TYPES, FOLLOW_UP_TYPES } from '../../shared/leadConstants';
 import {
   SERVICES_REQUIRED_OPTIONS, MARKETING_TYPE_SERVICES, TIMELINE_OPTIONS, DECISION_MAKER_OPTIONS,
@@ -408,12 +409,7 @@ export default function EmployeeLeadWorkspace() {
             onLogged={refreshAfterChange}
             className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg border border-app-border text-app-text font-bold text-xs sm:text-sm hover:border-primary hover:text-primary transition-colors min-w-0 cursor-pointer"
           />
-          <a
-            href={`mailto:${lead.email}`}
-            className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg border border-app-border text-app-text font-bold text-xs sm:text-sm hover:border-primary hover:text-primary transition-colors min-w-0"
-          >
-            <Mail size={14} className="shrink-0" /> <span className="truncate">Email</span>
-          </a>
+          <EmailAction email={lead.email} allowCopy={false} className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg border border-app-border text-app-text font-bold text-xs sm:text-sm hover:border-primary hover:text-primary transition-colors min-w-0" />
           <button onClick={() => setFollowUpOpen((o) => !o)} className={`flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg border font-bold text-xs sm:text-sm hover:border-primary hover:text-primary transition-colors min-w-0 ${followUpOpen ? 'border-primary text-primary' : 'border-app-border text-app-text'}`}>
             <CalendarClock size={14} className="shrink-0" /> <span className="truncate">Follow-up</span>
           </button>

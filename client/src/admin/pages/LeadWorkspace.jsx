@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useLeadAccess } from '../../shared/crmAccess';
-import { Mail, Phone, Clock, FileText, Play, Square, MessageCircle, Trash2, PhoneCall, CalendarClock, ListChecks, FileSignature } from 'lucide-react';
+import { Phone, Clock, FileText, Play, Square, MessageCircle, Trash2, PhoneCall, CalendarClock, ListChecks, FileSignature } from 'lucide-react';
+import EmailAction from '../../shared/EmailAction';
 import toast from 'react-hot-toast';
 import StageDataModal from '../components/StageDataModal';
 import FollowUpTasksPanel from '../components/FollowUpTasksPanel';
@@ -434,9 +435,7 @@ export default function LeadWorkspace() {
                 <MessageCircle size={14} className="shrink-0" /> <span className="truncate">WhatsApp</span>
               </a>
             ) : <div />}
-            <a href={`mailto:${lead.email}`} className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg border border-app-border text-app-text font-bold text-xs sm:text-sm hover:border-primary hover:text-primary transition-colors min-w-0">
-              <Mail size={14} className="shrink-0" /> <span className="truncate">Email</span>
-            </a>
+            <EmailAction email={lead.email} className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg border border-app-border text-app-text font-bold text-xs sm:text-sm hover:border-primary hover:text-primary transition-colors min-w-0" />
             <button onClick={() => scrollToRef(followUpInputRef)} className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg border border-app-border text-app-text font-bold text-xs sm:text-sm hover:border-primary hover:text-primary transition-colors min-w-0">
               <CalendarClock size={14} className="shrink-0" /> <span className="truncate">Follow-up</span>
             </button>

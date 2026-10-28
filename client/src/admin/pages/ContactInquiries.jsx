@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import api from '../../services/api';
 import { motion } from 'framer-motion';
 import { Mail, Phone, Clock, Search, Filter, ChevronDown, ChevronLeft, ChevronRight, Eye, X, MessageSquare, Trash2 } from 'lucide-react';
+import EmailAction from '../../shared/EmailAction';
 import toast from 'react-hot-toast';
 import { usePermissions } from '../hooks/usePermissions';
 
@@ -193,7 +194,7 @@ export default function ContactInquiries() {
                           {inquiry.firstName} {inquiry.lastName}
                         </td>
                         <td className="px-4 py-3 align-middle">
-                          <a href={`mailto:${inquiry.email}`} className="text-primary hover:underline">{inquiry.email}</a>
+                          <EmailAction email={inquiry.email} label={inquiry.email} className="inline-flex items-center gap-1 text-primary hover:underline" />
                         </td>
                         <td className="px-4 py-3 align-middle">
                           <a href={`tel:${inquiry.phone}`} className="text-primary hover:underline">{inquiry.phone}</a>
@@ -302,7 +303,7 @@ export default function ContactInquiries() {
                   <label className="text-xs text-app-text-muted uppercase tracking-wider">Email Address</label>
                   <p className="font-medium text-app-text flex items-center gap-2 mt-1">
                     <Mail size={16} className="text-primary" />
-                    <a href={`mailto:${selectedInquiry.email}`} className="hover:text-primary hover:underline">{selectedInquiry.email}</a>
+                    <EmailAction email={selectedInquiry.email} label={selectedInquiry.email} className="inline-flex items-center gap-1 hover:text-primary hover:underline" />
                   </p>
                 </div>
                 <div>
