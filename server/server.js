@@ -129,6 +129,9 @@ app.use(cookieParser()); // Cookie parser
 
 // Dynamic Sitemap Generation Route
 app.get('/api/sitemap.xml', generateSitemap);
+// Also at the conventional address, so tools and crawlers that ask for
+// /sitemap.xml get the live list instead of a 404 or a stale uploaded copy
+app.get('/sitemap.xml', generateSitemap);
 
 // Serve public directory for local uploads
 app.use(express.static(path.join(__dirname, 'public')));
@@ -206,6 +209,17 @@ app.use(errorHandler);
 // Serve frontend in production
 if (process.env.NODE_ENV === 'production') {
   const clientBuildPath = path.join(__dirname, '../client/dist');
+
+  // One URL per service for search engines: /service/<slug> is an older alias
+  // of the canonical /services/<slug> (what the page's canonical tag says), so
+  // 301 it there. Without this a crawler lists every service twice.
+  // Trailing-slash variants (/services/x/) are nginx's to fix — it serves the
+  // prerendered client/dist/services/<slug>/index.html folders directly.
+  app.get('/service/:slug', (req, res) => {
+    const query = req.originalUrl.slice(req.path.length);
+    res.redirect(301, `/services/${encodeURIComponent(req.params.slug)}${query}`);
+  });
+
   app.use(express.static(clientBuildPath));
 
   const fs = require('fs');
