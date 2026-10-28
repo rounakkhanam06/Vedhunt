@@ -16,7 +16,7 @@ import { SERVICES_REQUIRED_OPTIONS, LEAD_PRIORITY_LEVELS } from '../../shared/se
 // Statuses a Working lead can have; closed/hold ones are only reached through a dashboard drill-down
 const WORKING_STATUSES = ['New', 'Contacted', 'Qualified', 'Proposal Sent', 'Negotiation'];
 // Same option lists as the admin Raw/Working Leads filters (admin/pages/LeadsManager.jsx).
-const PLATFORMS = ['Website', 'Facebook', 'Google Ads', 'Instagram', 'Manual'];
+const PLATFORMS = ['Website', 'Facebook', 'Google Ads', 'Instagram', 'IndiaMART', 'WhatsApp', 'Referral', 'Manual'];
 const SOURCES = ['Google', 'Facebook', 'Instagram', 'LinkedIn', 'YouTube', 'Referral', 'Direct'];
 const NO_ATTR_FILTERS = { platform: 'All', source: 'All', form: 'All', service: 'All', priority: 'All', leadType: 'All', breached: false };
 const selectClass = 'bg-app-card border border-app-border rounded-lg px-3 py-1.5 text-sm text-app-text focus:outline-none focus:border-primary/50 cursor-pointer';

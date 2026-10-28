@@ -78,6 +78,20 @@ const FIELD_ALIASES = {
   createdAt: ['date', 'createdat', 'submittedon', 'leaddate', 'createdtime']
 };
 
+/**
+ * A sheet's platform text as one of Lead.platform's values, ignoring case and
+ * spacing ("indiamart", "Whats App"). Blank → Facebook (most imports are Meta
+ * exports); anything unrecognised → Manual rather than failing the row.
+ */
+function platformOf(text) {
+  if (!text) return 'Facebook';
+  const key = String(text).toLowerCase().replace(/[^a-z]/g, '');
+  const known = Lead.schema.path('platform').enumValues;
+  return known.find((p) => p.toLowerCase().replace(/[^a-z]/g, '') === key)
+    || { fb: 'Facebook', meta: 'Facebook', ig: 'Instagram', google: 'Google Ads', googleads: 'Google Ads', indiamart: 'IndiaMART', whatsapp: 'WhatsApp', referral: 'Referral', reference: 'Referral' }[key]
+    || 'Manual';
+}
+
 /** Reverse-index: normalized alias -> our field name. */
 const ALIAS_TO_FIELD = Object.entries(FIELD_ALIASES).reduce((acc, [field, aliases]) => {
   aliases.forEach((alias) => { acc[alias] = field; });
@@ -422,7 +436,7 @@ async function runImport(prepared, originalName, actor, onProgress = () => {}) {
         message:     data.message,
         city:        data.city,
         country:     data.country,
-        platform:    data.platform || 'Facebook',
+        platform:    platformOf(data.platform),
         userSource:  'Manual Import',
         source:      data.campaign ? `Manual Import (Campaign: ${data.campaign})` : `Manual Import (${data.form || originalName})`,
         utmCampaign: data.campaign,
@@ -449,4 +463,4 @@ async function runImport(prepared, originalName, actor, onProgress = () => {}) {
   return { totalRows: plan.length, imported, updated, unchanged, invalid };
 }
 
-module.exports = { prepareImport, previewImport, runImport, buildImportPlan };
+module.exports = { prepareImport, previewImport, runImport, buildImportPlan, platformOf };

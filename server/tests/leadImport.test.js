@@ -1,6 +1,6 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
-const { prepareImport, previewImport } = require('../services/leadImport');
+const { prepareImport, previewImport, platformOf } = require('../services/leadImport');
 
 // Import preview (dry run) tests — candidate leads are injected, so no DB is
 // touched. Run: npm test
@@ -148,5 +148,17 @@ describe('lead import preview', () => {
     for (const r of out.rows) {
       assert.ok(!('_create' in r) && !('_patch' in r) && !('_note' in r));
     }
+  });
+});
+
+describe('platformOf', () => {
+  test('matches a sheet platform to Lead.platform, ignoring case and spacing', () => {
+    assert.equal(platformOf(''), 'Facebook');
+    assert.equal(platformOf('indiamart'), 'IndiaMART');
+    assert.equal(platformOf('Whats App'), 'WhatsApp');
+    assert.equal(platformOf('REFERRAL'), 'Referral');
+    assert.equal(platformOf('ig'), 'Instagram');
+    assert.equal(platformOf('google'), 'Google Ads');
+    assert.equal(platformOf('Tradeindia'), 'Manual');
   });
 });

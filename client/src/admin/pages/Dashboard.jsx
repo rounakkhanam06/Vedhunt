@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
-  UserPlus, Activity, TrendingUp, IndianRupee, Clock, Briefcase, AlertTriangle,
-  Wallet, UserX, Gauge, Download
+  UserPlus, IndianRupee, Clock, Briefcase, AlertTriangle,
+  Wallet, UserX, Gauge, Download, Trophy, PhoneOff, ArrowUp, ArrowDown
 } from 'lucide-react';
-import { ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, Tooltip, XAxis, YAxis } from 'recharts';
+import { ResponsiveContainer, ComposedChart, Bar, Line, PieChart, Pie, Cell, Tooltip, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
 import analyticsService from '../../services/analyticsService';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
@@ -30,6 +30,64 @@ const STATUS_BADGE_CLASSES = {
 };
 
 const PIE_COLORS = ['#FF6B00', '#60a5fa', '#34d399', '#f87171', '#fbbf24', '#a78bfa', '#94a3b8'];
+
+const toDateInput = (d) => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+// The Leads block's window: the last 30 days, today included
+const LAST_30 = (() => {
+  const to = new Date();
+  const from = new Date(to);
+  from.setDate(to.getDate() - 29);
+  return { dateFrom: toDateInput(from), dateTo: toDateInput(to) };
+})();
+
+/** % change vs the previous 30 days; a rise is red when `goodWhenUp` is false. */
+function Change({ value, goodWhenUp = true }) {
+  if (value == null) return <span className="text-[10px] font-medium text-[#9CA3AF]">vs previous 30 days</span>;
+  const good = value === 0 || (value > 0) === goodWhenUp;
+  return (
+    <span className={`inline-flex items-center gap-0.5 text-[10px] font-bold ${good ? 'text-[#00FF94]' : 'text-red-400'}`}>
+      {value > 0 ? <ArrowUp className="w-3 h-3" /> : value < 0 ? <ArrowDown className="w-3 h-3" /> : null}
+      {Math.abs(value)}% <span className="font-medium text-[#9CA3AF]">vs previous 30 days</span>
+    </span>
+  );
+}
+
+/** Compact donut + top-5 legend; every slice opens its leads. */
+function MiniDonut({ title, rows, onSlice }) {
+  const data = rows.filter((r) => r.count > 0);
+  return (
+    <div className="bg-admin-glass border border-white/5 p-6 rounded-xl flex flex-col">
+      <h3 className="text-xl font-semibold text-on-surface mb-6 border-b border-outline-variant pb-4">{title}</h3>
+      {data.length === 0 ? (
+        <p className="text-sm text-on-primary-container text-center py-16">No leads in this window yet.</p>
+      ) : (
+        <>
+          <ResponsiveContainer width="100%" height={180}>
+            <PieChart>
+              <Pie data={data} dataKey="count" nameKey="name" innerRadius={50} outerRadius={80} stroke="none"
+                style={{ cursor: 'pointer' }} onClick={(entry) => onSlice(entry.name)}>
+                {data.map((entry, i) => <Cell key={entry.name} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+              </Pie>
+              <Tooltip {...CHART_TOOLTIP_PROPS} />
+            </PieChart>
+          </ResponsiveContainer>
+          <div className="space-y-2 mt-auto">
+            {data.slice(0, 5).map((r, i) => (
+              <button key={r.name} onClick={() => onSlice(r.name)}
+                className="w-full flex justify-between items-center text-xs font-medium hover:text-secondary transition-colors cursor-pointer">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="w-3 h-3 rounded-full shrink-0" style={{ background: PIE_COLORS[i % PIE_COLORS.length] }}></span>
+                  <span className="truncate text-on-surface">{r.name}</span>
+                </div>
+                <span className="text-on-surface-variant shrink-0 ml-2">{r.count} ({r.pct}%)</span>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
 
 const CHART_TOOLTIP_PROPS = {
   contentStyle: {
@@ -67,8 +125,8 @@ const Dashboard = () => {
 
   // Super-Admin-only real leads section — replaces what used to be hardcoded
   // placeholder numbers/charts/table.
-  const [volume, setVolume] = useState(null);
-  const [pipeline, setPipeline] = useState(null);
+  // Same numbers as the Leads Overview page (services/leadDashboard.js), last 30 days
+  const [dash, setDash] = useState(null);
   const [recentLeads, setRecentLeads] = useState([]);
   const [leadsLoading, setLeadsLoading] = useState(true);
 
@@ -110,13 +168,11 @@ const Dashboard = () => {
     }
     setLeadsLoading(true);
     try {
-      const [volRes, pipeRes, recentRes] = await Promise.all([
-        api.get('/admin/activity/lead-volume'),
-        api.get('/admin/activity/pipeline-summary'),
+      const [dashRes, recentRes] = await Promise.all([
+        api.get('/admin/activity/lead-dashboard', { params: LAST_30 }),
         api.get('/leads', { params: { limit: 8, sortBy: 'createdAt', sortOrder: 'desc' } })
       ]);
-      if (volRes.data.success) setVolume(volRes.data);
-      if (pipeRes.data.success) setPipeline(pipeRes.data);
+      if (dashRes.data.success) setDash(dashRes.data);
       if (recentRes.data.success) setRecentLeads(recentRes.data.data);
     } catch (error) {
       console.error('Error loading leads overview:', error);
@@ -127,6 +183,8 @@ const Dashboard = () => {
   }, [isSuperAdmin]);
 
   useEffect(() => { fetchLeadsOverview(); }, [fetchLeadsOverview]);
+
+  const k = dash?.kpis;
 
   const fmt = (n) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(n || 0);
 
@@ -322,135 +380,51 @@ const Dashboard = () => {
                 </Link>
               </section>
 
-              {/* KPI Top Row — real numbers, every card clickable */}
-              <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <button
-                  onClick={() => goToLeads({})}
-                  className="text-left bg-admin-glass border border-white/5 p-6 rounded-xl transition-transform duration-300 hover:scale-[1.02] group"
-                >
-                  <div className="flex justify-between items-start mb-4">
-                    <span className="text-sm font-medium text-on-primary-container">New Leads</span>
-                    <UserPlus className="w-5 h-5 text-secondary group-hover:scale-110 transition-transform" />
-                  </div>
-                  <div className="text-3xl font-bold mb-1 text-white">{volume?.totalLeads ?? 0}</div>
-                  <div className="text-[10px] font-medium text-[#9CA3AF]">Last 30 days</div>
-                </button>
-
-                <button
-                  onClick={() => goToLeads({ stage: 'open' })}
-                  className="text-left bg-admin-glass border border-white/5 p-6 rounded-xl transition-transform duration-300 hover:scale-[1.02] group"
-                >
-                  <div className="flex justify-between items-start mb-4">
-                    <span className="text-sm font-medium text-on-primary-container">Open Pipeline Value</span>
-                    <Wallet className="w-5 h-5 text-secondary group-hover:scale-110 transition-transform" />
-                  </div>
-                  <div className="text-3xl font-bold mb-1 text-white">₹{(pipeline?.pipelineValue || 0).toLocaleString('en-IN')}</div>
-                  <div className="text-[10px] font-medium text-[#9CA3AF]">Active, non-terminal leads</div>
-                </button>
-
-                <button
-                  onClick={() => goToLeads({ assignedTo: 'Unassigned', stage: 'open' })}
-                  className="text-left bg-admin-glass border border-white/5 p-6 rounded-xl transition-transform duration-300 hover:scale-[1.02] group"
-                >
-                  <div className="flex justify-between items-start mb-4">
-                    <span className="text-sm font-medium text-on-primary-container">Unassigned Leads</span>
-                    <UserX className="w-5 h-5 text-yellow-500 group-hover:scale-110 transition-transform" />
-                  </div>
-                  <div className="text-3xl font-bold mb-1 text-white">{volume?.unassignedCount ?? 0}</div>
-                  <div className="text-[10px] font-medium text-[#9CA3AF]">
-                    {volume?.unassignedSlaBreachedCount ? `${volume.unassignedSlaBreachedCount} past SLA` : 'Within SLA'}
-                  </div>
-                </button>
-
-                <button
-                  onClick={() => goToLeads({ status: 'Won' })}
-                  className="text-left bg-admin-glass border border-white/5 p-6 rounded-xl transition-transform duration-300 hover:scale-[1.02] group"
-                >
-                  <div className="flex justify-between items-start mb-4">
-                    <span className="text-sm font-medium text-on-primary-container">Conversion Rate</span>
-                    <Activity className="w-5 h-5 text-secondary group-hover:scale-110 transition-transform" />
-                  </div>
-                  <div className="text-3xl font-bold mb-1 text-white">{pipeline?.conversionRate ?? 0}%</div>
-                  <div className="flex items-center gap-1 text-[10px] font-medium text-[#00FF94]">
-                    <TrendingUp className="w-3 h-3" /> Click to see wins
-                  </div>
-                </button>
+              {/* KPI Top Row — leads received in the last 30 days, every card clickable */}
+              <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+                {[
+                  { label: 'New Leads', icon: UserPlus, tone: 'text-secondary', value: k?.received ?? 0, change: k?.receivedChange, onClick: () => goToLeads(LAST_30) },
+                  { label: 'Open Pipeline Value', icon: Wallet, tone: 'text-secondary', value: `₹${(k?.openValue || 0).toLocaleString('en-IN')}`, change: k?.openValueChange, onClick: () => goToLeads({ ...LAST_30, stage: 'open' }) },
+                  { label: 'Unassigned Leads', icon: UserX, tone: 'text-yellow-500', value: k?.unassigned ?? 0, sub: `${k?.unassignedPct ?? 0}% of new leads`, onClick: () => goToLeads({ ...LAST_30, assignedTo: 'Unassigned' }) },
+                  { label: 'Converted (Won)', icon: Trophy, tone: 'text-[#22C55E]', value: k?.won ?? 0, sub: `${k?.wonPct ?? 0}% conversion rate`, onClick: () => goToLeads({ ...LAST_30, status: 'Won' }) },
+                  { label: 'Overdue Follow-ups', icon: Clock, tone: 'text-red-400', value: k?.overdueFollowUps ?? 0, sub: `${k?.followUpsToday ?? 0} due today · live`, onClick: () => navigate('/admin/follow-ups?bucket=Overdue') },
+                  { label: 'Never Contacted', icon: PhoneOff, tone: 'text-orange-400', value: k?.neverContacted ?? 0, sub: `${k?.neverContactedPct ?? 0}% of new leads`, onClick: () => goToLeads({ ...LAST_30, neverContacted: 'true' }) }
+                ].map(({ label, icon: Icon, tone, value, change, sub, onClick }) => (
+                  <button key={label} onClick={onClick}
+                    className="text-left bg-admin-glass border border-white/5 p-5 rounded-xl transition-transform duration-300 hover:scale-[1.02] group cursor-pointer">
+                    <div className="flex justify-between items-start mb-3">
+                      <span className="text-sm font-medium text-on-primary-container">{label}</span>
+                      <Icon className={`w-5 h-5 ${tone} group-hover:scale-110 transition-transform`} />
+                    </div>
+                    <div className="text-2xl font-bold mb-1 text-white truncate">{value}</div>
+                    {sub ? <div className="text-[10px] font-medium text-[#9CA3AF]">{sub}</div> : <Change value={change} />}
+                  </button>
+                ))}
               </section>
 
-              {/* Trend + Service Mix — real charts */}
-              <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Trend + Source + Service */}
+              <section className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6">
                 <div className="lg:col-span-2 bg-admin-glass border border-white/5 p-6 rounded-xl">
                   <h3 className="text-xl font-semibold text-on-surface mb-6 border-b border-outline-variant pb-4">Lead Flow — Past 30 Days</h3>
-                  {volume?.trend?.length > 0 ? (
-                    <div className="h-64">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={volume.trend}>
-                          <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#9CA3AF' }} />
-                          <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#9CA3AF' }} />
-                          <Tooltip {...CHART_TOOLTIP_PROPS} />
-                          <Line
-                            type="monotone"
-                            dataKey="count"
-                            stroke="#FF6B00"
-                            strokeWidth={2}
-                            activeDot={{
-                              r: 5,
-                              style: { cursor: 'pointer' },
-                              onClick: (_e, payload) => goToLeads({ dateFrom: payload.payload.date, dateTo: payload.payload.date })
-                            }}
-                          />
-                        </LineChart>
-                      </ResponsiveContainer>
-                    </div>
-                  ) : (
-                    <p className="text-sm text-on-primary-container text-center py-16">No leads in this window yet.</p>
-                  )}
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <ComposedChart data={dash?.trend || []}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#2D2D33" vertical={false} />
+                        <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#9CA3AF' }} minTickGap={16}
+                          tickFormatter={(d) => new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })} />
+                        <YAxis yAxisId="l" allowDecimals={false} tick={{ fontSize: 11, fill: '#9CA3AF' }} />
+                        <YAxis yAxisId="r" orientation="right" allowDecimals={false} tick={{ fontSize: 11, fill: '#9CA3AF' }} />
+                        <Tooltip {...CHART_TOOLTIP_PROPS} cursor={{ fill: 'rgba(255, 255, 255, 0.06)' }} />
+                        <Legend wrapperStyle={{ fontSize: 11 }} />
+                        <Bar yAxisId="l" dataKey="received" name="New Leads" fill="#FF6B00" radius={[3, 3, 0, 0]} style={{ cursor: 'pointer' }}
+                          onClick={(d) => goToLeads({ dateFrom: d.date, dateTo: d.date })} />
+                        <Line yAxisId="r" type="monotone" dataKey="won" name="Converted (Won)" stroke="#22C55E" strokeWidth={2} dot={{ r: 2 }} />
+                      </ComposedChart>
+                    </ResponsiveContainer>
+                  </div>
                 </div>
-
-                <div className="bg-admin-glass border border-white/5 p-6 rounded-xl flex flex-col">
-                  <h3 className="text-xl font-semibold text-on-surface mb-6 border-b border-outline-variant pb-4">Leads by Service</h3>
-                  {volume?.byService?.length > 0 ? (
-                    <>
-                      <div className="flex-1 flex items-center justify-center" style={{ minHeight: 180 }}>
-                        <ResponsiveContainer width="100%" height={180}>
-                          <PieChart>
-                            <Pie
-                              data={volume.byService}
-                              dataKey="count"
-                              nameKey="service"
-                              innerRadius={50}
-                              outerRadius={80}
-                              style={{ cursor: 'pointer' }}
-                              onClick={(entry) => goToLeads({ service: entry.service, dateFrom: undefined, dateTo: undefined })}
-                            >
-                              {volume.byService.map((entry, i) => (
-                                <Cell key={entry.service} fill={PIE_COLORS[i % PIE_COLORS.length]} />
-                              ))}
-                            </Pie>
-                            <Tooltip {...CHART_TOOLTIP_PROPS} />
-                          </PieChart>
-                        </ResponsiveContainer>
-                      </div>
-                      <div className="space-y-2 mt-auto">
-                        {volume.byService.slice(0, 5).map((s, i) => (
-                          <button
-                            key={s.service}
-                            onClick={() => goToLeads({ service: s.service })}
-                            className="w-full flex justify-between items-center text-xs font-medium hover:text-secondary transition-colors"
-                          >
-                            <div className="flex items-center gap-2 min-w-0">
-                              <span className="w-3 h-3 rounded-full shrink-0" style={{ background: PIE_COLORS[i % PIE_COLORS.length] }}></span>
-                              <span className="truncate text-on-surface">{s.service}</span>
-                            </div>
-                            <span className="text-on-surface-variant shrink-0 ml-2">{s.count}</span>
-                          </button>
-                        ))}
-                      </div>
-                    </>
-                  ) : (
-                    <p className="text-sm text-on-primary-container text-center py-16">No leads in this window yet.</p>
-                  )}
-                </div>
+                <MiniDonut title="Leads by Source" rows={dash?.bySource || []} onSlice={(name) => goToLeads({ ...LAST_30, platform: name })} />
+                <MiniDonut title="Leads by Service" rows={dash?.byService || []} onSlice={(name) => goToLeads({ ...LAST_30, service: name })} />
               </section>
 
               {/* Recent Leads — real, clickable, exportable */}

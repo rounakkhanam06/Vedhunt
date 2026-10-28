@@ -5,6 +5,7 @@ const logger = require('../utils/logger');
 const { TERMINAL_STATUSES, FOLLOWUP_TRIGGER_INTEREST_LEVELS, FOLLOWUP_TRIGGER_STATUSES, FOLLOW_UP_TYPES } = require('../utils/leadStateMachine');
 const { latestNotes } = require('../services/leadCollaboration');
 const { leadOverview } = require('../services/leadOverview');
+const { leadDashboard } = require('../services/leadDashboard');
 
 // A lead on Hold has no active follow-up requirement — it's paused, not overdue.
 const NON_ACTIVE_STATUSES = [...TERMINAL_STATUSES, 'Hold'];
@@ -570,6 +571,44 @@ exports.getLeadVolumeBreakdown = async (req, res, next) => {
     });
   } catch (error) {
     logger.error('Error fetching lead volume breakdown:', error);
+    next(error);
+  }
+};
+
+// @desc    Leads Overview tiles, charts and lists, all under the same
+//          ?platform&service&assignedTo&status filters — definitions in
+//          services/leadDashboard.js
+// @route   GET /api/admin/activity/lead-dashboard?dateFrom&dateTo&platform&service&assignedTo&status
+// @access  Private (dashboard.management)
+exports.getLeadDashboard = async (req, res, next) => {
+  try {
+    const dateTo = req.query.dateTo ? new Date(req.query.dateTo) : new Date();
+    dateTo.setHours(23, 59, 59, 999);
+    const dateFrom = req.query.dateFrom ? new Date(req.query.dateFrom) : new Date(dateTo.getTime() - 30 * 24 * 60 * 60 * 1000);
+    dateFrom.setHours(0, 0, 0, 0);
+    const pick = (k) => (req.query[k] && req.query[k] !== 'All' ? String(req.query[k]) : undefined);
+
+    const [data, services, bdes] = await Promise.all([
+      leadDashboard({
+        from: dateFrom, to: dateTo,
+        platform: pick('platform'), service: pick('service'), assignedTo: pick('assignedTo'), status: pick('status')
+      }),
+      Lead.distinct('service', { leadType: { $in: ['Sales', null] } }),
+      Admin.find(await assignableAdminFilter(), { firstName: 1, lastName: 1, email: 1 }).lean()
+    ]);
+
+    res.status(200).json({
+      success: true,
+      period: { from: dateFrom, to: dateTo },
+      ...data,
+      options: {
+        platforms: Lead.schema.path('platform').enumValues,
+        services: services.filter(Boolean).sort(),
+        bdes: bdes.map((a) => ({ _id: a._id, name: displayNameOf(a) })).sort((a, b) => a.name.localeCompare(b.name))
+      }
+    });
+  } catch (error) {
+    logger.error('Error fetching lead dashboard:', error);
     next(error);
   }
 };

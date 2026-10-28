@@ -3,7 +3,7 @@ const router = express.Router();
 const {
   getCallActivity, getFollowUpCompliance, getFollowUpsList,
   getActionMissingQueue, getPipelineSummary, getBDAccountability,
-  getLeadVolumeBreakdown
+  getLeadVolumeBreakdown, getLeadDashboard
 } = require('../controllers/activityController');
 const authMiddleware = require('../middleware/authMiddleware');
 const requirePermission = require('../middleware/requirePermission');
@@ -28,6 +28,7 @@ scoped.get('/bd-accountability', REPORTS, getBDAccountability);
 router.use(authMiddleware);
 router.use(scoped);
 router.get('/lead-volume', requirePermission('dashboard.management'), getLeadVolumeBreakdown);
+router.get('/lead-dashboard', requirePermission('dashboard.management'), getLeadDashboard);
 // BDE Team Performance — every BDE (managers use the Employee Portal tab).
 router.use('/team-performance', requirePermission('team.performance'), require('./teamPerformanceRoutes'));
 

@@ -265,6 +265,11 @@ exports.getLeads = async (req, res, next) => {
       query.followUpBreached = true;
     }
 
+    // Leads Overview "Never Contacted": no call logged yet
+    if (req.query.neverContacted === 'true') {
+      query.$and.push({ 'callLogs.0': { $exists: false } });
+    }
+
     // Interest level (latest call outcome)
     if (req.query.interestLevel && req.query.interestLevel !== 'All') {
       // 'Not rated' = the lead has no interest level yet (Leads Overview drill-down)
@@ -328,9 +333,11 @@ exports.getLeads = async (req, res, next) => {
     const visibleIds = await assigneeIds(req);
     const wanted = req.query.assignedTo && req.query.assignedTo !== 'All' ? String(req.query.assignedTo) : null;
     if (!visibleIds) {
-      if (wanted) query.assignedTo = wanted === 'Unassigned' ? null : wanted;
+      if (wanted) query.assignedTo = wanted === 'Unassigned' ? null : wanted === 'Assigned' ? { $ne: null } : wanted;
     } else if (wanted === 'Unassigned') {
       query.assignedTo = canAssignLeads(req.user) ? null : { $in: [] };
+    } else if (wanted === 'Assigned') {
+      query.assignedTo = { $in: visibleIds.map(oid) };
     } else if (wanted) {
       query.assignedTo = visibleIds.includes(wanted) ? wanted : { $in: [] };
     } else {

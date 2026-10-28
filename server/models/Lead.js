@@ -78,7 +78,7 @@ const leadSchema = new mongoose.Schema({
   },
   platform: {
     type: String,
-    enum: ['Website', 'Facebook', 'Instagram', 'Google Ads', 'Manual'],
+    enum: ['Website', 'Facebook', 'Instagram', 'Google Ads', 'IndiaMART', 'WhatsApp', 'Referral', 'Manual'],
     default: 'Website'
   },
   fbLeadId: {

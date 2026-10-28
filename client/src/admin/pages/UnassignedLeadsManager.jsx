@@ -452,6 +452,9 @@ export default function UnassignedLeadsManager() {
               <option className="bg-app-bg text-app-text" value="Facebook">Facebook</option>
               <option className="bg-app-bg text-app-text" value="Google Ads">Google Ads</option>
               <option className="bg-app-bg text-app-text" value="Instagram">Instagram</option>
+              <option className="bg-app-bg text-app-text" value="IndiaMART">IndiaMART</option>
+              <option className="bg-app-bg text-app-text" value="WhatsApp">WhatsApp</option>
+              <option className="bg-app-bg text-app-text" value="Referral">Referral</option>
               <option className="bg-app-bg text-app-text" value="Manual">Manual</option>
             </select>
             <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 text-app-text-muted w-3.5 h-3.5 pointer-events-none" />

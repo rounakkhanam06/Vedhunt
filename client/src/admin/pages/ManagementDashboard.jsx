@@ -1,21 +1,38 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Gauge, Users, TrendingUp, Clock, AlertTriangle, Flame, Wallet, UserX, PhoneCall, Calendar, ChevronDown, X
+  Gauge, Users, TrendingUp, Clock, AlertTriangle, Flame, Wallet, UserX, PhoneCall, Calendar, ChevronDown, X,
+  UserCheck, Trophy, XCircle, MinusCircle, CalendarClock, CalendarDays, PhoneOff, ArrowUp, ArrowDown, Filter, PieChart as PieIcon, Award
 } from 'lucide-react';
 import {
-  ResponsiveContainer, LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell
+  ResponsiveContainer, ComposedChart, Line, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell, PieChart, Pie, Legend
 } from 'recharts';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
 import { formatMinutes } from '../../shared/formatDuration';
 import { LEAD_PRIORITY_BADGE_CLASSES } from '../../shared/serviceQualification';
 
-// Canonical pipeline sequence — server/utils/leadStateMachine.js's ALLOWED_TRANSITIONS
-// keys, in stage order, for the bottleneck funnel.
-const PIPELINE_STAGE_ORDER = ['New', 'Contacted', 'Qualified', 'Proposal Sent', 'Negotiation', 'Hold', 'Won', 'Lost', 'Dropped'];
+// Donut slices, in order — distinct in both themes
+const SLICE_COLORS = ['#3b82f6', '#f97316', '#10b981', '#a855f7', '#ef4444', '#06b6d4', '#eab308', '#ec4899', '#64748b', '#84cc16'];
+const STAGE_COLORS = {
+  New: '#3b82f6', Contacted: '#06b6d4', Qualified: '#10b981', 'Proposal Sent': '#f97316',
+  Negotiation: '#a855f7', Won: '#22c55e', Lost: '#ef4444', Dropped: '#64748b', Hold: '#eab308'
+};
+const INTEREST_COLORS = {
+  'Hot Lead': '#ef4444', Warm: '#f97316', Cold: '#3b82f6', Interested: '#10b981',
+  'Not Interested': '#64748b', 'Wrong / Junk Lead': '#78350f', 'Not rated': '#a855f7'
+};
+const STATUS_SUMMARY_COLORS = { Open: '#3b82f6', Won: '#22c55e', Lost: '#ef4444', Dropped: '#f97316', Hold: '#94a3b8' };
+const STAGE_BADGE = {
+  New: 'bg-blue-500/10 text-blue-400 border-blue-500/30', Contacted: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30',
+  Qualified: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30', 'Proposal Sent': 'bg-orange-500/10 text-orange-400 border-orange-500/30',
+  Negotiation: 'bg-purple-500/10 text-purple-400 border-purple-500/30'
+};
+const SOURCE_OPTIONS_FALLBACK = ['Website', 'Facebook', 'Instagram', 'Google Ads', 'IndiaMART', 'WhatsApp', 'Referral', 'Manual'];
+const STAGE_OPTIONS = ['New', 'Contacted', 'Qualified', 'Proposal Sent', 'Negotiation', 'Won', 'Lost', 'Dropped', 'Hold'];
 
-const CHART_COLOR = '#FF6B00';
+const inr = (n) => `₹${(n || 0).toLocaleString('en-IN')}`;
+const shortDate = (d) => (d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—');
 
 const CHART_TOOLTIP_PROPS = {
   contentStyle: {
@@ -108,6 +125,81 @@ function StatCard({ icon: Icon, label, value, sub, onClick, accent = 'text-prima
 }
 
 /**
+ * Coloured KPI tile with an optional % change vs the previous period.
+ * `goodWhenUp` flips the arrow colour for counts where a rise is bad (Lost…).
+ */
+function KpiTile({ icon: Icon, tone, label, value, changePct, goodWhenUp = true, sub, onClick }) {
+  const up = changePct > 0;
+  const good = changePct === 0 || up === goodWhenUp;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={!onClick}
+      className={`w-full text-left bg-app-card border border-app-border rounded-xl p-4 flex items-center gap-3 transition-colors ${onClick ? 'hover:border-primary cursor-pointer' : 'cursor-default'}`}
+    >
+      <span className={`shrink-0 w-11 h-11 rounded-full flex items-center justify-center ${tone}`}><Icon size={20} /></span>
+      <div className="min-w-0">
+        <p className="text-[11px] text-app-text-muted uppercase tracking-wider font-bold truncate">{label}</p>
+        <p className="flex items-baseline gap-2">
+          <span className="text-xl font-bold text-app-text truncate">{value}</span>
+          {changePct != null && (
+            <span className={`inline-flex items-center text-[11px] font-bold ${good ? 'text-emerald-400' : 'text-red-400'}`}>
+              {up ? <ArrowUp size={11} /> : changePct < 0 ? <ArrowDown size={11} /> : null}{Math.abs(changePct)}%
+            </span>
+          )}
+        </p>
+        {sub && <p className="text-[11px] text-app-text-muted mt-0.5 truncate">{sub}</p>}
+      </div>
+    </button>
+  );
+}
+
+/** Donut with the total in the middle and a clickable legend of count (share). */
+function DonutCard({ icon: Icon, title, rows, total, colorOf, onSlice }) {
+  const data = rows.filter((r) => r.count > 0);
+  return (
+    <div className={sectionClass}>
+      <h2 className={sectionTitleClass}><Icon size={16} /> {title}</h2>
+      {data.length === 0 ? (
+        <p className="text-sm text-app-text-muted py-10 text-center">No leads in this period.</p>
+      ) : (
+        <div className="flex flex-col sm:flex-row items-center gap-4">
+          <div className="relative w-44 h-44 shrink-0">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie data={data} dataKey="count" nameKey="name" innerRadius="58%" outerRadius="95%" paddingAngle={1} stroke="none"
+                  style={{ cursor: 'pointer' }} onClick={(d) => onSlice(d.name)}>
+                  {data.map((r, i) => <Cell key={r.name} fill={colorOf(r.name, i)} />)}
+                </Pie>
+                <Tooltip {...CHART_TOOLTIP_PROPS} />
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+              <span className="text-xl font-bold text-app-text">{total}</span>
+              <span className="text-[10px] text-app-text-muted uppercase tracking-wider">Total leads</span>
+            </div>
+          </div>
+          <ul className="flex-1 min-w-0 w-full space-y-1.5 text-[13px]">
+            {data.map((r, i) => (
+              <li key={r.name}>
+                <button type="button" onClick={() => onSlice(r.name)} className="w-full flex items-center gap-2 hover:text-primary cursor-pointer text-left">
+                  <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: colorOf(r.name, i) }} />
+                  <span className="truncate text-app-text">{r.name}</span>
+                  <span className="ml-auto text-app-text-muted whitespace-nowrap">{r.count} ({r.pct}%)</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const selectClass = 'bg-app-card border border-app-border rounded-lg px-2.5 py-1.5 text-xs text-app-text focus:outline-none focus:border-primary cursor-pointer max-w-[170px]';
+
+/**
  * Cards + BD-wise table over one breakdown (Interest Level / Lead Stage).
  * `data` = { columns, rows: [{ owner, name, unassigned, counts, total }], totals }
  * from services/leadOverview.js. Every count opens the leads behind it.
@@ -189,6 +281,9 @@ export default function ManagementDashboard() {
   const [tempDateFrom, setTempDateFrom] = useState(dateFrom);
   const [tempDateTo, setTempDateTo] = useState(dateTo);
 
+  // Source / Service / BDE / Lead Stage — apply to the overview tiles, charts and lists
+  const [filters, setFilters] = useState({ platform: 'All', service: 'All', assignedTo: 'All', status: 'All' });
+  const [dash, setDash] = useState(null);
   const [volume, setVolume] = useState(null);
   const [pipeline, setPipeline] = useState(null);
   const [bdAccountability, setBdAccountability] = useState([]);
@@ -231,13 +326,15 @@ export default function ManagementDashboard() {
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
-      const [volRes, pipeRes, bdRes, complianceRes, actionRes] = await Promise.all([
+      const [dashRes, volRes, pipeRes, bdRes, complianceRes, actionRes] = await Promise.all([
+        api.get('/admin/activity/lead-dashboard', { params: { dateFrom, dateTo, ...filters } }),
         api.get('/admin/activity/lead-volume', { params: { dateFrom, dateTo } }),
         api.get('/admin/activity/pipeline-summary', { params: { dateFrom, dateTo } }),
         api.get('/admin/activity/bd-accountability', { params: { dateFrom, dateTo } }),
         api.get('/admin/activity/followup-compliance'),
         api.get('/admin/activity/action-missing', { params: { limit: 1 } })
       ]);
+      if (dashRes.data.success) setDash(dashRes.data);
       if (volRes.data.success) setVolume(volRes.data);
       if (pipeRes.data.success) setPipeline(pipeRes.data);
       if (bdRes.data.success) setBdAccountability(bdRes.data.data);
@@ -249,7 +346,7 @@ export default function ManagementDashboard() {
     } finally {
       setLoading(false);
     }
-  }, [dateFrom, dateTo]);
+  }, [dateFrom, dateTo, filters]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
@@ -279,10 +376,15 @@ export default function ManagementDashboard() {
     : null;
   const totalBreaches = bdAccountability.reduce((s, r) => s + (r.breachCount || 0), 0);
 
-  const funnelData = PIPELINE_STAGE_ORDER.map((status) => ({
-    status,
-    count: pipeline?.byStatus?.[status]?.count || 0
-  }));
+  // The header filters, as All Leads params — every overview drill-down keeps them
+  const filterParams = Object.fromEntries(Object.entries(filters).filter(([, v]) => v !== 'All'));
+  const goToCohort = (params = {}) => goToLeads({ ...filterParams, dateFrom, dateTo, ...params });
+  const setFilter = (key, value) => setFilters((f) => ({ ...f, [key]: value }));
+
+  const k = dash?.kpis;
+  const received = k?.received ?? 0;
+  const options = dash?.options;
+  const maxStage = Math.max(1, ...(dash?.stages || []).map((s) => s.count));
 
   if (loading && !volume) {
     return (
@@ -413,132 +515,225 @@ export default function ManagementDashboard() {
         </div>
       </div>
 
-      {/* Lead Volume & Source */}
-      <div className={sectionClass}>
-        <h2 className={sectionTitleClass}><TrendingUp size={16} /> Lead Volume &amp; Source</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
-          <StatCard
-            icon={TrendingUp}
-            label="Leads Received"
-            value={volume?.totalLeads ?? 0}
-            sub="Created in the selected period"
-            onClick={() => goToLeads({ dateFrom, dateTo })}
-          />
-          <StatCard
-            icon={Users}
-            label="Assigned Leads"
-            value={volume?.assignedLeads ?? 0}
-            sub="Assigned to a BD in the selected period"
-            accent="text-sky-400"
-            onClick={() => goToLeads({ dateField: 'assigned', dateFrom, dateTo })}
-          />
-          <StatCard
-            icon={UserX}
-            label="Unassigned Leads (now)"
-            value={volume?.unassignedCount ?? 0}
-            sub={volume?.unassignedSlaBreachedCount ? `Open and unassigned right now · ${volume.unassignedSlaBreachedCount} past SLA` : 'Open and unassigned right now'}
-            accent="text-amber-400"
-            onClick={() => goToLeads({ assignedTo: 'Unassigned', stage: 'open' })}
-          />
-          <StatCard
-            icon={Wallet}
-            label="Current Open Pipeline Value"
-            value={`₹${(pipeline?.pipelineValue || 0).toLocaleString('en-IN')}`}
-            sub="Snapshot of all open leads right now, not limited to the period"
-            accent="text-emerald-400"
-            onClick={() => goToLeads({ stage: 'open' })}
-          />
-        </div>
+      {/* Source / Service / BDE / Lead Stage filters — apply to the overview below */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-app-text-muted uppercase tracking-wider mr-1"><Filter size={14} /> Filters</span>
+        <select aria-label="Source" value={filters.platform} onChange={(e) => setFilter('platform', e.target.value)} className={selectClass}>
+          <option value="All">All sources</option>
+          {(options?.platforms || SOURCE_OPTIONS_FALLBACK).map((p) => <option key={p} value={p}>{p}</option>)}
+        </select>
+        <select aria-label="Service type" value={filters.service} onChange={(e) => setFilter('service', e.target.value)} className={selectClass}>
+          <option value="All">All services</option>
+          {(options?.services || []).map((sv) => <option key={sv} value={sv}>{sv}</option>)}
+        </select>
+        <select aria-label="BDE" value={filters.assignedTo} onChange={(e) => setFilter('assignedTo', e.target.value)} className={selectClass}>
+          <option value="All">All BDEs</option>
+          <option value="Unassigned">Unassigned</option>
+          {(options?.bdes || []).map((b) => <option key={b._id} value={b._id}>{b.name}</option>)}
+        </select>
+        <select aria-label="Lead stage" value={filters.status} onChange={(e) => setFilter('status', e.target.value)} className={selectClass}>
+          <option value="All">All stages</option>
+          {STAGE_OPTIONS.map((st) => <option key={st} value={st}>{st}</option>)}
+        </select>
+        {Object.keys(filterParams).length > 0 && (
+          <button type="button" onClick={() => setFilters({ platform: 'All', service: 'All', assignedTo: 'All', status: 'All' })} className="text-xs text-primary hover:underline cursor-pointer">Clear filters</button>
+        )}
+        {loading && <span className="w-4 h-4 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />}
+      </div>
 
-        {volume?.trend?.length > 0 && (
-          <div className="h-56 mb-5">
+      {/* KPI tiles — leads received in the period; arrows compare with the equally long period before */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 gap-3">
+        <KpiTile icon={Users} tone="bg-blue-500/15 text-blue-400" label="Total Leads Received" value={received} changePct={k?.receivedChange}
+          sub="vs previous period" onClick={() => goToCohort()} />
+        <KpiTile icon={UserCheck} tone="bg-emerald-500/15 text-emerald-400" label="Assigned Leads" value={k?.assigned ?? 0} changePct={k?.assignedChange}
+          sub={`${k?.assignedPct ?? 0}% of total leads`} onClick={() => goToCohort({ assignedTo: filterParams.assignedTo || 'Assigned' })} />
+        <KpiTile icon={UserX} tone="bg-amber-500/15 text-amber-400" label="Unassigned Leads" value={k?.unassigned ?? 0} changePct={k?.unassignedChange} goodWhenUp={false}
+          sub={`${k?.unassignedPct ?? 0}% of total leads`} onClick={() => goToCohort({ assignedTo: 'Unassigned' })} />
+        <KpiTile icon={Wallet} tone="bg-purple-500/15 text-purple-400" label="Open Pipeline Value" value={inr(k?.openValue)} changePct={k?.openValueChange}
+          sub="Estimated value of open leads" onClick={() => goToCohort({ stage: 'open' })} />
+        <KpiTile icon={Trophy} tone="bg-green-500/15 text-green-400" label="Converted (Won)" value={k?.won ?? 0} changePct={k?.wonChange}
+          sub={`${k?.wonPct ?? 0}% conversion rate`} onClick={() => goToCohort({ status: 'Won' })} />
+        <KpiTile icon={XCircle} tone="bg-red-500/15 text-red-400" label="Lost" value={k?.lost ?? 0} changePct={k?.lostChange} goodWhenUp={false}
+          sub={`${k?.lostPct ?? 0}% loss rate`} onClick={() => goToCohort({ status: 'Lost' })} />
+        <KpiTile icon={MinusCircle} tone="bg-slate-500/15 text-slate-400" label="Dropped" value={k?.dropped ?? 0} changePct={k?.droppedChange} goodWhenUp={false}
+          sub={`${k?.droppedPct ?? 0}% drop rate`} onClick={() => goToCohort({ status: 'Dropped' })} />
+        <KpiTile icon={Clock} tone="bg-red-500/15 text-red-400" label="Overdue Follow-ups" value={k?.overdueFollowUps ?? 0}
+          sub="Pending follow-ups · live" onClick={() => navigate('/admin/follow-ups?bucket=Overdue')} />
+        <KpiTile icon={CalendarClock} tone="bg-sky-500/15 text-sky-400" label="Follow-ups Due Today" value={k?.followUpsToday ?? 0}
+          sub="Action needed today · live" onClick={() => navigate('/admin/follow-ups?bucket=Today')} />
+        <KpiTile icon={CalendarDays} tone="bg-violet-500/15 text-violet-400" label="Follow-ups Upcoming" value={k?.followUpsUpcoming ?? 0}
+          sub="Next 7 days · live" onClick={() => navigate('/admin/follow-ups?bucket=Upcoming')} />
+        <KpiTile icon={PhoneOff} tone="bg-orange-500/15 text-orange-400" label="Leads Never Contacted" value={k?.neverContacted ?? 0}
+          sub={`${k?.neverContactedPct ?? 0}% of total leads`} onClick={() => goToCohort({ neverContacted: 'true' })} />
+      </div>
+
+      {/* Trend + Source + Service */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        <div className={sectionClass}>
+          <h2 className={sectionTitleClass}><TrendingUp size={16} /> Leads Trend <span className="normal-case font-medium text-app-text-muted">· per day</span></h2>
+          <div className="h-56">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={volume.trend}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#2D2D33" />
-                <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#9CA3AF' }} />
-                <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#9CA3AF' }} />
-                <Tooltip {...CHART_TOOLTIP_PROPS} />
-                <Line
-                  type="monotone"
-                  dataKey="count"
-                  stroke={CHART_COLOR}
-                  strokeWidth={2}
-                  activeDot={{
-                    r: 5,
-                    style: { cursor: 'pointer' },
-                    onClick: (_e, payload) => goToLeads({ dateFrom: payload.payload.date, dateTo: payload.payload.date })
-                  }}
-                />
-              </LineChart>
+              <ComposedChart data={dash?.trend || []}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#2D2D33" vertical={false} />
+                <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#9CA3AF' }} tickFormatter={(d) => new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })} minTickGap={16} />
+                <YAxis yAxisId="l" allowDecimals={false} tick={{ fontSize: 11, fill: '#9CA3AF' }} />
+                <YAxis yAxisId="r" orientation="right" allowDecimals={false} tick={{ fontSize: 11, fill: '#9CA3AF' }} />
+                <Tooltip {...CHART_TOOLTIP_PROPS} cursor={{ fill: 'rgba(255, 255, 255, 0.06)' }} />
+                <Legend wrapperStyle={{ fontSize: 11 }} />
+                <Bar yAxisId="l" dataKey="received" name="New Leads" fill="#3b82f6" radius={[3, 3, 0, 0]} style={{ cursor: 'pointer' }}
+                  onClick={(d) => goToLeads({ ...filterParams, dateFrom: d.date, dateTo: d.date })} />
+                <Line yAxisId="r" type="monotone" dataKey="won" name="Converted (Won)" stroke="#22c55e" strokeWidth={2} dot={{ r: 2 }} />
+              </ComposedChart>
             </ResponsiveContainer>
           </div>
-        )}
+        </div>
+        <DonutCard icon={PieIcon} title="Leads by Source" rows={dash?.bySource || []} total={received}
+          colorOf={(_n, i) => SLICE_COLORS[i % SLICE_COLORS.length]} onSlice={(name) => goToCohort({ platform: name })} />
+        <DonutCard icon={PieIcon} title="Leads by Service Type" rows={dash?.byService || []} total={received}
+          colorOf={(_n, i) => SLICE_COLORS[i % SLICE_COLORS.length]} onSlice={(name) => goToCohort({ service: name })} />
+      </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-          <div>
-            <p className="text-xs font-bold text-app-text-muted uppercase tracking-wider mb-2">By Platform</p>
-            <div className="max-h-[450px] overflow-y-auto pr-1" style={{ minHeight: '220px', height: `${Math.max(220, (volume?.byPlatform?.length || 0) * 36)}px` }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={volume?.byPlatform || []} layout="vertical" margin={{ left: 8, right: 16, top: 4, bottom: 4 }}>
-                  <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11, fill: '#9CA3AF' }} />
-                  <YAxis
-                    type="category"
-                    dataKey="platform"
-                    width={90}
-                    interval={0}
-                    tick={{ fontSize: 11, fill: '#9CA3AF' }}
-                    tickFormatter={(val) => {
-                      if (!val) return '—';
-                      return val.length > 14 ? `${val.slice(0, 12)}…` : val;
-                    }}
-                  />
-                  <Tooltip {...CHART_TOOLTIP_PROPS} cursor={{ fill: 'rgba(255, 255, 255, 0.06)' }} />
-                  <Bar
-                    dataKey="count"
-                    fill={CHART_COLOR}
-                    radius={[0, 4, 4, 0]}
-                    style={{ cursor: 'pointer' }}
-                    onClick={(data) => goToLeads({ platform: data.platform, dateFrom, dateTo })}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+      {/* Pipeline stage + Interest + Status */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        <div className={sectionClass}>
+          <h2 className={sectionTitleClass}><Filter size={16} /> Pipeline Stage <span className="normal-case font-medium text-app-text-muted">· current stage</span></h2>
+          <ul className="space-y-2.5">
+            {(dash?.stages || []).map((s) => (
+              <li key={s.stage}>
+                <button type="button" onClick={() => goToCohort({ status: s.stage })} className="w-full grid grid-cols-[96px_1fr_auto] items-center gap-3 text-[13px] cursor-pointer group">
+                  <span className="text-right text-app-text truncate group-hover:text-primary">{s.stage}</span>
+                  <span className="h-4 rounded bg-app-bg overflow-hidden">
+                    <span className="block h-full rounded" style={{ width: `${(s.count / maxStage) * 100}%`, background: STAGE_COLORS[s.stage] }} />
+                  </span>
+                  <span className="text-app-text-muted whitespace-nowrap w-20 text-right">{s.count} ({s.pct}%)</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <DonutCard icon={Flame} title="Interest Level" rows={dash?.byInterest || []} total={received}
+          colorOf={(n) => INTEREST_COLORS[n]} onSlice={(name) => goToCohort({ interestLevel: name })} />
+        <DonutCard icon={Users} title="Lead Status Summary" rows={dash?.statusSummary || []} total={received}
+          colorOf={(n) => STATUS_SUMMARY_COLORS[n]}
+          onSlice={(name) => goToCohort(name === 'Open' ? { stage: 'open' } : { status: name })} />
+      </div>
+
+      {/* Top 10 + Overdue + BDE-wise */}
+      <div className="grid grid-cols-1 2xl:grid-cols-3 gap-6">
+        <div className={sectionClass}>
+          <h2 className={`${sectionTitleClass} justify-between`}>
+            <span className="flex items-center gap-2"><Award size={16} /> Top 10 Leads by Score</span>
+            <button type="button" onClick={() => goToLeads({ ...filterParams, stage: 'open', sortBy: 'leadScore', sortOrder: 'desc' })} className="normal-case text-xs text-primary hover:underline cursor-pointer">View all →</button>
+          </h2>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-[13px] whitespace-nowrap">
+              <thead className="bg-app-bg text-app-text-muted text-[11px] uppercase tracking-wider border-b border-app-border">
+                <tr>
+                  <th className="px-2 py-2">#</th><th className="px-2 py-2">Lead</th><th className="px-2 py-2">Source</th><th className="px-2 py-2">Service</th>
+                  <th className="px-2 py-2 text-right">Score</th><th className="px-2 py-2 text-right">Est. Value</th><th className="px-2 py-2">Stage</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-app-border">
+                {(dash?.topLeads || []).map((lead, i) => (
+                  <tr key={lead._id} onClick={() => navigate(`/admin/leads/${lead._id}`)} className="hover:bg-app-bg transition-colors cursor-pointer">
+                    <td className="px-2 py-2 text-app-text-muted">{i + 1}</td>
+                    <td className="px-2 py-2 text-app-text font-medium max-w-[150px] truncate" title={lead.leadId}>{lead.fullName}</td>
+                    <td className="px-2 py-2 text-app-text-muted">{lead.platform || 'Website'}</td>
+                    <td className="px-2 py-2 text-app-text-muted max-w-[140px] truncate" title={lead.service}>{lead.service}</td>
+                    <td className="px-2 py-2 text-right"><span className="px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 font-bold">{lead.leadScore ?? 0}</span></td>
+                    <td className="px-2 py-2 text-right text-app-text">{inr(lead.dealValue)}</td>
+                    <td className="px-2 py-2"><span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-bold border ${STAGE_BADGE[lead.status] || 'border-app-border text-app-text-muted'}`}>{lead.status}</span></td>
+                  </tr>
+                ))}
+                {(!dash?.topLeads || dash.topLeads.length === 0) && (
+                  <tr><td colSpan={7} className="px-2 py-6 text-center text-app-text-muted">No open leads.</td></tr>
+                )}
+              </tbody>
+            </table>
           </div>
-          <div>
-            <p className="text-xs font-bold text-app-text-muted uppercase tracking-wider mb-2">By Service</p>
-            <div className="max-h-[450px] overflow-y-auto pr-1" style={{ minHeight: '220px', height: `${Math.max(220, (volume?.byService?.length || 0) * 36)}px` }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={volume?.byService || []} layout="vertical" margin={{ left: 8, right: 16, top: 4, bottom: 4 }}>
-                  <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11, fill: '#9CA3AF' }} />
-                  <YAxis
-                    type="category"
-                    dataKey="service"
-                    width={140}
-                    interval={0}
-                    tick={{ fontSize: 10, fill: '#9CA3AF' }}
-                    tickFormatter={(val) => {
-                      if (!val) return '—';
-                      return val.length > 20 ? `${val.slice(0, 18)}…` : val;
-                    }}
-                  />
-                  <Tooltip
-                    {...CHART_TOOLTIP_PROPS}
-                    cursor={{ fill: 'rgba(255, 255, 255, 0.06)' }}
-                    formatter={(value, _name, item) => [value, item?.payload?.service || 'Leads']}
-                  />
-                  <Bar
-                    dataKey="count"
-                    fill="#60a5fa"
-                    radius={[0, 4, 4, 0]}
-                    style={{ cursor: 'pointer' }}
-                    onClick={(data) => goToLeads({ service: data.service, dateFrom, dateTo })}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+        </div>
+
+        <div className={sectionClass}>
+          <h2 className={`${sectionTitleClass} justify-between`}>
+            <span className="flex items-center gap-2"><AlertTriangle size={16} className="text-red-400" /> Overdue Follow-ups <span className="normal-case font-medium text-app-text-muted">· live</span></span>
+            <button type="button" onClick={() => navigate('/admin/follow-ups?bucket=Overdue')} className="normal-case text-xs text-primary hover:underline cursor-pointer">View all →</button>
+          </h2>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-[13px] whitespace-nowrap">
+              <thead className="bg-app-bg text-app-text-muted text-[11px] uppercase tracking-wider border-b border-app-border">
+                <tr>
+                  <th className="px-2 py-2">#</th><th className="px-2 py-2">Lead</th><th className="px-2 py-2">BDE</th><th className="px-2 py-2">Last Contact</th>
+                  <th className="px-2 py-2">Next Follow-up</th><th className="px-2 py-2 text-right">Days Overdue</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-app-border">
+                {(dash?.overdueLeads || []).map((lead, i) => (
+                  <tr key={lead._id} onClick={() => navigate(`/admin/leads/${lead._id}`)} className="hover:bg-app-bg transition-colors cursor-pointer">
+                    <td className="px-2 py-2 text-app-text-muted">{i + 1}</td>
+                    <td className="px-2 py-2 text-app-text font-medium max-w-[150px] truncate" title={lead.leadId}>{lead.fullName}</td>
+                    <td className="px-2 py-2 text-app-text-muted">{lead.bde}</td>
+                    <td className="px-2 py-2 text-app-text-muted">{shortDate(lead.lastCallAt)}</td>
+                    <td className="px-2 py-2 text-app-text-muted">{shortDate(lead.nextFollowUpDate)}</td>
+                    <td className="px-2 py-2 text-right"><span className="px-2 py-0.5 rounded bg-red-500/15 text-red-400 font-bold">{lead.daysOverdue}</span></td>
+                  </tr>
+                ))}
+                {(!dash?.overdueLeads || dash.overdueLeads.length === 0) && (
+                  <tr><td colSpan={6} className="px-2 py-6 text-center text-app-text-muted">No overdue follow-ups.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className={sectionClass}>
+          <h2 className={sectionTitleClass}><UserCheck size={16} /> BDE Wise Lead Summary</h2>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-[13px] whitespace-nowrap">
+              <thead className="bg-app-bg text-app-text-muted text-[11px] uppercase tracking-wider border-b border-app-border">
+                <tr>
+                  <th className="px-2 py-2">BDE</th>
+                  <th className="px-2 py-2 text-right">Assigned</th>
+                  <th className="px-2 py-2 text-right" title="At least one call logged">Contacted</th>
+                  <th className="px-2 py-2 text-right" title="Reached Qualified or later">Qualified</th>
+                  <th className="px-2 py-2 text-right" title="Reached Proposal Sent or later">Proposal</th>
+                  <th className="px-2 py-2 text-right">Won</th><th className="px-2 py-2 text-right">Lost</th>
+                  <th className="px-2 py-2 text-right" title="Won ÷ Assigned">Conv. Rate</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-app-border">
+                {(dash?.bde?.rows || []).map((r) => (
+                  <tr key={r.owner} onClick={() => goToCohort({ assignedTo: r.owner })} className="hover:bg-app-bg transition-colors cursor-pointer">
+                    <td className="px-2 py-2 text-app-text font-medium max-w-[140px] truncate">{r.name}</td>
+                    <td className="px-2 py-2 text-right text-app-text">{r.assigned}</td>
+                    <td className="px-2 py-2 text-right text-app-text-muted">{r.contacted}</td>
+                    <td className="px-2 py-2 text-right text-app-text-muted">{r.qualified}</td>
+                    <td className="px-2 py-2 text-right text-app-text-muted">{r.proposal}</td>
+                    <td className="px-2 py-2 text-right text-app-text-muted">{r.won}</td>
+                    <td className="px-2 py-2 text-right text-app-text-muted">{r.lost}</td>
+                    <td className="px-2 py-2 text-right"><span className={`px-1.5 py-0.5 rounded font-bold ${r.convRate >= 10 ? 'bg-emerald-500/15 text-emerald-400' : 'bg-red-500/15 text-red-400'}`}>{r.convRate}%</span></td>
+                  </tr>
+                ))}
+                {(!dash?.bde?.rows || dash.bde.rows.length === 0) && (
+                  <tr><td colSpan={8} className="px-2 py-6 text-center text-app-text-muted">No leads received in this period.</td></tr>
+                )}
+              </tbody>
+              {dash?.bde?.rows?.length > 0 && (
+                <tfoot className="border-t border-app-border bg-app-bg/60 font-bold text-app-text">
+                  <tr>
+                    <td className="px-2 py-2">Total</td>
+                    {['assigned', 'contacted', 'qualified', 'proposal', 'won', 'lost'].map((c) => <td key={c} className="px-2 py-2 text-right">{dash.bde.totals[c]}</td>)}
+                    <td className="px-2 py-2 text-right">{dash.bde.totals.convRate}%</td>
+                  </tr>
+                </tfoot>
+              )}
+            </table>
           </div>
         </div>
       </div>
+
+      <h2 className="text-sm font-bold text-app-text-muted uppercase tracking-wider pt-4 border-t border-app-border">
+        BD-wise detail <span className="normal-case font-medium">· the date range applies below; the Source / Service / BDE / Stage filters do not</span>
+      </h2>
 
       {/* Interest Level — leads received in the period, current interest level, by primary owner */}
       <BreakdownSection
@@ -567,28 +762,6 @@ export default function ManagementDashboard() {
           dateFrom, dateTo
         })}
       />
-
-      {/* Pipeline Funnel — a snapshot of the same cohort's current stage, not a conversion funnel */}
-      <div className={sectionClass}>
-        <h2 className={sectionTitleClass}>
-          <TrendingUp size={16} /> Pipeline Funnel <span className="normal-case font-medium text-app-text-muted">· current stage of leads received in the period (a snapshot, not stage-to-stage conversion)</span>
-        </h2>
-        <div className="h-64">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={funnelData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#2D2D33" vertical={false} />
-              <XAxis dataKey="status" tick={{ fontSize: 10, fill: '#9CA3AF' }} interval={0} angle={-20} textAnchor="end" height={60} />
-              <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#9CA3AF' }} />
-              <Tooltip {...CHART_TOOLTIP_PROPS} cursor={{ fill: 'rgba(255, 255, 255, 0.06)' }} />
-              <Bar dataKey="count" radius={[4, 4, 0, 0]} style={{ cursor: 'pointer' }} onClick={(data) => goToLeads({ status: data.status, dateFrom, dateTo })}>
-                {funnelData.map((entry) => (
-                  <Cell key={entry.status} fill={['Won'].includes(entry.status) ? '#34d399' : ['Lost', 'Dropped'].includes(entry.status) ? '#f87171' : CHART_COLOR} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
 
       {/* Ownership & Speed */}
       <div className={sectionClass}>
@@ -674,7 +847,15 @@ export default function ManagementDashboard() {
       {/* Bottlenecks */}
       <div className={sectionClass}>
         <h2 className={sectionTitleClass}><AlertTriangle size={16} /> Bottlenecks</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <StatCard
+            icon={UserX}
+            label="Unassigned Leads (live)"
+            value={volume?.unassignedCount ?? 0}
+            sub={volume?.unassignedSlaBreachedCount ? `Open and unassigned now · ${volume.unassignedSlaBreachedCount} past SLA` : 'Open and unassigned now'}
+            accent="text-amber-400"
+            onClick={() => goToLeads({ assignedTo: 'Unassigned', stage: 'open' })}
+          />
           <StatCard
             icon={Clock}
             label="Overdue Follow-ups (live)"
@@ -703,7 +884,7 @@ export default function ManagementDashboard() {
       {/* Likely to Convert */}
       <div className={sectionClass}>
         <h2 className={sectionTitleClass}><Flame size={16} /> Likely to Convert <span className="normal-case font-medium text-app-text-muted">· live</span></h2>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {(volume?.byPriority || []).map((tier) => (
             <button
               key={tier.priority}
@@ -717,36 +898,6 @@ export default function ManagementDashboard() {
           ))}
         </div>
 
-        <p className="text-xs font-bold text-app-text-muted uppercase tracking-wider mb-2">Top 10 Scored Leads (open pipeline)</p>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm min-w-[560px]">
-            <thead className="bg-app-bg text-app-text-muted text-xs uppercase tracking-wider border-b border-app-border">
-              <tr>
-                <th className="px-4 py-2 font-semibold">Lead</th>
-                <th className="px-4 py-2 font-semibold">Status</th>
-                <th className="px-4 py-2 font-semibold">Priority</th>
-                <th className="px-4 py-2 font-semibold">Score</th>
-                <th className="px-4 py-2 font-semibold">BD</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-app-border">
-              {(volume?.topScoredLeads || []).map((lead) => (
-                <tr key={lead._id} onClick={() => navigate(`/admin/leads/${lead._id}`)} className="hover:bg-app-bg transition-colors cursor-pointer">
-                  <td className="px-4 py-2 text-app-text font-medium">{lead.fullName} <span className="text-app-text-muted text-xs">({lead.leadId})</span></td>
-                  <td className="px-4 py-2 text-app-text-muted">{lead.status}</td>
-                  <td className="px-4 py-2">
-                    <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-bold border ${LEAD_PRIORITY_BADGE_CLASSES[lead.leadPriority] || LEAD_PRIORITY_BADGE_CLASSES.Normal}`}>{lead.leadPriority}</span>
-                  </td>
-                  <td className="px-4 py-2 text-app-text-muted">{lead.leadScore}/100</td>
-                  <td className="px-4 py-2 text-app-text-muted">{displayName(lead.assignedTo)}</td>
-                </tr>
-              ))}
-              {(!volume?.topScoredLeads || volume.topScoredLeads.length === 0) && (
-                <tr><td colSpan={5} className="px-4 py-6 text-center text-app-text-muted">No open leads yet.</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
       </div>
 
       {/* Pipeline Revenue */}

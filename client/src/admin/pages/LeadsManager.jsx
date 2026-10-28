@@ -96,6 +96,7 @@ export default function LeadsManager({ stageGroup }) {
   const [followUpTo, setFollowUpTo] = useState(searchParams.get('followUpTo') || '');
   const [stageFilter] = useState(searchParams.get('stage') || '');
   const [connectedFilter] = useState(searchParams.get('connected') || '');
+  const [neverContacted] = useState(searchParams.get('neverContacted') === 'true');
   const [dateFrom, setDateFrom] = useState(searchParams.get('dateFrom') || '');
   const [dateTo, setDateTo] = useState(searchParams.get('dateTo') || '');
   // Which date the range applies to: received (createdAt), assigned, or last call.
@@ -160,6 +161,7 @@ export default function LeadsManager({ stageGroup }) {
           followUpTo: followUpTo || undefined,
           stage: stageFilter || undefined,
           connected: connectedFilter || undefined,
+          neverContacted: neverContacted || undefined,
           dateFrom: dateFrom || undefined,
           dateTo: dateTo || undefined,
           dateField: (dateFrom || dateTo) && dateField !== 'received' ? dateField : undefined,
@@ -180,7 +182,7 @@ export default function LeadsManager({ stageGroup }) {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, statusFilter, stageGroup, platformFilter, sourceFilter, leadTypeFilter, formFilter, assignedBdFilter, serviceFilter, priorityFilter, breachedOnly, interestFilter, followUpFrom, followUpTo, stageFilter, connectedFilter, dateFrom, dateTo, dateField, debouncedSearchTerm, sortBy, sortOrder]);
+  }, [currentPage, statusFilter, stageGroup, platformFilter, sourceFilter, leadTypeFilter, formFilter, assignedBdFilter, serviceFilter, priorityFilter, breachedOnly, interestFilter, followUpFrom, followUpTo, stageFilter, connectedFilter, neverContacted, dateFrom, dateTo, dateField, debouncedSearchTerm, sortBy, sortOrder]);
 
   useEffect(() => {
     fetchLeads();
@@ -303,7 +305,7 @@ export default function LeadsManager({ stageGroup }) {
     setBulkReview({
       leadIds: [...selectedIds],
       target: bulkTarget,
-      expectedOwner: assignedBdFilter !== 'All' && assignedBdFilter !== 'Unassigned' ? assignedBdFilter : null,
+      expectedOwner: !['All', 'Unassigned', 'Assigned'].includes(assignedBdFilter) ? assignedBdFilter : null,
       filterChips: activeFilterChips,
       selection: selectionMode,
     });
@@ -411,6 +413,7 @@ export default function LeadsManager({ stageGroup }) {
           followUpTo: followUpTo || undefined,
           stage: stageFilter || undefined,
           connected: connectedFilter || undefined,
+          neverContacted: neverContacted || undefined,
           dateFrom: dateFrom || undefined,
           dateTo: dateTo || undefined,
           dateField: (dateFrom || dateTo) && dateField !== 'received' ? dateField : undefined,
@@ -450,12 +453,13 @@ export default function LeadsManager({ stageGroup }) {
     sourceFilter !== 'All' && `Source: ${sourceFilter}`,
     serviceFilter !== 'All' && `Service: ${serviceFilter}`,
     priorityFilter !== 'All' && `Priority: ${priorityFilter}`,
-    assignedBdFilter !== 'All' && `BD: ${assignedBdFilter === 'Unassigned' ? 'Unassigned' : (bds.find((b) => b._id === assignedBdFilter) ? `${bds.find((b) => b._id === assignedBdFilter).firstName} ${bds.find((b) => b._id === assignedBdFilter).lastName}` : assignedBdFilter)}`,
+    assignedBdFilter !== 'All' && `BD: ${assignedBdFilter === 'Unassigned' || assignedBdFilter === 'Assigned' ? assignedBdFilter : (bds.find((b) => b._id === assignedBdFilter) ? `${bds.find((b) => b._id === assignedBdFilter).firstName} ${bds.find((b) => b._id === assignedBdFilter).lastName}` : assignedBdFilter)}`,
     breachedOnly && 'Follow-up Breached only',
     interestFilter !== 'All' && `Interest: ${interestFilter}`,
     (followUpFrom || followUpTo) && `Follow-up due: ${followUpFrom || '…'} to ${followUpTo || '…'}`,
     stageFilter === 'open' && 'Open pipeline (not Won/Lost/Dropped/Hold)',
     connectedFilter && `Connected: ${connectedFilter}`,
+    neverContacted && 'Never contacted (no call logged)',
     (dateFrom || dateTo) && `${DATE_FIELD_LABELS[dateField] || 'Received'}: ${dateFrom || '…'} to ${dateTo || '…'}`
   ].filter(Boolean);
 
@@ -638,6 +642,9 @@ export default function LeadsManager({ stageGroup }) {
               <option className="bg-app-bg text-app-text" value="Facebook">Facebook</option>
               <option className="bg-app-bg text-app-text" value="Google Ads">Google Ads</option>
               <option className="bg-app-bg text-app-text" value="Instagram">Instagram</option>
+              <option className="bg-app-bg text-app-text" value="IndiaMART">IndiaMART</option>
+              <option className="bg-app-bg text-app-text" value="WhatsApp">WhatsApp</option>
+              <option className="bg-app-bg text-app-text" value="Referral">Referral</option>
               <option className="bg-app-bg text-app-text" value="Manual">Manual</option>
             </select>
             <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 text-app-text-muted w-3.5 h-3.5 pointer-events-none" />
@@ -697,6 +704,7 @@ export default function LeadsManager({ stageGroup }) {
               >
                 <option className="bg-app-bg text-app-text" value="All">All BDs</option>
                 <option className="bg-app-bg text-app-text" value="Unassigned">Unassigned</option>
+                <option className="bg-app-bg text-app-text" value="Assigned">Assigned (any BD)</option>
                 {bds.map((bd) => (
                   <option key={bd._id} className="bg-app-bg text-app-text" value={bd._id}>
                     {bd.firstName} {bd.lastName}

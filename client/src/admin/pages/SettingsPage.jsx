@@ -12,6 +12,9 @@ import toast from 'react-hot-toast';
 import { usePermissions } from '../hooks/usePermissions';
 import { PROJECT_BUDGET_OPTIONS, MONTHLY_MARKETING_BUDGET_OPTIONS } from '../../shared/serviceQualification';
 
+// Lead.platform values, for assignment rules' Match Source
+const LEAD_SOURCES = ['Website', 'Facebook', 'Instagram', 'Google Ads', 'IndiaMART', 'WhatsApp', 'Referral', 'Manual'];
+
 const SettingsPage = () => {
   const { admin, updateProfile } = useAdminStore();
   const { can } = usePermissions();
@@ -1506,7 +1509,12 @@ const SettingsPage = () => {
                   </div>
                   <div>
                     <label className={labelClasses}>Match Source (blank = any)</label>
-                    <input type="text" placeholder="e.g. Website, Facebook" value={ruleForm.matchSource} onChange={e => setRuleForm({ ...ruleForm, matchSource: e.target.value })} className={inputClasses} />
+                    {/* Lead.platform values — a typo here would silently never match */}
+                    <select value={ruleForm.matchSource} onChange={e => setRuleForm({ ...ruleForm, matchSource: e.target.value })} className={inputClasses}>
+                      <option value="">Any source</option>
+                      {[...LEAD_SOURCES, ...(ruleForm.matchSource && !LEAD_SOURCES.includes(ruleForm.matchSource) ? [ruleForm.matchSource] : [])]
+                        .map((s) => <option key={s} value={s}>{s}</option>)}
+                    </select>
                   </div>
                   <div>
                     <label className={labelClasses}>Max Active Leads per BD (blank = unlimited)</label>
