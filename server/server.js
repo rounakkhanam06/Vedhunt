@@ -262,7 +262,10 @@ if (process.env.NODE_ENV === 'production') {
         `;
 
         // Inject the meta tags right before </head>
-        htmlData = htmlData.replace('</head>', `${metaTags}</head>`);
+        // Drop index.html's default <title> so the service title is the only one
+        htmlData = htmlData
+          .replace(/<title>[\s\S]*?<\/title>/i, '')
+          .replace('</head>', `${metaTags}</head>`);
       }
 
       // No such (active) service: the app shows its own not-found screen, and
