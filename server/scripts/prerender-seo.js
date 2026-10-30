@@ -95,7 +95,10 @@ async function prerenderSEO() {
     <meta name="twitter:image" content="${safeImage}" />
   `;
 
-      const newHtml = baseHtml.replace('</head>', `${metaTags}</head>`);
+      // Drop index.html's default <title> so the service title is the only one
+      const newHtml = baseHtml
+        .replace(/<title>[\s\S]*?<\/title>/i, '')
+        .replace('</head>', `${metaTags}</head>`);
 
       const serviceSlugDir = path.join(servicesDir, slug);
       if (!fs.existsSync(serviceSlugDir)) {
