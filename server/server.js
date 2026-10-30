@@ -220,27 +220,30 @@ if (process.env.NODE_ENV === 'production') {
     res.redirect(301, `/services/${encodeURIComponent(req.params.slug)}${query}`);
   });
 
-  app.use(express.static(clientBuildPath));
-
   const fs = require('fs');
   const Service = require('./models/Service');
   const ServicePage = require('./models/ServicePage');
+  const escapeHtml = (s = '') =>
+    String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
-  // Server-Side Render Open Graph Tags for Social Media Bots
+  // Server-Side Render Open Graph Tags for Social Media Bots.
+  // Registered before express.static so the prerendered services/<slug>/index.html
+  // folders don't shadow it — admin edits show up without a rebuild.
   app.get('/services/:slug', async (req, res) => {
     try {
       const slug = req.params.slug;
-      
-      // Fetch data
+
+      // Fetch data (ServicePage is keyed by `slug` and has no isActive flag)
       const serviceMain = await Service.findOne({ slug, isActive: true }).lean();
-      const serviceDetails = await ServicePage.findOne({ serviceSlug: slug, isActive: true }).lean();
+      const serviceDetails = await ServicePage.findOne({ slug }).lean();
 
       let htmlData = fs.readFileSync(path.resolve(clientBuildPath, 'index.html'), 'utf8');
 
-      if (serviceMain && serviceDetails) {
-        const ogTitle = serviceDetails.metaTitle || serviceMain.metaTitle || serviceDetails.title || serviceMain.title;
-        const ogDesc = serviceDetails.metaDescription || serviceMain.metaDescription || serviceMain.shortDescription;
-        const ogImage = serviceDetails.ogImage || serviceMain.imageUrl || 'https://vedhunt.in/og-banner.jpg';
+      if (serviceMain) {
+        const details = serviceDetails || {};
+        const ogTitle = escapeHtml(details.metaTitle || serviceMain.metaTitle || details.title || serviceMain.title);
+        const ogDesc = escapeHtml(details.metaDescription || serviceMain.metaDescription || serviceMain.shortDescription);
+        const ogImage = escapeHtml(details.ogImage || serviceMain.imageUrl || 'https://vedhunt.in/og-banner.jpg');
         const canonicalUrl = `https://vedhunt.in/services/${slug}`;
 
         const metaTags = `
@@ -271,10 +274,10 @@ if (process.env.NODE_ENV === 'production') {
     }
   });
 
+  app.use(express.static(clientBuildPath));
+
   // Open Graph tags for shared job links (/career/:jobId)
   const Job = require('./models/Job');
-  const escapeHtml = (s = '') =>
-    String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
   app.get('/career/:jobId', async (req, res, next) => {
     const { jobId } = req.params;

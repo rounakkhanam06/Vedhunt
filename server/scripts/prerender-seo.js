@@ -22,8 +22,7 @@ const serviceSchema = new mongoose.Schema({
 }, { strict: false });
 
 const servicePageSchema = new mongoose.Schema({
-  serviceSlug: String,
-  isActive: Boolean,
+  slug: String,
   metaTitle: String,
   metaDescription: String,
   ogImage: String,
@@ -40,7 +39,7 @@ async function prerenderSEO() {
     console.log('Connected.');
 
     const services = await Service.find({ isActive: true }).lean();
-    const servicePages = await ServicePage.find({ isActive: true }).lean();
+    const servicePages = await ServicePage.find({}).lean();
 
     const indexPath = path.resolve(__dirname, '../../client/dist/index.html');
     if (!fs.existsSync(indexPath)) {
@@ -68,16 +67,18 @@ async function prerenderSEO() {
 
     for (const service of services) {
       const slug = service.slug;
-      const details = servicePages.find(p => p.serviceSlug === slug) || {};
+      const details = servicePages.find(p => p.slug === slug) || {};
 
       const ogTitle = details.metaTitle || service.metaTitle || details.title || service.title || 'Vedhunt Infotech Service';
       const ogDesc = details.metaDescription || service.metaDescription || service.shortDescription || 'Professional services by Vedhunt Infotech.';
       const ogImage = details.ogImage || service.imageUrl || 'https://vedhunt.in/og-banner.jpg';
       const canonicalUrl = `https://vedhunt.in/services/${slug}`;
 
-      const safeTitle = ogTitle.replace(/"/g, '&quot;');
-      const safeDesc = ogDesc.replace(/"/g, '&quot;');
-      const safeImage = ogImage.replace(/"/g, '&quot;');
+      const escapeHtml = (s) =>
+        String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      const safeTitle = escapeHtml(ogTitle);
+      const safeDesc = escapeHtml(ogDesc);
+      const safeImage = escapeHtml(ogImage);
 
       const metaTags = `
     <title>${safeTitle}</title>
