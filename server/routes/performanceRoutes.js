@@ -381,7 +381,7 @@ router.post('/sync-actual/:cycleId', requirePermission('performance.manage'), as
     }
 
     // Recompute all reviews and ranks for this cycle
-    const uniqueEmployeeIds = [...new Set(targets.map(t => t.employeeId._id?.toString()))];
+    const uniqueEmployeeIds = [...new Set(targets.filter(t => t.employeeId).map(t => t.employeeId._id.toString()))];
     for (const empId of uniqueEmployeeIds) {
       await recomputeReviewForEmployee(req.params.cycleId, empId);
     }
@@ -492,7 +492,8 @@ scoped.get('/company-matrix/:cycleId', perf('view'), async (req, res) => {
       .sort({ companyRank: 1 });
 
     // Attach KPI summary to each
-    const matrix = await Promise.all(reviews.map(async (rv) => {
+    // Skip reviews whose employee was deleted (populate leaves employeeId null)
+    const matrix = await Promise.all(reviews.filter(rv => rv.employeeId).map(async (rv) => {
       const targets = await KPITarget.find({ cycleId: req.params.cycleId, employeeId: rv.employeeId._id });
       return {
         review:  rv.toObject(),
