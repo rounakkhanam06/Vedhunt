@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, CheckCircle2, XCircle } from 'lucide-react';
 import { LOST_DROPPED_REASONS } from '../../shared/leadConstants';
+import { toDateTimeInput } from '../../employee/lib/datetime';
 
 /**
  * Collects the mandatory data a stage transition requires before it's sent
@@ -18,7 +19,7 @@ export default function StageDataModal({ lead, targetStatus, onClose, onSubmit }
   );
   const [proposalReference, setProposalReference] = useState(lead?.proposalReference || '');
   const [nextFollowUpDate, setNextFollowUpDate] = useState(
-    lead?.nextFollowUpDate ? new Date(lead.nextFollowUpDate).toISOString().slice(0, 16) : ''
+    toDateTimeInput(lead?.nextFollowUpDate)
   );
   const [expectedCloseDate, setExpectedCloseDate] = useState(
     lead?.expectedCloseDate ? new Date(lead.expectedCloseDate).toISOString().slice(0, 10) : ''

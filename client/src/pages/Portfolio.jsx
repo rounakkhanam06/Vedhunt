@@ -107,7 +107,7 @@ export default function Portfolio() {
 
   const categoryBadge = (key) => {
     const c = categories.find(cat => cat.key === key);
-    return c ? (c.badge || c.label) : key;
+    return c ? c.label : key;
   };
   const [portfolioItems, setPortfolioItems] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -383,7 +383,7 @@ export default function Portfolio() {
                           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
                           
                           {/* Floating Category Tag */}
-                          <div className="absolute top-3.5 left-3.5 bg-slate-950/90 border border-primary/40 rounded px-2.5 py-0.5 text-[9px] font-extrabold text-primary tracking-wider">
+                          <div className="absolute top-3.5 left-3.5 right-3.5 w-fit bg-slate-950/90 border border-primary/40 rounded px-2.5 py-0.5 text-[9px] font-extrabold text-primary tracking-wider">
                             {categoryBadge(project.category)}
                           </div>
 

@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useRef, useLayoutEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Mail, Copy, Check } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -33,6 +34,36 @@ export default function EmailAction({ email, className = '', label = 'Email', al
   const [open, setOpen] = useState(false);
   const [saved, setSaved] = useState(readSaved);
   const [copied, setCopied] = useState(false);
+  const buttonRef = useRef(null);
+  const menuRef = useRef(null);
+  const [pos, setPos] = useState(null);
+
+  // The menu is rendered on document.body (a portal) and placed next to the
+  // button, so a parent with overflow hidden/auto can no longer clip it. It
+  // opens upwards when there isn't room below, and closes on scroll/resize.
+  useLayoutEffect(() => {
+    if (!open) return undefined;
+    const place = () => {
+      const b = buttonRef.current?.getBoundingClientRect();
+      if (!b) return;
+      const menuH = menuRef.current?.offsetHeight || 280;
+      const menuW = Math.min(256, window.innerWidth - 16);
+      const below = window.innerHeight - b.bottom;
+      const top = below >= menuH + 8 || below >= b.top ? b.bottom + 4 : Math.max(8, b.top - menuH - 4);
+      const left = Math.min(Math.max(8, b.left), window.innerWidth - menuW - 8);
+      setPos({ top, left, width: menuW });
+    };
+    place();
+    const raf = requestAnimationFrame(place);
+    const close = () => setOpen(false);
+    window.addEventListener('resize', close);
+    window.addEventListener('scroll', close, true);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener('resize', close);
+      window.removeEventListener('scroll', close, true);
+    };
+  }, [open]);
 
   if (isPlaceholderEmail(email)) {
     return (
@@ -66,13 +97,18 @@ export default function EmailAction({ email, className = '', label = 'Email', al
 
   return (
     <div className="relative min-w-0">
-      <button type="button" onClick={() => setOpen((o) => !o)} className={`${className} w-full cursor-pointer`} aria-haspopup="menu" aria-expanded={open}>
+      <button ref={buttonRef} type="button" onClick={() => setOpen((o) => !o)} className={`${className} w-full cursor-pointer`} aria-haspopup="menu" aria-expanded={open}>
         <Mail size={14} className="shrink-0" /> <span className="truncate">{label}</span>
       </button>
-      {open && (
+      {open && createPortal(
         <>
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div role="menu" className="absolute left-0 top-full mt-1 z-50 w-64 max-w-[calc(100vw-2rem)] bg-app-card border border-app-border rounded-xl shadow-2xl p-1.5">
+          <div className="fixed inset-0 z-[1000]" onClick={() => setOpen(false)} />
+          <div
+            ref={menuRef}
+            role="menu"
+            style={{ top: pos?.top ?? -9999, left: pos?.left ?? -9999, width: pos?.width ?? 256 }}
+            className="fixed z-[1001] max-h-[80vh] overflow-y-auto bg-app-card border border-app-border rounded-xl shadow-2xl p-1.5"
+          >
             <p className="px-2.5 pt-1 pb-1.5 text-[11px] text-app-text-muted truncate" title={email}>Email {email} via</p>
             {ordered.map((p) => (
               <button key={p.value} type="button" role="menuitem" onClick={() => choose(p)}
@@ -91,7 +127,8 @@ export default function EmailAction({ email, className = '', label = 'Email', al
               </>
             )}
           </div>
-        </>
+        </>,
+        document.body
       )}
     </div>
   );

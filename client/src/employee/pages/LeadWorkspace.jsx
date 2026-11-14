@@ -19,7 +19,7 @@ import FollowUpForm from '../components/FollowUpForm';
 import ProposalWorkflow from '../components/ProposalWorkflow';
 import { toDateTimeInput, fromLocalInput } from '../lib/datetime';
 import { essKeys } from '../lib/ess';
-import { isCallInProgress, lastCallLog, startedNewCall, isSameOutcome, fmtClock } from '../../shared/callHandling';
+import { isCallInProgress, lastCallLog, startedNewCall, isSameOutcome, fmtClock, fmtCallDuration } from '../../shared/callHandling';
 
 const sectionClass = 'bg-app-card border border-app-border rounded-xl p-4 sm:p-5 w-full min-w-0 overflow-hidden';
 const sectionLabelClass = 'text-xs font-bold text-app-text-muted uppercase tracking-wider mb-3 block';
@@ -346,7 +346,7 @@ export default function EmployeeLeadWorkspace() {
       const res = await employeeApi.put(`/employee-portal/ess/leads/${id}`, { callEndTime: now, callDuration: durationMin });
       syncLead(res.data.lead);
       markListsStale();
-      toast.success(`Call ended (${durationMin} min)`);
+      toast.success(`Call ended (${fmtCallDuration(lead.callStartTime, now, durationMin)})`);
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to end call');
     } finally {
@@ -514,7 +514,7 @@ export default function EmployeeLeadWorkspace() {
             </span>
           ) : lead.callStartTime ? (
             <span className="text-xs text-app-text-muted">
-              Last call {fmtClock(lead.callStartTime)}{lead.callEndTime ? `–${fmtClock(lead.callEndTime)}` : ''}{lead.callDuration ? ` · ${lead.callDuration} min` : ''}
+              Last call {fmtClock(lead.callStartTime)}{lead.callEndTime ? `–${fmtClock(lead.callEndTime)}` : ''}{lead.callEndTime && !isCallInProgress(lead) ? ` · ${fmtCallDuration(lead.callStartTime, lead.callEndTime, lead.callDuration || null)}` : ''}
             </span>
           ) : (
             <span className="text-xs text-app-text-muted">No call started yet</span>
@@ -684,26 +684,47 @@ export default function EmployeeLeadWorkspace() {
               ))}
             </select>
           </div>
-          {draft.paymentStatus && draft.paymentStatus !== 'Not Applicable' && (
-            <>
-              <div>
-                <label className={fieldLabelClass}>Amount Paid (₹)</label>
-                <input
-                  type="number"
-                  min="0"
-                  value={draft.amountPaid || ''}
-                  onChange={(e) => updateDraft('amountPaid', e.target.value)}
-                  className={selectClass}
-                />
-              </div>
-              <div>
-                <label className={fieldLabelClass}>Pending Amount (₹)</label>
-                <p className="mt-1 text-sm font-semibold text-app-text py-2">
-                  ₹{Math.max(0, (Number(draft.dealCloseValue) || 0) - (Number(draft.amountPaid) || 0)).toLocaleString('en-IN')}
-                </p>
-              </div>
-            </>
-          )}
+          {draft.paymentStatus && draft.paymentStatus !== 'Not Applicable' && (() => {
+            // Pending amount follows the selected Payment Status:
+            //   Pending → whole deal, Partially Paid → deal − paid, Paid → 0.
+            const dealTotal = Number(draft.dealCloseValue) || Number(draft.dealValue) || 0;
+            const usingEstimate = !Number(draft.dealCloseValue) && !!Number(draft.dealValue);
+            const paid = Number(draft.amountPaid) || 0;
+            const status = draft.paymentStatus;
+            const pending = status === 'Paid' ? 0 : status === 'Pending' ? dealTotal : Math.max(0, dealTotal - paid);
+            const overpaid = status === 'Partially Paid' && dealTotal > 0 && paid >= dealTotal;
+            return (
+              <>
+                {status === 'Partially Paid' && (
+                  <div>
+                    <label className={fieldLabelClass}>Amount Paid (₹)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={draft.amountPaid || ''}
+                      onChange={(e) => updateDraft('amountPaid', e.target.value)}
+                      className={selectClass}
+                    />
+                    {overpaid && (
+                      <p className="text-[11px] text-amber-500 mt-1">Amount paid covers the full deal — set Payment Status to "Paid"?</p>
+                    )}
+                  </div>
+                )}
+                <div>
+                  <label className={fieldLabelClass}>Pending Amount (₹)</label>
+                  <p className={`mt-1 text-sm font-semibold py-2 ${pending > 0 ? 'text-app-text' : 'text-emerald-500'}`}>
+                    ₹{pending.toLocaleString('en-IN')}
+                  </p>
+                  {status !== 'Paid' && !dealTotal && (
+                    <p className="text-[11px] text-app-text-muted -mt-1">Enter a deal value to calculate this.</p>
+                  )}
+                  {status !== 'Paid' && usingEstimate && (
+                    <p className="text-[11px] text-app-text-muted -mt-1">Based on the estimated deal value.</p>
+                  )}
+                </div>
+              </>
+            );
+          })()}
           {draft.status === 'Proposal Sent' && (
             <>
               <div>
@@ -1067,7 +1088,7 @@ export default function EmployeeLeadWorkspace() {
                 <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-app-text-muted">
                   {call.interestLevel && <span>Interest: <span className="text-app-text font-medium">{call.interestLevel}</span></span>}
                   {call.notConnectedReason && <span>Reason: <span className="text-app-text font-medium">{call.notConnectedReason}</span></span>}
-                  {call.callDuration != null && <span>Duration: <span className="text-app-text font-medium">{call.callDuration} min</span></span>}
+                  {(call.callDuration != null || (call.callStartTime && call.callEndTime)) && <span>Duration: <span className="text-app-text font-medium">{fmtCallDuration(call.callStartTime, call.callEndTime, call.callDuration)}</span></span>}
                   {call.leadStage && <span>Stage: <span className="text-app-text font-medium">{call.leadStage}</span></span>}
                 </div>
                 {call.remark && (

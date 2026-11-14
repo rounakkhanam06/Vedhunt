@@ -27,7 +27,7 @@ select, input, textarea {
   
   --form-label: #1F2937;
   --form-input-text: #111111;
-  --form-placeholder: #6B7280;
+  --form-placeholder: #9CA3AF;
   --form-input-bg: #FFFFFF;
   --form-input-border: #D1D5DB;
   --form-focus-border: #FF5A1F;
@@ -89,7 +89,7 @@ select, input, textarea {
   
   --form-label: #FFF4EF;
   --form-input-text: #FFFFFF;
-  --form-placeholder: #9CA3AF;
+  --form-placeholder: #6B7280;
   --form-input-bg: rgba(255,255,255,0.04);
   --form-input-border: rgba(255,255,255,0.12);
   --form-focus-border: #FF5A1F;

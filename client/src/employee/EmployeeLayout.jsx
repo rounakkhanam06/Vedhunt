@@ -1,5 +1,6 @@
 import { Outlet, useNavigate, useLocation, Link } from 'react-router-dom';
 import { useState } from 'react';
+import { Toaster } from 'react-hot-toast';
 import { motion } from 'framer-motion';
 import { useEmployeeStore } from '../store/useEmployeeStore';
 import { useTheme } from '../context/ThemeContext';
@@ -45,6 +46,14 @@ const EmployeeLayout = () => {
 
   return (
     <WorkTimerProvider>
+    <Toaster
+      position="top-right"
+      toastOptions={{
+        className: 'dark:!bg-[#1A1A1A] dark:!text-white dark:!border-[#2D2D33] !bg-white !text-gray-900 !border-gray-200',
+        style: { border: '1px solid rgba(150, 150, 150, 0.2)', borderRadius: '8px' },
+        success: { iconTheme: { primary: '#FF6B00', secondary: 'transparent' } },
+      }}
+    />
     <div className="h-screen bg-app-bg text-app-text flex overflow-hidden">
       {/* Mobile backdrop */}
       <div

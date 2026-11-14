@@ -23,10 +23,10 @@ const staggerContainer = {
 export default function PortfolioPreview() {
   const { data: projects = [], isLoading: loading } = useFeaturedPortfolio();
   const { data: categories = [] } = usePortfolioCategories();
-  const BADGE_FALLBACK = { development: 'Engineering', automation: 'Finance & Tech', marketing: 'Marketing' };
+  const LABEL_FALLBACK = { development: 'Web & App Engineering', automation: 'Automation & Business Finance', marketing: 'SEO & Growth Marketing' };
   const categoryBadge = (key) => {
     const c = categories.find(cat => cat.key === key);
-    return c ? (c.badge || c.label) : (BADGE_FALLBACK[key] || key);
+    return c ? c.label : (LABEL_FALLBACK[key] || key);
   };
 
   return (
@@ -138,7 +138,7 @@ export default function PortfolioPreview() {
                             )}
                             <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent pointer-events-none" />
                             
-                            <div className="absolute top-2 left-2 bg-slate-950/90 border border-primary/40 rounded px-2 py-0.5 text-[8px] font-extrabold text-primary tracking-wider">
+                            <div className="absolute top-2 left-2 right-2 w-fit bg-slate-950/90 border border-primary/40 rounded px-2 py-0.5 text-[8px] font-extrabold text-primary tracking-wider">
                               {categoryBadge(project.category)}
                             </div>
 

@@ -18,6 +18,7 @@ import {
   Inbox
 } from 'lucide-react';
 import api from '../../services/api';
+import { alertNewNotifications } from '../../shared/notificationAlert';
 import { isPushAvailable, enablePush } from '../../services/pushNotifications';
 
 const POLL_INTERVAL_MS = 30000;
@@ -62,6 +63,9 @@ export default function NotificationBell() {
   const [activeFilter, setActiveFilter] = useState('all'); // 'all' | 'unread' | 'breaches'
   const [isRefreshing, setIsRefreshing] = useState(false);
   const wrapperRef = useRef(null);
+  // IDs already seen, so only notifications that arrive after the page loads
+  // pop an alert (null until the first fetch).
+  const seenIdsRef = useRef(null);
 
   useEffect(() => {
     isPushAvailable().then(setPushAvailable);
@@ -72,15 +76,21 @@ export default function NotificationBell() {
     try {
       const { data } = await api.get('/notifications?limit=60');
       if (data?.success) {
-        setNotifications(data.notifications || []);
+        const list = data.notifications || [];
+        setNotifications(list);
         setUnreadCount(data.unreadCount || 0);
+
+        alertNewNotifications(seenIdsRef, list, (n) => {
+          if (!n.read) api.put(`/notifications/${n._id}/read`).catch(() => {});
+          if (n.link) navigate(n.link);
+        });
       }
     } catch {
       // silent — bell keeps current state until next poll
     } finally {
       if (showIndicator) setTimeout(() => setIsRefreshing(false), 300);
     }
-  }, []);
+  }, [navigate]);
 
   useEffect(() => {
     fetchNotifications();

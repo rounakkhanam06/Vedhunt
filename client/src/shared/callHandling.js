@@ -39,3 +39,20 @@ export function isSameOutcome(outcome, lead) {
 }
 
 export const fmtClock = (d) => (d ? new Date(d).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '');
+
+/**
+ * Exact call length from start/end ("0m 12s", "2m 05s", "1h 03m"). Falls back
+ * to the stored whole-minute value when either time is missing (older logs).
+ */
+export function fmtCallDuration(start, end, fallbackMin) {
+  if (start && end) {
+    const sec = Math.max(0, Math.round((new Date(end) - new Date(start)) / 1000));
+    if (Number.isFinite(sec)) {
+      const h = Math.floor(sec / 3600);
+      const m = Math.floor((sec % 3600) / 60);
+      const s = sec % 60;
+      return h ? `${h}h ${String(m).padStart(2, '0')}m` : `${m}m ${String(s).padStart(2, '0')}s`;
+    }
+  }
+  return fallbackMin != null && fallbackMin !== '' ? `${fallbackMin} min` : '-';
+}

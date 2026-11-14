@@ -63,6 +63,9 @@ const STATUS_OPTIONS_BY_GROUP = {
 const fmtShortDate = (d) => (d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' }) : '—');
 
 export default function LeadsManager({ stageGroup }) {
+  // Raw Leads have had no call or action yet (moving out of Raw is exactly
+  // that), so Last Call / Last Activity would always be blank there.
+  const showActivityColumns = stageGroup !== 'raw';
   // Admin panel (role) or Employee Portal (person-wise grant) — shared/crmAccess.js
   const { http, root, can, leadPath } = useLeadAccess();
   const isSuperAdmin = can('*');
@@ -805,7 +808,7 @@ export default function LeadsManager({ stageGroup }) {
                 className={compactSelectClass}
                 title="Which date the range filters on"
               >
-                {Object.entries(DATE_FIELD_LABELS).map(([value, label]) => (
+                {Object.entries(DATE_FIELD_LABELS).filter(([value]) => showActivityColumns || !['lastCall', 'lastActivity'].includes(value)).map(([value, label]) => (
                   <option key={value} value={value}>{label}</option>
                 ))}
               </select>
@@ -939,6 +942,7 @@ export default function LeadsManager({ stageGroup }) {
                           <span className="text-[9px] opacity-70">{sortBy === 'assignedAt' ? (sortOrder === 'asc' ? '▲' : '▼') : '↕'}</span>
                         </div>
                       </th>
+                      {showActivityColumns && (<>
                       <th onClick={() => handleSort('lastCallAt')} className="px-3 py-3 font-semibold cursor-pointer select-none hover:text-primary transition-colors">
                         <div className="flex items-center gap-1">
                           <span>Last Call</span>
@@ -951,6 +955,7 @@ export default function LeadsManager({ stageGroup }) {
                           <span className="text-[9px] opacity-70">{sortBy === 'lastActivityAt' ? (sortOrder === 'asc' ? '▲' : '▼') : '↕'}</span>
                         </div>
                       </th>
+                      </>)}
                       <th onClick={() => handleSort('fullName')} className="px-3 py-3 font-semibold cursor-pointer select-none hover:text-primary transition-colors">
                         <div className="flex items-center gap-1">
                           <span>Lead Name</span>
@@ -1034,6 +1039,7 @@ export default function LeadsManager({ stageGroup }) {
                           }) : '-'}
                         </td>
                         <td className="px-3 py-2 align-middle text-app-text-muted whitespace-nowrap">{fmtShortDate(lead.assignedAt)}</td>
+                        {showActivityColumns && (<>
                         <td className="px-3 py-2 align-middle text-app-text-muted whitespace-nowrap">
                           {fmtShortDate(lead.lastCallAt || lead.callLogs?.reduce((max, c) => (c.callDate && (!max || new Date(c.callDate) > new Date(max)) ? c.callDate : max), null) || lead.callDate)}
                         </td>
@@ -1041,6 +1047,7 @@ export default function LeadsManager({ stageGroup }) {
                           {fmtShortDate(lead.lastActivityAt)}
                           {lead.lastActivityType && <span className="block text-[10px] opacity-70">{lead.lastActivityType}</span>}
                         </td>
+                        </>)}
                         <td className="px-3 py-2 align-middle font-semibold text-app-text min-w-[150px]">
                           {isSuperAdmin ? (
                             <input 

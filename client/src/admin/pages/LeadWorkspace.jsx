@@ -9,7 +9,8 @@ import FollowUpTasksPanel from '../components/FollowUpTasksPanel';
 import LeadCollaborationPanel from '../../shared/LeadCollaborationPanel';
 import CallNoteField from '../../shared/CallNoteField';
 import ProposalWorkflow from '../../employee/components/ProposalWorkflow';
-import { isCallInProgress, lastCallLog, startedNewCall, isSameOutcome, fmtClock } from '../../shared/callHandling';
+import { toDateTimeInput, fromLocalInput } from '../../employee/lib/datetime';
+import { isCallInProgress, lastCallLog, startedNewCall, isSameOutcome, fmtClock, fmtCallDuration } from '../../shared/callHandling';
 import { NOT_CONNECTED_REASONS, INTEREST_LEVELS, LOST_DROPPED_REASONS, FOLLOWUP_TRIGGER_INTEREST_LEVELS, PAYMENT_STATUS_OPTIONS, FOLLOW_UP_TYPES } from '../../shared/leadConstants';
 import {
   SERVICES_REQUIRED_OPTIONS, MARKETING_TYPE_SERVICES, TIMELINE_OPTIONS, DECISION_MAKER_OPTIONS,
@@ -283,7 +284,7 @@ export default function LeadWorkspace() {
       const durationMin = Math.max(1, Math.round(diffMs / 60000));
       const res = await http.put(`${root}/leads/${id}`, { callEndTime: now, callDuration: durationMin });
       setLead(res.data.data);
-      toast.success(`Call ended (${durationMin} min)`, { position: 'bottom-right' });
+      toast.success(`Call ended (${fmtCallDuration(lead.callStartTime, now, durationMin)})`, { position: 'bottom-right' });
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to end call');
     } finally {
@@ -359,6 +360,30 @@ export default function LeadWorkspace() {
   // follow-up date) travels with a stage change — otherwise the server
   // judges the new stage against a lead with no connected call logged.
   const outcomePending = Boolean(callOutcomeDraft?.connected);
+
+  // Next Follow-up typed while no call outcome is being filled in
+  const [followUpInput, setFollowUpInput] = useState(null);
+  const saveStandaloneFollowUp = async () => {
+    if (followUpInput === null || outcomePending) return;
+    const next = fromLocalInput(followUpInput) || null;
+    const current = lead?.nextFollowUpDate || null;
+    if (next && new Date(next).getTime() < Date.now()) {
+      toast.error('Pick a follow-up time in the future');
+      setFollowUpInput(null);
+      return;
+    }
+    if ((next && current && new Date(next).getTime() === new Date(current).getTime()) || (!next && !current)) {
+      setFollowUpInput(null);
+      return;
+    }
+    try {
+      await handleFieldChange('nextFollowUpDate', next);
+    } catch {
+      // handleFieldsChange already showed the error
+    } finally {
+      setFollowUpInput(null);
+    }
+  };
   const withPendingOutcome = (fields) => (outcomePending ? { ...outcomeFields(callOutcomeDraft), ...callNoteFields(), ...fields } : fields);
 
   const handleStageChange = async (fields) => {
@@ -490,8 +515,8 @@ export default function LeadWorkspace() {
                 <p className="text-sm font-medium text-app-text mt-1">{lead.callEndTime ? new Date(lead.callEndTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-'}</p>
               </div>
               <div>
-                <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">Duration (min)</label>
-                <p className="text-sm font-medium text-app-text mt-1">{lead.callDuration || '-'}</p>
+                <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">Duration</label>
+                <p className="text-sm font-medium text-app-text mt-1">{isCallInProgress(lead) ? '-' : fmtCallDuration(lead.callStartTime, lead.callEndTime, lead.callDuration || null)}</p>
               </div>
               <div>
                 <label className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">Call Date</label>
@@ -558,18 +583,29 @@ export default function LeadWorkspace() {
                   ))}
                 </select>
               </div>
+              {/* Read-only, filled in automatically when a call outcome is saved */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className={fieldLabelClass}>Age @ Call</label>
-                  <p className="mt-1 text-sm font-semibold text-app-text py-2 text-center" title="Days between the lead's creation and its most recent logged call — calculated automatically.">
-                    {lead.leadAgeAtCall ?? '-'}{lead.leadAgeAtCall != null ? ' days' : ''}
-                  </p>
+                  <label className={fieldLabelClass}>Lead Age at Call</label>
+                  <div
+                    className="mt-1 w-full rounded-lg border border-dashed border-app-border bg-app-bg/50 px-3 py-2.5 text-sm text-app-text"
+                    title="Days between the lead's creation and its most recent logged call — calculated automatically."
+                  >
+                    {lead.leadAgeAtCall != null
+                      ? `${lead.leadAgeAtCall} ${lead.leadAgeAtCall === 1 ? 'day' : 'days'}`
+                      : <span className="text-app-text-muted">Not called yet</span>}
+                  </div>
                 </div>
                 <div>
-                  <label className={fieldLabelClass}>Touch #</label>
-                  <p className="mt-1 text-sm font-semibold text-app-text py-2 text-center" title="Number of logged call attempts — calculated automatically.">
-                    {lead.touchNumber ?? 0}
-                  </p>
+                  <label className={fieldLabelClass}>Calls Logged</label>
+                  <div
+                    className="mt-1 w-full rounded-lg border border-dashed border-app-border bg-app-bg/50 px-3 py-2.5 text-sm text-app-text"
+                    title="Number of logged call attempts (touches) — calculated automatically."
+                  >
+                    {lead.touchNumber
+                      ? `${lead.touchNumber} ${lead.touchNumber === 1 ? 'call' : 'calls'}`
+                      : <span className="text-app-text-muted">None yet</span>}
+                  </div>
                 </div>
               </div>
             </div>
@@ -675,26 +711,50 @@ export default function LeadWorkspace() {
                   ))}
                 </select>
               </div>
-              {lead.paymentStatus && lead.paymentStatus !== 'Not Applicable' && (
-                <>
-                  <div>
-                    <label className={fieldLabelClass}>Amount Paid (₹)</label>
-                    <input
-                      type="number"
-                      min="0"
-                      defaultValue={lead.amountPaid ?? ''}
-                      onBlur={(e) => { if (Number(e.target.value) !== lead.amountPaid) handleFieldChange('amountPaid', Number(e.target.value)); }}
-                      className={selectClass}
-                    />
-                  </div>
-                  <div>
-                    <label className={fieldLabelClass}>Pending Amount (₹)</label>
-                    <p className="mt-1 text-sm font-semibold text-app-text py-2">
-                      ₹{Math.max(0, (lead.dealCloseValue || 0) - (lead.amountPaid || 0)).toLocaleString('en-IN')}
-                    </p>
-                  </div>
-                </>
-              )}
+              {lead.paymentStatus && lead.paymentStatus !== 'Not Applicable' && (() => {
+                // Pending amount follows the selected Payment Status:
+                //   Pending → whole deal, Partially Paid → deal − paid, Paid → 0.
+                // The deal is the close value, else the estimated value.
+                const dealTotal = lead.dealCloseValue || lead.dealValue || 0;
+                const usingEstimate = !lead.dealCloseValue && !!lead.dealValue;
+                const paid = lead.amountPaid || 0;
+                const status = lead.paymentStatus;
+                const pending = status === 'Paid' ? 0 : status === 'Pending' ? dealTotal : Math.max(0, dealTotal - paid);
+                const overpaid = status === 'Partially Paid' && dealTotal > 0 && paid >= dealTotal;
+                return (
+                  <>
+                    {status === 'Partially Paid' && (
+                      <div>
+                        <label className={fieldLabelClass}>Amount Paid (₹)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          defaultValue={lead.amountPaid ?? ''}
+                          onBlur={(e) => { if (Number(e.target.value) !== lead.amountPaid) handleFieldChange('amountPaid', Number(e.target.value)); }}
+                          className={selectClass}
+                        />
+                        {overpaid && (
+                          <p className="text-[11px] text-amber-500 mt-1">
+                            Amount paid covers the full deal — set Payment Status to "Paid"?
+                          </p>
+                        )}
+                      </div>
+                    )}
+                    <div>
+                      <label className={fieldLabelClass}>Pending Amount (₹)</label>
+                      <p className={`mt-1 text-sm font-semibold py-2 ${pending > 0 ? 'text-app-text' : 'text-emerald-500'}`}>
+                        ₹{pending.toLocaleString('en-IN')}
+                      </p>
+                      {status !== 'Paid' && !dealTotal && (
+                        <p className="text-[11px] text-app-text-muted -mt-1">Enter a deal value to calculate this.</p>
+                      )}
+                      {status !== 'Paid' && usingEstimate && (
+                        <p className="text-[11px] text-app-text-muted -mt-1">Based on the estimated deal value.</p>
+                      )}
+                    </div>
+                  </>
+                );
+              })()}
             </div>
           </div>
 
@@ -709,11 +769,21 @@ export default function LeadWorkspace() {
             <input
               ref={followUpInputRef}
               type="datetime-local"
-              value={(() => { const v = getCallOutcomeValue('nextFollowUpDate'); return v ? new Date(v).toISOString().slice(0, 16) : ''; })()}
+              // Local time (toISOString() is UTC and shifted India times by 5:30).
+              // With a call outcome being filled in, the date travels with it;
+              // on its own it is saved when the field is left, so editing
+              // hours and minutes doesn't log a reschedule per keystroke.
+              value={followUpInput ?? toDateTimeInput(getCallOutcomeValue('nextFollowUpDate'))}
               onChange={(e) => {
-                const value = e.target.value ? new Date(e.target.value).toISOString() : null;
-                updateCallOutcomeField('nextFollowUpDate', value);
+                if (outcomePending) {
+                  setFollowUpInput(null);
+                  updateCallOutcomeField('nextFollowUpDate', fromLocalInput(e.target.value) || null);
+                } else {
+                  setFollowUpInput(e.target.value);
+                }
               }}
+              onBlur={saveStandaloneFollowUp}
+              onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
               className="mt-2 w-full bg-app-card border border-app-border rounded-lg px-3 py-2 text-sm text-app-text focus:outline-none focus:border-primary"
               style={{ colorScheme: 'dark' }}
             />
@@ -1047,7 +1117,7 @@ export default function LeadWorkspace() {
                     <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-app-text-muted">
                       {call.interestLevel && <span>Interest: <span className="text-app-text font-medium">{call.interestLevel}</span></span>}
                       {call.notConnectedReason && <span>Reason: <span className="text-app-text font-medium">{call.notConnectedReason}</span></span>}
-                      {call.callDuration != null && <span>Duration: <span className="text-app-text font-medium">{call.callDuration} min</span></span>}
+                      {(call.callDuration != null || (call.callStartTime && call.callEndTime)) && <span>Duration: <span className="text-app-text font-medium">{fmtCallDuration(call.callStartTime, call.callEndTime, call.callDuration)}</span></span>}
                       {call.leadStage && <span>Stage: <span className="text-app-text font-medium">{call.leadStage}</span></span>}
                     </div>
                     {call.remark && (

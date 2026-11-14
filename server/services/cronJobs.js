@@ -190,7 +190,10 @@ const startCronJobs = () => {
 
       if (breachedLeads.length > 0) {
         // Find all Super Admins (management)
-        const superAdmins = await Admin.find({ permissions: '*' });
+        // Permissions live on Roles; Admin has no `permissions` field, so the
+        // old Admin.find({ permissions: '*' }) matched nobody.
+        const { getLeadManagerIds } = require('../utils/notifyLeadManagers');
+        const superAdmins = (await getLeadManagerIds()).map((_id) => ({ _id }));
 
         for (const lead of breachedLeads) {
           // Plain updateOne, not lead.save() — some legacy leads have a

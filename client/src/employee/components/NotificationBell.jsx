@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import employeeApi from '../../services/employeeApi';
 import { isPushAvailable, enablePush } from '../../services/pushNotifications';
+import { alertNewNotifications } from '../../shared/notificationAlert';
 
 const POLL_INTERVAL_MS = 30000;
 
@@ -52,6 +53,42 @@ const formatTimeAgo = (dateStr) => {
   });
 };
 
+// Notification links are written by the server for whichever panel the
+// recipient uses, and several point at admin pages or at a ?tab= that is not
+// an Employee Portal module (e.g. tab=leads). The portal sends any unknown tab
+// back to the dashboard, which is why "View details" landed there. Map them
+// onto the portal's own pages.
+const ADMIN_TO_PORTAL_TAB = {
+  '/admin/tasks': 'tasks',
+  '/admin/follow-ups': 'followups',
+  '/admin/attendance-roster': 'grant-attendance',
+  '/admin/invoices': 'crm-invoices',
+  '/admin/clients': 'crm-clients',
+  '/admin/leads': 'working-leads',
+};
+const TAB_ALIASES = { leads: 'working-leads', 'follow-ups': 'followups' };
+
+export function toPortalLink(link) {
+  try {
+    const url = new URL(link, window.location.origin);
+    const leadId = url.searchParams.get('leadId');
+    // Any link about one lead opens that lead's workspace directly
+    if (leadId) return `/employee/leads/${leadId}`;
+    if (url.pathname.startsWith('/admin/')) {
+      const tab = ADMIN_TO_PORTAL_TAB[url.pathname];
+      return `/employee/dashboard?tab=${tab || 'dashboard'}`;
+    }
+    if (url.pathname === '/employee/dashboard') {
+      const tab = url.searchParams.get('tab');
+      if (tab && TAB_ALIASES[tab]) url.searchParams.set('tab', TAB_ALIASES[tab]);
+      return `${url.pathname}?${url.searchParams.toString()}`;
+    }
+    return `${url.pathname}${url.search}`;
+  } catch {
+    return link;
+  }
+}
+
 export default function NotificationBell() {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
@@ -61,6 +98,8 @@ export default function NotificationBell() {
   const [activeFilter, setActiveFilter] = useState('all'); // 'all' | 'unread' | 'breaches'
   const [isRefreshing, setIsRefreshing] = useState(false);
   const wrapperRef = useRef(null);
+  // Notifications already seen, so only ones arriving after load pop an alert
+  const seenIdsRef = useRef(null);
 
   useEffect(() => {
     isPushAvailable().then(setPushAvailable);
@@ -71,15 +110,20 @@ export default function NotificationBell() {
     try {
       const { data } = await employeeApi.get('/employee-portal/ess/notifications');
       if (data?.success) {
-        setNotifications(data.notifications || []);
+        const list = data.notifications || [];
+        setNotifications(list);
         setUnreadCount(data.unreadCount || 0);
+        alertNewNotifications(seenIdsRef, list, (n) => {
+          if (!n.read) employeeApi.put(`/employee-portal/ess/notifications/${n._id}/read`).catch(() => {});
+          if (n.link) navigate(toPortalLink(n.link));
+        });
       }
     } catch {
       // silent
     } finally {
       if (showIndicator) setTimeout(() => setIsRefreshing(false), 300);
     }
-  }, []);
+  }, [navigate]);
 
   useEffect(() => {
     fetchNotifications();
@@ -118,7 +162,7 @@ export default function NotificationBell() {
       setUnreadCount((prev) => Math.max(0, prev - 1));
       employeeApi.put(`/employee-portal/ess/notifications/${notification._id}/read`).catch(() => {});
     }
-    if (notification.link) navigate(notification.link);
+    if (notification.link) navigate(toPortalLink(notification.link));
   };
 
   const handleMarkOneRead = async (e, id) => {

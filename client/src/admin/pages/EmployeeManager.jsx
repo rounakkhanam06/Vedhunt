@@ -698,7 +698,7 @@ const EmployeeManager = () => {
   };
 
   const inputClass = (name) => {
-    const base = 'w-full text-sm rounded-lg border px-4 py-2.5 text-app-text placeholder-app-text-muted focus:outline-none focus:ring-1 bg-form-input-bg transition-colors';
+    const base = 'w-full text-sm rounded-lg border px-4 py-2.5 text-app-text placeholder-form-placeholder focus:outline-none focus:ring-1 bg-form-input-bg transition-colors';
     if (touched[name] && errors[name]) return `${base} border-rose-500/60 focus:ring-rose-500`;
     if (touched[name] && !errors[name]) return `${base} border-emerald-500/50 focus:ring-emerald-500`;
     return `${base} border-app-border focus:ring-orange-500`;
@@ -987,7 +987,7 @@ const EmployeeManager = () => {
                 <div className="flex gap-2 flex-wrap">
                   {[['CL', 'Casual Leave', newCL, setNewCL], ['SL', 'Sick Leave', newSL, setNewSL], ['PL', 'Paid Leave', newPL, setNewPL], ['EL', 'Emergency Leave (probation)', newEL, setNewEL]].map(([key, title, value, setValue]) => (
                     <input key={key} type="number" min="0" step="0.5" placeholder={`${key} (default)`} title={title} aria-label={title}
-                      className="w-24 text-xs rounded-lg border border-app-border bg-form-input-bg px-2 py-2 text-app-text placeholder-app-text-muted focus:outline-none"
+                      className="w-24 text-xs rounded-lg border border-app-border bg-form-input-bg px-2 py-2 text-app-text placeholder-form-placeholder focus:outline-none"
                       value={value} onChange={(e) => setValue(e.target.value)} />
                   ))}
                   <button onClick={() => handleAddSubItem('leaveBalances')} className="px-4 rounded-lg bg-orange-600/20 text-orange-400 border border-orange-500/20 text-xs font-semibold hover:bg-orange-600 hover:text-white transition-all cursor-pointer">Update</button>
@@ -1001,7 +1001,7 @@ const EmployeeManager = () => {
                 <h3 className="text-sm font-bold text-app-text-muted flex items-center gap-1.5"><Award size={14} /> Performance Goal</h3>
                 <div>
                   <label className="block text-[10px] font-semibold text-app-text-muted uppercase tracking-wider mb-1">Goal Description *</label>
-                  <input type="text" placeholder="e.g. Increase sales by 10%" className="w-full text-xs rounded-lg border border-app-border bg-form-input-bg px-3 py-2 text-app-text placeholder-app-text-muted focus:outline-none" value={goalText} onChange={e => setGoalText(e.target.value)} />
+                  <input type="text" placeholder="e.g. Increase sales by 10%" className="w-full text-xs rounded-lg border border-app-border bg-form-input-bg px-3 py-2 text-app-text placeholder-form-placeholder focus:outline-none" value={goalText} onChange={e => setGoalText(e.target.value)} />
                 </div>
                 <div>
                   <label className="block text-[10px] font-semibold text-app-text-muted uppercase tracking-wider mb-1">Target Achievement Date *</label>
@@ -1038,7 +1038,7 @@ const EmployeeManager = () => {
                     </div>
                     <div>
                       <label className="block text-[10px] font-semibold text-app-text-muted uppercase tracking-wider mb-1">New CTC (₹/year) *</label>
-                      <input type="number" placeholder="e.g. 700000" className="w-full text-xs rounded-lg border border-app-border bg-app-bg px-3 py-2 text-app-text placeholder-app-text-muted focus:outline-none"
+                      <input type="number" placeholder="e.g. 700000" className="w-full text-xs rounded-lg border border-app-border bg-app-bg px-3 py-2 text-app-text placeholder-form-placeholder focus:outline-none"
                         value={revisionForm.ctc} onChange={(e) => setRevisionForm((f) => ({ ...f, ctc: e.target.value }))} />
                     </div>
                     <div>
@@ -1049,7 +1049,7 @@ const EmployeeManager = () => {
                     </div>
                     <div>
                       <label className="block text-[10px] font-semibold text-app-text-muted uppercase tracking-wider mb-1">Reason for Revision *</label>
-                      <input type="text" placeholder="e.g. Annual increment" className="w-full text-xs rounded-lg border border-app-border bg-app-bg px-3 py-2 text-app-text placeholder-app-text-muted focus:outline-none"
+                      <input type="text" placeholder="e.g. Annual increment" className="w-full text-xs rounded-lg border border-app-border bg-app-bg px-3 py-2 text-app-text placeholder-form-placeholder focus:outline-none"
                         value={revisionForm.reason} onChange={(e) => setRevisionForm((f) => ({ ...f, reason: e.target.value }))} />
                     </div>
                     <button type="submit" disabled={isSavingRevision} className="w-full mt-1 py-1.5 rounded-lg bg-orange-600/20 text-orange-400 border border-orange-500/20 text-xs font-semibold hover:bg-orange-600 hover:text-white transition-all cursor-pointer disabled:opacity-50">
@@ -1163,7 +1163,7 @@ const EmployeeManager = () => {
             placeholder="Search by employee name..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-form-input-bg border border-app-border rounded-lg pl-10 pr-4 py-2 text-sm text-app-text placeholder-app-text-muted focus:outline-none focus:ring-1 focus:ring-orange-500 transition-colors"
+            className="w-full bg-form-input-bg border border-app-border rounded-lg pl-10 pr-4 py-2 text-sm text-app-text placeholder-form-placeholder focus:outline-none focus:ring-1 focus:ring-orange-500 transition-colors"
           />
         </div>
         {canSeeHours && (

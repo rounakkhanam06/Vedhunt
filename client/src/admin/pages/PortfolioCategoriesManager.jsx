@@ -120,16 +120,6 @@ export default function PortfolioCategoriesManager({ onChange }) {
               />
             </div>
             <div>
-              <label className="text-sm font-medium text-app-text-muted block mb-2">Card Badge Text</label>
-              <input
-                maxLength={40}
-                className={inputCls}
-                placeholder="Short label shown on cards (defaults to tab name)"
-                value={form.badge}
-                onChange={(e) => setForm({ ...form, badge: e.target.value })}
-              />
-            </div>
-            <div>
               <label className="text-sm font-medium text-app-text-muted block mb-2">Display Order</label>
               <input
                 type="number"
@@ -169,7 +159,6 @@ export default function PortfolioCategoriesManager({ onChange }) {
             <tr className="text-left text-xs uppercase tracking-wider text-app-text-muted">
               <th className="px-4 py-3">Order</th>
               <th className="px-4 py-3">Tab Name</th>
-              <th className="px-4 py-3">Badge</th>
               <th className="px-4 py-3">Showcases</th>
               <th className="px-4 py-3">Status</th>
               <th className="px-4 py-3" />
@@ -178,14 +167,13 @@ export default function PortfolioCategoriesManager({ onChange }) {
           <tbody className="divide-y divide-app-border">
             {categories.length === 0 ? (
               <tr>
-                <td colSpan="6" className="px-4 py-8 text-center text-app-text-muted">No categories yet.</td>
+                <td colSpan="5" className="px-4 py-8 text-center text-app-text-muted">No categories yet.</td>
               </tr>
             ) : (
               categories.map((cat) => (
                 <tr key={cat._id} className="text-app-text">
                   <td className="px-4 py-3">{cat.displayOrder}</td>
                   <td className="px-4 py-3 font-medium">{cat.label}</td>
-                  <td className="px-4 py-3 text-app-text-muted">{cat.badge || '—'}</td>
                   <td className="px-4 py-3">{cat.itemCount}</td>
                   <td className="px-4 py-3">
                     <span className={`px-2 py-0.5 rounded-full text-xs border ${cat.isActive ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' : 'bg-gray-500/10 text-app-text-muted border-app-border'}`}>

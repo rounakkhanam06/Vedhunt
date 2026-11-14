@@ -8,6 +8,7 @@ const { findDuplicateLead } = require('../services/leadDedup');
 const { normalizePhone, normalizeEmail } = require('../utils/normalize');
 const AssignmentLog = require('../models/AssignmentLog');
 const { manualAssign, autoAssignLead } = require('../services/leadAssignment');
+const { notifyLeadManagers } = require('../utils/notifyLeadManagers');
 const { findLeadRaw } = require('../utils/leadLookup');
 const { LEAD_UPDATE_FIELDS, TERMINAL_STATUSES } = require('../utils/leadStateMachine');
 const { applyLeadUpdate, hasActiveCallByOther } = require('../services/leadLifecycle');
@@ -136,6 +137,19 @@ exports.createLead = async (req, res, next) => {
 
     // Never throws — logs and leaves the lead Unassigned on any failure.
     await autoAssignLead(lead);
+
+    // In-app alert (bell + push) to lead managers for every new website enquiry.
+    // The assigned BD already gets a "lead assigned" alert, so skip them here.
+    const isQuote = /quote/i.test(String(source || '')) || !!service;
+    const assignee = await Lead.findById(lead._id).select('assignedTo').lean().catch(() => null);
+    await notifyLeadManagers({
+      type: 'new_lead',
+      title: isQuote ? 'New quote request' : 'New enquiry',
+      message: `${fullName} — ${service || 'General enquiry'}${businessName ? ` (${businessName})` : ''}`,
+      link: `/admin/leads?leadId=${lead._id}`,
+      lead: lead._id,
+      exclude: [assignee?.assignedTo],
+    });
 
     // Send email to HR/Admin
     // Send email to HR/Admin

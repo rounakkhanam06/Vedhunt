@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -20,10 +20,12 @@ import {
   ChevronDown,
   Palette,
   Ship,
-  Settings
+  Settings,
+  Briefcase
 } from 'lucide-react';
 import { useContactInfo } from '../context/ContactInfoContext';
 import api from '../services/api';
+import { useAllServices } from '../hooks/usePublicContent';
 import { getAttributionSource, getSavedUtms } from '../utils/attribution';
 
 // Inline premium custom SVG brand icons
@@ -68,6 +70,40 @@ const servicesOptions = [
   { id: 'shipping', label: 'Shipping Management', desc: 'Logistics / Freight', icon: Ship },
   { id: 'workflow', label: 'Workflow Management', desc: 'Automation / Systems', icon: Settings },
 ];
+
+// Admin service id_string → quote option that has its own question set
+const SERVICE_ID_TO_QUOTE = {
+  'web-dev': 'website',
+  'app-dev': 'app',
+  'social-media': 'digital_marketing',
+  'performance-marketing': 'performance_marketing',
+  'accounting-finance': 'accounting',
+  'mis-reporting': 'mis',
+};
+
+// Every active service from the admin panel, plus the quote-only options
+// (graphic design, shipping, workflow) that have no service page. Services
+// without a dedicated question set just get the general questions.
+function buildServiceChoices(liveServices) {
+  if (!Array.isArray(liveServices) || liveServices.length === 0) return servicesOptions;
+  const used = new Set();
+  const choices = liveServices.map((srv) => {
+    const quoteId = SERVICE_ID_TO_QUOTE[srv.id_string];
+    const known = quoteId && servicesOptions.find((o) => o.id === quoteId);
+    if (known) {
+      used.add(known.id);
+      return { ...known, label: srv.title || known.label };
+    }
+    return {
+      id: srv.id_string || srv.slug,
+      label: srv.title,
+      desc: srv.subtitle || srv.subServices || '',
+      icon: Briefcase,
+    };
+  });
+  servicesOptions.forEach((o) => { if (!used.has(o.id)) choices.push(o); });
+  return choices.filter((c, i, arr) => c.id && arr.findIndex((x) => x.id === c.id) === i);
+}
 
 const timelineOptions = ['Immediately', 'Within 1 Month', '1-3 Months', 'Just Exploring'];
 
@@ -265,6 +301,8 @@ function buildQualificationFields(serviceId, serviceLabel, finalData) {
 export default function GetQuote() {
   const { contactInfo } = useContactInfo();
   const [step, setStep] = useState(1);
+  const { data: liveServices } = useAllServices();
+  const serviceChoices = useMemo(() => buildServiceChoices(liveServices), [liveServices]);
   const [isSubmitSuccess, setIsSubmitSuccess] = useState(false);
   const [submittedData, setSubmittedData] = useState(null);
   
@@ -335,7 +373,7 @@ export default function GetQuote() {
         fullMessage += `Details:\n${finalData.projectIdea}\n`;
       }
 
-      const serviceLabel = servicesOptions.find(s => s.id === finalData.service)?.label || finalData.service || 'Not Specified';
+      const serviceLabel = serviceChoices.find(s => s.id === finalData.service)?.label || finalData.service || 'Not Specified';
 
       const payload = {
         fullName: `${finalData.firstName} ${finalData.lastName || ''}`.trim(),
@@ -477,10 +515,10 @@ export default function GetQuote() {
       <div className="space-y-4">
         <div className="mb-4">
           <h3 className="text-xl font-black font-heading text-primary">
-            {servicesOptions.find(s => s.id === selectedService)?.label}
+            {serviceChoices.find(s => s.id === selectedService)?.label}
           </h3>
           <p className="text-sm text-app-text-muted mt-1">
-            {config.subtitle || `Details for ${servicesOptions.find(s => s.id === selectedService)?.label}`}
+            {config.subtitle || `Details for ${serviceChoices.find(s => s.id === selectedService)?.label}`}
           </p>
         </div>
 
@@ -818,7 +856,7 @@ export default function GetQuote() {
                         </div>
                         
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          {servicesOptions.map(svc => {
+                          {serviceChoices.map(svc => {
                             const Icon = svc.icon;
                             const isSelected = selectedService === svc.id;
                             return (
@@ -897,7 +935,7 @@ export default function GetQuote() {
                           <div>
                             <h4 className="text-[10px] font-extrabold text-primary tracking-widest mb-2">Project Summary</h4>
                             <div className="grid grid-cols-2 gap-2 text-app-text-muted">
-                              <div><strong>Service:</strong> {servicesOptions.find(s => s.id === selectedService)?.label}</div>
+                              <div><strong>Service:</strong> {serviceChoices.find(s => s.id === selectedService)?.label}</div>
                               {getValues('timeline') && <div><strong>Timeline:</strong> {getValues('timeline')}</div>}
                             </div>
                           </div>

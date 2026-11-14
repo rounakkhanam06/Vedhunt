@@ -26,6 +26,16 @@ export const useHomeServices = () =>
     select: (data) => (data?.data || []).slice(0, 6),
   });
 
+// All active services (Get Quote service picker)
+export const useAllServices = () =>
+  useQuery({
+    queryKey: ['all-services'],
+    queryFn: () => contentService.getServicesPublic(),
+    staleTime: STALE_TIME,
+    gcTime: GC_TIME,
+    select: (data) => data?.data || [],
+  });
+
 export const useHomeServicesSection = () =>
   useQuery({
     queryKey: ['home-services-section'],
