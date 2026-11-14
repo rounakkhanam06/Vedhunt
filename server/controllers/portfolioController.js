@@ -28,15 +28,29 @@ const getPortfolioItems = async (req, res) => {
       query.featured = true;
     }
 
-    let total = await Portfolio.countDocuments(query);
-    
-    // Fallback logic: If we requested featured items but there are none, 
-    // fall back to showing standard active items so the homepage never looks empty.
-    if (req.query.featured === 'true' && total === 0) {
-      delete query.featured;
-      total = await Portfolio.countDocuments(query);
+    // Homepage "Featured Projects": featured items first, then other active
+    // items fill the remaining slots — so marking one project featured no
+    // longer leaves the rest of the section empty.
+    if (req.query.featured === 'true') {
+      const sort = { displayOrder: 1, createdAt: -1 };
+      const featured = await Portfolio.find(query).sort(sort).limit(limit);
+      let portfolios = featured;
+      if (featured.length < limit) {
+        const rest = { ...query };
+        delete rest.featured;
+        rest._id = { $nin: featured.map((p) => p._id) };
+        const fill = await Portfolio.find(rest).sort(sort).limit(limit - featured.length);
+        portfolios = [...featured, ...fill];
+      }
+      return res.status(200).json({
+        success: true,
+        count: portfolios.length,
+        pagination: { page: 1, limit, total: portfolios.length, totalPages: 1 },
+        data: portfolios,
+      });
     }
 
+    const total = await Portfolio.countDocuments(query);
     const totalPages = Math.ceil(total / limit);
 
     // Sort by displayOrder first, then newest first
