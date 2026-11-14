@@ -159,6 +159,13 @@ const BlogDetail = () => {
             <img
               src={post.thumbnail}
               alt={post.title}
+              onError={(e) => {
+                // Dead image link (e.g. a removed stock photo): show the site banner instead of a broken icon
+                if (!e.currentTarget.dataset.fallback) {
+                  e.currentTarget.dataset.fallback = '1';
+                  e.currentTarget.src = '/og-banner.jpg';
+                }
+              }}
               className="w-full h-full object-cover"
             />
           </motion.div>

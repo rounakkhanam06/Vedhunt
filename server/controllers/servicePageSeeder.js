@@ -651,7 +651,7 @@ const SERVICE_DETAILS_DATA = {
     },
     portfolio: [
       {
-        image: 'https://images.unsplash.com/photo-1454165833767-027ffea9e778?q=80&w=600&h=400&fit=crop',
+        image: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=600&h=400&fit=crop',
         title: 'Nexus Logistics Services',
         metric: 'Zero-Audit Penalties In 2 Years',
         description: 'Restructured ledger classification and optimized input tax credits, saving over ₹4.5 Lakhs in leakages.'
@@ -778,7 +778,7 @@ const SERVICE_DETAILS_DATA = {
     },
     portfolio: [
       {
-        image: 'https://images.unsplash.com/photo-1454165833767-027ffea9e778?q=80&w=600&h=400&fit=crop',
+        image: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=600&h=400&fit=crop',
         title: 'MedLine Healthcare CRM Analytics',
         metric: '15 Hours Saved Every Week',
         description: 'Consolidated patient records and billing invoices from 6 local clinics into one auto-updating central dashboard.'

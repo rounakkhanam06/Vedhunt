@@ -26,8 +26,15 @@ const BlogCard = ({ post }) => {
           {/* Image - Reduced height with 16:9 aspect ratio */}
           <div className="flex-grow aspect-[2/1] overflow-hidden rounded-sm bg-app-bg">
             <img
-              src={post.thumbnail || post.image}
+              src={post.thumbnail || post.image || '/og-banner.jpg'}
               alt={post.title}
+              onError={(e) => {
+                // Dead image link (e.g. a removed stock photo): show the site banner instead of a broken icon
+                if (!e.currentTarget.dataset.fallback) {
+                  e.currentTarget.dataset.fallback = '1';
+                  e.currentTarget.src = '/og-banner.jpg';
+                }
+              }}
               className="w-full h-full object-cover grayscale-[0.2] group-hover:grayscale-0 transition-all duration-700 group-hover:scale-105"
             />
           </div>
