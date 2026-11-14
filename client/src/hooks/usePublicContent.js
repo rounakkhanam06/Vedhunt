@@ -79,6 +79,17 @@ export const useFeaturedPortfolio = () =>
     gcTime: GC_TIME,
   });
 
+export const usePortfolioCategories = () =>
+  useQuery({
+    queryKey: ['portfolio-categories'],
+    queryFn: async () => {
+      const res = await api.get('/portfolio/categories');
+      return res.data?.data || [];
+    },
+    staleTime: STALE_TIME,
+    gcTime: GC_TIME,
+  });
+
 // ── Home Pricing Preview ───────────────────────────────────────────────────────
 export const useHomePricing = () =>
   useQuery({

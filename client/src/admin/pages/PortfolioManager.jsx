@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
+import { uploadService } from '../../services/uploadService';
 import { Loader, Edit2, Trash2, Plus, Image as ImageIcon, Laptop, Database, Share2, AlertTriangle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import PortfolioMetricsManager from './PortfolioMetricsManager';
 import PortfolioCTAManager from './PortfolioCTAManager';
 import PortfolioHeroManager from './PortfolioHeroManager';
+import PortfolioCategoriesManager from './PortfolioCategoriesManager';
 
 export default function PortfolioManager() {
   const [portfolios, setPortfolios] = useState([]);
@@ -35,9 +37,23 @@ export default function PortfolioManager() {
   const [formData, setFormData] = useState(initialFormState);
   const [isUploading, setIsUploading] = useState(false);
 
+  const [categories, setCategories] = useState([]);
+
+  const fetchCategories = async () => {
+    try {
+      const res = await api.get('/portfolio/admin/categories');
+      setCategories(res.data.data || []);
+    } catch (error) {
+      console.error('Failed to load categories', error);
+    }
+  };
+
   useEffect(() => {
     fetchPortfolios();
+    fetchCategories();
   }, []);
+
+  const categoryLabel = (key) => categories.find(c => c.key === key)?.label || key;
 
   const fetchPortfolios = async () => {
     try {
@@ -76,20 +92,14 @@ export default function PortfolioManager() {
     const file = e.target.files[0];
     if (!file) return;
 
-    const data = new FormData();
-    data.append('image', file);
-
     setIsUploading(true);
     try {
-      const res = await api.post('/upload', data, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-      if (res.data.url) {
-        setFormData({ ...formData, image: res.data.url });
-        toast.success('Image uploaded successfully!');
-      }
+      const res = await uploadService.uploadImage(file);
+      e.target.value = '';
+      setFormData(prev => ({ ...prev, image: res.url }));
+      toast.success('Image uploaded successfully!');
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to upload image');
+      toast.error(error.message || 'Failed to upload image');
       console.error(error);
     } finally {
       setIsUploading(false);
@@ -140,7 +150,8 @@ export default function PortfolioManager() {
 
   const openAddModal = () => {
     setEditingId(null);
-    setFormData(initialFormState);
+    const firstActive = categories.find(c => c.isActive) || categories[0];
+    setFormData({ ...initialFormState, category: firstActive?.key || '' });
     setIsModalOpen(true);
   };
 
@@ -228,9 +239,10 @@ export default function PortfolioManager() {
                   onChange={e => setFormData({ ...formData, category: e.target.value })}
                   className="w-full bg-form-input-bg border border-app-border rounded-lg px-4 py-2.5 text-app-text focus:outline-none focus:border-primary transition-colors"
                 >
-                  <option value="development">Web & App Engineering</option>
-                  <option value="automation">Automation & Business Finance</option>
-                  <option value="marketing">SEO & Growth Marketing</option>
+                  <option value="" disabled>Select a category</option>
+                  {categories.map(c => (
+                    <option key={c._id} value={c.key}>{c.label}{c.isActive ? '' : ' (hidden)'}</option>
+                  ))}
                 </select>
               </div>
               <div>
@@ -419,6 +431,16 @@ export default function PortfolioManager() {
                 Project Showcases
               </button>
               <button
+                onClick={() => setActiveTab('categories')}
+                className={`whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium transition-colors cursor-pointer ${
+                  activeTab === 'categories'
+                    ? 'border-[#FF6B00] text-[#FF6B00]'
+                    : 'border-transparent text-app-text-muted hover:border-gray-400 hover:text-app-text'
+                }`}
+              >
+                Categories
+              </button>
+              <button
                 onClick={() => setActiveTab('metrics')}
                 className={`whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium transition-colors cursor-pointer ${
                   activeTab === 'metrics'
@@ -481,7 +503,7 @@ export default function PortfolioManager() {
                       <div className="flex-1 min-w-0">
                         <h3 className="text-lg font-bold text-app-text truncate pr-2">{item.title}</h3>
                         <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full uppercase tracking-wider font-semibold border border-primary/20">
-                          {item.category}
+                          {categoryLabel(item.category)}
                         </span>
                       </div>
                     </div>
@@ -511,6 +533,8 @@ export default function PortfolioManager() {
                 ))}
               </div>
             </>
+          ) : activeTab === 'categories' ? (
+            <PortfolioCategoriesManager onChange={fetchCategories} />
           ) : activeTab === 'metrics' ? (
             <PortfolioMetricsManager isNested={true} />
           ) : activeTab === 'hero' ? (

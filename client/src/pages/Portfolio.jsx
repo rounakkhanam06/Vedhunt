@@ -88,8 +88,27 @@ const PORTFOLIO_ICON_MAP = {
   Laptop
 };
 
+// Used until the categories API answers (or if it fails)
+const CATEGORY_FALLBACK = [
+  { key: 'development', label: 'Web & App Engineering', badge: 'Engineering' },
+  { key: 'automation', label: 'Automation & Business Finance', badge: 'Finance & Tech' },
+  { key: 'marketing', label: 'SEO & Growth Marketing', badge: 'Marketing & SEO' },
+];
+
 export default function Portfolio() {
   const [activeFilter, setActiveFilter] = useState('all');
+  const [categories, setCategories] = useState(CATEGORY_FALLBACK);
+
+  useEffect(() => {
+    api.get('/portfolio/categories')
+      .then(res => { if (res.data?.success && Array.isArray(res.data.data)) setCategories(res.data.data); })
+      .catch(err => console.error('Error fetching portfolio categories:', err));
+  }, []);
+
+  const categoryBadge = (key) => {
+    const c = categories.find(cat => cat.key === key);
+    return c ? (c.badge || c.label) : key;
+  };
   const [portfolioItems, setPortfolioItems] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -273,9 +292,7 @@ export default function Portfolio() {
         >
           {[
             { id: 'all', label: 'All Showcases' },
-            { id: 'development', label: 'Web & App Engineering' },
-            { id: 'automation', label: 'Automation & Business Finance' },
-            { id: 'marketing', label: 'SEO & Growth Marketing' }
+            ...categories.map(c => ({ id: c.key, label: c.label }))
           ].map(btn => (
             <button
               key={btn.id}
@@ -367,7 +384,7 @@ export default function Portfolio() {
                           
                           {/* Floating Category Tag */}
                           <div className="absolute top-3.5 left-3.5 bg-slate-950/90 border border-primary/40 rounded px-2.5 py-0.5 text-[9px] font-extrabold text-primary tracking-wider">
-                            {project.category === 'development' ? 'Engineering' : project.category === 'automation' ? 'Finance & Tech' : 'Marketing & SEO'}
+                            {categoryBadge(project.category)}
                           </div>
 
                           {/* Stat Badge */}
@@ -402,7 +419,7 @@ export default function Portfolio() {
                         <div className="space-y-1">
                           <div className="flex items-center justify-between">
                             <span className="text-[9px] font-extrabold text-primary tracking-widest bg-primary/10 px-2.5 py-0.5 rounded border border-primary/20">
-                              {project.category === 'development' ? 'Engineering' : project.category === 'automation' ? 'Finance & Tech' : 'Marketing & SEO'}
+                              {categoryBadge(project.category)}
                             </span>
                             <ClientIcon className="w-4.5 h-4.5 text-primary" />
                           </div>

@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom';
 import { Laptop, Database, Share2, ExternalLink, ChevronRight, Sparkles, Loader } from 'lucide-react';
 import { SpotlightHover } from '../ui/spotlight-hover';
 import { OptimizedLazyImage } from '../ui/lazy-image';
-import { useFeaturedPortfolio } from '../../hooks/usePublicContent';
+import { useFeaturedPortfolio, usePortfolioCategories } from '../../hooks/usePublicContent';
 
 const ICON_MAP = {
   Laptop: Laptop,
@@ -22,6 +22,12 @@ const staggerContainer = {
 
 export default function PortfolioPreview() {
   const { data: projects = [], isLoading: loading } = useFeaturedPortfolio();
+  const { data: categories = [] } = usePortfolioCategories();
+  const BADGE_FALLBACK = { development: 'Engineering', automation: 'Finance & Tech', marketing: 'Marketing' };
+  const categoryBadge = (key) => {
+    const c = categories.find(cat => cat.key === key);
+    return c ? (c.badge || c.label) : (BADGE_FALLBACK[key] || key);
+  };
 
   return (
     <section className="pt-4 pb-12 px-4 bg-app-bg relative overflow-hidden">
@@ -133,7 +139,7 @@ export default function PortfolioPreview() {
                             <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent pointer-events-none" />
                             
                             <div className="absolute top-2 left-2 bg-slate-950/90 border border-primary/40 rounded px-2 py-0.5 text-[8px] font-extrabold text-primary tracking-wider">
-                              {project.category === 'development' ? 'Engineering' : project.category === 'automation' ? 'Finance & Tech' : 'Marketing'}
+                              {categoryBadge(project.category)}
                             </div>
 
                             <div className="absolute bottom-2 left-2 bg-black/95 border border-white/10 rounded px-2 py-1 flex items-center gap-1 text-[10px] font-bold text-white shadow-sm">
@@ -162,7 +168,7 @@ export default function PortfolioPreview() {
                           <div className="space-y-1">
                             <div className="flex items-center justify-between">
                               <span className="text-[8px] font-extrabold text-primary tracking-widest bg-primary/10 px-2 py-0.5 rounded border border-primary/20">
-                                {project.category === 'development' ? 'Engineering' : project.category === 'automation' ? 'Finance & Tech' : 'Marketing'}
+                                {categoryBadge(project.category)}
                               </span>
                               <ClientIcon className="w-3.5 h-3.5 text-primary" />
                             </div>

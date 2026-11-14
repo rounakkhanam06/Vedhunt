@@ -177,6 +177,7 @@ const ServiceManager = ({ isNested = false }) => {
     try {
       setIsUploading(true);
       const response = await uploadService.uploadImage(file);
+      e.target.value = '';
       setFormData(prev => ({
         ...prev,
         imageUrl: response.url,

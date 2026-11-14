@@ -2,6 +2,10 @@ const Portfolio = require('../models/Portfolio');
 const PortfolioMetric = require('../models/PortfolioMetric');
 const PortfolioCTA = require('../models/PortfolioCTA');
 const PortfolioHero = require('../models/PortfolioHero');
+const { categoryExists } = require('./portfolioCategoryController');
+
+const badCategory = (res) =>
+  res.status(400).json({ success: false, message: 'Please choose a valid category' });
 
 // @desc    Get all portfolio items with pagination, filtering, and sorting
 // @route   GET /api/portfolio
@@ -100,6 +104,7 @@ const getPortfolioItem = async (req, res) => {
 const createPortfolioItem = async (req, res) => {
   try {
     const { displayOrder } = req.body;
+    if (!(await categoryExists(req.body.category))) return badCategory(res);
     
     // Check if displayOrder already exists
     const duplicate = await Portfolio.findOne({ displayOrder });
@@ -127,6 +132,7 @@ const createPortfolioItem = async (req, res) => {
 const updatePortfolioItem = async (req, res) => {
   try {
     const { displayOrder } = req.body;
+    if (req.body.category !== undefined && !(await categoryExists(req.body.category))) return badCategory(res);
     
     // Check if displayOrder already exists for another portfolio item
     if (displayOrder !== undefined) {

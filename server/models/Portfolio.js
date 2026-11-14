@@ -15,7 +15,8 @@ const portfolioSchema = new mongoose.Schema(
     category: {
       type: String,
       required: [true, 'Please provide a category'],
-      enum: ['development', 'automation', 'marketing'],
+      // Must match a PortfolioCategory key (checked in the controller)
+      trim: true,
       index: true,
     },
     tagline: {

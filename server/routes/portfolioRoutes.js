@@ -17,6 +17,13 @@ const {
   getPortfolioHero,
   updatePortfolioHero
 } = require('../controllers/portfolioController');
+const {
+  getPublicCategories,
+  getAdminCategories,
+  createCategory,
+  updateCategory,
+  deleteCategory
+} = require('../controllers/portfolioCategoryController');
 const protect = require('../middleware/authMiddleware');
 const requirePermission = require('../middleware/requirePermission');
 
@@ -57,6 +64,18 @@ router.route('/admin/cta')
 // Protected Admin Hero routes
 router.route('/admin/hero')
   .put(protect, requirePermission('portfolio.manage'), updatePortfolioHero);
+
+// Categories (public list + admin CRUD) — must stay above '/:id'
+router.route('/categories')
+  .get(getPublicCategories);
+
+router.route('/admin/categories')
+  .get(protect, requirePermission('portfolio.manage'), getAdminCategories)
+  .post(protect, requirePermission('portfolio.manage'), createCategory);
+
+router.route('/admin/categories/:id')
+  .put(protect, requirePermission('portfolio.manage'), updateCategory)
+  .delete(protect, requirePermission('portfolio.manage'), deleteCategory);
 
 // Detail Portfolio routes
 router.route('/:id')

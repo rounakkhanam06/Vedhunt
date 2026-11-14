@@ -1,4 +1,5 @@
 const ServicePage = require('../models/ServicePage');
+const Service = require('../models/Service');
 
 // @desc    Get service page details by slug
 // @route   GET /api/service-pages/:slug
@@ -22,6 +23,28 @@ const getServicePageBySlug = async (req, res) => {
 // @access  Private/Admin
 const getServicePages = async (req, res) => {
   try {
+    // Main services added after the initial seed have no ServicePage yet, so they
+    // never appeared here. Create a starter page for each one that is missing
+    // ($setOnInsert only — existing pages are never touched).
+    const services = await Service.find({}).select('slug title subtitle shortDescription').lean();
+    const ops = services
+      .filter((s) => s.slug)
+      .map((s) => ({
+        updateOne: {
+          filter: { slug: s.slug },
+          update: {
+            $setOnInsert: {
+              slug: s.slug,
+              title: s.title,
+              subtitle: s.subtitle || s.title,
+              tagline: s.shortDescription || s.subtitle || s.title,
+            },
+          },
+          upsert: true,
+        },
+      }));
+    if (ops.length) await ServicePage.bulkWrite(ops, { ordered: false });
+
     const servicePages = await ServicePage.find({});
     res.json(servicePages);
   } catch (error) {
