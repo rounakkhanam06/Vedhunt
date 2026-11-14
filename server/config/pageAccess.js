@@ -91,7 +91,7 @@ const PAGE_CATALOG = [
       : (hasPermission(user, 'employees.sensitive') ? 'all' : null)) },
   // Edit = approve / reject
   { key: 'leave', label: 'Leave Requests', group: 'HRMS', basePermission: 'leave.manage', actions: ['view', 'edit'], scope: 'employee' },
-  { key: 'attendance', label: 'Attendance Roster', group: 'HRMS', basePermission: 'attendance.manage', actions: ['view'], scope: 'employee' },
+  { key: 'attendance', label: 'Attendance Roster', group: 'HRMS', basePermission: 'attendance.manage', actions: ['view', 'edit'], scope: 'employee' },
   { key: 'corrections', label: 'Correction Requests', group: 'HRMS', basePermission: 'attendance.manage', actions: ['view', 'edit'], scope: 'employee' },
   // Account numbers need Sensitive; approving a change needs Sensitive too
   { key: 'bank-changes', label: 'Bank Change Requests', group: 'HRMS', basePermission: 'bankchanges.manage', actions: ['view', 'sensitive', 'edit'], scope: 'employee',

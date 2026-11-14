@@ -92,7 +92,7 @@ export function TotalsTiles({ t }) {
 }
 
 /** One employee's days: Date, Status, Check-in, Check-out, Working hours, Note. */
-export function DayTable({ days }) {
+export function DayTable({ days, onEdit }) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-left text-sm min-w-[640px]">
@@ -100,6 +100,7 @@ export function DayTable({ days }) {
           <tr className="border-b border-app-border text-[11px] text-app-text-muted uppercase">
             <th className="py-2 px-3">Date</th><th className="py-2 px-3">Status</th><th className="py-2 px-3">Check-in</th>
             <th className="py-2 px-3">Check-out</th><th className="py-2 px-3">Working hours</th><th className="py-2 px-3">Note</th>
+            {onEdit && <th className="py-2 px-3" />}
           </tr>
         </thead>
         <tbody className="divide-y divide-app-border">
@@ -116,6 +117,13 @@ export function DayTable({ days }) {
               </td>
               <td className="py-2 px-3"><Hours minutes={d.workedMinutes} band={d.hoursBand} inProgress={d.inProgress} /></td>
               <td className="py-2 px-3 text-xs text-app-text-muted">{d.note}</td>
+              {onEdit && (
+                <td className="py-2 px-3 text-right">
+                  {d.status !== 'Upcoming' && d.status !== 'Not employed' && (
+                    <button type="button" onClick={() => onEdit(d)} className="text-xs font-semibold text-primary hover:underline cursor-pointer">Edit</button>
+                  )}
+                </td>
+              )}
             </tr>
           ))}
         </tbody>

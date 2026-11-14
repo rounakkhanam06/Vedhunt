@@ -12,7 +12,13 @@ const attendanceSchema = new mongoose.Schema({
   // Set when an approved CorrectionRequest wrote/overwrote this day. The
   // original values stay on that request (CorrectionRequest.original).
   regularized: { type: Boolean, default: false },
-  regularizationRef: { type: mongoose.Schema.Types.ObjectId, ref: 'CorrectionRequest' }
+  regularizationRef: { type: mongoose.Schema.Types.ObjectId, ref: 'CorrectionRequest' },
+  // Entered or changed directly by an admin (services/attendanceAdmin.js),
+  // e.g. when moving manual attendance into the system. Audit log has the before/after.
+  manualEntry: { type: Boolean, default: false },
+  editedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin' },
+  editedAt: { type: Date },
+  editReason: { type: String, trim: true }
 });
 
 const TASK_STATUSES = ['Pending', 'In Progress', 'Blocked', 'Completed', 'Cancelled'];

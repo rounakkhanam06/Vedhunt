@@ -5,6 +5,7 @@ const { sendEmail } = require('../utils/sendEmail');
 const logger = require('../utils/logger');
 const { findDuplicateLead } = require('./leadDedup');
 const { autoAssignLead } = require('./leadAssignment');
+const { alertNewLead } = require('../utils/notifyLeadManagers');
 
 const GRAPH = 'https://graph.facebook.com/v19.0';
 
@@ -306,6 +307,7 @@ async function saveFacebookLead({ fbLead, formId, pageAccessToken, notify = true
   await autoAssignLead(lead);
 
   if (notify) {
+    await alertNewLead(lead);
     await notifyAdmin(lead, { platform, leadType, formName, campaignName, campaignId, adName, adId });
   }
 

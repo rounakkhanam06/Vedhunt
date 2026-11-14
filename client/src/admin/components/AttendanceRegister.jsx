@@ -1,8 +1,9 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
-import { useQuery, keepPreviousData } from '@tanstack/react-query';
+import { useQuery, keepPreviousData, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { ChevronDown, ChevronRight, Download } from 'lucide-react';
 import { RangePicker, StatusBadge, Hours, HoursLegend, DayTable, MonthTable } from '../../shared/attendanceRegister';
+import EditAttendanceModal from './EditAttendanceModal';
 import { rangeFor, ymd, STATUSES, fmtDay, hoursText, downloadBlob } from '../../shared/attendanceRegisterUtils';
 
 const PAGE = 200;
@@ -12,7 +13,9 @@ const PAGE = 200;
  * From–To range, with an employee summary, a monthly summary and an Excel export.
  * Limited to the employees in the person's scope by the server.
  */
-export default function AttendanceRegister({ http, root }) {
+export default function AttendanceRegister({ http, root, canEdit = false }) {
+  const queryClient = useQueryClient();
+  const [editing, setEditing] = useState(null); // { employee, day }
   const [range, setRange] = useState(() => ({ mode: 'monthly', month: ymd().slice(0, 7), ...rangeFor('monthly') }));
   const [view, setView] = useState('summary'); // summary | datewise | monthly
   const [search, setSearch] = useState('');
@@ -155,7 +158,7 @@ export default function AttendanceRegister({ http, root }) {
                     </tr>
                     {open.has(e._id) && (
                       <tr className="bg-app-bg/40">
-                        <td colSpan="10" className="px-4 py-3"><DayTable days={e.days} /></td>
+                        <td colSpan="10" className="px-4 py-3"><DayTable days={e.days} onEdit={canEdit ? (d) => setEditing({ employee: { _id: e._id, name: e.name }, day: d }) : undefined} /></td>
                       </tr>
                     )}
                   </Fragment>
@@ -173,6 +176,7 @@ export default function AttendanceRegister({ http, root }) {
                   <tr>
                     <th className="px-4 py-3">Employee</th><th className="px-3 py-3">Date</th><th className="px-3 py-3">Status</th>
                     <th className="px-3 py-3">Check-in</th><th className="px-3 py-3">Check-out</th><th className="px-3 py-3">Working hours</th><th className="px-3 py-3">Note</th>
+                    {canEdit && <th className="px-3 py-3" />}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-app-border">
@@ -192,6 +196,13 @@ export default function AttendanceRegister({ http, root }) {
                       <td className="px-3 py-2.5 font-mono text-xs whitespace-nowrap">{d.checkOut || (d.missedClockOut ? <span className="text-amber-500 font-sans">Missing</span> : '—')}</td>
                       <td className="px-3 py-2.5"><Hours minutes={d.workedMinutes} band={d.hoursBand} inProgress={d.inProgress} /></td>
                       <td className="px-3 py-2.5 text-xs text-app-text-muted">{d.note}</td>
+                      {canEdit && (
+                        <td className="px-3 py-2.5 text-right">
+                          {d.status !== 'Upcoming' && d.status !== 'Not employed' && (
+                            <button type="button" onClick={() => setEditing({ employee: { _id: d.emp._id, name: d.emp.name }, day: d })} className="text-xs font-semibold text-primary hover:underline cursor-pointer">Edit</button>
+                          )}
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -220,6 +231,19 @@ export default function AttendanceRegister({ http, root }) {
           </div>
         )}
       </div>
+      {editing && (
+        <EditAttendanceModal
+          http={http}
+          root={root}
+          employee={editing.employee}
+          day={editing.day}
+          onClose={() => setEditing(null)}
+          onSaved={() => {
+            setEditing(null);
+            queryClient.invalidateQueries({ queryKey: ['admin', 'attendance-register'] });
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -378,20 +378,23 @@ export default function ServiceDetails() {
 
   if (!serviceMain || !serviceDetails) return null;
 
+  // Defaults: a service page created from the admin (starter page) may not
+  // have every section filled in yet — empty sections are hidden below.
   const {
     title,
     subtitle,
     tagline,
-    overview,
-    highlights,
-    subServices,
-    process,
-    pricing,
-    portfolio,
-    faqs,
+    overview = [],
+    highlights = [],
+    subServices = [],
+    process = [],
+    pricing = null,
+    portfolio = [],
+    faqs = [],
     testimonial,
     testimonials
   } = serviceDetails;
+  const hasPricing = Boolean(pricing?.plans?.length);
 
   const validTestimonials = testimonials && testimonials.length > 0 
     ? testimonials 
@@ -592,6 +595,7 @@ export default function ServiceDetails() {
               </div>
             </div>
 
+            {highlights?.length > 0 && (<>
             {/* 2. Quick Highlights Strip */}
             <div className="bg-brand-lightOrange dark:bg-primary/5 border-y border-app-border py-6 sm:py-4 relative z-20">
               <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -613,7 +617,9 @@ export default function ServiceDetails() {
                 </div>
               </div>
             </div>
+            </>)}
 
+            {overview?.length > 0 && (<>
             {/* 3. Service Overview Section */}
             <motion.section 
               id="overview" 
@@ -641,7 +647,9 @@ export default function ServiceDetails() {
                 </div>
               </div>
             </motion.section>
+            </>)}
 
+            {subServices?.length > 0 && (<>
             {/* 4. Sub-Services Grid Section */}
             <section className="py-10 sm:py-14 border-b border-app-border/40 bg-app-card/10">
               <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -697,7 +705,9 @@ export default function ServiceDetails() {
 
               </div>
             </section>
+            </>)}
 
+            {process?.length > 0 && (<>
             {/* 5. Process Flow Section */}
             <section className="py-10 sm:py-14 border-b border-app-border/40 relative">
               <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -782,7 +792,9 @@ export default function ServiceDetails() {
 
               </div>
             </section>
+            </>)}
 
+            {hasPricing && (<>
             {/* 6. Pricing Packages Section */}
             <section className="py-10 sm:py-14 border-b border-app-border/40 bg-app-card/5">
               <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -812,7 +824,7 @@ export default function ServiceDetails() {
                           : 'text-app-text-muted hover:text-app-text'
                       }`}
                     >
-                      {pricing.toggleLabels.primary}
+                      {pricing.toggleLabels?.primary}
                     </button>
                     <button
                       onClick={() => setBillingCycle('secondary')}
@@ -822,7 +834,7 @@ export default function ServiceDetails() {
                           : 'text-app-text-muted hover:text-app-text'
                       }`}
                     >
-                      {pricing.toggleLabels.secondary}
+                      {pricing.toggleLabels?.secondary}
                     </button>
                   </div>
                 </motion.div>
@@ -940,7 +952,9 @@ export default function ServiceDetails() {
 
               </div>
             </section>
+            </>)}
 
+            {portfolio?.length > 0 && (<>
             {/* 7. Portfolio / Case Studies Section */}
             <section className="py-10 sm:py-14 border-b border-app-border/40">
               <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -1024,7 +1038,9 @@ export default function ServiceDetails() {
 
               </div>
             </section>
+            </>)}
 
+            {faqs?.length > 0 && (<>
             {/* 8. FAQ Accordion Section */}
             <section className="py-10 sm:py-14 border-b border-app-border/40 bg-app-card/10">
               <div className="max-w-4xl mx-auto px-4">
@@ -1093,6 +1109,7 @@ export default function ServiceDetails() {
 
               </div>
             </section>
+            </>)}
 
             {/* 9. Client Testimonial Section */}
             {validTestimonials.length > 0 && (

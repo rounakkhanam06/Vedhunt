@@ -9,7 +9,7 @@ import { formatDuration } from '../../utils/formatDuration';
 
 export default function AttendanceManager() {
   // Admin panel (role) or Employee Portal (person-wise grant) — shared/crmAccess.js
-  const { http, root } = usePageAccess();
+  const { http, root, allowed } = usePageAccess();
   const [activeTab, setActiveTab] = useState('roster');
   const [date, setDate] = useState(null); // initialized to today
   const [loading, setLoading] = useState(true);
@@ -228,7 +228,7 @@ export default function AttendanceManager() {
       </div>
       )}
 
-      {activeTab === 'register' && <AttendanceRegister http={http} root={root} />}
+      {activeTab === 'register' && <AttendanceRegister http={http} root={root} canEdit={allowed('attendance.manage', 'attendance', 'edit')} />}
 
       {activeTab === 'leave' && (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">

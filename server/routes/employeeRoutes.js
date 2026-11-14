@@ -1150,6 +1150,43 @@ scoped.get('/admin/attendance/daily', requirePageAccess('attendance', 'view'), a
   }
 });
 
+// Admin: set / remove one employee's attendance for any past day (manual entry,
+// e.g. migrating manual registers). Audit-logged with the previous values.
+const attendanceAdmin = require('../services/attendanceAdmin');
+const attendanceEditGuard = async (req, res) => {
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    res.status(404).json({ success: false, message: 'Employee not found' });
+    return false;
+  }
+  if (!employeeInScope(await idsFor(req, 'attendance', 'edit'), req.params.id)) {
+    res.status(403).json({ success: false, message: 'This employee is outside your attendance access.' });
+    return false;
+  }
+  return true;
+};
+scoped.put('/admin/attendance/:id/day', requirePageAccess('attendance', 'edit'), async (req, res) => {
+  try {
+    if (!(await attendanceEditGuard(req, res))) return;
+    const result = await attendanceAdmin.setAttendanceDay(req.user, req.params.id, req.body || {}, req.ip);
+    if (!result.ok) return res.status(result.status).json({ success: false, message: result.message });
+    res.json({ success: true, message: result.message, record: result.record });
+  } catch (error) {
+    logger.error('Error saving manual attendance:', error);
+    res.status(500).json({ success: false, message: 'Could not save attendance' });
+  }
+});
+scoped.delete('/admin/attendance/:id/day', requirePageAccess('attendance', 'edit'), async (req, res) => {
+  try {
+    if (!(await attendanceEditGuard(req, res))) return;
+    const result = await attendanceAdmin.clearAttendanceDay(req.user, req.params.id, req.query.date, req.query.reason, req.ip);
+    if (!result.ok) return res.status(result.status).json({ success: false, message: result.message });
+    res.json({ success: true, message: result.message });
+  } catch (error) {
+    logger.error('Error removing attendance:', error);
+    res.status(500).json({ success: false, message: 'Could not remove attendance' });
+  }
+});
+
 // Admin: Attendance Register — each employee's date-wise attendance for a From–To range
 // (a day, a month or any range up to a year), with summaries. ?from=YYYY-MM-DD&to=YYYY-MM-DD&search=
 scoped.get('/admin/attendance/register', requirePageAccess('attendance', 'view'), async (req, res) => {

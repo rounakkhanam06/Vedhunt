@@ -35,4 +35,28 @@ async function notifyLeadManagers({ type, title, message, link, lead, exclude = 
   }
 }
 
-module.exports = { notifyLeadManagers, getLeadManagerIds };
+/**
+ * "New lead" alert for any incoming lead (website form, Google/Facebook lead
+ * ads). Skips the BD it was auto-assigned to — they get "assigned to you".
+ */
+async function alertNewLead(lead) {
+  try {
+    const Lead = require('../models/Lead');
+    const fresh = await Lead.findById(lead._id).select('assignedTo').lean().catch(() => null);
+    const isQuote = /quote/i.test(String(lead.source || ''));
+    const via = lead.platform && lead.platform !== 'Website' ? ` · ${lead.platform}` : '';
+    return await notifyLeadManagers({
+      type: 'new_lead',
+      title: isQuote ? 'New quote request' : 'New lead received',
+      message: `${lead.fullName} — ${lead.service || 'General enquiry'}${lead.businessName ? ` (${lead.businessName})` : ''}${via}`,
+      link: `/admin/leads?leadId=${lead._id}`,
+      lead: lead._id,
+      exclude: [fresh?.assignedTo],
+    });
+  } catch (err) {
+    logger.error('alertNewLead failed:', err);
+    return 0;
+  }
+}
+
+module.exports = { notifyLeadManagers, getLeadManagerIds, alertNewLead };

@@ -6,6 +6,7 @@ const logger = require('../utils/logger');
 const { GRAPH, LEAD_FIELDS, prettifyKey, saveFacebookLead } = require('../services/facebookLeads');
 const { findDuplicateLead } = require('../services/leadDedup');
 const { autoAssignLead } = require('../services/leadAssignment');
+const { alertNewLead } = require('../utils/notifyLeadManagers');
 
 // ==========================================
 // FACEBOOK LEAD ADS WEBHOOK
@@ -295,6 +296,7 @@ exports.receiveGoogleLead = async (req, res) => {
 
     // Never throws — logs and leaves the lead Unassigned on any failure.
     await autoAssignLead(lead);
+    await alertNewLead(lead);
 
     // Send Admin Email
     let hrEmail = process.env.HR_EMAIL || 'hr@vedhunt.in';

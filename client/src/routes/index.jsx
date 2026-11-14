@@ -129,6 +129,7 @@ import ProtectedRoute from '../admin/components/ProtectedRoute';
 import { Outlet } from 'react-router-dom';
 
 import React from 'react';
+import AppToaster from '../shared/AppToaster';
 
 class ChunkLoadErrorBoundary extends React.Component {
   constructor(props) {
@@ -621,6 +622,8 @@ export const router = createBrowserRouter([
     path: '/employee',
     element: (
       <Suspense fallback={null}>
+        {/* One toast container for every Employee Portal page (login and reset pages included) */}
+        <AppToaster />
         <Outlet />
       </Suspense>
     ),

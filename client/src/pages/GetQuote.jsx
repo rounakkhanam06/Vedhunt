@@ -73,12 +73,15 @@ const servicesOptions = [
 
 // Admin service id_string → quote option that has its own question set
 const SERVICE_ID_TO_QUOTE = {
-  'web-dev': 'website',
-  'app-dev': 'app',
-  'social-media': 'digital_marketing',
+  'web-dev': 'website', 'web-development': 'website', 'website-development': 'website',
+  'app-dev': 'app', 'app-development': 'app', 'mobile-app-development': 'app',
+  'social-media': 'digital_marketing', 'digital-marketing': 'digital_marketing',
   'performance-marketing': 'performance_marketing',
-  'accounting-finance': 'accounting',
-  'mis-reporting': 'mis',
+  'accounting-finance': 'accounting', 'accounting': 'accounting',
+  'mis-reporting': 'mis', 'mis': 'mis',
+  'graphic-design': 'graphic_design', 'logo-graphic-design': 'graphic_design',
+  'shipping': 'shipping', 'shipping-management': 'shipping',
+  'workflow': 'workflow', 'workflow-management': 'workflow',
 };
 
 // Every active service from the admin panel, plus the quote-only options
@@ -87,8 +90,12 @@ const SERVICE_ID_TO_QUOTE = {
 function buildServiceChoices(liveServices) {
   if (!Array.isArray(liveServices) || liveServices.length === 0) return servicesOptions;
   const used = new Set();
+  const norm = (v) => String(v || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  const matchQuoteId = (srv) =>
+    SERVICE_ID_TO_QUOTE[srv.id_string] || SERVICE_ID_TO_QUOTE[srv.slug] ||
+    servicesOptions.find((o) => o.id === srv.id_string || o.id === srv.slug || norm(o.label) === norm(srv.title))?.id;
   const choices = liveServices.map((srv) => {
-    const quoteId = SERVICE_ID_TO_QUOTE[srv.id_string];
+    const quoteId = matchQuoteId(srv);
     const known = quoteId && servicesOptions.find((o) => o.id === quoteId);
     if (known) {
       used.add(known.id);

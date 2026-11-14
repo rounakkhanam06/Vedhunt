@@ -191,6 +191,7 @@ async function buildRegister({ from: fromStr, to: toStr, employeeIds = null, sea
         day.checkOut = att.clockOut || null;
         day.lateByMins = att.lateByMins || 0;
         day.regularized = Boolean(att.regularized);
+        day.manualEntry = Boolean(att.manualEntry);
         inMin = parseClock(att.clockIn);
         const outMin = parseClock(att.clockOut);
         if (inMin != null && outMin != null && outMin > inMin) day.workedMinutes = outMin - inMin;
@@ -212,12 +213,18 @@ async function buildRegister({ from: fromStr, to: toStr, employeeIds = null, sea
 
       if ((joined && dayEnd < joined) || (left && d > left)) {
         day.status = 'Not employed';
+      } else if (att?.manualEntry && ['Absent', 'Holiday', 'Weekend'].includes(att.status)) {
+        // Set by an admin (manual entry) — shown as entered
+        day.status = att.status === 'Weekend' ? 'Weekly Off' : att.status;
+        day.checkIn = null; day.checkOut = null; day.workedMinutes = null; day.missedClockOut = false;
+        day.manualEntry = true;
       } else if (!worked && d.getDay() === 0) {
         day.status = 'Weekly Off';
       } else if (!worked && holidayOn.has(key)) {
         day.status = 'Holiday';
         day.note = holidayOn.get(key);
       } else if (leave || att?.status === 'Leave') {
+        if (att?.manualEntry) day.manualEntry = true;
         // Sundays and holidays inside a leave range stay Weekly Off / Holiday (leave is not charged for them)
         day.status = 'Leave';
         day.unpaidLeave = Boolean(leave?.unpaidOn?.has(d.toDateString()));
@@ -237,6 +244,7 @@ async function buildRegister({ from: fromStr, to: toStr, employeeIds = null, sea
       }
       if (day.missedClockOut && !day.note) day.note = 'Clock-out missing';
       if (day.regularized && !day.note) day.note = 'Regularized';
+      if (day.manualEntry && att?.editReason) day.note = [day.note, `Manual entry: ${att.editReason}`].filter(Boolean).join(' · ');
       day.hoursBand = day.inProgress ? null : hoursBand(day.workedMinutes);
 
       addToTotals(totals, day);
