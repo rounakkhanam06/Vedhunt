@@ -29,7 +29,7 @@ export default function JobManager() {
   const fetchJobs = async () => {
     try {
       setIsLoading(true);
-      const res = await api.get('/jobs');
+      const res = await api.get('/jobs/admin');
       setJobs(res.data || []);
     } catch (error) {
       toast.error('Failed to load jobs');

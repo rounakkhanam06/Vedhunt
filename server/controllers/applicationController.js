@@ -72,6 +72,10 @@ exports.createApplication = async (req, res) => {
         await deleteFromCloudinary(req.file.filename, true);
         return res.status(400).json({ message: 'Selected position does not exist.' });
       }
+      if (jobExists.status !== 'Published') {
+        await deleteFromCloudinary(req.file.filename, true);
+        return res.status(400).json({ message: 'This position is no longer open. Please choose another position or send a General Application.' });
+      }
     }
 
     // Check for duplicate application (same email, same job)

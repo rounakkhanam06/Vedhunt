@@ -17,9 +17,19 @@ const buildIdFilter = (id) => {
 // Get all jobs (admin can see all, public only sees published)
 exports.getJobs = async (req, res) => {
   try {
-    const { status } = req.query;
-    const filter = status ? { status } : {};
+    // Public list: Published jobs only (?status is ignored so drafts can't be listed)
+    const filter = { status: 'Published' };
     const jobs = await Job.find(filter).sort({ createdAt: -1 }).lean();
+    res.status(200).json(jobs);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching jobs', error: error.message });
+  }
+};
+
+// Admin: all jobs, including Unpublished
+exports.getAllJobsAdmin = async (req, res) => {
+  try {
+    const jobs = await Job.find({}).sort({ createdAt: -1 }).lean();
     res.status(200).json(jobs);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching jobs', error: error.message });
@@ -29,7 +39,7 @@ exports.getJobs = async (req, res) => {
 // Get single job
 exports.getJobById = async (req, res) => {
   try {
-    const job = await Job.findOne(buildIdFilter(req.params.id)).lean();
+    const job = await Job.findOne({ ...buildIdFilter(req.params.id), status: 'Published' }).lean();
     if (!job) {
       return res.status(404).json({ message: 'Job not found' });
     }
