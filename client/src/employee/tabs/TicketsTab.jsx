@@ -92,7 +92,7 @@ export default function TicketsTab() {
                     <select
                       value={ticket.status}
                       onChange={(e) => handleUpdateTicketStatus(ticket._id, e.target.value)}
-                      disabled={updatingTicketId === ticket._id}
+                      disabled={updatingTicketId === ticket._id || ticket.status === 'Closed'}
                       className={`px-2.5 py-1 text-[10px] uppercase font-bold tracking-wider rounded border cursor-pointer outline-none appearance-none ${
                         ticket.status === 'Resolved' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
                         ticket.status === 'In Progress' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
@@ -100,7 +100,9 @@ export default function TicketsTab() {
                         'bg-blue-500/10 text-blue-400 border-blue-500/20'
                       }`}
                     >
-                      {STATUSES.map((s) => <option key={s} value={s} className="bg-app-card text-app-text">{s.toUpperCase()}</option>)}
+                      {STATUSES.map((s, i) => (
+                        <option key={s} value={s} disabled={i < STATUSES.indexOf(ticket.status)} className="bg-app-card text-app-text">{s.toUpperCase()}</option>
+                      ))}
                     </select>
                   </div>
                 </div>
@@ -149,7 +151,7 @@ export default function TicketsTab() {
                     )}
 
                     {ticket.status === 'Closed' ? (
-                      <p className="text-xs text-app-text-muted">This ticket is closed. Change its status to reopen it before replying.</p>
+                      <p className="text-xs text-app-text-muted">This ticket is closed. Replies are no longer possible — ask an admin to reopen it if needed.</p>
                     ) : (
                       <form onSubmit={(e) => handleSendTicketMessage(e, ticket._id)} className="flex gap-2 items-end">
                         <textarea

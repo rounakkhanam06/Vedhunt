@@ -127,4 +127,6 @@ supportTicketSchema.set('toJSON', { virtuals: true });
 supportTicketSchema.set('toObject', { virtuals: true });
 
 const SupportTicket = mongoose.model('SupportTicket', supportTicketSchema);
+// Workflow order; employees can only move a ticket forward along it
+SupportTicket.STATUS_ORDER = ['Open', 'In Progress', 'Pending Client', 'Resolved', 'Closed'];
 module.exports = SupportTicket;

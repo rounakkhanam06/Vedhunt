@@ -39,7 +39,7 @@ const PRESETS = [
 ];
 
 const selectClass = 'w-full bg-app-bg border border-app-border rounded-lg pl-10 pr-10 py-2.5 text-sm text-app-text focus:outline-none focus:border-primary transition-colors appearance-none cursor-pointer';
-const dateClass = 'bg-app-bg border border-app-border rounded-lg px-3 py-2.5 text-sm text-app-text focus:outline-none focus:border-primary';
+const dateClass = 'flex-1 min-w-0 sm:w-[150px] bg-app-bg border border-app-border rounded-lg px-3 py-2.5 text-sm text-app-text focus:outline-none focus:border-primary';
 const fmtWhen = (d) => new Date(d).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 
 /**
@@ -131,8 +131,8 @@ export default function LeadActivity({ portal = false }) {
 
       {/* Filters */}
       <div className="bg-app-card p-4 rounded-xl border border-app-border space-y-3">
-        <div className="flex flex-col lg:flex-row gap-3">
-          <div className="relative min-w-[200px]">
+        <div className="flex flex-wrap gap-3">
+          <div className="relative flex-1 min-w-[200px] sm:flex-none">
             <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-app-text-muted w-4 h-4 pointer-events-none" />
             <select value={by} onChange={(e) => update({ by: e.target.value })} className={selectClass}>
               <option className="bg-app-bg text-app-text" value="All">{portal ? 'Anyone' : 'All BDs'}</option>
@@ -142,7 +142,7 @@ export default function LeadActivity({ portal = false }) {
             </select>
             <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-app-text-muted w-4 h-4 pointer-events-none" />
           </div>
-          <div className="relative min-w-[180px]">
+          <div className="relative flex-1 min-w-[180px] sm:flex-none">
             <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-app-text-muted w-4 h-4 pointer-events-none" />
             <select value={result} onChange={(e) => update({ result: e.target.value })} className={selectClass}>
               <option className="bg-app-bg text-app-text" value="All">All Results</option>
@@ -151,7 +151,7 @@ export default function LeadActivity({ portal = false }) {
             </select>
             <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-app-text-muted w-4 h-4 pointer-events-none" />
           </div>
-          <div className="relative min-w-[170px]">
+          <div className="relative flex-1 min-w-[170px] sm:flex-none">
             <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-app-text-muted w-4 h-4 pointer-events-none" />
             <select value={stage} onChange={(e) => update({ stage: e.target.value })} className={selectClass} aria-label="Lead stage">
               <option className="bg-app-bg text-app-text" value="All">All Stages</option>
@@ -164,10 +164,10 @@ export default function LeadActivity({ portal = false }) {
             value={clientInput}
             onChange={(e) => setClientInput(e.target.value)}
             placeholder="Client name, phone or lead ID"
-            className="min-w-[220px] bg-app-bg border border-app-border rounded-lg px-3 py-2.5 text-sm text-app-text focus:outline-none focus:border-primary"
+            className="flex-1 min-w-[200px] bg-app-bg border border-app-border rounded-lg px-3 py-2.5 text-sm text-app-text focus:outline-none focus:border-primary"
             aria-label="Client"
           />
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full sm:w-auto">
             <input type="date" value={dateFrom} max={dateTo || undefined} onChange={(e) => update({ dateFrom: e.target.value })} className={dateClass} aria-label="From date" />
             <span className="text-xs text-app-text-muted">to</span>
             <input type="date" value={dateTo} min={dateFrom || undefined} onChange={(e) => update({ dateTo: e.target.value })} className={dateClass} aria-label="To date" />

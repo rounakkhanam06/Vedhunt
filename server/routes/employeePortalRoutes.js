@@ -705,6 +705,11 @@ router.put('/ess/tickets/:id/status', async (req, res) => {
     const ticket = await SupportTicket.findOne({ _id: req.params.id, assignedTo: req.user._id });
     if (!ticket) return res.status(404).json({ success: false, message: 'Ticket not found or not assigned to you' });
     
+    // Employees move a ticket forward only — never back to an earlier status
+    const order = SupportTicket.STATUS_ORDER;
+    if (order.indexOf(status) < order.indexOf(ticket.status)) {
+      return res.status(400).json({ success: false, message: `This ticket is already ${ticket.status} and can't go back to ${status}.` });
+    }
     const statusChanged = ticket.status !== status;
     ticket.status = status;
     await ticket.save();
