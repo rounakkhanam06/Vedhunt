@@ -15,6 +15,7 @@ const AssignmentLog = require('../models/AssignmentLog');
 const logger = require('../utils/logger');
 const { updateAgreement, getAgreement } = require('../controllers/agreementController');
 const { provisionClientAccount, sendActivationLink } = require('../services/clientProvisioning');
+const { applyLoginEmail, afterLoginEmailChange } = require('../services/clientLoginEmail');
 const { agreementDetailsChanged, nextAgreementVersion } = require('../services/agreementVersioning');
 const requirePermission = require('../middleware/requirePermission');
 const { notifyTicketAssigned } = require('../services/staffNotify');
@@ -61,6 +62,7 @@ const billingSchedule = require('../services/billingSchedule');
 const clientCreationIssues = require('../services/clientCreationIssues');
 const ClientCreationIssue = require('../models/ClientCreationIssue');
 const Lead = require('../models/Lead');
+const { normalizeEmail } = require('../utils/normalize');
 const { convertWonLeadToClient } = require('../services/clientProvisioning');
 const clientPolicies = require('../services/clientPolicies');
 const BillingSchedule = require('../models/BillingSchedule');
@@ -500,17 +502,11 @@ router.put('/clients/:id', crm('clients', 'edit'), async (req, res) => {
     // another account, and the old address must stop working.
     let emailChange = null;
     if (email !== undefined) {
-      const newEmail = email.toLowerCase().trim();
-      if (newEmail !== client.email) {
-        const taken = await Client.exists({ email: newEmail, _id: { $ne: client._id } });
-        if (taken) return res.status(409).json({ success: false, message: 'Another client already uses this email address.' });
-        emailChange = { from: client.email, to: newEmail };
-        client.email = newEmail;
-        // Log out existing portal sessions; they sign in again with the new email
-        client.refreshToken = undefined;
-        // A pending activation/reset link went to the old address — void it
-        client.resetPasswordToken = undefined;
-        client.resetPasswordExpire = undefined;
+      try {
+        emailChange = await applyLoginEmail(client, email);
+      } catch (e) {
+        if (e.status === 409) return res.status(409).json({ success: false, message: e.message });
+        throw e;
       }
     }
     if (phone !== undefined) client.phone = phone;
@@ -552,16 +548,11 @@ router.put('/clients/:id', crm('clients', 'edit'), async (req, res) => {
     let message = 'Client updated successfully';
     if (emailChange) {
       await recordAudit(req, 'CLIENT_LOGIN_EMAIL_CHANGE', 'Client', client.clientId, { email: emailChange.from }, { email: emailChange.to });
-      // Not activated yet: the old link is void, so send a fresh one to the new address
-      if (!client.activatedAt && client.isActive && !client.deletedAt) {
-        const withToken = await Client.findById(client._id).select('+resetPasswordToken +resetPasswordExpire');
-        const r = await sendActivationLink(withToken);
-        message = r.sent
-          ? `Client updated. The login email is now ${emailChange.to} and a new activation link was emailed there.`
-          : `Client updated. The login email is now ${emailChange.to}, but the activation email could not be sent — use "Send activation link".`;
-      } else {
-        message = `Client updated. The client now logs in with ${emailChange.to} (same password).`;
+      // Keep the lead this client came from on the same email
+      if (client.leadRef) {
+        await Lead.updateOne({ _id: client.leadRef }, { $set: { email: emailChange.to, emailNormalized: normalizeEmail(emailChange.to) } });
       }
+      message = `Client updated. ${await afterLoginEmailChange(client, emailChange)}`;
     }
 
     res.json({ success: true, message, agreementResignRequired, emailChanged: Boolean(emailChange) });

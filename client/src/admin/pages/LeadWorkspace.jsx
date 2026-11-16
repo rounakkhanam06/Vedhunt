@@ -225,7 +225,7 @@ export default function LeadWorkspace() {
       // are all computed server-side (leadLifecycle.js) as part of this same
       // update, and a local merge would leave them stale until next refetch.
       setLead(res.data.data);
-      toast.success('Saved', { duration: 1000, position: 'bottom-right' });
+      if (res.data?.message) toast.success(res.data.message, { duration: 5000 }); else toast.success('Saved', { duration: 1000, position: 'bottom-right' });
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to update lead');
       throw error;

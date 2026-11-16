@@ -355,7 +355,7 @@ export default function LeadsManager({ stageGroup }) {
     try {
       const res = await http.put(`${root}/leads/${id}`, fields);
       setLeads(leads.map(l => l._id === id ? { ...l, ...fields } : l));
-      toast.success('Saved', { duration: 1000, position: 'bottom-right' });
+      if (res.data?.message) toast.success(res.data.message, { duration: 5000 }); else toast.success('Saved', { duration: 1000, position: 'bottom-right' });
       return res.data;
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to update lead');

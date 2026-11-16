@@ -23,6 +23,9 @@ const { parseLeadIds, previewBulkReassign, runBulkReassign, loadRun } = require(
 const BulkAssignmentRun = require('../models/BulkAssignmentRun');
 const { derivePriority } = require('../utils/serviceQualification');
 const { getLeadScoringSettings, computeLeadScore } = require('../services/leadScoring');
+const Client = require('../models/Client');
+const { loginEmailTaken, applyLoginEmail, afterLoginEmailChange } = require('../services/clientLoginEmail');
+const { recordAudit } = require('../services/audit');
 
 // Which leads a login may see and change comes from req.pageScope, set by
 // requirePageAccess on each route (routes/leadRoutes.js): every lead with
@@ -855,13 +858,38 @@ exports.updateLead = async (req, res, next) => {
     if ('altPhone' in updates) updates.altPhoneNormalized = normalizePhone(updates.altPhone);
     if ('email' in updates) updates.emailNormalized = normalizeEmail(updates.email);
 
+    // A lead that became a client shares its email with the client's portal
+    // login — refuse up front if that email already belongs to another client.
+    let linkedClient = null;
+    if ('email' in updates && mongoose.isValidObjectId(req.params.id)) {
+      linkedClient = await Client.findOne({ leadRef: req.params.id }).select('+refreshToken');
+      if (linkedClient && await loginEmailTaken(updates.email, linkedClient._id)) {
+        return res.status(409).json({ success: false, message: 'Another client account already uses this email address.' });
+      }
+    }
+
     const canReactivate = req.user?.permissions?.includes('leads.reactivate');
     const result = await applyLeadUpdate(req.params.id, updates, { id: req.user?._id, isSuperAdmin, canReactivate }, await leadFilter(req));
     if (!result.ok) {
       return res.status(result.status).json({ success: false, message: result.message });
     }
 
-    res.status(200).json({ success: true, data: result.lead });
+    let clientMessage;
+    if (linkedClient) {
+      try {
+        const change = await applyLoginEmail(linkedClient, updates.email);
+        if (change) {
+          await linkedClient.save();
+          await recordAudit(req, 'CLIENT_LOGIN_EMAIL_CHANGE', 'Client', linkedClient.clientId, { email: change.from }, { email: change.to, via: 'lead' });
+          clientMessage = await afterLoginEmailChange(linkedClient, change);
+        }
+      } catch (e) {
+        logger.error('Lead email saved, but syncing the client login email failed:', e);
+        clientMessage = 'The lead was updated, but the client account email could not be changed — edit it on the client.';
+      }
+    }
+
+    res.status(200).json({ success: true, data: result.lead, ...(clientMessage && { message: `Lead updated. ${clientMessage}` }) });
   } catch (error) {
     logger.error('Error updating lead:', error);
     next(error);
