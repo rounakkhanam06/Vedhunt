@@ -1,11 +1,15 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { CheckCircle2, ArrowLeft } from 'lucide-react';
 
 export default function ThankYou() {
+  const [searchParams] = useSearchParams();
+  // ?already=1 — the person had already sent this same request earlier
+  const already = searchParams.get('already') === '1';
+
   React.useEffect(() => {
-    if (window.trackConversion) {
+    if (!already && window.trackConversion) {
       window.trackConversion({
         value: 1.0,
         currency: 'INR',
@@ -13,7 +17,7 @@ export default function ThankYou() {
         source: 'Thank You Page'
       });
     }
-  }, []);
+  }, [already]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-app-bg px-4 relative overflow-hidden">
@@ -30,11 +34,13 @@ export default function ThankYou() {
         </div>
         
         <h1 className="text-3xl md:text-4xl font-black font-heading text-app-text mb-4">
-          Thank You!
+          {already ? 'Already Received' : 'Thank You!'}
         </h1>
-        
+
         <p className="text-app-text-muted mb-8 leading-relaxed">
-          Your request has been successfully received. One of our experts will review your requirements and get back to you within 24 hours.
+          {already
+            ? 'You have already submitted this request earlier. Our team has it and will get in touch with you soon — no need to submit again.'
+            : 'Your request has been successfully received. One of our experts will review your requirements and get back to you within 24 hours.'}
         </p>
 
         <Link 

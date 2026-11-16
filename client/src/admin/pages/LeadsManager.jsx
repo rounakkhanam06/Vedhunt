@@ -1059,6 +1059,11 @@ export default function LeadsManager({ stageGroup }) {
                           ) : (
                             <span className="px-2 py-1">{lead.fullName || '-'}</span>
                           )}
+                          {lead.repeatEnquiryCount > 0 && (
+                            <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-sky-500/10 text-sky-400 border border-sky-500/20" title="This person enquired again">
+                              🔁 ×{lead.repeatEnquiryCount}
+                            </span>
+                          )}
                         </td>
                         <td className="px-3 py-2 align-middle min-w-[120px]">
                           {isSuperAdmin ? (

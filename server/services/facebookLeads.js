@@ -4,6 +4,7 @@ const Settings = require('../models/Settings');
 const { sendEmail } = require('../utils/sendEmail');
 const logger = require('../utils/logger');
 const { findDuplicateLead } = require('./leadDedup');
+const { recordRepeatEnquiry } = require('./repeatEnquiry');
 const { autoAssignLead } = require('./leadAssignment');
 const { alertNewLead } = require('../utils/notifyLeadManagers');
 
@@ -243,10 +244,20 @@ async function saveFacebookLead({ fbLead, formId, pageAccessToken, notify = true
   // synthetic placeholder email below would make every lead look unique.
   const duplicate = await findDuplicateLead({ phone: mapped.phone, email: mapped.email });
   if (duplicate) {
+    const campaignLabel = fbLead.campaign_name || fbLead.campaign_id || '';
+    const result = await recordRepeatEnquiry(duplicate, {
+      platform,
+      service: formName,
+      message: mapped.message,
+      source: campaignLabel ? `${platform} Lead Ad (Campaign: ${campaignLabel})` : `${platform} Lead Ad`,
+      utmSource, utmMedium: fbLead.is_organic ? 'organic' : 'cpc', utmCampaign: campaignLabel,
+      externalId: fbLeadId,
+      rawPayload: fbLead
+    }, { notify, now: useSubmittedTime && fbLead.created_time ? new Date(fbLead.created_time) : new Date() });
     logger.info(
-      `${platform} lead ${fbLeadId} matches existing lead ${duplicate.leadId} by phone/email — skipping duplicate.`
+      `${platform} lead ${fbLeadId} matches existing lead ${duplicate.leadId} — ${result.recorded ? 'recorded as repeat enquiry' : `ignored (${result.reason})`}.`
     );
-    return { created: false, reason: 'duplicate-contact', duplicateOf: duplicate._id };
+    return { created: false, reason: 'duplicate-contact', duplicateOf: duplicate._id, repeatRecorded: result.recorded };
   }
 
   // Fall back to a synthetic address when the form did not ask for one, or

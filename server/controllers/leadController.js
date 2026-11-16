@@ -5,6 +5,7 @@ const Settings = require('../models/Settings');
 const { sendEmail } = require('../utils/sendEmail');
 const logger = require('../utils/logger');
 const { findDuplicateLead } = require('../services/leadDedup');
+const { recordRepeatEnquiry } = require('../services/repeatEnquiry');
 const { normalizePhone, normalizeEmail } = require('../utils/normalize');
 const AssignmentLog = require('../models/AssignmentLog');
 const { manualAssign, autoAssignLead } = require('../services/leadAssignment');
@@ -91,8 +92,22 @@ exports.createLead = async (req, res, next) => {
     // and stops here rather than surfacing an error to a real customer.
     const duplicate = await findDuplicateLead({ phone, altPhone, email });
     if (duplicate) {
-      logger.info(`Duplicate lead ignored (matches ${duplicate.leadId} by phone/email): ${fullName} — ${phone}`);
-      return res.status(200).json({ success: true, message: 'Lead submitted successfully', data: duplicate });
+      // Same person again — attach this enquiry to their existing lead and
+      // alert the owner, unless it is just a double-submit.
+      const result = await recordRepeatEnquiry(duplicate, {
+        platform: platform || 'Website', service: service || 'Not specified', message, source,
+        utmSource, utmMedium, utmCampaign, rawPayload: req.body
+      });
+      if (!result.recorded) logger.info(`Duplicate lead ignored (${result.reason}, matches ${duplicate.leadId}): ${fullName} — ${phone}`);
+      if (result.sameRequest) {
+        return res.status(200).json({
+          success: true,
+          alreadySubmitted: true,
+          message: 'You have already submitted this request earlier. Our team has it and will contact you soon.',
+          data: { _id: duplicate._id, leadId: duplicate.leadId }
+        });
+      }
+      return res.status(200).json({ success: true, message: 'Lead submitted successfully', data: { _id: duplicate._id, leadId: duplicate.leadId } });
     }
 
     const scoringSettings = await getLeadScoringSettings();

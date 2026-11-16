@@ -5,6 +5,7 @@ const { sendEmail } = require('../utils/sendEmail');
 const logger = require('../utils/logger');
 const { GRAPH, LEAD_FIELDS, prettifyKey, saveFacebookLead } = require('../services/facebookLeads');
 const { findDuplicateLead } = require('../services/leadDedup');
+const { recordRepeatEnquiry } = require('../services/repeatEnquiry');
 const { autoAssignLead } = require('../services/leadAssignment');
 const { alertNewLead } = require('../utils/notifyLeadManagers');
 
@@ -270,7 +271,16 @@ exports.receiveGoogleLead = async (req, res) => {
       email: email === 'unknown@example.com' ? '' : email
     });
     if (contactDuplicate) {
-      logger.info(`Google lead ${lead_id} matches existing lead ${contactDuplicate.leadId} by phone/email — skipping duplicate.`);
+      const result = await recordRepeatEnquiry(contactDuplicate, {
+        platform: 'Google Ads',
+        service,
+        message: extraAnswers.map(({ label, value }) => `${label}: ${value}`).join('\n'),
+        source: `Google Lead Ad (Campaign: ${campaign_id})`,
+        utmSource: 'google', utmMedium: 'cpc', utmCampaign: campaign_id || '',
+        externalId: `google_${lead_id}`,
+        rawPayload: req.body
+      });
+      logger.info(`Google lead ${lead_id} matches existing lead ${contactDuplicate.leadId} — ${result.recorded ? 'recorded as repeat enquiry' : `ignored (${result.reason})`}.`);
       return res.status(200).send('OK');
     }
 

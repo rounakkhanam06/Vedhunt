@@ -312,6 +312,7 @@ export default function GetQuote() {
   const serviceChoices = useMemo(() => buildServiceChoices(liveServices), [liveServices]);
   const [isSubmitSuccess, setIsSubmitSuccess] = useState(false);
   const [submittedData, setSubmittedData] = useState(null);
+  const [alreadySubmitted, setAlreadySubmitted] = useState(false);
   
   // Custom states for checkbox groups to work easily without complex react-hook-form setups
   const [checkboxState, setCheckboxState] = useState({});
@@ -405,15 +406,18 @@ export default function GetQuote() {
         ...buildQualificationFields(finalData.service, serviceLabel, finalData)
       };
 
-      await api.post('/leads', payload);
+      const res = await api.post('/leads', payload);
+      const already = Boolean(res.data?.alreadySubmitted);
 
       setSubmittedData(finalData);
+      setAlreadySubmitted(already);
       setIsSubmitSuccess(true);
-      
+
       // Success message will remain until the user manually clicks "Submit New Inquiry"
-      
-      // trackConversion() dynamically fires FB Pixel, Google Ads (AW-ID/label), GA4 generate_lead, and LinkedIn
-      if (window.trackConversion) {
+
+      // trackConversion() dynamically fires FB Pixel, Google Ads (AW-ID/label), GA4 generate_lead, and LinkedIn.
+      // A request we already had is not a new conversion.
+      if (!already && window.trackConversion) {
         window.trackConversion({
           value: 1.0,
           currency: 'INR',
@@ -1047,9 +1051,15 @@ export default function GetQuote() {
                   </div>
                   
                   <div className="space-y-2">
-                    <h3 className="text-xl md:text-2xl font-black font-heading text-app-text">Quote Request Submitted!</h3>
+                    <h3 className="text-xl md:text-2xl font-black font-heading text-app-text">
+                      {alreadySubmitted ? 'Request Already Received' : 'Quote Request Submitted!'}
+                    </h3>
                     <p className="text-xs md:text-sm text-app-text-muted leading-relaxed max-w-sm">
-                      Thank you for reaching out, <strong className="text-app-text">{submittedData?.firstName}</strong>. Our domain expert will review your project requirements and respond with an estimate in under 4 hours!
+                      {alreadySubmitted ? (
+                        <>Hi <strong className="text-app-text">{submittedData?.firstName}</strong>, you have already submitted this request earlier. Our team has it and will get in touch with you soon — no need to submit again.</>
+                      ) : (
+                        <>Thank you for reaching out, <strong className="text-app-text">{submittedData?.firstName}</strong>. Our domain expert will review your project requirements and respond with an estimate in under 4 hours!</>
+                      )}
                     </p>
                   </div>
 

@@ -115,10 +115,13 @@ export default function LandingPage() {
       };
       
       const res = await api.post('/leads', payload);
-      if (res.data.success) {
+      if (res.data.success && res.data.alreadySubmitted) {
+        reset();
+        navigate('/thank-you?already=1');
+      } else if (res.data.success) {
         setIsSubmitSuccess(true);
         reset();
-        
+
         // Trigger tracking — trackConversion() handles FB Pixel + GA4 + LinkedIn
         if (window.trackConversion) {
           window.trackConversion({

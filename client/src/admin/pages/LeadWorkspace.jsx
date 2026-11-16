@@ -441,12 +441,34 @@ export default function LeadWorkspace() {
               <span className="px-2.5 py-1 rounded-md text-xs font-semibold bg-app-bg text-app-text-muted border border-app-border">
                 {lead.platform || 'Website'}
               </span>
+              {lead.repeatEnquiryCount > 0 && (
+                <span
+                  className="px-2.5 py-1 rounded-md text-xs font-semibold bg-sky-500/10 text-sky-400 border border-sky-500/20"
+                  title={`Last enquiry ${lead.lastEnquiryAt ? new Date(lead.lastEnquiryAt).toLocaleString() : ''}`}
+                >
+                  🔁 Enquired again ×{lead.repeatEnquiryCount}
+                </span>
+              )}
               {lead.lockedBy && (
                 <span className="px-2.5 py-1 rounded-md text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
                   🔒 Locked for active handling
                 </span>
               )}
             </div>
+            {lead.repeatEnquiries?.length > 0 && (
+              <div className="mt-3 rounded-md border border-sky-500/20 bg-sky-500/5 p-3">
+                <p className="text-xs font-semibold text-sky-400 mb-1.5">Repeat enquiries</p>
+                <ul className="space-y-1.5">
+                  {[...lead.repeatEnquiries].reverse().map((e, i) => (
+                    <li key={e._id || i} className="text-xs text-app-text">
+                      <span className="text-app-text-muted">{new Date(e.date).toLocaleString()} · {e.platform || 'Website'}</span>
+                      {' — '}<strong>{e.service}</strong>
+                      {e.message && <span className="block text-app-text-muted whitespace-pre-line mt-0.5">{e.message}</span>}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
           <div className={`grid grid-cols-2 sm:grid-cols-3 ${isSuperAdmin ? 'md:grid-cols-6' : 'md:grid-cols-5'} gap-2 w-full sm:w-auto min-w-0`}>
             <a href={`tel:${lead.phone}`} className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg bg-primary text-black font-bold text-xs sm:text-sm hover:opacity-90 transition-opacity min-w-0">

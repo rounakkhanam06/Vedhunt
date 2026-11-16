@@ -410,6 +410,23 @@ const leadSchema = new mongoose.Schema({
   // widely across the app to safely retype); this is the BD-editable
   // structured multi-select for qualification/reporting.
   servicesRequired: [{ type: String }],
+  // Later submissions from the same person (matched by phone/email) are kept
+  // here instead of creating a duplicate lead. See services/repeatEnquiry.js.
+  repeatEnquiries: [{
+    date: { type: Date, default: Date.now },
+    platform: String,
+    service: String,
+    message: String,
+    source: String,
+    utmSource: String,
+    utmMedium: String,
+    utmCampaign: String,
+    // fbLeadId / google lead id, so a re-polled webhook isn't recorded twice
+    externalId: String,
+    rawPayload: { type: mongoose.Schema.Types.Mixed }
+  }],
+  repeatEnquiryCount: { type: Number, default: 0 },
+  lastEnquiryAt: { type: Date, default: null },
   // Free text — GetQuote's per-service "business type" answer means
   // different things per service (legal structure vs B2B/B2C vs logistics
   // category), not worth forcing into one enum.
