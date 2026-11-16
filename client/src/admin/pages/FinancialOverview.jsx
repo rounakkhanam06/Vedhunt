@@ -255,48 +255,78 @@ export default function FinancialOverview() {
   const TREND = [['invoiced', 'Invoiced', palette[0]], ['collected', 'Collected', palette[2]], ['outstanding', 'Outstanding', palette[1]]];
 
   const c = data?.cards;
-  const select = 'bg-app-card border border-app-border rounded-lg px-3 py-2 text-sm text-app-text';
+  const select = 'h-10 bg-app-bg border border-app-border rounded-lg px-3 text-sm text-app-text focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors cursor-pointer';
+  const filtersChanged = preset !== 'thisMonth' || status !== 'all' || service !== 'all' || client !== 'all';
+  const resetFilters = () => { setPreset('thisMonth'); setStatus('all'); setService('all'); setClient('all'); };
   const label = 'block text-[10px] font-semibold text-app-text-muted uppercase tracking-wider mb-1';
 
   return (
     <div className="p-4 sm:p-6 space-y-5 text-app-text">
-      <div className="flex flex-col xl:flex-row xl:items-end xl:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-extrabold">Financial Overview</h1>
+      {/* Title + the period the numbers cover */}
+      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-extrabold tracking-tight">Financial Overview</h1>
           <p className="text-sm text-app-text-muted mt-1">Revenue, collections, clients, ad spend and operational insights</p>
         </div>
-        <div className="flex flex-wrap items-end gap-2">
-          <div><span className={label}>Date range</span>
-            <select aria-label="Date range" className={select} value={preset} onChange={(e) => setPreset(e.target.value)}>
-              <option value="thisMonth">This Month</option><option value="lastMonth">Last Month</option><option value="last3">Last 3 Months</option>
-              <option value="fy">This Financial Year</option><option value="month">Pick a month</option><option value="custom">Custom range</option>
-            </select>
+        {data?.period && (
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 text-primary font-semibold border border-primary/20">
+              <Calendar className="w-3.5 h-3.5" />
+              {fmtDay(data.period.from)} – {fmtDay(data.period.to)}
+            </span>
+            <span className="text-app-text-muted">
+              vs {fmtDay(data.period.previousFrom)} – {fmtDay(data.period.previousTo)}
+            </span>
           </div>
-          {preset === 'month' && (
-            <div><span className={label}>Month</span><input type="month" aria-label="Month" className={select} value={month} onChange={(e) => e.target.value && setMonth(e.target.value)} /></div>
-          )}
-          {preset === 'custom' && (
-            <>
-              <div><span className={label}>From</span><input type="date" aria-label="From date" className={select} value={custom.from} max={custom.to} onChange={(e) => e.target.value && setCustom({ ...custom, from: e.target.value })} /></div>
-              <div><span className={label}>To</span><input type="date" aria-label="To date" className={select} value={custom.to} min={custom.from} onChange={(e) => e.target.value && setCustom({ ...custom, to: e.target.value })} /></div>
-            </>
-          )}
+        )}
+      </div>
+
+      {/* Filters */}
+      <div className="rounded-xl border border-app-border bg-app-card/60 p-3 sm:p-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end">
+          <div className={preset === 'custom' ? 'lg:col-span-2' : ''}>
+            <span className={label}>Date range</span>
+            <div className="flex flex-wrap gap-2">
+              <select aria-label="Date range" className={`${select} flex-1 min-w-[9rem]`} value={preset} onChange={(e) => setPreset(e.target.value)}>
+                <option value="thisMonth">This Month</option><option value="lastMonth">Last Month</option><option value="last3">Last 3 Months</option>
+                <option value="fy">This Financial Year</option><option value="month">Pick a month</option><option value="custom">Custom range</option>
+              </select>
+              {preset === 'month' && (
+                <input type="month" aria-label="Month" className={`${select} flex-1 min-w-[9rem]`} value={month} onChange={(e) => e.target.value && setMonth(e.target.value)} />
+              )}
+              {preset === 'custom' && (
+                <>
+                  <input type="date" aria-label="From date" className={`${select} flex-1 min-w-[9rem]`} value={custom.from} max={custom.to} onChange={(e) => e.target.value && setCustom({ ...custom, from: e.target.value })} />
+                  <input type="date" aria-label="To date" className={`${select} flex-1 min-w-[9rem]`} value={custom.to} min={custom.from} onChange={(e) => e.target.value && setCustom({ ...custom, to: e.target.value })} />
+                </>
+              )}
+            </div>
+          </div>
           <div><span className={label}>Client status</span>
-            <select aria-label="Client status" className={select} value={status} onChange={(e) => setStatus(e.target.value)}>
-              <option value="all">All</option><option value="active">Active</option><option value="onboarding">Onboarding</option><option value="inactive">Inactive</option><option value="at-risk">At Risk</option>
+            <select aria-label="Client status" className={`${select} w-full`} value={status} onChange={(e) => setStatus(e.target.value)}>
+              <option value="all">All statuses</option><option value="active">Active</option><option value="onboarding">Onboarding</option><option value="inactive">Inactive</option><option value="at-risk">At Risk</option>
             </select>
           </div>
           <div><span className={label}>Service type</span>
-            <select aria-label="Service type" className={select} value={service} onChange={(e) => setService(e.target.value)}>
-              <option value="all">All</option>
+            <select aria-label="Service type" className={`${select} w-full`} value={service} onChange={(e) => setService(e.target.value)}>
+              <option value="all">All services</option>
               {(data?.filterOptions.services || []).map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
-          <div><span className={label}>Client</span>
-            <select aria-label="Client" className={`${select} max-w-[12rem]`} value={client} onChange={(e) => setClient(e.target.value)}>
-              <option value="all">All</option>
-              {(data?.filterOptions.clients || []).map((cl) => <option key={cl._id} value={cl._id}>{cl.businessName}</option>)}
-            </select>
+          <div className={preset === 'custom' ? 'sm:col-span-2 lg:col-span-4' : ''}>
+            <span className={label}>Client</span>
+            <div className="flex gap-2">
+              <select aria-label="Client" className={`${select} w-full min-w-0`} value={client} onChange={(e) => setClient(e.target.value)}>
+                <option value="all">All clients</option>
+                {(data?.filterOptions.clients || []).map((cl) => <option key={cl._id} value={cl._id}>{cl.businessName}</option>)}
+              </select>
+              {filtersChanged && (
+                <button type="button" onClick={resetFilters} title="Reset filters"
+                  className="shrink-0 inline-flex items-center gap-1 px-3 rounded-lg border border-app-border text-xs font-semibold text-app-text-muted hover:text-app-text hover:border-primary/40 transition-colors">
+                  <X className="w-3.5 h-3.5" /> Reset
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -306,9 +336,6 @@ export default function FinancialOverview() {
 
       {c && (
         <>
-          <p className="text-xs text-app-text-muted -mt-2">
-            {fmtDay(data.period.from)} – {fmtDay(data.period.to)} · % change against {fmtDay(data.period.previousFrom)} – {fmtDay(data.period.previousTo)}
-          </p>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5 gap-3">
             <Card icon={Users} tint="bg-blue-500/10 text-blue-500" label="Total Clients" value={c.totalClients} sub="Every client except archived" to="/admin/clients" />
