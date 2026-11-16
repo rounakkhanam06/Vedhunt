@@ -11,7 +11,16 @@ const logger = require('../utils/logger');
 const crypto = require('crypto');
 const { sendEmail } = require('../utils/sendEmail');
 const { resolveSegment, resolvePortalModules } = require('../utils/employeeSegments');
-const { grantSummary } = require('../config/pageAccess');
+const { grantSummary, hasBaseAccess } = require('../config/pageAccess');
+const { managedClientIds } = require('../middleware/withManagedClients');
+
+// Account managers see the Clients page for their clients even without a grant
+async function withManagedClientsAccess(access, user) {
+  // Full access already lives in the Admin panel; a grant already lists the page
+  if (access.clients || hasBaseAccess(user, 'clients')) return access;
+  const managed = await managedClientIds(user._id).catch(() => []);
+  return managed.length ? { ...access, clients: { actions: ['view'], mode: 'clients' } } : access;
+}
 
 const router = express.Router();
 
@@ -180,7 +189,7 @@ router.post('/login', ...loginMiddleware, async (req, res) => {
           permissions: Array.from(permissionsSet),
           segment: resolveSegment(admin.roles),
           portalModules: resolvePortalModules(admin.roles),
-          access: grantSummary({ permissions: Array.from(permissionsSet), accessGrants: admin.accessGrants, crmGrants: admin.crmGrants }),
+          access: await withManagedClientsAccess(grantSummary({ permissions: Array.from(permissionsSet), accessGrants: admin.accessGrants, crmGrants: admin.crmGrants }), { _id: admin._id, permissions: Array.from(permissionsSet) }),
           ...(await portalFlags(admin._id))
         }
       });
@@ -220,7 +229,7 @@ router.get('/me', employeeAuthMiddleware, async (req, res) => {
       permissions: req.user.permissions,
       segment: req.user.segment,
       portalModules: req.user.portalModules,
-      access: grantSummary(req.user),
+      access: await withManagedClientsAccess(grantSummary(req.user), req.user),
       ...flags
     },
     ...(req.preview ? { preview: req.preview } : {}),

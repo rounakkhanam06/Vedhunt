@@ -85,7 +85,9 @@ const { recordAudit } = require('../services/audit');
 // gives cms.manage / '*' full access and limits a grant to its clients.
 const router = express.Router();
 const { lineService } = require('../services/serviceCatalog');
-const crm = requirePageAccess;
+// Clients page also covers the clients a person is Account Manager of
+const { withManagedClients } = require('../middleware/withManagedClients');
+const crm = withManagedClients;
 // Invoice lines keep the service as a clean name, or none ("Unassigned")
 const withLineServices = (items) => (Array.isArray(items) ? items.map((it) => {
   const { service, ...rest } = it || {};
