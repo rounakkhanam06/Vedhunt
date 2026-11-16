@@ -12,6 +12,8 @@ const {
 const authMiddleware = require('../middleware/authMiddleware');
 const requirePermission = require('../middleware/requirePermission');
 const requirePageAccess = require('../middleware/requirePageAccess');
+// The lead's current assignee may work it (lock, update, follow-ups) without an Edit grant
+const assignee = require('../middleware/allowLeadAssignee');
 
 // In-memory only — the uploaded spreadsheet is parsed and discarded, never
 // persisted anywhere (unlike lead documents, which go to Cloudinary).
@@ -58,14 +60,14 @@ scoped.post('/:id/notes', leads('view'), addLeadNote);
 scoped.put('/:id/notes/:noteId', leads('view'), editLeadNote);
 scoped.delete('/:id/notes/:noteId', leads('view'), deleteLeadNote);
 scoped.post('/:id/notes/:noteId/remove', leads('view'), deleteLeadNote);
-scoped.post('/:id/lock', leads('edit'), lockLead);
+scoped.post('/:id/lock', assignee(leads('edit')), lockLead);
 scoped.post('/:id/unlock', leads('view'), unlockLead);
-scoped.put('/:id', leads('edit'), updateLead);
+scoped.put('/:id', assignee(leads('edit')), updateLead);
 scoped.post('/import/preview', requirePermission('leads.import'), uploadLeadFile.single('file'), previewImportLeads);
 scoped.post('/import', requirePermission('leads.import'), uploadLeadFile.single('file'), importLeads);
 scoped.get('/:id/tasks', tasks('view'), getLeadTasks);
-scoped.post('/:id/tasks', requirePageAccess('followups', 'edit'), createLeadTask);
-scoped.put('/:id/tasks/:taskId/complete', tasks('edit'), completeLeadTask);
+scoped.post('/:id/tasks', assignee(requirePageAccess('followups', 'edit')), createLeadTask);
+scoped.put('/:id/tasks/:taskId/complete', assignee(tasks('edit')), completeLeadTask);
 scoped.delete('/:id', leads('delete'), deleteLead);
 // Fallback for strict firewalls that block DELETE requests
 scoped.post('/:id/delete', leads('delete'), deleteLead);
