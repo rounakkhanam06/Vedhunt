@@ -266,8 +266,8 @@ export default function ClientManager() {
       const payload = { ...form };
       delete payload.password;
       if (selectedClient) {
-        await http.put(`${base}/clients/${selectedClient._id}`, payload);
-        toast.success('Client updated');
+        const upd = await http.put(`${base}/clients/${selectedClient._id}`, payload);
+        toast.success(upd.data?.message || 'Client updated');
       } else {
         const res = await http.post(`${base}/clients`, payload);
         if (res.data.activationEmailSent) toast.success(res.data.message);

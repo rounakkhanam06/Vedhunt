@@ -496,7 +496,23 @@ router.put('/clients/:id', crm('clients', 'edit'), async (req, res) => {
 
     if (businessName !== undefined) client.businessName = businessName;
     if (contactName !== undefined) client.contactName = contactName;
-    if (email !== undefined) client.email = email.toLowerCase().trim();
+    // This is also the portal login email. Changing it must not collide with
+    // another account, and the old address must stop working.
+    let emailChange = null;
+    if (email !== undefined) {
+      const newEmail = email.toLowerCase().trim();
+      if (newEmail !== client.email) {
+        const taken = await Client.exists({ email: newEmail, _id: { $ne: client._id } });
+        if (taken) return res.status(409).json({ success: false, message: 'Another client already uses this email address.' });
+        emailChange = { from: client.email, to: newEmail };
+        client.email = newEmail;
+        // Log out existing portal sessions; they sign in again with the new email
+        client.refreshToken = undefined;
+        // A pending activation/reset link went to the old address — void it
+        client.resetPasswordToken = undefined;
+        client.resetPasswordExpire = undefined;
+      }
+    }
     if (phone !== undefined) client.phone = phone;
     if (notes !== undefined) client.notes = notes;
     if (isActive !== undefined && Boolean(isActive) !== client.isActive) {
@@ -533,7 +549,22 @@ router.put('/clients/:id', crm('clients', 'edit'), async (req, res) => {
     }
     if (agreementResignRequired) await notifyAgreementUpdated(client._id);
 
-    res.json({ success: true, message: 'Client updated successfully', agreementResignRequired });
+    let message = 'Client updated successfully';
+    if (emailChange) {
+      await recordAudit(req, 'CLIENT_LOGIN_EMAIL_CHANGE', 'Client', client.clientId, { email: emailChange.from }, { email: emailChange.to });
+      // Not activated yet: the old link is void, so send a fresh one to the new address
+      if (!client.activatedAt && client.isActive && !client.deletedAt) {
+        const withToken = await Client.findById(client._id).select('+resetPasswordToken +resetPasswordExpire');
+        const r = await sendActivationLink(withToken);
+        message = r.sent
+          ? `Client updated. The login email is now ${emailChange.to} and a new activation link was emailed there.`
+          : `Client updated. The login email is now ${emailChange.to}, but the activation email could not be sent — use "Send activation link".`;
+      } else {
+        message = `Client updated. The client now logs in with ${emailChange.to} (same password).`;
+      }
+    }
+
+    res.json({ success: true, message, agreementResignRequired, emailChanged: Boolean(emailChange) });
   } catch (error) {
     logger.error('Admin update client error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
