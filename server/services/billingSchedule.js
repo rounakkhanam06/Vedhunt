@@ -97,6 +97,26 @@ function problemsFor({ lineItems, totalAmount }, client) {
   return problems;
 }
 
+/**
+ * What a draft dated `fromDate` would bill, for the schedule screen: the
+ * client's active monthly retainers and the total with GST. Same filter as
+ * buildContents below, so the preview and the drafts always agree.
+ */
+async function billingPreview(clientId, fromDate, policy) {
+  const retainers = await Retainer.find({
+    client_ref: clientId, status: 'Active', billingCycle: 'Monthly', contractEndDate: { $gte: new Date(`${fromDate}T00:00:00`) },
+  }).select('packageName monthlyAmount contractEndDate').sort({ createdAt: 1 }).lean();
+  const lines = retainers.filter((r) => r.monthlyAmount > 0);
+  const subtotal = r2(lines.reduce((s, r) => s + r.monthlyAmount, 0));
+  const tax = r2(subtotal * ((Number(policy?.gstPercent) || 0) / 100));
+  return {
+    retainers: lines.map((r) => ({ packageName: r.packageName, monthlyAmount: r.monthlyAmount, contractEndDate: r.contractEndDate })),
+    subtotal,
+    gstPercent: Number(policy?.gstPercent) || 0,
+    total: r2(subtotal + tax),
+  };
+}
+
 /** Build the draft's figures from the client's active monthly retainers. */
 async function buildContents(schedule, client, invoiceDate, policy) {
   const period = periodFor(schedule, invoiceDate);
@@ -339,6 +359,6 @@ function validateSchedule(input = {}, defaultDueDays = 7) {
 }
 
 module.exports = {
-  CATCH_UP_DAYS, dayInMonth, nthDate, invoiceDatesBetween, nextDateAfter, upcomingDates, periodFor, suggestStartDate,
+  billingPreview, CATCH_UP_DAYS, dayInMonth, nthDate, invoiceDatesBetween, nextDateAfter, upcomingDates, periodFor, suggestStartDate,
   totals, problemsFor, cleanItems, generateDrafts, missedDates, createDraftFor, editDraft, rebuildDraft, approveDraft, skipDraft, validateSchedule,
 };

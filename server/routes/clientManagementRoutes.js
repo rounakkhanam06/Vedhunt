@@ -63,6 +63,7 @@ const clientCreationIssues = require('../services/clientCreationIssues');
 const ClientCreationIssue = require('../models/ClientCreationIssue');
 const Lead = require('../models/Lead');
 const { normalizeEmail } = require('../utils/normalize');
+const { publicImageUpload } = require('../utils/cloudinary');
 const { convertWonLeadToClient } = require('../services/clientProvisioning');
 const clientPolicies = require('../services/clientPolicies');
 const BillingSchedule = require('../models/BillingSchedule');
@@ -614,6 +615,23 @@ router.post('/clients/:id/release', crm('clients', 'edit'), async (req, res) => 
     logger.error('Admin release client error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
+});
+
+// ─── Client logo upload ─────────────────────────────────────────────────────
+// Uploads the image and returns its URL; the Profile form saves it with the
+// rest of the profile, so Cancel leaves the client unchanged. Raster images
+// only (jpg/png/webp, 3MB) — no SVG.
+router.post('/clients/:id/logo', crm('clients', 'edit'), (req, res, next) => {
+  if (!isValidId(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid client ID' });
+  if (!clientAllowed(req, req.params.id)) return outOfScope(res, 'Client');
+  publicImageUpload.single('logo')(req, res, (err) => {
+    if (err) {
+      const tooBig = err.code === 'LIMIT_FILE_SIZE';
+      return res.status(400).json({ success: false, message: tooBig ? 'The logo must be 3 MB or smaller.' : 'Upload a JPG, PNG or WebP image.' });
+    }
+    if (!req.file) return res.status(400).json({ success: false, message: 'Choose an image to upload.' });
+    res.json({ success: true, url: req.file.path });
+  });
 });
 
 // ─── Activation / reset link (SOP §4: no password by email, none shown to staff) ──
@@ -1650,6 +1668,8 @@ router.get('/clients/:id/billing-schedule', crm('invoices', 'view'), async (req,
         schedule,
         suggestedStartDate: billingSchedule.suggestStartDate(client.profile?.onboardingDate),
         defaultDueDays: policy.defaultDueDays,
+        // What each draft will bill: the same retainers buildContents() uses
+        billing: await billingSchedule.billingPreview(req.params.id, today, policy),
         upcoming: schedule ? billingSchedule.upcomingDates(schedule, today, 4).map((d) => ({ invoiceDate: d, ...billingSchedule.periodFor(schedule, d) })) : [],
         // Scheduled dates that have passed with no draft or invoice — staff can create their drafts now
         missed: schedule ? (await billingSchedule.missedDates(schedule)).map((d) => ({ invoiceDate: d, ...billingSchedule.periodFor(schedule, d) })) : [],
@@ -2069,6 +2089,7 @@ router.get('/invoices', crm('invoices', 'view'), async (req, res) => {
     const status = req.query.status;
     if (status === 'Overdue') Object.assign(filter, finance.overdueFilter(now));
     else if (status === 'Unpaid') Object.assign(filter, finance.unpaidNotOverdueFilter(now));
+    else if (status === 'Partially Paid') Object.assign(filter, finance.partiallyPaidFilter());
     else if (status) filter.paymentStatus = status;
 
     const [invoices, total] = await Promise.all([
@@ -2154,6 +2175,60 @@ router.get('/invoice-documents/billing-defaults/:clientId', crm('invoices', 'vie
   }
 });
 
+// What is still missing for project balances to be right: projects with no
+// value, and invoices of clients that have projects but aren't linked to one.
+// Each invoice comes with that client's projects so it can be linked in place.
+router.get('/billing-setup-gaps', crm('invoices', 'view'), async (req, res) => {
+  try {
+    const clientScope = isScoped(req) ? { client_ref: { $in: req.pageScope.clients } } : {};
+    const projects = await Project.find({ ...clientScope, status: { $ne: 'Cancelled' } }, 'projectName projectId client_ref totalPrice status')
+      .populate('client_ref', 'businessName clientId').lean();
+    const projectsByClient = new Map();
+    for (const p of projects) {
+      const key = String(p.client_ref?._id || p.client_ref);
+      if (!projectsByClient.has(key)) projectsByClient.set(key, []);
+      projectsByClient.get(key).push({ _id: p._id, projectName: p.projectName, projectId: p.projectId });
+    }
+    const unlinked = projectsByClient.size ? await Invoice.find({
+      client_ref: { $in: [...projectsByClient.keys()] },
+      $or: [{ project_ref: null }, { project_ref: { $exists: false } }],
+    }, 'invoiceId client_ref totalAmount paidAmount creditedAmount issueDate paymentStatus dueDate')
+      .populate('client_ref', 'businessName clientId').sort({ issueDate: -1 }).limit(200).lean() : [];
+
+    res.json({
+      success: true,
+      projectsWithoutValue: projects.filter((p) => !(p.totalPrice > 0)).map((p) => ({
+        _id: p._id, projectName: p.projectName, projectId: p.projectId, client: p.client_ref,
+      })),
+      unlinkedInvoices: unlinked.map((inv) => ({
+        ...finance.withDerived(inv),
+        projects: projectsByClient.get(String(inv.client_ref?._id || inv.client_ref)) || [],
+      })),
+    });
+  } catch (error) {
+    logger.error('Billing setup gaps error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// Payment date for an invoice marked Paid: required, a real date, not in the future
+function parsePaidOn(input) {
+  if (!input) return { error: 'Enter the payment date.' };
+  const d = new Date(input);
+  if (Number.isNaN(d.getTime())) return { error: 'Enter a valid payment date.' };
+  if (d.getTime() > Date.now() + 24 * 60 * 60 * 1000) return { error: 'The payment date cannot be in the future.' };
+  return { value: d };
+}
+
+// Optional project an invoice is billed against; must belong to the same client
+async function checkInvoiceProject(projectRef, clientRef) {
+  if (!projectRef) return { value: null };
+  if (!isValidId(projectRef)) return { error: 'Invalid project' };
+  const project = await Project.findById(projectRef, { client_ref: 1 }).lean();
+  if (!project || String(project.client_ref) !== String(clientRef?._id || clientRef)) return { error: 'That project does not belong to this client.' };
+  return { value: project._id };
+}
+
 router.post('/invoices', crm('invoices', 'create'), async (req, res) => {
   try {
     const { client_ref, issueDate, dueDate, lineItems, subtotal, taxPercent, taxAmount, totalAmount, notes } = req.body;
@@ -2164,10 +2239,18 @@ router.post('/invoices', crm('invoices', 'create'), async (req, res) => {
     if (!clientAllowed(req, client_ref)) return res.status(403).json({ success: false, message: "You can't create invoices for this client." });
     const billing = cleanBilling(req.body.billing);
     if (billing.error) return res.status(400).json({ success: false, message: billing.error });
+    const projectRef = await checkInvoiceProject(req.body.project_ref, client_ref);
+    if (projectRef.error) return res.status(400).json({ success: false, message: projectRef.error });
+    // Created as already paid: record the full amount and the date it was paid
+    const paidOn = req.body.paymentStatus === 'Paid' ? parsePaidOn(req.body.paidOn) : null;
+    if (paidOn?.error) return res.status(400).json({ success: false, message: paidOn.error });
+    const paid = paidOn ? { paymentStatus: 'Paid', paidAmount: Number(totalAmount) || 0, paidOn: paidOn.value } : {};
 
     // Saved, not sent: the client sees it (and it counts as owed) only after Send
     const invoice = await Invoice.create({
       client_ref, issueDate, dueDate, lineItems: withLineServices(lineItems),
+      project_ref: projectRef.value,
+      ...paid,
       subtotal: subtotal || totalAmount,
       taxPercent: taxPercent || 0,
       taxAmount: taxAmount || 0,
@@ -2207,6 +2290,11 @@ router.put('/invoices/:id', crm('invoices', 'edit'), async (req, res) => {
     if (existing.creditedAmount > 0 && ['lineItems', 'subtotal', 'taxPercent', 'taxAmount', 'totalAmount'].some((k) => k in update)) {
       return res.status(409).json({ success: false, message: 'Credit notes have been issued on this invoice, so its amounts can no longer be edited. Issue another credit note instead.' });
     }
+    if ('project_ref' in update) {
+      const projectRef = await checkInvoiceProject(update.project_ref, existing.client_ref);
+      if (projectRef.error) return res.status(400).json({ success: false, message: projectRef.error });
+      update.project_ref = projectRef.value;
+    }
     if ('billing' in update) {
       const billing = cleanBilling(update.billing);
       if (billing.error) return res.status(400).json({ success: false, message: billing.error });
@@ -2227,7 +2315,12 @@ router.put('/invoices/:id', crm('invoices', 'edit'), async (req, res) => {
         const paid = Number(update.paidAmount ?? current.paidAmount) || 0;
         if (update.paymentStatus === 'Paid') {
           if (paid < total) update.paidAmount = total;
-          if (!update.paidOn && !current.paidOn) update.paidOn = new Date();
+          if (update.paidOn) {
+            const paidOn = parsePaidOn(update.paidOn);
+            if (paidOn.error) return res.status(400).json({ success: false, message: paidOn.error });
+            update.paidOn = paidOn.value;
+          } else if (!current.paidOn) update.paidOn = new Date();
+          else delete update.paidOn;
         } else if (paid >= total && total > 0) {
           update.paidAmount = 0;
           update.paidOn = null;
@@ -2704,7 +2797,8 @@ router.get('/projects', crm('projects', 'view'), async (req, res) => {
       Project.countDocuments(filter),
     ]);
 
-    paginatedResponse(res, { data: projects, total, page, limit });
+    const money = await finance.projectFinancials(projects);
+    paginatedResponse(res, { data: projects.map((p) => ({ ...p, financials: money.get(String(p._id)) })), total, page, limit });
   } catch (error) {
     logger.error('Admin get projects error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
@@ -2736,7 +2830,8 @@ router.post('/projects', crm('projects', 'create'), async (req, res) => {
     if (!clientAllowed(req, client_ref)) return res.status(403).json({ success: false, message: "You can't create projects for this client." });
     const { value: assignment, error } = await delivery.cleanAssignment(req.body);
     if (error) return res.status(400).json({ success: false, message: error });
-    const project = await Project.create({ client_ref, projectName, internalNotes, startDate, expectedEndDate, status, milestones, ...assignment });
+    const totalPrice = Number(req.body.totalPrice) || 0;
+    const project = await Project.create({ client_ref, projectName, internalNotes, startDate, expectedEndDate, status, milestones, totalPrice, ...assignment });
     await delivery.notifyNewAssignees(project);
     res.status(201).json({ success: true, message: 'Project created', data: { projectId: project.projectId, _id: project._id } });
   } catch (error) {

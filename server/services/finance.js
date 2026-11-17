@@ -44,6 +44,8 @@ const withDerived = (inv, now = new Date()) => {
     balance: invoiceBalance(inv),
     daysOverdue: daysOverdue(inv, now),
     isOverdue: overdue,
+    // Some money received but a balance still open (shown as "Partially Paid")
+    isPartiallyPaid: inv.paymentStatus !== 'Paid' && (Number(inv.paidAmount) || 0) > 0 && invoiceBalance(inv) > 0,
   };
 };
 
@@ -53,6 +55,46 @@ const overdueFilter = (now = new Date()) => ({
   dueDate: { $lt: now },
   $expr: { $gt: [NET_TOTAL, '$paidAmount'] },
 });
+
+/** Mongo filter for invoices with part of the money received and a balance still open. */
+const partiallyPaidFilter = () => ({
+  paymentStatus: { $ne: 'Paid' },
+  paidAmount: { $gt: 0 },
+  $expr: { $gt: [NET_TOTAL, '$paidAmount'] },
+});
+
+/**
+ * Money position of each project against its value: invoiced (net of credit
+ * notes), received and what is left. Map keyed by project _id string.
+ */
+async function projectFinancials(projects) {
+  const ids = projects.map((p) => p._id);
+  const rows = ids.length ? await Invoice.aggregate([
+    { $match: { project_ref: { $in: ids } } },
+    { $group: { _id: '$project_ref', invoiced: { $sum: NET_TOTAL }, received: { $sum: { $ifNull: ['$paidAmount', 0] } }, invoices: { $sum: 1 } } },
+  ]) : [];
+  const byId = new Map(rows.map((r) => [String(r._id), r]));
+  const out = new Map();
+  for (const p of projects) {
+    const r = byId.get(String(p._id)) || { invoiced: 0, received: 0, invoices: 0 };
+    const value = round2(p.totalPrice);
+    const invoiced = round2(r.invoiced);
+    const received = round2(r.received);
+    out.set(String(p._id), {
+      value,
+      invoiced,
+      received,
+      invoices: r.invoices,
+      // Still owed on invoices already raised
+      dueOnInvoices: round2(Math.max(0, invoiced - received)),
+      // Left to collect against the whole project value (or the invoices, when no value is set)
+      balance: value > 0 ? round2(Math.max(0, value - received)) : round2(Math.max(0, invoiced - received)),
+      notYetInvoiced: round2(Math.max(0, value - invoiced)),
+      receivedPercent: collectionPercent(received, value || invoiced),
+    });
+  }
+  return out;
+}
 
 /** Mongo filter for invoices that are open (still owe money) but not yet overdue. */
 const unpaidNotOverdueFilter = (now = new Date()) => ({
@@ -150,6 +192,6 @@ async function portfolioFinance({ clientIds, now = new Date() } = {}) {
 }
 
 module.exports = {
-  round2, netTotal, NET_TOTAL, invoiceBalance, daysOverdue, isOverdue, collectionPercent, withDerived,
+  round2, netTotal, NET_TOTAL, invoiceBalance, partiallyPaidFilter, projectFinancials, daysOverdue, isOverdue, collectionPercent, withDerived,
   overdueFilter, unpaidNotOverdueFilter, applyPaymentToInvoice, portfolioFinance,
 };

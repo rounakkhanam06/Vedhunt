@@ -3,6 +3,7 @@ const Invoice = require('../models/Invoice');
 const Client = require('../models/Client');
 const { isScoped, clientAllowed } = require('../utils/clientScope');
 const { notifyPaymentApproved, notifyPaymentRejected } = require('../services/clientNotify');
+const { notifyPermissionHolders } = require('../services/staffNotify');
 const { applyPaymentToInvoice, invoiceBalance, round2 } = require('../services/finance');
 const { recordAudit } = require('../services/audit');
 const { PAYMENT_METHODS } = require('../models/PaymentProof');
@@ -60,7 +61,14 @@ exports.submitPaymentProof = async (req, res) => {
 
     await proof.save();
 
-    // Optionally send an email notification to Admin here
+    // Tell the client desk there is a payment to verify. Never throws.
+    const invoiceNo = (await Invoice.findById(invoice_ref).select('invoiceId').lean().catch(() => null))?.invoiceId;
+    await notifyPermissionHolders('cms.manage', {
+      type: 'payment_submitted',
+      title: `Payment to verify - ${req.client.businessName || 'a client'}`,
+      message: `₹${Number(amount).toLocaleString('en-IN')}${invoiceNo ? ` against ${invoiceNo}` : ''}${utrNumber ? ` · UTR ${utrNumber}` : ''}`,
+      link: '/admin/payment-verification',
+    });
 
     res.status(201).json({
       message: 'Payment proof submitted successfully. Pending verification.',

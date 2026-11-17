@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useCrm } from '../../shared/crmAccess';
 import InvoiceDraftsPanel from '../components/InvoiceDraftsPanel';
+import BillingSetupGaps from '../components/BillingSetupGaps';
 import InvoicePaymentsModal from '../components/InvoicePaymentsModal';
 import AgeingPanel from '../components/AgeingPanel';
 import RevenuePanel from '../components/RevenuePanel';
@@ -25,10 +26,14 @@ const STATUS_COLORS = {
   Paid:    'bg-green-500/10 text-green-400 border-green-500/20',
   Unpaid:  'bg-amber-500/10 text-amber-400 border-amber-500/20',
   Overdue: 'bg-red-500/10 text-red-400 border-red-500/20',
+  'Partially Paid': 'bg-blue-500/10 text-blue-400 border-blue-500/20',
 };
+// Shown status: a part-paid invoice that isn't overdue reads "Partially Paid"
+const shownStatus = (inv) => (inv.isPartiallyPaid && inv.paymentStatus !== 'Overdue' ? 'Partially Paid' : inv.paymentStatus);
+const inr = (n) => `₹${(Number(n) || 0).toLocaleString('en-IN')}`;
 
 const emptyForm = () => ({
-  client_ref: '', issueDate: today(), dueDate: '', notes: '',
+  client_ref: '', project_ref: '', issueDate: today(), dueDate: '', notes: '',
   lineItems: [{ description: '', qty: 1, unitPrice: '', sac: '', revenueType: 'Retainer', service: '' }],
   taxPercent: 18, paymentStatus: 'Unpaid',
   billing: emptyBilling(),
@@ -53,6 +58,17 @@ export default function InvoiceManager() {
   const [editTarget, setEditTarget] = useState(null);
   const [form, setForm] = useState(emptyForm());
   const [saving, setSaving] = useState(false);
+  // Projects of the client chosen in the form, to bill an invoice against one
+  const [clientProjects, setClientProjects] = useState([]);
+  const formClient = showModal ? form.client_ref : '';
+  useEffect(() => {
+    if (!formClient) { setClientProjects([]); return undefined; }
+    let live = true;
+    http.get(`${base}/projects`, { params: { client_ref: formClient, limit: 100 } })
+      .then((r) => { if (live) setClientProjects(r.data?.data || []); })
+      .catch(() => { if (live) setClientProjects([]); }); // no Projects access: no picker
+    return () => { live = false; };
+  }, [http, base, formClient]);
   const [docInfo, setDocInfo] = useState({ states: [], next: {} }); // GST states + next proforma / tax invoice numbers
   const [paymentsFor, setPaymentsFor] = useState(null); // the invoice whose payments / credit notes are open
   const [sendTarget, setSendTarget] = useState(null);
@@ -158,6 +174,7 @@ export default function InvoiceManager() {
     const clientId = inv.client_ref?._id || '';
     setForm({
       client_ref: clientId,
+      project_ref: inv.project_ref ? String(inv.project_ref._id || inv.project_ref) : '',
       issueDate: inv.issueDate?.split('T')[0] || today(),
       dueDate: inv.dueDate?.split('T')[0] || '',
       notes: inv.notes || '',
@@ -165,6 +182,7 @@ export default function InvoiceManager() {
       taxPercent: inv.taxPercent || 0,
       // Overdue is worked out from the due date and balance, so it is never an editable status
       paymentStatus: inv.paymentStatus === 'Paid' ? 'Paid' : 'Unpaid',
+      paidOn: inv.paymentStatus === 'Paid' ? (inv.paidOn?.split('T')[0] || '') : '',
       billing: { ...emptyBilling(), ...(inv.billing || {}) },
     });
     setShowModal(true);
@@ -188,7 +206,7 @@ export default function InvoiceManager() {
         service: i.service || '', // none = "Unassigned" on the Financial Overview
       }));
 
-      const payload = { ...form, lineItems: mappedLineItems, subtotal, taxAmount, totalAmount };
+      const payload = { ...form, paidOn: form.paymentStatus === 'Paid' ? (form.paidOn || null) : undefined, project_ref: form.project_ref || null, lineItems: mappedLineItems, subtotal, taxAmount, totalAmount };
       if (editTarget) {
         await http.put(`${base}/invoices/${editTarget._id}`, payload);
         toast.success('Invoice updated');
@@ -267,10 +285,11 @@ export default function InvoiceManager() {
       )}
 
       {view === 'invoices' && (<>
+      <BillingSetupGaps http={http} base={base} canEditInvoices={canCrm('invoices', 'edit')} canEditProjects={canCrm('projects', 'edit')} onChanged={fetchInvoices} />
       {/* Filters */}
       <div className="flex gap-2 items-center">
         <Filter size={14} className="text-on-surface-variant" />
-        {['', 'Paid', 'Unpaid', 'Overdue'].map(s => (
+        {['', 'Paid', 'Partially Paid', 'Unpaid', 'Overdue'].map(s => (
           <button key={s} onClick={() => { setStatusFilter(s); setPage(1); }}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium border cursor-pointer transition-all ${
               statusFilter === s ? 'bg-secondary/15 text-secondary border-secondary/30' : 'bg-admin-bg text-on-surface-variant border-outline-variant hover:text-on-surface'
@@ -301,6 +320,8 @@ export default function InvoiceManager() {
                   <th className="px-4 py-3 text-left hidden md:table-cell">Issue Date</th>
                   <th className="px-4 py-3 text-left hidden md:table-cell">Due Date</th>
                   <th className="px-4 py-3 text-right">Amount</th>
+                  <th className="px-4 py-3 text-right">Paid</th>
+                  <th className="px-4 py-3 text-right">Balance</th>
                   <th className="px-4 py-3 text-center">Status</th>
                   <th className="px-4 py-3 text-center">Actions</th>
                 </tr>
@@ -330,17 +351,22 @@ export default function InvoiceManager() {
                       {new Date(inv.dueDate).toLocaleDateString('en-IN')}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <span className="text-on-surface font-semibold">
-                        ₹{(inv.totalAmount || 0).toLocaleString('en-IN')}
-                      </span>
-                      {inv.balance > 0 && inv.balance < inv.totalAmount && (
-                        <span className="block text-[10px] text-on-surface-variant">Balance ₹{inv.balance.toLocaleString('en-IN')}</span>
+                      <span className="text-on-surface font-semibold">{inr(inv.totalAmount)}</span>
+                      {inv.creditedAmount > 0 && (
+                        <span className="block text-[10px] text-on-surface-variant">Credit note −{inr(inv.creditedAmount)}</span>
                       )}
                     </td>
+                    <td className="px-4 py-3 text-right text-green-400 text-xs font-medium">
+                      {inv.paidAmount > 0 ? inr(inv.paidAmount) : <span className="text-on-surface-variant">—</span>}
+                    </td>
+                    <td className="px-4 py-3 text-right text-xs font-semibold">
+                      {inv.balance > 0 ? <span className="text-amber-400">{inr(inv.balance)}</span> : <span className="text-on-surface-variant">—</span>}
+                    </td>
                     <td className="px-4 py-3 text-center">
-                      <span className={`inline-flex items-center border rounded-full text-[10px] font-medium px-2.5 py-0.5 ${STATUS_COLORS[inv.paymentStatus] || 'bg-gray-500/10 text-gray-400 border-gray-500/20'}`}>
-                        {inv.paymentStatus}
+                      <span className={`inline-flex items-center border rounded-full text-[10px] font-medium px-2.5 py-0.5 ${STATUS_COLORS[shownStatus(inv)] || 'bg-gray-500/10 text-gray-400 border-gray-500/20'}`}>
+                        {shownStatus(inv)}
                       </span>
+                      {inv.isPartiallyPaid && inv.paymentStatus === 'Overdue' && <span className="block text-[10px] text-blue-400 mt-0.5">Partly paid</span>}
                       {inv.daysOverdue > 0 && <span className="block text-[10px] font-bold text-red-400 mt-0.5">{inv.daysOverdue}d overdue</span>}
                     </td>
                     <td className="px-4 py-3">
@@ -413,11 +439,25 @@ export default function InvoiceManager() {
                 <div>
                   <label className="block text-on-surface-variant text-xs font-medium mb-1.5">Client *</label>
                   <select value={form.client_ref} disabled={!!editTarget} required
-                    onChange={e => { const id = e.target.value; setForm(p => ({ ...p, client_ref: id, billing: emptyBilling() })); loadBillingDefaults(id); }}
+                    onChange={e => { const id = e.target.value; setForm(p => ({ ...p, client_ref: id, project_ref: '', billing: emptyBilling() })); loadBillingDefaults(id); }}
                     className="w-full px-3 py-2.5 bg-admin-bg border border-outline-variant rounded-xl text-on-surface text-sm focus:outline-none focus:border-secondary">
                     <option value="">Select client…</option>
                     {clients.map(c => <option key={c._id} value={c._id}>{c.businessName} — {c.clientId}</option>)}
                   </select>
+                  {clientProjects.length > 0 && (
+                    <div className="mt-3">
+                      <label className="block text-on-surface-variant text-xs font-medium mb-1.5">Project (optional)</label>
+                      <select value={form.project_ref} onChange={e => setForm(p => ({ ...p, project_ref: e.target.value }))} className={inputCls}>
+                        <option value="">Not for a specific project</option>
+                        {clientProjects.map(prj => (
+                          <option key={prj._id} value={prj._id}>
+                            {prj.projectName} — {prj.projectId}{prj.financials?.value ? ` · balance ${inr(prj.financials.balance)} of ${inr(prj.financials.value)}` : ''}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="text-[10px] text-on-surface-variant mt-1">Link it to count this invoice against the project value.</p>
+                    </div>
+                  )}
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
@@ -514,10 +554,17 @@ export default function InvoiceManager() {
                 </div>
                 <div>
                   <label className="block text-on-surface-variant text-xs font-medium mb-1.5">Status</label>
-                  <select value={form.paymentStatus} onChange={e => setForm(p => ({ ...p, paymentStatus: e.target.value }))}
+                  <select value={form.paymentStatus} onChange={e => setForm(p => ({ ...p, paymentStatus: e.target.value, paidOn: e.target.value === 'Paid' ? (p.paidOn || today()) : '' }))}
                     className="w-full px-3 py-2.5 bg-admin-bg border border-outline-variant rounded-xl text-on-surface text-sm focus:outline-none focus:border-secondary">
                     {['Unpaid', 'Paid'].map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
+                  {form.paymentStatus === 'Paid' && (
+                    <div className="mt-3">
+                      <label className="block text-on-surface-variant text-xs font-medium mb-1.5">Payment Date *</label>
+                      <input type="date" required value={form.paidOn || ''} max={today()} onChange={e => setForm(p => ({ ...p, paidOn: e.target.value }))}
+                        className="w-full px-3 py-2.5 bg-admin-bg border border-outline-variant rounded-xl text-on-surface text-sm focus:outline-none focus:border-secondary [color-scheme:dark]" />
+                    </div>
+                  )}
                 </div>
                 <div className="bg-secondary/5 border border-secondary/20 rounded-xl px-3 py-2.5 flex flex-col justify-center">
                   <p className="text-on-surface-variant text-xs">Total</p>

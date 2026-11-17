@@ -12,7 +12,7 @@ import {
   ATTACHMENT_ACCEPT, ATTACHMENT_MAX_PER_TICKET, attachmentName, isImageAttachment, validateAttachmentFiles,
 } from '../../utils/attachments';
 
-const DEFAULT_CATEGORIES = ['Bug Report', 'Feature Request', 'General Inquiry', 'Urgent Fix'];
+const DEFAULT_CATEGORIES = ['Bug Report', 'Feature Request', 'General Inquiry', 'Urgent Fix', 'Change Request'];
 const PRIORITIES = ['Low', 'Medium', 'High', 'Critical'];
 
 const SupportTab = () => {
@@ -228,7 +228,7 @@ const SupportTab = () => {
                   onChange={(e) => setForm((p) => ({ ...p, category: e.target.value }))}
                   className="w-full px-4 py-2.5 bg-bg-surface/50 border border-border-default rounded-xl text-white focus:outline-none focus:border-[#FF5A1F]/60 transition-all text-sm"
                 >
-                  {categories.map((c) => <option key={c} value={c} className="bg-[#1A1F2B] text-white">{c}</option>)}
+                  {[...new Set([...categories, ...(form.category ? [form.category] : [])])].map((c) => <option key={c} value={c} className="bg-[#1A1F2B] text-white">{c}</option>)}
                 </select>
               </div>
               <div>

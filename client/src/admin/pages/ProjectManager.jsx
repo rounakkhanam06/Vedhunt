@@ -9,11 +9,12 @@ import EscalationLog from '../../components/projects/EscalationLog';
 
 const emptyForm = () => ({
   client_ref: '', projectName: '', startDate: '', expectedEndDate: '',
-  internalNotes: '', status: 'Active',
+  internalNotes: '', status: 'Active', totalPrice: '',
   projectManager: '', teamMembers: [],
   milestones: [{ title: '', internalDescription: '', status: 'Pending', targetDate: '', order: 1 }]
 });
 
+const inr = (n) => `₹${(Number(n) || 0).toLocaleString('en-IN')}`;
 const STATUS_COLORS = {
   'Active': 'bg-green-500/10 text-green-400 border-green-500/20',
   'On Hold': 'bg-amber-500/10 text-amber-400 border-amber-500/20',
@@ -87,6 +88,7 @@ export default function ProjectManager() {
       expectedEndDate: prj.expectedEndDate?.split('T')[0] || '',
       internalNotes: prj.internalNotes || '',
       status: prj.status || 'Active',
+      totalPrice: prj.totalPrice ? String(prj.totalPrice) : '',
       projectManager: prj.projectManager?._id || '',
       teamMembers: (prj.teamMembers || []).map(m => m._id),
       milestones: prj.milestones?.length ? prj.milestones.map(m => ({
@@ -110,7 +112,7 @@ export default function ProjectManager() {
 
     setSaving(true);
     try {
-      const payload = { ...form };
+      const payload = { ...form, totalPrice: Number(form.totalPrice) || 0 };
       if (editTarget) {
         await http.put(`${base}/projects/${editTarget._id}`, payload);
         toast.success('Project updated');
@@ -201,6 +203,7 @@ export default function ProjectManager() {
                   <th className="px-4 py-3 text-left">Client</th>
                   <th className="px-4 py-3 text-left">Team</th>
                   <th className="px-4 py-3 text-left hidden md:table-cell">Timeline</th>
+                  <th className="px-4 py-3 text-right">Payment</th>
                   <th className="px-4 py-3 text-center">Progress</th>
                   <th className="px-4 py-3 text-center">Status</th>
                   <th className="px-4 py-3 text-center">Actions</th>
@@ -227,6 +230,19 @@ export default function ProjectManager() {
                     <td className="px-4 py-3 text-on-surface-variant text-xs hidden md:table-cell">
                       {prj.startDate && new Date(prj.startDate).toLocaleDateString('en-IN')} <br />
                       <span className="text-[10px]">to</span> {prj.expectedEndDate ? new Date(prj.expectedEndDate).toLocaleDateString('en-IN') : 'TBD'}
+                    </td>
+                    <td className="px-4 py-3 text-right text-xs whitespace-nowrap">
+                      {prj.financials && (prj.financials.value > 0 || prj.financials.invoices > 0) ? (
+                        <>
+                          {prj.financials.value > 0 && <p className="text-on-surface">Value {inr(prj.financials.value)}</p>}
+                          <p className="text-green-400">Paid {inr(prj.financials.received)}{prj.financials.receivedPercent != null && <span className="text-on-surface-variant"> ({Math.round(prj.financials.receivedPercent)}%)</span>}</p>
+                          <p className="font-semibold text-amber-400">Balance {inr(prj.financials.balance)}</p>
+                        </>
+                      ) : canCrm('projects', 'edit') ? (
+                        <button type="button" onClick={() => openEdit(prj)} className="text-amber-500 text-[10px] font-semibold hover:underline cursor-pointer" title="Add the project value so its balance can be shown">
+                          + Add project value
+                        </button>
+                      ) : <span className="text-on-surface-variant text-[10px]">No value set</span>}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2 max-w-[120px] mx-auto">
@@ -302,6 +318,20 @@ export default function ProjectManager() {
                     {clients.map(c => <option key={c._id} value={c._id}>{c.contactName} ({c.businessName}) — {c.clientId}</option>)}
                   </select>
                 </div>
+                <div>
+                  <label className="block text-on-surface-variant text-xs font-medium mb-1.5">Project Value (₹)</label>
+                  <input type="number" min="0" step="1" value={form.totalPrice} onChange={e => setForm(p => ({ ...p, totalPrice: e.target.value }))}
+                    placeholder="e.g. 100000"
+                    className="w-full px-3 py-2 bg-admin-bg border border-outline-variant rounded-xl text-on-surface text-sm focus:outline-none focus:border-secondary" />
+                  <p className="text-[10px] text-on-surface-variant mt-1">Payments on invoices linked to this project count against this value.</p>
+                </div>
+                {editTarget?.financials && (
+                  <div className="rounded-xl border border-outline-variant p-3 text-xs grid grid-cols-2 gap-x-3 gap-y-1 self-end">
+                    <span className="text-on-surface-variant">Invoiced</span><span className="text-right text-on-surface">{inr(editTarget.financials.invoiced)}</span>
+                    <span className="text-on-surface-variant">Received</span><span className="text-right text-green-400">{inr(editTarget.financials.received)}</span>
+                    <span className="text-on-surface-variant font-semibold">Balance</span><span className="text-right font-semibold text-amber-400">{inr(editTarget.financials.balance)}</span>
+                  </div>
+                )}
                 <div>
                   <label className="block text-on-surface-variant text-xs font-medium mb-1.5">Start Date</label>
                   <input type="date" value={form.startDate} onChange={e => setForm(p => ({ ...p, startDate: e.target.value }))}

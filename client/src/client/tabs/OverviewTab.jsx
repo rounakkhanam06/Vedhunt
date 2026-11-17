@@ -138,6 +138,66 @@ const OverviewTab = () => {
               <p className="text-[#9CA3AF] text-sm">No payments due.</p>
             )}
             {billing.pendingProofs > 0 && <p className="text-[#9CA3AF] text-xs mt-2">{billing.pendingProofs} payment proof{billing.pendingProofs > 1 ? 's' : ''} being verified.</p>}
+            {data.nextInvoice && (
+              <p className="text-xs text-[#9CA3AF] mt-2 pt-2 border-t border-border-default">
+                Next invoice: <span className="text-white font-medium">{fmtDate(data.nextInvoice.date)}</span> · about{' '}
+                <span className="text-white font-medium">{inr(data.nextInvoice.amount)}</span> incl. {data.nextInvoice.gstPercent}% GST
+                <span className="block">For {fmtDate(data.nextInvoice.start)} – {fmtDate(data.nextInvoice.end)}. Ad spend is billed separately.</span>
+              </p>
+            )}
+          </Section>
+
+          {/* Your team */}
+          {(data.team?.accountManager || data.team?.members?.length > 0) && (
+            <Section title="Your Vedhunt team" action="Contact us" onAction={() => go('support')}>
+              <ul className="space-y-2">
+                {data.team.accountManager && (
+                  <li className="flex items-center gap-3 text-sm">
+                    <span className="w-8 h-8 rounded-full bg-primary/15 text-primary flex items-center justify-center font-semibold shrink-0">{data.team.accountManager.name[0]}</span>
+                    <span><span className="block text-white font-medium">{data.team.accountManager.name}</span><span className="block text-[#9CA3AF] text-xs">Account Manager · your main contact</span></span>
+                  </li>
+                )}
+                {data.team.members.map((m) => (
+                  <li key={m.name + m.role} className="flex items-center gap-3 text-sm">
+                    <span className="w-8 h-8 rounded-full bg-white/10 text-white flex items-center justify-center font-semibold shrink-0">{m.name[0]}</span>
+                    <span><span className="block text-white">{m.name}</span>{m.role && <span className="block text-[#9CA3AF] text-xs">{m.role}</span>}</span>
+                  </li>
+                ))}
+              </ul>
+            </Section>
+          )}
+
+          {/* Platform access */}
+          {data.access?.length > 0 && (
+            <Section title="Account access" action="Help" onAction={() => navigate('/client/dashboard?tab=support&precategory=General%20Inquiry&presubject=Help%20with%20granting%20access')}>
+              <ul className="space-y-1.5">
+                {data.access.map((a, i) => {
+                  const pending = a.status === 'Requested';
+                  return (
+                    <li key={a.platform + a.assetName + i} className="flex items-center justify-between gap-3 text-sm">
+                      <span className="text-white truncate">{a.platform}{a.assetName && <span className="text-[#9CA3AF]"> · {a.assetName}</span>}</span>
+                      <span className={`shrink-0 text-[11px] font-medium px-2 py-0.5 rounded-full ${pending ? 'bg-[#F59E0B]/15 text-[#F59E0B]' : 'bg-[#22C55E]/15 text-[#22C55E]'}`}>
+                        {pending ? 'Waiting for you' : a.status === 'Verified' ? 'Working' : 'Granted'}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+              {data.access.some((a) => a.status === 'Requested') && (
+                <p className="text-[#9CA3AF] text-xs mt-2">Please grant the pending access from the platform itself (partner / business access). Never share passwords.</p>
+              )}
+            </Section>
+          )}
+
+          {/* Change requests */}
+          <Section title="Need something extra?" action="My change requests" onAction={() => go('approvals')}>
+            <p className="text-[#9CA3AF] text-xs mb-2">Work outside your current plan is quoted first and starts only after you approve it.</p>
+            <button
+              onClick={() => navigate('/client/dashboard?tab=support&precategory=Change%20Request&presubject=Change%20request%3A%20')}
+              className="px-3 py-1.5 rounded-lg border border-primary/40 text-primary text-xs font-semibold cursor-pointer hover:bg-primary/10"
+            >
+              Request a change
+            </button>
           </Section>
 
           {/* Support */}

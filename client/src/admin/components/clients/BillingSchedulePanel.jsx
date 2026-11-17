@@ -107,6 +107,33 @@ export default function BillingSchedulePanel({ clientId, http, base, canEdit }) 
           </select>
         </label>
       </div>
+      {/* What each draft will bill — from the client's active monthly retainers */}
+      {info.billing && (info.billing.retainers.length ? (
+        <div className="rounded-lg border border-outline-variant bg-admin-bg/60 px-3 py-2.5 text-xs">
+          <p className="text-on-surface-variant mb-1">Each invoice will bill (from active monthly retainers):</p>
+          {info.billing.retainers.map((r) => (
+            <p key={r.packageName} className="flex justify-between gap-3 text-on-surface">
+              <span>{r.packageName}<span className="text-on-surface-variant"> · until {fmt(String(r.contractEndDate).slice(0, 10))}</span></span>
+              <span>₹{Number(r.monthlyAmount).toLocaleString('en-IN')}</span>
+            </p>
+          ))}
+          <p className="flex justify-between gap-3 mt-1 pt-1 border-t border-outline-variant font-semibold text-on-surface">
+            <span>Total incl. {info.billing.gstPercent}% GST</span><span>₹{Number(info.billing.total).toLocaleString('en-IN')} / month</span>
+          </p>
+        </div>
+      ) : (
+        <p className="text-xs text-red-300 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2" role="alert">
+          This client has <strong>no active monthly retainer</strong>, so there is nothing to bill — every draft would be marked &quot;Needs Attention&quot;.
+          Add one in <strong>Retainer Manager</strong> (status Active, billing cycle Monthly, with the monthly fee) before turning recurring invoices on.
+        </p>
+      ))}
+
+      {form.startDate && form.billingDay && Number(form.startDate.slice(8)) !== Number(form.billingDay) && (
+        <p className="text-xs text-on-surface-variant bg-admin-bg/60 border border-outline-variant rounded-lg px-3 py-2">
+          The first invoice date is the {Number(form.startDate.slice(8))}{['th', 'st', 'nd', 'rd'][(Number(form.startDate.slice(8)) % 10 > 3 || [11, 12, 13].includes(Number(form.startDate.slice(8)))) ? 0 : Number(form.startDate.slice(8)) % 10]} but the billing day is {form.billingDay}. Usually these match — the first invoice date is simply the first billing day.
+        </p>
+      )}
+
       <label className="block"><span className="block text-on-surface-variant text-[10px] uppercase font-bold tracking-wider mb-1">Internal note</span>
         <input className={inputCls} maxLength={500} value={form.note} disabled={!canEdit} onChange={set('note')} /></label>
 

@@ -7,8 +7,11 @@ const Service = require('../models/Service');
 const getServicePageBySlug = async (req, res) => {
   try {
     const servicePage = await ServicePage.findOne({ slug: req.params.slug });
-    
-    if (!servicePage) {
+    // A service deleted on the Services page takes its public detail page down too
+    const deleted = await Service.exists({ slug: req.params.slug, isDeleted: true })
+      && !(await Service.exists({ slug: req.params.slug, isDeleted: { $ne: true } }));
+
+    if (!servicePage || deleted) {
       return res.status(404).json({ message: 'Service page not found' });
     }
     
@@ -26,7 +29,9 @@ const getServicePages = async (req, res) => {
     // Main services added after the initial seed have no ServicePage yet, so they
     // never appeared here. Create a starter page for each one that is missing
     // ($setOnInsert only — existing pages are never touched).
-    const services = await Service.find({}).select('slug title subtitle shortDescription').lean();
+    // Deleted services (soft-deleted on the Services page) are left out — their
+    // detail page stays stored, so restoring the service brings it back.
+    const services = await Service.find({ isDeleted: { $ne: true } }).select('slug title subtitle shortDescription').lean();
     const ops = services
       .filter((s) => s.slug)
       .map((s) => ({
@@ -45,7 +50,8 @@ const getServicePages = async (req, res) => {
       }));
     if (ops.length) await ServicePage.bulkWrite(ops, { ordered: false });
 
-    const servicePages = await ServicePage.find({});
+    const live = services.map((s) => s.slug).filter(Boolean);
+    const servicePages = await ServicePage.find({ slug: { $in: live } });
     res.json(servicePages);
   } catch (error) {
     res.status(500).json({ message: 'Server Error', error: error.message });

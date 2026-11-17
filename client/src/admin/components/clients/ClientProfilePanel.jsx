@@ -46,6 +46,7 @@ export default function ClientProfilePanel({ client, http, base, canEdit, onSave
   const [staff, setStaff] = useState([]);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
   const [form, setForm] = useState(null);
 
   useEffect(() => {
@@ -78,6 +79,25 @@ export default function ClientProfilePanel({ client, http, base, canEdit, onSave
   };
 
   const set = (k) => (e) => setForm((p) => ({ ...p, [k]: e.target.value }));
+
+  // Logo: upload the file, keep its URL in the form; saved with the profile
+  const uploadLogo = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (!/^image\/(jpeg|png|webp)$/.test(file.type)) return toast.error('Upload a JPG, PNG or WebP image.');
+    if (file.size > 3 * 1024 * 1024) return toast.error('The logo must be 3 MB or smaller.');
+    const data = new FormData();
+    data.append('logo', file);
+    setUploadingLogo(true);
+    try {
+      const res = await http.post(`${base}/clients/${client._id}/logo`, data, { headers: { 'Content-Type': 'multipart/form-data' } });
+      setForm((p) => ({ ...p, logoUrl: res.data.url }));
+      toast.success('Logo uploaded — click Save to keep it');
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Could not upload the logo');
+    } finally { setUploadingLogo(false); }
+  };
   const toggle = (k, v) => setForm((p) => ({ ...p, [k]: p[k].includes(v) ? p[k].filter((x) => x !== v) : [...p[k], v] }));
 
   const save = async () => {
@@ -149,7 +169,21 @@ export default function ClientProfilePanel({ client, http, base, canEdit, onSave
     <div className="space-y-4">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Field label="Domain(s)" hint="Comma-separated, e.g. mudgarvale.com"><input className={inputCls} value={form.domains} onChange={set('domains')} /></Field>
-        <Field label="Logo URL"><input className={inputCls} value={form.logoUrl} onChange={set('logoUrl')} placeholder="https://…" /></Field>
+        <Field label="Logo">
+          <div className="flex items-center gap-3">
+            {form.logoUrl
+              ? <img src={form.logoUrl} alt="Client logo" className="h-12 w-12 object-contain rounded border border-app-border bg-white p-1" />
+              : <div className="h-12 w-12 rounded border border-dashed border-app-border flex items-center justify-center text-[10px] text-app-text-muted">No logo</div>}
+            <label className={`px-3 py-1.5 rounded-lg border border-app-border text-xs font-semibold ${uploadingLogo ? 'opacity-60 cursor-wait' : 'cursor-pointer hover:border-primary'}`}>
+              {uploadingLogo ? 'Uploading…' : form.logoUrl ? 'Change' : 'Upload logo'}
+              <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" disabled={uploadingLogo} onChange={uploadLogo} />
+            </label>
+            {form.logoUrl && !uploadingLogo && (
+              <button type="button" onClick={() => setForm((p) => ({ ...p, logoUrl: '' }))} className="text-xs text-rose-400 hover:underline cursor-pointer">Remove</button>
+            )}
+          </div>
+          <p className="text-[11px] text-app-text-muted mt-1">JPG, PNG or WebP, up to 3 MB.</p>
+        </Field>
         <Field label="Sector(s)" hint="Comma-separated, e.g. Fitness, E-commerce"><input className={inputCls} value={form.sectors} onChange={set('sectors')} /></Field>
         <Field label="Authorised signatory"><input className={inputCls} value={form.authorisedSignatory} onChange={set('authorisedSignatory')} /></Field>
       </div>

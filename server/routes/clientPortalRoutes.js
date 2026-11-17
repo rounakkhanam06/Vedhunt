@@ -13,6 +13,8 @@ const { buildInvoicePdfBuffer, loadInvoiceContext } = require('../services/invoi
 const invoiceDocument = require('../services/invoiceDocument');
 const PaymentProof = require('../models/PaymentProof');
 const Approval = require('../models/Approval');
+const ChangeRequest = require('../models/ChangeRequest');
+const changeRequests = require('../services/changeRequests');
 const approvals = require('../services/approvals');
 const CreditNote = require('../models/CreditNote');
 const { buildReceiptPdf, buildCreditNotePdf } = require('../services/receiptPdf');
@@ -38,7 +40,8 @@ const router = express.Router();
 router.use(clientAuthMiddleware);
 
 // ─── Utility ─────────────────────────────────────────────────────────────────
-const DEFAULT_SUPPORT_CATEGORIES = ['Bug Report', 'Feature Request', 'General Inquiry', 'Urgent Fix'];
+// 'Change Request' is always accepted: the portal's Request a change button uses it
+const DEFAULT_SUPPORT_CATEGORIES = ['Bug Report', 'Feature Request', 'General Inquiry', 'Urgent Fix', 'Change Request'];
 
 const parsePagination = (query) => {
   const page = Math.max(1, parseInt(query.page) || 1);
@@ -558,6 +561,27 @@ router.put('/kyc/:item', kycItem, (req, res, next) => {
  * @route  GET /api/client/approvals      — what Vedhunt has asked this client to approve, and the history
  * @route  PUT /api/client/approvals/:id  { decision: 'approve' | 'reject', note }
  */
+// The client's change requests (out-of-scope work) and where each stands. The
+// internal assessment and who raised it stay with staff.
+router.get('/change-requests', async (req, res) => {
+  try {
+    const rows = await ChangeRequest.find({ client_ref: req.client._id }).sort({ createdAt: -1 }).limit(100)
+      .select('number title quoteAmount estimatedDays workStatus approval_ref invoice_ref createdAt doneAt').lean();
+    const appr = await Approval.find({ _id: { $in: rows.map((r) => r.approval_ref) } }).select('status').lean();
+    const byId = new Map(appr.map((a) => [String(a._id), a]));
+    res.json({
+      success: true,
+      data: rows.map((r) => ({
+        _id: r._id, number: `CR-${r.number}`, title: r.title, quoteAmount: r.quoteAmount, estimatedDays: r.estimatedDays || null,
+        stage: changeRequests.stageOf(r, byId.get(String(r.approval_ref))), createdAt: r.createdAt, doneAt: r.doneAt || null,
+      })),
+    });
+  } catch (error) {
+    logger.error('Client change requests error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
 router.get('/approvals', async (req, res) => {
   try {
     const rows = await Approval.find({ client_ref: req.client._id }).sort({ requestedAt: -1 }).limit(200).lean();
@@ -686,6 +710,13 @@ router.post('/tickets', async (req, res) => {
       description,
       category,
       priority: priority || 'Medium',
+    });
+
+    // Tell the client desk a new ticket is waiting (nobody is assigned yet)
+    await notifyTicketStaff(ticket, {
+      type: 'ticket_new',
+      title: `New ticket ${ticket.ticketId} - ${req.client.businessName || 'a client'}`,
+      message: `${ticket.priority} priority · ${String(subject || '').slice(0, 120)}`,
     });
 
     // Return without internal fields

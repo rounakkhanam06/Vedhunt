@@ -73,6 +73,43 @@ function Card({ a, onDone }) {
   );
 }
 
+// The client's change requests and where each stands (read-only; quotes are approved above)
+function ChangeRequests({ reload }) {
+  const [rows, setRows] = useState([]);
+  useEffect(() => {
+    let live = true;
+    clientApi.get('/client/change-requests')
+      .then(({ data }) => { if (live) setRows(data.data || []); })
+      .catch(() => { if (live) setRows([]); });
+    return () => { live = false; };
+  }, [reload]);
+  return (
+    <section className="space-y-2">
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="text-[#9CA3AF] text-[11px] uppercase font-bold tracking-wider">My change requests</h3>
+        <a href="/client/dashboard?tab=support&precategory=Change%20Request&presubject=Change%20request%3A%20" className="text-primary text-xs font-semibold hover:underline">+ Request a change</a>
+      </div>
+      {rows.length === 0 ? (
+        <p className="text-xs text-[#9CA3AF] rounded-xl border border-border-default bg-bg-surface/30 px-4 py-3">
+          No change requests yet. Need work outside your current plan? Request a change — we&apos;ll quote it, and start only after you approve.
+        </p>
+      ) : (
+        <ul className="rounded-xl border border-border-default bg-bg-surface/30 divide-y divide-border-default">
+          {rows.map((r) => (
+            <li key={r._id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 text-sm">
+              <span className="text-white min-w-0"><span className="text-[#9CA3AF] font-mono text-xs mr-2">{r.number}</span>{r.title}</span>
+              <span className="flex items-center gap-3 text-xs">
+                <span className="text-[#9CA3AF]">₹{Number(r.quoteAmount).toLocaleString('en-IN')} + GST</span>
+                <span className="px-2 py-0.5 rounded-full bg-white/10 text-white">{r.stage}</span>
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
 const ApprovalsTab = () => {
   const [reload, setReload] = useState(0);
   const [result, setResult] = useState({ key: null, rows: [], error: '' });
@@ -104,6 +141,7 @@ const ApprovalsTab = () => {
           <ul className="space-y-3">{history.map((a) => <Card key={a._id} a={a} onDone={() => setReload((n) => n + 1)} />)}</ul>
         </section>
       )}
+      <ChangeRequests reload={reload} />
     </div>
   );
 };

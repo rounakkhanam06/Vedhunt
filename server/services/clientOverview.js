@@ -16,6 +16,11 @@ const kycService = require('./kyc');
 const Client = require('../models/Client');
 const OnboardingChecklist = require('../models/OnboardingChecklist');
 const onboardingService = require('./onboarding');
+const BillingSchedule = require('../models/BillingSchedule');
+const PlatformAccess = require('../models/PlatformAccess');
+const billingSchedule = require('./billingSchedule');
+const clientPolicies = require('./clientPolicies');
+const adPerformance = require('./adPerformance');
 
 const OPEN_TICKET = ['Open', 'In Progress', 'Pending Client'];
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -128,6 +133,51 @@ function buildActions({ billing, tickets, retainer, kyc, hold, onboarding, pendi
   return actions;
 }
 
+const personName = (e) => [e?.firstName, e?.lastName].filter(Boolean).join(' ').trim();
+
+/**
+ * The client's account manager and dedicated team — names and roles only.
+ * Employee records hold personal phone / email, which never go to clients;
+ * they reach the team through tickets.
+ */
+async function clientTeam(clientId) {
+  const c = await Client.findById(clientId).select('profile.accountManager profile.dedicatedTeam')
+    .populate('profile.accountManager', 'firstName lastName designation')
+    .populate('profile.dedicatedTeam.employee', 'firstName lastName designation')
+    .lean();
+  const am = c?.profile?.accountManager;
+  const members = (c?.profile?.dedicatedTeam || [])
+    .filter((m) => m.employee && String(m.employee._id) !== String(am?._id || ''))
+    .map((m) => ({ name: personName(m.employee), role: m.role || m.employee.designation || '' }))
+    .filter((m) => m.name);
+  return {
+    accountManager: am && personName(am) ? { name: personName(am), role: am.designation || 'Account Manager' } : null,
+    members,
+  };
+}
+
+/** The next recurring invoice, when billing is on: its date and the estimated amount. */
+async function upcomingInvoice(clientId, now) {
+  const schedule = await BillingSchedule.findOne({ client_ref: clientId, active: true }).lean();
+  if (!schedule) return null;
+  const today = adPerformance.dayOf(now);
+  const [date] = billingSchedule.upcomingDates(schedule, today, 1);
+  if (!date) return null;
+  const preview = await billingSchedule.billingPreview(clientId, date, await clientPolicies.getBilling());
+  if (!preview.total) return null;
+  return { date, ...billingSchedule.periodFor(schedule, date), amount: preview.total, subtotal: preview.subtotal, gstPercent: preview.gstPercent };
+}
+
+/** Platform access: what has been asked of the client and where it stands (no IDs or notes). */
+async function accessList(clientId) {
+  const rows = await PlatformAccess.find({ client_ref: clientId, status: { $ne: 'Revoked' } })
+    .select('platform assetName status requestedAt grantedAt verifiedAt').sort({ createdAt: 1 }).lean();
+  return rows.map((r) => ({
+    platform: r.platform, assetName: r.assetName || '', status: r.status,
+    requestedAt: r.requestedAt || null, grantedAt: r.grantedAt || null, verifiedAt: r.verifiedAt || null,
+  }));
+}
+
 async function buildOverview(clientId, now = new Date()) {
   const [{ perClient }, unpaid, pendingProofs, projects, retainers, tickets, strategy, kycDoc, clientDoc, onboardingDoc, pendingApprovals] = await Promise.all([
     finance.portfolioFinance({ clientIds: [clientId], now }),
@@ -201,8 +251,12 @@ async function buildOverview(clientId, now = new Date()) {
   };
 
   const kycSummary = kycService.overall(kycDoc);
+  const [team, nextInvoice, access] = await Promise.all([clientTeam(clientId), upcomingInvoice(clientId, now), accessList(clientId)]);
 
   return {
+    team,
+    nextInvoice,
+    access,
     charts,
     billing,
     projects: projects.map((p) => ({
