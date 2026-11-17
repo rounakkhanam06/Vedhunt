@@ -49,6 +49,11 @@ const safeClientProfile = (client) => ({
   serviceStatus: client.serviceStatus || 'Active',
   holdReason: client.serviceStatus === 'Hold' ? client.holdReason || '' : undefined,
   createdAt: client.createdAt,
+  // What the team keeps on the client's Profile that the client may see (read-only in
+  // the portal). Internal fields — risk flag, team, account manager ids — stay out.
+  profile: (({ logoUrl, domains, sectors, services, platforms, onboardingDate, adAccountLiveDate, monthlyAdBudget, authorisedSignatory } = {}) =>
+    ({ logoUrl, domains, sectors, services, platforms, onboardingDate, adAccountLiveDate, monthlyAdBudget, authorisedSignatory }))(
+    client.profile?.toObject ? client.profile.toObject() : client.profile || {}),
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

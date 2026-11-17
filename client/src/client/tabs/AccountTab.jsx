@@ -11,6 +11,49 @@ const readOnlyCls =
   'w-full px-4 py-2.5 bg-bg-surface/20 border border-border-default rounded-xl text-[#9CA3AF] text-sm cursor-not-allowed';
 const labelCls = 'block text-[#E5E7EB] text-sm font-medium mb-1.5';
 
+const fmtDay = (d) => (d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '');
+
+// What the Vedhunt team keeps on the client's profile — read-only here; changes go through support
+function BusinessDetails({ client }) {
+  const p = client?.profile || {};
+  const [logoFailed, setLogoFailed] = useState('');
+  const join = (a) => (Array.isArray(a) ? a.filter(Boolean).join(', ') : '');
+  const rows = [
+    ['Website / domains', join(p.domains)],
+    ['Sectors', join(p.sectors)],
+    ['Services', join(p.services)],
+    ['Platforms', join(p.platforms)],
+    ['Authorised signatory', p.authorisedSignatory],
+    ['Onboarded on', fmtDay(p.onboardingDate)],
+    ['Ad account live from', fmtDay(p.adAccountLiveDate)],
+    ['Monthly ad budget plan', p.monthlyAdBudget != null ? `₹${Number(p.monthlyAdBudget).toLocaleString('en-IN')}` : ''],
+  ].filter(([, v]) => v);
+  if (!rows.length && !p.logoUrl) return null;
+  return (
+    <section className="bg-bg-card border border-border-default rounded-2xl p-6 space-y-4">
+      <div className="flex items-center gap-3">
+        {p.logoUrl && logoFailed !== p.logoUrl && (
+          <img src={p.logoUrl} alt="" onError={() => setLogoFailed(p.logoUrl)} className="h-12 w-12 object-contain rounded-lg bg-white p-1" />
+        )}
+        <div>
+          <h3 className="text-white font-semibold">{client?.businessName || 'Business details'}</h3>
+          <p className="text-[#9CA3AF] text-xs">Kept up to date by your Vedhunt team. Something wrong? Raise a support ticket.</p>
+        </div>
+      </div>
+      {rows.length > 0 && (
+        <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
+          {rows.map(([k, v]) => (
+            <div key={k} className="min-w-0">
+              <dt className="text-[#9CA3AF] text-[11px] uppercase tracking-wider font-bold">{k}</dt>
+              <dd className="text-white text-sm break-words">{v}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+    </section>
+  );
+}
+
 const AccountTab = () => {
   const { client, updateClient } = useClientStore();
 
@@ -74,6 +117,8 @@ const AccountTab = () => {
         <h2 className="text-white text-2xl font-bold">My Account</h2>
         <p className="text-[#D1D5DB] text-sm mt-1">Manage your contact details and password</p>
       </div>
+
+      <BusinessDetails client={client} />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Profile */}

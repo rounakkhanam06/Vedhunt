@@ -32,7 +32,7 @@ const callOutcomeLabel = (log) => {
 
 // The same duration rule as an aggregation expression over an unwound log
 // that carries `prevAt` (see services/callActivity.js).
-const DURATION_EXPR = {
+const TIMER_DURATION_EXPR = {
   $let: {
     vars: { s: '$callLogs.callStartTime', e: '$callLogs.callEndTime', p: '$callLogs.prevAt' },
     in: {
@@ -49,5 +49,8 @@ const DURATION_EXPR = {
     },
   },
 };
+
+// Minutes the caller entered win; otherwise the timer rule above
+const DURATION_EXPR = { $ifNull: ['$callLogs.durationEntered', TIMER_DURATION_EXPR] };
 
 module.exports = { callDurationMinutes, callOutcome, callOutcomeLabel, DURATION_EXPR };

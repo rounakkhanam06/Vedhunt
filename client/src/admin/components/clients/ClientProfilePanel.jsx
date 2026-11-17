@@ -38,6 +38,21 @@ function Chips({ items, empty = '—' }) {
  * Status, fees and payments are NOT edited here — they come from the linked
  * retainers / invoices / payments.
  */
+// A saved logo link that doesn't load (e.g. an old typed website link from the
+// former "Logo URL" box, which isn't an image) — say so instead of a broken icon.
+function LogoImage({ url, className }) {
+  const [failedUrl, setFailedUrl] = useState(null);
+  if (failedUrl === url) {
+    return (
+      <span className="inline-flex flex-col text-[11px] leading-tight text-rose-400 max-w-[14rem]" title={url}>
+        <span className="font-semibold">Logo can&apos;t be shown</span>
+        <span className="text-app-text-muted">The image didn&apos;t load. Try Change to upload the file again.</span>
+      </span>
+    );
+  }
+  return <img src={url} alt="Client logo" className={className} onError={() => setFailedUrl(url)} />;
+}
+
 export default function ClientProfilePanel({ client, http, base, canEdit, onSaved }) {
   // The admin's service list (Settings → Services); a service the client already has stays
   // selectable even if it was later removed from the list, so saving never drops it
@@ -158,7 +173,7 @@ export default function ClientProfilePanel({ client, http, base, canEdit, onSave
           <Field label="Monthly ad budget plan"><span className="text-on-surface text-sm">{profile.monthlyAdBudget != null ? `₹${Number(profile.monthlyAdBudget).toLocaleString('en-IN')}` : '—'}</span></Field>
           <Field label="Authorised signatory"><span className="text-on-surface text-sm">{profile.authorisedSignatory || '—'}</span></Field>
           <Field label="Logo">
-            {profile.logoUrl ? <img src={profile.logoUrl} alt="" className="h-10 object-contain rounded bg-white p-1" /> : <span className="text-on-surface text-sm">—</span>}
+            {profile.logoUrl ? <LogoImage url={profile.logoUrl} className="h-10 object-contain rounded bg-white p-1" /> : <span className="text-on-surface text-sm">—</span>}
           </Field>
         </div>
       </div>
@@ -172,7 +187,7 @@ export default function ClientProfilePanel({ client, http, base, canEdit, onSave
         <Field label="Logo">
           <div className="flex items-center gap-3">
             {form.logoUrl
-              ? <img src={form.logoUrl} alt="Client logo" className="h-12 w-12 object-contain rounded border border-app-border bg-white p-1" />
+              ? <LogoImage url={form.logoUrl} className="h-12 w-12 object-contain rounded border border-app-border bg-white p-1" />
               : <div className="h-12 w-12 rounded border border-dashed border-app-border flex items-center justify-center text-[10px] text-app-text-muted">No logo</div>}
             <label className={`px-3 py-1.5 rounded-lg border border-app-border text-xs font-semibold ${uploadingLogo ? 'opacity-60 cursor-wait' : 'cursor-pointer hover:border-primary'}`}>
               {uploadingLogo ? 'Uploading…' : form.logoUrl ? 'Change' : 'Upload logo'}

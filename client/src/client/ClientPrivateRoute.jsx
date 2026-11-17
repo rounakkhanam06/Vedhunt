@@ -10,7 +10,7 @@ import { useEffect } from 'react';
  * - Redirects to /client/login (not /admin/login)
  */
 const ClientPrivateRoute = () => {
-  const { isAuthenticated, isInitializing, checkAuth, client } = useClientStore();
+  const { isAuthenticated, isInitializing, checkAuth, client, refreshClient } = useClientStore();
   const location = useLocation();
 
   useEffect(() => {
@@ -18,6 +18,20 @@ const ClientPrivateRoute = () => {
       checkAuth();
     }
   }, [isInitializing, checkAuth]);
+
+  // Keep the client's details current: admin edits show up when the client
+  // returns to the tab, moves between pages, or within 2 minutes otherwise.
+  useEffect(() => {
+    if (!isAuthenticated) return undefined;
+    const onVisible = () => { if (document.visibilityState === 'visible') refreshClient(); };
+    document.addEventListener('visibilitychange', onVisible);
+    const timer = setInterval(refreshClient, 2 * 60 * 1000);
+    return () => { document.removeEventListener('visibilitychange', onVisible); clearInterval(timer); };
+  }, [isAuthenticated, refreshClient]);
+
+  useEffect(() => {
+    if (isAuthenticated) refreshClient();
+  }, [location.pathname, location.search, isAuthenticated, refreshClient]);
 
   if (isInitializing) {
     return (

@@ -37,11 +37,33 @@ const clean = (key, raw) => {
   if (key === 'pan') return raw.replace(/\s/g, '').toUpperCase().slice(0, 10);
   return raw.slice(0, 120);
 };
+// Same rules as server/services/kycValidators.js, so the client sees the exact problem before uploading
+const GST_CHARSET = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+const gstinCheckChar = (first14) => {
+  let sum = 0;
+  for (let i = 0; i < 14; i += 1) {
+    const p = GST_CHARSET.indexOf(first14[i]) * (i % 2 === 0 ? 1 : 2);
+    sum += Math.floor(p / 36) + (p % 36);
+  }
+  return GST_CHARSET[(36 - (sum % 36)) % 36];
+};
+const PAN_HOLDER = 'PCHFATBLJGK'; // 4th character of a PAN: P Individual, C Company, F Firm/LLP …
 const quickCheck = (key, value) => {
   const v = value.replace(/\s/g, '');
-  if (key === 'gst' && !/^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(v)) return 'A GSTIN has 15 characters, for example 27AALCV0172E1ZD.';
-  if (key === 'pan' && !/^[A-Z]{5}\d{4}[A-Z]$/.test(v)) return 'A PAN has 10 characters, for example ABCDE1234F.';
-  if (key === 'aadhaar' && !/^[2-9]\d{11}$/.test(v)) return 'An Aadhaar number has 12 digits.';
+  if (key === 'gst') {
+    if (v.length !== 15) return `A GSTIN has 15 characters — you entered ${v.length}.`;
+    if (!/^\d{2}/.test(v)) return 'A GSTIN starts with the 2-digit state code, for example 27 for Maharashtra.';
+    const sc = Number(v.slice(0, 2));
+    if (!((sc >= 1 && sc <= 38) || sc === 97 || sc === 99)) return `${v.slice(0, 2)} is not a valid state code.`;
+    if (!/^[A-Z]{5}\d{4}[A-Z]$/.test(v.slice(2, 12))) return `Characters 3–12 of a GSTIN are your PAN (5 letters, 4 digits, 1 letter) — "${v.slice(2, 12)}" is not.`;
+    if (!/^[1-9A-Z]Z[0-9A-Z]$/.test(v.slice(12))) return 'The last 3 characters of a GSTIN look like 1ZD — a digit or letter, then Z, then the check character.';
+    if (gstinCheckChar(v.slice(0, 14)) !== v[14]) return 'This GSTIN fails its check character — one character is probably mistyped. Copy it exactly from your GST certificate.';
+  }
+  if (key === 'pan') {
+    if (!/^[A-Z]{5}\d{4}[A-Z]$/.test(v)) return 'A PAN is 5 letters, 4 digits, then 1 letter — for example AAPCV0172E.';
+    if (!PAN_HOLDER.includes(v[3])) return `The 4th letter of a PAN shows the holder type (P individual, C company, F firm…) — "${v[3]}" is not one. Please re-check it.`;
+  }
+  if (key === 'aadhaar' && !/^[2-9]\d{11}$/.test(v)) return 'An Aadhaar number has 12 digits and does not start with 0 or 1.';
   return '';
 };
 

@@ -22,7 +22,12 @@ import { essKeys } from '../lib/ess';
 import { isCallInProgress, lastCallLog, startedNewCall, isSameOutcome, fmtClock, fmtCallDuration } from '../../shared/callHandling';
 
 const sectionClass = 'bg-app-card border border-app-border rounded-xl p-4 sm:p-5 w-full min-w-0 overflow-hidden';
-const sectionLabelClass = 'text-xs font-bold text-app-text-muted uppercase tracking-wider mb-3 block';
+// The lead's owner isn't held up by a call someone else (e.g. an admin) started
+// and left open — that call is theirs, not hers; she can start and log her own.
+const myCallInProgress = (lead) => isCallInProgress(lead) &&
+  !(lead.isOwner && lead.callStartedBy && String(lead.callStartedBy) !== String(lead.assignedTo));
+
+const sectionLabelClass ='text-xs font-bold text-app-text-muted uppercase tracking-wider mb-3 block';
 const fieldLabelClass = 'block text-[10px] font-medium text-app-text-muted mb-1 uppercase tracking-wider';
 const selectClass = 'w-full min-w-0 max-w-full truncate bg-form-input-bg border border-app-border rounded-lg px-3 py-2 text-sm text-app-text focus:outline-none focus:border-primary/50 box-border';
 
@@ -73,9 +78,18 @@ function isOutcomeReady(o) {
   const needsFollowUp =
     (o.connected === 'Yes' && FOLLOWUP_TRIGGER_INTEREST_LEVELS.includes(o.interestLevel)) ||
     (o.connected === 'No' && o.notConnectedReason === 'Asked to Call Later');
-  if (o.connected === 'Yes') return !!o.interestLevel && (!needsFollowUp || !!o.nextFollowUpDate);
+  if (o.connected === 'Yes') return !!o.interestLevel && Number(o.durationMinutes) >= 1 && (!needsFollowUp || !!o.nextFollowUpDate);
   if (o.connected === 'No') return !!o.notConnectedReason && (!needsFollowUp || !!o.nextFollowUpDate);
   return false;
+}
+
+/** What a staged call outcome still needs, in words (null when complete). */
+function outcomeMissing(o) {
+  if (o.connected === 'Yes' && !o.interestLevel) return 'pick the Interest Level';
+  if (o.connected === 'Yes' && !(Number(o.durationMinutes) >= 1)) return 'enter the Call Duration in minutes';
+  if (o.connected === 'No' && !o.notConnectedReason) return 'pick why the call did not connect';
+  if (!isOutcomeReady(o)) return 'set the Next Follow-Up date & time';
+  return null;
 }
 
 // Loose equality for form values — inputs hold strings, the server numbers.
@@ -100,6 +114,8 @@ export default function EmployeeLeadWorkspace() {
   const [callOutcomeDraft, setCallOutcomeDraft] = useState(null);
   // Optional note typed for the call being logged (null = the box shows the latest call's saved note)
   const [callNoteDraft, setCallNoteDraft] = useState(null);
+  // Minutes for a connected call: typed by the BD, or taken from the call timer
+  const [durationDraft, setDurationDraft] = useState('');
   const [noteSaving, setNoteSaving] = useState(false);
   // In-flight Start/End Call ('start' | 'end') and call-outcome saves — the
   // buttons show it and ignore repeat taps, which used to log duplicate calls.
@@ -133,7 +149,7 @@ export default function EmployeeLeadWorkspace() {
     const saved = savedDraftRef.current;
     const fresh = buildDraft(next);
     savedDraftRef.current = { leadId: next._id, draft: fresh };
-    setLead(next);
+    setLead((prev) => ({ ...next, isOwner: next.isOwner ?? prev?.isOwner, sharedWith: next.sharedWith ?? prev?.sharedWith }));
     setDraft((prev) => {
       const merged = { ...fresh };
       if (saved.leadId !== next._id) return merged;
@@ -197,14 +213,17 @@ export default function EmployeeLeadWorkspace() {
     const changes = Object.fromEntries(
       Object.entries(draft).filter(([key, value]) => !sameValue(value, savedDraftRef.current.draft[key]))
     );
-    if (Object.keys(changes).length === 0) {
-      toast('No changes to save');
+    // A call outcome picked above but not complete yet isn't saved — say what it still needs
+    // rather than "No changes", and don't save a stage judged against an unlogged call.
+    const pendingOutcome = callOutcomeDraft?.connected && !isOutcomeReady({ ...callOutcomeDraft, durationMinutes: durationValue })
+      ? outcomeMissing({ ...callOutcomeDraft, durationMinutes: durationValue })
+      : null;
+    if (pendingOutcome && (Object.keys(changes).length === 0 || 'status' in changes)) {
+      toast.error(`Finish the call outcome first — ${pendingOutcome}.`);
       return;
     }
-    // A stage change is judged against the logged call outcome — one picked
-    // above but still waiting on its follow-up date isn't logged yet.
-    if ('status' in changes && callOutcomeDraft?.connected && !isOutcomeReady(callOutcomeDraft)) {
-      toast.error('Finish the call outcome first — set the Next Follow-Up date & time above, then save the stage.');
+    if (Object.keys(changes).length === 0) {
+      toast('No changes to save');
       return;
     }
     try {
@@ -238,6 +257,16 @@ export default function EmployeeLeadWorkspace() {
     if (searchParams.get('proposal')) setSearchParams({}, { replace: true });
   };
 
+  // Minutes measured by Start/End Call for the call not yet logged (null if untimed)
+  const timerMinutes = (() => {
+    if (!lead || !startedNewCall(lead) || !lead.callEndTime) return null;
+    const ms = new Date(lead.callEndTime) - new Date(lead.callStartTime);
+    return ms >= 0 ? Math.max(1, Math.round(ms / 60000)) : null;
+  })();
+  // Re-saving the call already logged (e.g. changing its interest level) keeps its minutes
+  const loggedMinutes = lead && !startedNewCall(lead) ? (lastCallLog(lead)?.callDuration || null) : null;
+  const durationValue = durationDraft !== '' ? durationDraft : (timerMinutes ?? loggedMinutes ?? '');
+
   const getCallOutcomeValue = (field) => {
     if (callOutcomeDraft && field in callOutcomeDraft) return callOutcomeDraft[field];
     return lead?.[field] ?? '';
@@ -270,6 +299,7 @@ export default function EmployeeLeadWorkspace() {
       notConnectedReason: getCallOutcomeValue('notConnectedReason'),
       interestLevel: getCallOutcomeValue('interestLevel'),
       nextFollowUpDate: getCallOutcomeValue('nextFollowUpDate'),
+      durationMinutes: durationValue,
       [field]: value
     };
 
@@ -291,7 +321,7 @@ export default function EmployeeLeadWorkspace() {
     const followUp = merged.nextFollowUpDate ? { nextFollowUpDate: merged.nextFollowUpDate, nextActionType: outcomeActionType || 'Call', followUpType: outcomeFollowUpType || 'Other' } : {};
     const fields = {
       ...(merged.connected === 'Yes'
-        ? { connected: 'Yes', interestLevel: merged.interestLevel, ...followUp }
+        ? { connected: 'Yes', interestLevel: merged.interestLevel, callDurationEntered: Number(merged.durationMinutes), ...followUp }
         : { connected: 'No', notConnectedReason: merged.notConnectedReason, ...followUp }),
       // optional — only sent when something was typed
       ...(callNoteDraft?.trim() ? { callNote: callNoteDraft.trim() } : {}),
@@ -304,6 +334,7 @@ export default function EmployeeLeadWorkspace() {
       const data = await handleFieldsChange(fields);
       setCallOutcomeDraft(null);
       setCallNoteDraft(null);
+      setDurationDraft('');
       toast.success(`Call outcome saved · Touch #${data.lead?.touchNumber ?? ''}`, { duration: 1500, position: 'bottom-right' });
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to save outcome');
@@ -316,7 +347,7 @@ export default function EmployeeLeadWorkspace() {
   // Tapping Call hands off to the device's native dialer (tel: link) and
   // starts the timer in the same action, matching the admin table's behavior.
   const handleStartCall = async () => {
-    if (callBusy || isCallInProgress(lead)) return;
+    if (callBusy || myCallInProgress(lead)) return;
     setCallBusy('start');
     try {
       const now = new Date();
@@ -334,7 +365,7 @@ export default function EmployeeLeadWorkspace() {
 
   const handleEndCall = async () => {
     if (callBusy) return;
-    if (!isCallInProgress(lead)) {
+    if (!myCallInProgress(lead)) {
       toast.error('No call in progress — tap Start Call first');
       return;
     }
@@ -496,25 +527,25 @@ export default function EmployeeLeadWorkspace() {
         <div className="flex flex-wrap items-center gap-3">
           <button
             onClick={handleStartCall}
-            disabled={Boolean(callBusy) || isCallInProgress(lead)}
+            disabled={Boolean(callBusy) || myCallInProgress(lead)}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 rounded-lg text-xs font-medium transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <Play size={12} /> {callBusy === 'start' ? 'Starting…' : 'Start Call'}
           </button>
           <button
             onClick={handleEndCall}
-            disabled={Boolean(callBusy) || !isCallInProgress(lead)}
+            disabled={Boolean(callBusy) || !myCallInProgress(lead)}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-lg text-xs font-medium transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <Square size={12} /> {callBusy === 'end' ? 'Ending…' : 'End Call'}
           </button>
-          {isCallInProgress(lead) ? (
+          {myCallInProgress(lead) ? (
             <span className="flex items-center gap-1.5 text-xs font-semibold text-emerald-400">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" /> Call in progress · started {fmtClock(lead.callStartTime)}
             </span>
           ) : lead.callStartTime ? (
             <span className="text-xs text-app-text-muted">
-              Last call {fmtClock(lead.callStartTime)}{lead.callEndTime ? `–${fmtClock(lead.callEndTime)}` : ''}{lead.callEndTime && !isCallInProgress(lead) ? ` · ${fmtCallDuration(lead.callStartTime, lead.callEndTime, lead.callDuration || null)}` : ''}
+              Last call {fmtClock(lead.callStartTime)}{lead.callEndTime ? `–${fmtClock(lead.callEndTime)}` : ''}{lead.callEndTime && !myCallInProgress(lead) ? ` · ${fmtCallDuration(lead.callStartTime, lead.callEndTime, lead.callDuration || null)}` : ''}
             </span>
           ) : (
             <span className="text-xs text-app-text-muted">No call started yet</span>
@@ -601,6 +632,32 @@ export default function EmployeeLeadWorkspace() {
                     {level}
                   </button>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {getCallOutcomeValue('connected') === 'Yes' && (
+            <div>
+              <label className={fieldLabelClass} htmlFor="call-duration">
+                Call Duration (minutes) <span className="text-primary">*required</span>
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  id="call-duration"
+                  type="number"
+                  inputMode="numeric"
+                  min="1"
+                  max="600"
+                  step="1"
+                  value={durationValue}
+                  onChange={(e) => setDurationDraft(e.target.value)}
+                  onBlur={(e) => { if (Number(e.target.value) >= 1) updateCallOutcomeField('durationMinutes', e.target.value); }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+                  className={`${selectClass} w-28`}
+                />
+                <span className="text-[11px] text-app-text-muted">
+                  {timerMinutes && durationDraft === '' ? 'From the call timer — change it if needed' : 'How long you spoke with the lead'}
+                </span>
               </div>
             </div>
           )}

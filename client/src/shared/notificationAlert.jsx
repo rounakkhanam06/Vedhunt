@@ -1,25 +1,40 @@
 import toast from 'react-hot-toast';
 
-// Short two-tone chime for new notifications. Browsers may block audio until
-// the user has interacted with the page; failures are ignored.
-export function playChime() {
+// One shared AudioContext, resumed on the user's first click/tap/key — browsers
+// keep audio muted until the page has had a user gesture, and a context created
+// later from a timer starts suspended, which is why the chime was often silent.
+let audioCtx = null;
+function getCtx() {
+  const Ctx = typeof window !== 'undefined' && (window.AudioContext || window.webkitAudioContext);
+  if (!Ctx) return null;
+  if (!audioCtx) audioCtx = new Ctx();
+  if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+  return audioCtx;
+}
+if (typeof window !== 'undefined') {
+  const unlock = () => { getCtx(); ['pointerdown', 'keydown', 'touchstart'].forEach((e) => window.removeEventListener(e, unlock)); };
+  ['pointerdown', 'keydown', 'touchstart'].forEach((e) => window.addEventListener(e, unlock));
+}
+
+// Short two-tone chime; `times` repeats it (the louder lead-assignment alert).
+export function playChime(times = 1) {
   try {
-    const Ctx = window.AudioContext || window.webkitAudioContext;
-    if (!Ctx) return;
-    const ctx = new Ctx();
-    [880, 1175].forEach((freq, i) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      const t = ctx.currentTime + i * 0.15;
-      osc.frequency.value = freq;
-      gain.gain.setValueAtTime(0.0001, t);
-      gain.gain.exponentialRampToValueAtTime(0.2, t + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.3);
-      osc.connect(gain).connect(ctx.destination);
-      osc.start(t);
-      osc.stop(t + 0.32);
-    });
-    setTimeout(() => ctx.close().catch(() => {}), 800);
+    const ctx = getCtx();
+    if (!ctx) return;
+    for (let r = 0; r < times; r += 1) {
+      [880, 1175].forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        const t = ctx.currentTime + r * 0.6 + i * 0.15;
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.0001, t);
+        gain.gain.exponentialRampToValueAtTime(0.3, t + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.3);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.32);
+      });
+    }
   } catch {
     // ignore
   }

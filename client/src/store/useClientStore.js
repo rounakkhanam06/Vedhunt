@@ -47,6 +47,16 @@ export const useClientStore = create((set) => ({
     }
   },
 
+  // Re-reads the client's details without the loading screen — picks up what an admin
+  // changed (business name, contact, profile) while the portal stays open. A failed
+  // refresh changes nothing; checkAuth / the API's 401 handling deal with real logouts.
+  refreshClient: async () => {
+    try {
+      const data = await clientService.getMe();
+      if (data?.client) set({ client: data.client });
+    } catch (_) { /* keep what we have */ }
+  },
+
   updateClient: (updates) => {
     set((state) => ({ client: { ...state.client, ...updates } }));
   },

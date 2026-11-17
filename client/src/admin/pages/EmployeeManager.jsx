@@ -493,7 +493,7 @@ const EmployeeManager = () => {
 
   // ── Scroll Lock ───────────────────────────────────────────────────────────
   useEffect(() => {
-    if (isModalOpen) {
+    if (isModalOpen || isEditModalOpen) {
       const scrollY = window.scrollY;
       document.body.style.position = 'fixed';
       document.body.style.top = `-${scrollY}px`;
@@ -516,7 +516,7 @@ const EmployeeManager = () => {
       document.body.style.right = '';
       document.body.style.overflow = '';
     };
-  }, [isModalOpen]);
+  }, [isModalOpen, isEditModalOpen]);
 
   const fetchEmployees = async () => {
     setIsLoading(true);

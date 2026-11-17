@@ -69,7 +69,12 @@ async function applyLeadUpdate(leadId, updates, actor, extraFilter = {}) {
   // the lock; otherwise the caller is stuck "in call" with no way out.
   // Super Admins are never locked out.
   const LOCK_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+  // The lead's own assignee is never shut out by someone else having the lead
+  // open or a call of theirs left running (an admin who called and didn't end
+  // it) — she can start, end and log her own calls; each is logged under its caller.
+  const isAssignee = existingLead.assignedTo && String(existingLead.assignedTo) === String(actor.id);
   if (
+    !isAssignee &&
     existingLead.lockedBy &&
     String(existingLead.lockedBy) !== String(actor.id) &&
     !actor.isSuperAdmin &&
@@ -103,6 +108,17 @@ async function applyLeadUpdate(leadId, updates, actor, extraFilter = {}) {
   const outcomeRemark = String((hasCallNote ? updates.callNote : updates.remark) ?? '').trim().slice(0, 1000);
   delete updates.remark;
   delete updates.callNote;
+  // Minutes the caller entered for this call (required in the portal when Connected) —
+  // stored on the call log only, never on the lead.
+  let enteredDuration = null;
+  if ('callDurationEntered' in updates) {
+    const n = Number(updates.callDurationEntered);
+    delete updates.callDurationEntered;
+    if (!Number.isFinite(n) || n < 1 || n > 600) {
+      return { ok: false, status: 400, message: 'Call duration must be between 1 and 600 minutes.' };
+    }
+    enteredDuration = Math.round(n);
+  }
   if (!Object.keys(updates).length && !hasCallNote) return { ok: true, lead: existingLead };
 
   const dateError = normalizeDateFields(updates);
@@ -232,7 +248,8 @@ async function applyLeadUpdate(leadId, updates, actor, extraFilter = {}) {
       callDate: callDateUsed,
       callStartTime,
       callEndTime,
-      callDuration: callDurationMinutes({ callStartTime, callEndTime }, priorLog?.loggedAt || priorLog?.callDate),
+      callDuration: enteredDuration ?? callDurationMinutes({ callStartTime, callEndTime }, priorLog?.loggedAt || priorLog?.callDate),
+      ...(enteredDuration ? { durationEntered: enteredDuration } : {}),
       // The next action as it stood right after this call, for Lead Activity
       nextFollowUpDate: 'nextFollowUpDate' in updates ? updates.nextFollowUpDate : existingLead.nextFollowUpDate,
       nextActionType: 'nextActionType' in updates ? updates.nextActionType : existingLead.nextActionType,

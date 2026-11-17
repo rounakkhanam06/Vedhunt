@@ -45,7 +45,7 @@ const PAN_TYPES = {
 
 function validatePan(input) {
   const value = compact(input);
-  if (!/^[A-Z]{5}\d{4}[A-Z]$/.test(value)) return { ok: false, error: 'Enter a valid 10-character PAN (for example ABCDE1234F).' };
+  if (!/^[A-Z]{5}\d{4}[A-Z]$/.test(value)) return { ok: false, error: 'Enter a valid 10-character PAN (for example AAPCV0172E).' };
   if (!PAN_TYPES[value[3]]) return { ok: false, error: 'The fourth character of this PAN is not a valid holder type.' };
   return { ok: true, value, holderType: PAN_TYPES[value[3]] };
 }

@@ -1,5 +1,8 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { createPortal } from 'react-dom';
+import { useQueryClient } from '@tanstack/react-query';
+import { essKeys } from '../lib/ess';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Bell,
@@ -18,7 +21,7 @@ import {
 } from 'lucide-react';
 import employeeApi from '../../services/employeeApi';
 import { isPushAvailable, enablePush } from '../../services/pushNotifications';
-import { alertNewNotifications } from '../../shared/notificationAlert';
+import { alertNewNotifications, playChime } from '../../shared/notificationAlert';
 
 const POLL_INTERVAL_MS = 30000;
 
@@ -100,6 +103,12 @@ export default function NotificationBell() {
   const wrapperRef = useRef(null);
   // Notifications already seen, so only ones arriving after load pop an alert
   const seenIdsRef = useRef(null);
+  // Unread "lead assigned" notifications shown in the popup until acted on.
+  // Ones already popped this session aren't popped again (they stay in the bell);
+  // after a reload, any still unread pop again — including ones assigned while away.
+  const [leadPopup, setLeadPopup] = useState([]);
+  const poppedRef = useRef(new Set());
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     isPushAvailable().then(setPushAvailable);
@@ -113,7 +122,17 @@ export default function NotificationBell() {
         const list = data.notifications || [];
         setNotifications(list);
         setUnreadCount(data.unreadCount || 0);
-        alertNewNotifications(seenIdsRef, list, (n) => {
+        const recent = Date.now() - 3 * 86400000; // older unread ones stay in the bell only
+        const newLeads = list.filter((n) => n.type === 'lead_assigned' && !n.read && !poppedRef.current.has(n._id) && new Date(n.createdAt).getTime() > recent);
+        if (newLeads.length) {
+          newLeads.forEach((n) => poppedRef.current.add(n._id));
+          setLeadPopup((prev) => [...newLeads, ...prev]);
+          // the new lead belongs in My Pipeline and the lead lists right away
+          queryClient.invalidateQueries({ queryKey: essKeys.leads });
+          queryClient.invalidateQueries({ queryKey: essKeys.today });
+          playChime(3);
+        }
+        alertNewNotifications(seenIdsRef, list.filter((n) => n.type !== 'lead_assigned'), (n) => {
           if (!n.read) employeeApi.put(`/employee-portal/ess/notifications/${n._id}/read`).catch(() => {});
           if (n.link) navigate(toPortalLink(n.link));
         });
@@ -123,12 +142,15 @@ export default function NotificationBell() {
     } finally {
       if (showIndicator) setTimeout(() => setIsRefreshing(false), 300);
     }
-  }, [navigate]);
+  }, [navigate, queryClient]);
 
   useEffect(() => {
     fetchNotifications();
     const interval = setInterval(fetchNotifications, POLL_INTERVAL_MS);
-    return () => clearInterval(interval);
+    // Background tabs throttle timers — check as soon as the BDE comes back
+    const onVisible = () => { if (document.visibilityState === 'visible') fetchNotifications(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => { clearInterval(interval); document.removeEventListener('visibilitychange', onVisible); };
   }, [fetchNotifications]);
 
   // Lock background scroll when drawer is open
@@ -163,6 +185,11 @@ export default function NotificationBell() {
       employeeApi.put(`/employee-portal/ess/notifications/${notification._id}/read`).catch(() => {});
     }
     if (notification.link) navigate(toPortalLink(notification.link));
+  };
+
+  const openAssignedLead = (n) => {
+    setLeadPopup((prev) => prev.filter((x) => x._id !== n._id));
+    handleClickNotification(n);
   };
 
   const handleMarkOneRead = async (e, id) => {
@@ -210,6 +237,37 @@ export default function NotificationBell() {
 
   return (
     <div className="relative" ref={wrapperRef}>
+      {/* New-lead popup — stays until the BDE opens the lead or chooses Later */}
+      {leadPopup.length > 0 && createPortal(
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" role="alertdialog" aria-modal="true" aria-labelledby="lead-popup-title">
+          <div className="w-full max-w-md rounded-2xl border border-[#FF6B00]/40 bg-app-card text-app-text shadow-2xl">
+            <div className="flex items-center gap-3 px-5 py-4 border-b border-app-border">
+              <span className="w-10 h-10 rounded-full bg-[#FF6B00]/15 text-[#FF6B00] flex items-center justify-center animate-pulse"><BellPlus size={20} /></span>
+              <div>
+                <h3 id="lead-popup-title" className="font-bold">{leadPopup.length === 1 ? 'New lead assigned to you' : `${leadPopup.length} new leads assigned to you`}</h3>
+                <p className="text-xs text-app-text-muted">Call them soon — a quick first call converts best.</p>
+              </div>
+            </div>
+            <ul className="max-h-72 overflow-y-auto divide-y divide-app-border">
+              {leadPopup.map((n) => (
+                <li key={n._id} className="flex items-center justify-between gap-3 px-5 py-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold truncate">{n.message || n.title}</p>
+                    <p className="text-[11px] text-app-text-muted">{formatTimeAgo(n.createdAt)}</p>
+                  </div>
+                  <button type="button" onClick={() => openAssignedLead(n)} className="shrink-0 inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#FF6B00] text-black text-xs font-bold cursor-pointer">
+                    Open lead <ArrowRight size={13} />
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <div className="flex justify-end px-5 py-3 border-t border-app-border">
+              <button type="button" onClick={() => setLeadPopup([])} className="px-4 py-2 rounded-lg border border-app-border text-sm cursor-pointer hover:bg-app-border/30">Later</button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
       {/* Bell Trigger Button */}
       <button
         onClick={() => setOpen(true)}

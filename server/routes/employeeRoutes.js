@@ -707,7 +707,8 @@ scoped.put('/:id', employeeEditGuard, async (req, res) => {
       const emailLower = email.trim().toLowerCase();
       // Check if email already exists on another employee or admin
       const existingAdmin = await Admin.findOne({ email: emailLower, _id: { $ne: employee.adminId } });
-      if (existingAdmin) {
+      const existingEmployee = await Employee.findOne({ email: emailLower, _id: { $ne: employee._id } });
+      if (existingAdmin || existingEmployee) {
         return res.status(400).json({ success: false, message: 'An account with this email already exists.' });
       }
       employee.email = emailLower;

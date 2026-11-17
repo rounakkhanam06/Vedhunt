@@ -496,7 +496,7 @@ export default function ClientManager() {
                     <td className="px-4 py-3">
                       <button type="button" onClick={() => openPreview(c)} className="flex items-center gap-2 text-left cursor-pointer" title="Open client overview">
                         {c.profile?.logoUrl ? (
-                          <img src={c.profile.logoUrl} alt="" className="w-8 h-8 rounded-lg object-contain bg-white p-0.5 shrink-0" />
+                          <img src={c.profile.logoUrl} alt="" onError={(e) => { e.currentTarget.style.display = 'none'; }} className="w-8 h-8 rounded-lg object-contain bg-white p-0.5 shrink-0" />
                         ) : (
                           <div className="w-8 h-8 rounded-lg bg-secondary/15 flex items-center justify-center shrink-0">
                             <Building size={14} className="text-secondary" />

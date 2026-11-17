@@ -104,7 +104,17 @@ const app = express();
 app.set('trust proxy', 1);
 
 // Security & Global Middleware
-app.use(helmet());
+// helmet's default Content-Security-Policy allows images only from this site
+// ("img-src 'self' data:"), which blocked every uploaded image — they're served
+// from Cloudinary (payment screenshots, client logos, CMS images). Images may
+// come from any HTTPS host; every other directive keeps helmet's default.
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      'img-src': ["'self'", 'data:', 'blob:', 'https:'],
+    },
+  },
+}));
 app.use(
   cors({
     origin: [

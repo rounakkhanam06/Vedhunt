@@ -58,11 +58,16 @@ export function useAccess() {
 export const useEssProfile = () =>
   useQuery({ queryKey: essKeys.profile, queryFn: () => essGet('/profile').then((d) => d.employee) });
 
+// The lead list and today's agenda also change outside this BD's own actions
+// (an admin moves a stage, assigns a lead, records a payment), so they refresh
+// every minute, when the tab regains focus and each time a page using them opens.
+const LIVE = { staleTime: 30_000, refetchInterval: 60_000, refetchOnWindowFocus: true, refetchOnMount: 'always' };
+
 export const useEssLeads = (enabled = true) =>
-  useQuery({ queryKey: essKeys.leads, queryFn: () => essGet('/leads').then((d) => d.leads || []), enabled, staleTime: 30_000 });
+  useQuery({ queryKey: essKeys.leads, queryFn: () => essGet('/leads').then((d) => d.leads || []), enabled, ...LIVE });
 
 export const useEssToday = (enabled = true) =>
-  useQuery({ queryKey: essKeys.today, queryFn: () => essGet('/today'), enabled, staleTime: 30_000 });
+  useQuery({ queryKey: essKeys.today, queryFn: () => essGet('/today'), enabled, ...LIVE });
 
 export const useEssTimer = () =>
   useQuery({ queryKey: essKeys.timer, queryFn: () => essGet('/timer').then((d) => d.activeTimer), staleTime: 30_000 });

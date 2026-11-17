@@ -1013,7 +1013,7 @@ export default function GetQuote() {
                       )}
 
                       {step < 4 ? (
-                        <button
+                        <button key="next"
                           type="button"
                           onClick={nextStep}
                           className="relative inline-flex items-center justify-between pl-6 pr-1.5 py-1.5 bg-primary hover:bg-primary-hover text-black font-extrabold text-xs tracking-widest rounded-full transition-all duration-300 group shadow-[0_10px_25px_rgba(255,107,0,0.22)] hover:shadow-[0_12px_35px_rgba(255,107,0,0.45)] hover:-translate-y-0.5 w-32"
@@ -1024,7 +1024,7 @@ export default function GetQuote() {
                           </div>
                         </button>
                       ) : (
-                        <button
+                        <button key="submit"
                           type="submit"
                           className="relative inline-flex items-center justify-between pl-6 pr-1.5 py-1.5 bg-primary hover:bg-primary-hover text-black font-extrabold text-xs tracking-widest rounded-full transition-all duration-300 group shadow-[0_10px_25px_rgba(255,107,0,0.22)] hover:shadow-[0_12px_35px_rgba(255,107,0,0.45)] hover:-translate-y-0.5 w-36"
                         >

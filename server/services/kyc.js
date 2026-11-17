@@ -29,7 +29,7 @@ const ITEMS = [
   },
   {
     key: 'pan', label: 'PAN', required: true, types: ANY_TYPES,
-    number: { label: 'PAN', placeholder: 'ABCDE1234F', required: true },
+    number: { label: 'PAN', placeholder: 'AAPCV0172E', required: true },
     help: 'The PAN of the business or proprietor, with a copy of the PAN card.',
   },
   {

@@ -283,6 +283,8 @@ const leadSchema = new mongoose.Schema({
     callStartTime: Date,
     callEndTime: Date,
     callDuration: Number,
+    // Minutes the caller entered or confirmed for a connected call (wins over the timer)
+    durationEntered: Number,
     // Next action as scheduled right after this call (Lead Activity)
     nextFollowUpDate: Date,
     nextActionType: String,
