@@ -64,7 +64,8 @@ export function canAccessModule(module, { can, segment, portalModules, hasTeam, 
   if (module.always) return true;
   if (module.crmPage) return Boolean(access?.[module.crmPage]?.actions?.includes('view'));
   if (module.requiresTeam) return Boolean(hasTeam) || Boolean(module.orPermission && can(module.orPermission));
-  if (module.requiresProjects && !hasProjects) return false;
+  // On a project → always shown (like Team Approvals), whatever the role's module list says
+  if (module.requiresProjects) return Boolean(hasProjects);
   if (module.permission && !can(module.permission)) return false;
   if (Array.isArray(portalModules)) return portalModules.includes(module.key);
   return !(module.hideForSegments || []).includes(segment);

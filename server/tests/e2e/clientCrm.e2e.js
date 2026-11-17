@@ -696,6 +696,37 @@ describe('client notifications — the bell', () => {
     assert.equal(ofType(await list(), 'agreement_updated').length, 1);
   });
 
+  test('deleting a retainer removes it; one with billed extra hours is cancelled instead', async () => {
+    const Retainer = require('../../models/Retainer');
+    const Invoice = require('../../models/Invoice');
+    const base = await Retainer.findOne({ client_ref: ids.beta }).lean() || await Retainer.findOne().lean();
+    assert.ok(base, 'a seeded retainer to copy');
+    const { _id, createdAt, updatedAt, retainerId, ...rest } = base;
+    const a = await Retainer.create({ ...rest, client_ref: ids.beta, status: 'Active' });
+    const b = await Retainer.create({ ...rest, client_ref: ids.beta, status: 'Active' });
+    await inv(ids.beta, 1000, 5, { extraHours: { retainer_ref: b._id, month: '2026-11', hours: 1 } });
+    const r1 = await admin('DELETE', `/admin/retainers/${a._id}`);
+    assert.equal(r1.status, 200, JSON.stringify(r1.body));
+    assert.equal(r1.body.deleted, true);
+    assert.equal(await Retainer.exists({ _id: a._id }), null);
+    const list = await asClient('beta', 'GET', '/client/retainers');
+    assert.ok(!JSON.stringify(list.body).includes(String(a._id)), 'gone from the client portal');
+    const r2 = await admin('DELETE', `/admin/retainers/${b._id}`);
+    assert.equal(r2.body.deleted, false);
+    assert.equal((await Retainer.findById(b._id).lean()).status, 'Cancelled');
+  });
+
+  test('after accepting, the Agreement tab gets the signed agreement', async () => {
+    const before = await asClient('beta', 'GET', '/client/agreement');
+    assert.equal(before.status, 200, JSON.stringify(before.body));
+    const acc = await asClient('beta', 'POST', '/client/accept-agreement', { version: before.body.version });
+    assert.equal(acc.status, 200, JSON.stringify(acc.body));
+    const after = await asClient('beta', 'GET', '/client/agreement');
+    assert.equal(after.body.available, true);
+    assert.equal(after.body.client.acceptedAgreementVersion, before.body.version, JSON.stringify(after.body));
+    assert.ok(after.body.signed, 'signed snapshot returned');
+  });
+
   test('marking one read lowers the unread count; mark-all clears it', async () => {
     const before = await list();
     const first = before.notifications.find((n) => !n.read);

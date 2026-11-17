@@ -245,8 +245,13 @@ router.get('/portfolio', crm('clients', 'view'), async (req, res) => {
 
     const { page, limit, skip } = parsePagination(req.query);
     const total = portfolio.rows.length;
-    const sectors = [...new Set(portfolio.rows.flatMap((r) => r.profile.sectors || []))].sort();
-    const services = [...new Set(portfolio.rows.flatMap((r) => r.profile.services || []))].sort();
+    // Every sector / service in use, not just those on the rows now listed — otherwise picking
+    // one filter empties the others, and a scoped employee only sees their clients' few values
+    const tidy = (list) => [...new Set(list.map((x) => String(x || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+    const [sectors, services] = await Promise.all([
+      Client.distinct('profile.sectors', { deletedAt: null }).then(tidy),
+      Client.distinct('profile.services', { deletedAt: null }).then(tidy),
+    ]);
     res.json({
       success: true,
       kpis: portfolio.kpis,
@@ -3016,8 +3021,14 @@ router.delete('/retainers/:id', crm('retainers', 'delete'), async (req, res) => 
     if (!isValidId(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid retainer ID' });
     const existing = await Retainer.findById(req.params.id, { client_ref: 1 }).lean();
     if (!existing || !clientAllowed(req, existing.client_ref)) return outOfScope(res, 'Retainer');
-    await Retainer.findByIdAndUpdate(req.params.id, { status: 'Cancelled' });
-    res.json({ success: true, message: 'Retainer cancelled' });
+    // Billed extra hours point at the retainer: keep it (cancelled) so those invoices still make sense
+    const billed = await Invoice.exists({ 'extraHours.retainer_ref': req.params.id });
+    if (billed) {
+      await Retainer.findByIdAndUpdate(req.params.id, { status: 'Cancelled' });
+      return res.json({ success: true, deleted: false, message: 'This retainer has extra-hours invoices, so it was cancelled instead of deleted.' });
+    }
+    await Retainer.findByIdAndDelete(req.params.id);
+    res.json({ success: true, deleted: true, message: 'Retainer deleted' });
   } catch (error) {
     logger.error('Admin cancel retainer error:', error);
     res.status(500).json({ success: false, message: 'Server error' });

@@ -117,10 +117,10 @@ export default function RetainerManager() {
   const deleteRetainer = async (id) => {
     if (!window.confirm('Delete this retainer contract?')) return;
     try {
-      await http.delete(`${base}/retainers/${id}`);
-      toast.success('Retainer deleted');
+      const { data } = await http.delete(`${base}/retainers/${id}`);
+      toast.success(data?.message || 'Retainer deleted');
       fetchRetainers();
-    } catch { toast.error('Failed to delete'); }
+    } catch (err) { toast.error(err?.response?.data?.message || 'Failed to delete'); }
   };
 
   const handleNumberChange = (k) => (e) => {
