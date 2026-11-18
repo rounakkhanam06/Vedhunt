@@ -230,6 +230,9 @@ router.get('/me', employeeAuthMiddleware, async (req, res) => {
       segment: req.user.segment,
       portalModules: req.user.portalModules,
       access: await withManagedClientsAccess(grantSummary(req.user), req.user),
+      // Roles such as HR also grant Admin-panel pages (Employees, Leave, Payroll);
+      // those live in the Admin panel, so the portal shows a link there.
+      adminPanel: !require('../config/permissions').isPortalOnly(req.user.roles),
       ...flags
     },
     ...(req.preview ? { preview: req.preview } : {}),

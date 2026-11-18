@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useEmployeeStore } from '../store/useEmployeeStore';
 import { useTheme } from '../context/ThemeContext';
-import { LogOut, Sun, Moon, Menu, PanelLeftClose, PanelLeftOpen, Search, X } from 'lucide-react';
+import { LogOut, Sun, Moon, Menu, PanelLeftClose, PanelLeftOpen, Search, X, LayoutDashboard } from 'lucide-react';
 import BrandLogo from '../components/brand/BrandLogo';
 import NotificationBell from './components/NotificationBell';
 import { WorkTimerProvider, TimerHeaderChip, TimerFloatingWidget } from './components/WorkTimer';
@@ -172,6 +172,15 @@ const EmployeeLayout = () => {
 
           {/* Footer profile card */}
           <div className="pt-4 mt-auto border-t border-app-border shrink-0">
+            {employee?.adminPanel && !employee?.preview && (
+              <a
+                href="/admin/login"
+                className="mb-3 flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-semibold text-primary bg-primary/10 border border-primary/20 hover:bg-primary/15 transition-colors"
+                title="Employees, Leave, Attendance, Payroll and other pages your role manages"
+              >
+                <LayoutDashboard size={16} /> Open Admin Panel
+              </a>
+            )}
             <div className="flex items-center justify-between p-2.5 rounded-xl bg-app-bg/50 border border-app-border/60 hover:border-app-border transition-colors">
               <div className="flex items-center gap-3 min-w-0 pr-2">
                 <div className="w-9 h-9 flex items-center justify-center text-primary text-sm font-bold bg-primary/10 border border-primary/20 rounded-full shrink-0">
