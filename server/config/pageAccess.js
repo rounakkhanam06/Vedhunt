@@ -219,8 +219,17 @@ function widestScope(user, pairs) {
  * the actions they can use there (role and grant combined). Pages their role
  * already covers in full are left out — those live in the Admin panel.
  */
-function grantSummary(user) {
+function grantSummary(user, { includeRolePages = false } = {}) {
   const out = {};
+  // Employee Portal: pages the person's ROLE opens in full (e.g. an HR role with
+  // leave.manage) are shown there too, not only person-wise grants.
+  if (includeRolePages) {
+    for (const page of PAGE_CATALOG) {
+      if (!hasBaseAccess(user, page.key)) continue;
+      const actions = page.actions.filter((a) => pageScope(user, page.key, a) !== false);
+      if (actions.includes('view')) out[page.key] = { actions, mode: 'all' };
+    }
+  }
   for (const g of grantsOf(user)) {
     const page = PAGES.get(g.page);
     if (!page || hasBaseAccess(user, g.page) || !g.actions?.length) continue;

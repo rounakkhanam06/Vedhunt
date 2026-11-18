@@ -189,7 +189,7 @@ router.post('/login', ...loginMiddleware, async (req, res) => {
           permissions: Array.from(permissionsSet),
           segment: resolveSegment(admin.roles),
           portalModules: resolvePortalModules(admin.roles),
-          access: await withManagedClientsAccess(grantSummary({ permissions: Array.from(permissionsSet), accessGrants: admin.accessGrants, crmGrants: admin.crmGrants }), { _id: admin._id, permissions: Array.from(permissionsSet) }),
+          access: await withManagedClientsAccess(grantSummary({ permissions: Array.from(permissionsSet), accessGrants: admin.accessGrants, crmGrants: admin.crmGrants }, { includeRolePages: true }), { _id: admin._id, permissions: Array.from(permissionsSet) }),
           ...(await portalFlags(admin._id))
         }
       });
@@ -229,7 +229,7 @@ router.get('/me', employeeAuthMiddleware, async (req, res) => {
       permissions: req.user.permissions,
       segment: req.user.segment,
       portalModules: req.user.portalModules,
-      access: await withManagedClientsAccess(grantSummary(req.user), req.user),
+      access: await withManagedClientsAccess(grantSummary(req.user, { includeRolePages: true }), req.user),
       // Roles such as HR also grant Admin-panel pages (Employees, Leave, Payroll);
       // those live in the Admin panel, so the portal shows a link there.
       adminPanel: !require('../config/permissions').isPortalOnly(req.user.roles),
