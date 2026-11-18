@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { contentService } from '../../services/contentService';
 import { Pencil, Trash2, Search, Loader2 } from 'lucide-react';
+import { cleanSearchInput, searchTerm } from '../../shared/searchInput';
 
 const NavbarManager = ({ isNested = false }) => {
   const [links, setLinks] = useState([]);
@@ -16,7 +17,7 @@ const NavbarManager = ({ isNested = false }) => {
   const fetchLinks = async () => {
     setIsLoading(true);
     try {
-      const data = await contentService.getNavbarLinksAdmin(page, limit, search);
+      const data = await contentService.getNavbarLinksAdmin(page, limit, searchTerm(search));
       setLinks(data.data);
       setTotal(data.pagination?.total || 0);
     } catch (error) {
@@ -78,7 +79,7 @@ const NavbarManager = ({ isNested = false }) => {
             className="w-full pl-9 pr-4 py-2 bg-form-input-bg border border-app-border rounded-lg text-app-text placeholder-app-text-muted focus:ring-[#FF6B00] focus:border-[#FF6B00] sm:text-sm outline-none transition-colors"
             value={search}
             onChange={(e) => {
-              setSearch(e.target.value);
+              setSearch(cleanSearchInput(e.target.value));
               setPage(1); // Reset page on search
             }}
           />

@@ -15,6 +15,9 @@ const mongoose = require('mongoose');
  */
 async function findLeadRaw(id, extraFilter = {}) {
   const db = mongoose.connection.db;
+  // The raw driver skips the Lead model's soft-delete filter, so apply it here:
+  // a deleted lead must not be opened or edited by its URL.
+  if (extraFilter.isDeleted === undefined) extraFilter = { ...extraFilter, isDeleted: { $ne: true } };
   let doc = await db.collection('leads').findOne({ _id: id, ...extraFilter });
   if (!doc && mongoose.Types.ObjectId.isValid(id)) {
     doc = await db.collection('leads').findOne({ _id: new mongoose.Types.ObjectId(id), ...extraFilter });

@@ -3,6 +3,7 @@ import { contentService } from '../../services/contentService';
 import { uploadService } from '../../services/uploadService';
 import { Pencil, Trash2, Search, Loader2, Plus, X, Upload, Save, Loader, ChevronDown, ChevronUp } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { cleanSearchInput, searchTerm } from '../../shared/searchInput';
 
 const generateSlug = (text) => {
   return text
@@ -63,7 +64,7 @@ const ServiceManager = ({ isNested = false }) => {
   const fetchServices = async () => {
     setIsLoading(true);
     try {
-      const data = await contentService.getServicesAdmin(page, limit, search);
+      const data = await contentService.getServicesAdmin(page, limit, searchTerm(search));
       setServices(data.data);
       setTotal(data.pagination?.total || 0);
     } catch (error) {
@@ -288,7 +289,7 @@ const ServiceManager = ({ isNested = false }) => {
                   className="w-full pl-9 pr-4 py-2 bg-app-card border border-app-border rounded-lg text-app-text placeholder-app-text-muted focus:ring-[#FF6B00] focus:border-[#FF6B00] sm:text-sm transition-colors"
                   value={search}
                   onChange={(e) => {
-                    setSearch(e.target.value);
+                    setSearch(cleanSearchInput(e.target.value));
                     setPage(1);
                   }}
                 />

@@ -17,6 +17,7 @@ const logger = require('./utils/logger');
 
 // Import Middleware
 const { globalLimiter } = require('./middleware/rateLimiter');
+const { cleanSearchQuery } = require('./middleware/cleanSearchQuery');
 const startCronJobs = require('./services/cronJobs');
 
 // Import Routes
@@ -133,6 +134,9 @@ if (process.env.NODE_ENV === 'production') {
 // Webhooks must be registered BEFORE global express.json() 
 // because FB webhook needs the raw body to verify HMAC signatures
 app.use('/api/leads/webhook', webhookRoutes);
+
+// Trim/collapse spaces in ?search= / ?q= and drop space-only searches
+app.use('/api', cleanSearchQuery);
 
 app.use(express.json({ limit: '10mb' })); // Body parser with increased limit for rich text
 app.use(cookieParser()); // Cookie parser

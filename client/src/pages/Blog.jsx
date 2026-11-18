@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Search, ArrowRight, ArrowUpRight } from 'lucide-react';
 import api from '../services/api';
 import BlogCard from '../components/ui/BlogCard';
+import { cleanSearchInput, searchTerm } from '../shared/searchInput';
 
 const Blog = () => {
   const [activeCategory, setActiveCategory] = useState('All');
@@ -64,8 +65,8 @@ const Blog = () => {
   const filteredPosts = allBlogs.filter(post => {
     const formattedPostCategory = post.category.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ');
     const matchesCategory = activeCategory === 'All' || formattedPostCategory === activeCategory;
-    const matchesSearch = post.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          (post.excerpt && post.excerpt.toLowerCase().includes(searchQuery.toLowerCase()));
+    const matchesSearch = post.title.toLowerCase().includes(searchTerm(searchQuery).toLowerCase()) || 
+                          (post.excerpt && post.excerpt.toLowerCase().includes(searchTerm(searchQuery).toLowerCase()));
     return matchesCategory && matchesSearch;
   });
 
@@ -148,7 +149,7 @@ const Blog = () => {
             type="text"
             placeholder="Search articles..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => setSearchQuery(cleanSearchInput(e.target.value))}
             className="w-full bg-app-card/50 border border-app-border rounded-full py-3.5 pl-12 pr-6 text-app-text placeholder-app-text-muted/60 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all duration-300 shadow-sm text-sm"
           />
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-app-text-muted/60 w-5 h-5" />

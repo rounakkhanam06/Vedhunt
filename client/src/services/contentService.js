@@ -181,7 +181,7 @@ export const contentService = {
   },
 
   getNavbarLinksAdmin: async (page = 1, limit = 10, search = '') => {
-    const response = await api.get(`/content/admin/navbar?page=${page}&limit=${limit}&search=${search}`);
+    const response = await api.get(`/content/admin/navbar?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}`);
     return response.data;
   },
 
@@ -202,7 +202,7 @@ export const contentService = {
   },
 
   getServicesAdmin: async (page = 1, limit = 10, search = '') => {
-    const response = await api.get(`/content/admin/services?page=${page}&limit=${limit}&search=${search}`);
+    const response = await api.get(`/content/admin/services?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}`);
     return response.data;
   },
 

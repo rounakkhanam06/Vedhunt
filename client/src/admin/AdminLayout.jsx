@@ -35,7 +35,7 @@ const AdminLayout = () => {
       />
       <Sidebar isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} />
       
-      <div className={`flex flex-col flex-1 min-w-0 max-w-full overflow-x-hidden transition-all duration-300 ${isSidebarOpen ? 'lg:ml-[280px]' : 'lg:ml-0'}`}>
+      <div className={`flex flex-col flex-1 min-w-0 max-w-full overflow-x-clip transition-all duration-300 ${isSidebarOpen ? 'lg:ml-[280px]' : 'lg:ml-0'}`}>
         {/* TopNavBar Shell */}
         <header className="sticky top-0 z-40 w-full h-16 bg-app-card/80 backdrop-blur-md border-b border-app-border flex justify-between items-center px-4 sm:px-6 transition-colors duration-200">
           <div className="flex items-center gap-6">
@@ -77,7 +77,7 @@ const AdminLayout = () => {
         </header>
         
         {/* Page Body */}
-        <main className="flex-1 p-4 sm:p-6 space-y-6 min-w-0 max-w-full overflow-x-hidden">
+        <main className="flex-1 p-4 sm:p-6 space-y-6 min-w-0 max-w-full overflow-x-clip">
           <button
             onClick={() => navigate(-1)}
             className="flex items-center gap-2 text-sm text-app-text-muted hover:text-app-text font-medium transition-colors mb-2 w-fit cursor-pointer"

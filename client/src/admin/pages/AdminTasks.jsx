@@ -3,6 +3,7 @@ import { usePageAccess } from '../../shared/crmAccess';
 import toast from 'react-hot-toast';
 import { Search, Filter, Calendar, CheckCircle, Clock, AlertCircle, AlertTriangle, PlayCircle, Plus, X, ChevronDown, ChevronUp, User } from 'lucide-react';
 import { TASK_STATUSES, TASK_PRIORITIES, taskStatusLabel, taskCode, TASK_PRIORITY_CLASSES } from '../../shared/taskConstants';
+import { cleanSearchInput, searchTerm } from '../../shared/searchInput';
 
 const EMPTY_TASK = { employeeId: '', title: '', description: '', dueDate: '', startDate: '', priority: 'Normal', project: '', client: '', estimatedHours: '', acceptanceCriteria: '' };
 const inputClass = 'w-full text-sm rounded-lg border border-app-border bg-form-input-bg px-3 py-2.5 text-app-text focus:outline-none focus:ring-1 focus:ring-primary';
@@ -67,9 +68,9 @@ export default function AdminTasks() {
   // Apply Filters
   const filteredTasks = useMemo(() => {
     return allTasks.filter(task => {
-      const matchSearch = task.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          task.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          task.employeeName?.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchSearch = task.title?.toLowerCase().includes(searchTerm(searchQuery).toLowerCase()) ||
+                          task.description?.toLowerCase().includes(searchTerm(searchQuery).toLowerCase()) ||
+                          task.employeeName?.toLowerCase().includes(searchTerm(searchQuery).toLowerCase());
 
       const matchStatus = statusFilter === 'All' || task.status === statusFilter;
       const matchEmployee = employeeFilter === 'All' || task.employeeId === employeeFilter;
@@ -189,7 +190,7 @@ export default function AdminTasks() {
             type="text"
             placeholder="Search by task title, description, or employee name..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => setSearchQuery(cleanSearchInput(e.target.value))}
             className="w-full bg-form-input-bg border border-app-border rounded-lg pl-10 pr-4 py-2 text-sm text-app-text placeholder-app-text-muted focus:outline-none focus:ring-1 focus:ring-primary transition-colors"
           />
         </div>

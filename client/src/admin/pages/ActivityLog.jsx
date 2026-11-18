@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../../services/api';
 import { ShieldCheck, Search, ChevronLeft, ChevronRight, Activity, Calendar, History, Globe, ChevronDown, ChevronUp, UserX } from 'lucide-react';
+import { cleanSearchInput, searchTerm as cleanTerm } from '../../shared/searchInput';
 
 const inputClass = 'bg-app-bg border border-app-border rounded-lg px-3 py-2 text-sm text-app-text focus:outline-none focus:border-primary transition-colors';
 
@@ -131,7 +132,7 @@ export default function ActivityLog() {
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      setDebouncedSearch(searchTerm);
+      setDebouncedSearch(cleanTerm(searchTerm));
       setCurrentPage(1);
     }, 500);
     return () => clearTimeout(timer);
@@ -211,7 +212,7 @@ export default function ActivityLog() {
               type="text"
               placeholder="Search by action, resource, IP..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => setSearchTerm(cleanSearchInput(e.target.value))}
               className="w-full bg-app-bg border border-app-border rounded-lg pl-9 pr-4 py-2 text-sm text-app-text focus:outline-none focus:border-primary transition-colors"
             />
           </div>

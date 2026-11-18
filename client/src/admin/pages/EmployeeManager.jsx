@@ -6,6 +6,7 @@ import { openPortalPreview } from '../../shared/portalPreview';
 import EmployeeProfile from '../components/EmployeeProfile';
 import toast from 'react-hot-toast';
 import { Plus, Trash2, Eye, Shield, Award, AlertCircle, CheckCircle, Search, IndianRupee, Copy, Check, ExternalLink, Info, Key, Power, Clock, UserCheck, UserX, ChevronDown, ChevronUp } from 'lucide-react';
+import { cleanSearchInput } from '../../shared/searchInput';
 
 // ─── Validation Rules ────────────────────────────────────────────────────────
 const NAME_REGEX = /^[a-zA-Z\s'-]{2,50}$/;
@@ -1162,7 +1163,7 @@ const EmployeeManager = () => {
             type="text"
             placeholder="Search by employee name..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => setSearchQuery(cleanSearchInput(e.target.value))}
             className="w-full bg-form-input-bg border border-app-border rounded-lg pl-10 pr-4 py-2 text-sm text-app-text placeholder-form-placeholder focus:outline-none focus:ring-1 focus:ring-orange-500 transition-colors"
           />
         </div>

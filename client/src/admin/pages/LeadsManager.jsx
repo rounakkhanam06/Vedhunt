@@ -10,6 +10,7 @@ import ImportLeadsModal from '../components/ImportLeadsModal';
 import BulkReassignModal from '../components/BulkReassignModal';
 import { INTEREST_LEVELS } from '../../shared/leadConstants';
 import { SERVICES_REQUIRED_OPTIONS, LEAD_PRIORITY_LEVELS } from '../../shared/serviceQualification';
+import { cleanSearchInput, searchTerm as cleanTerm } from '../../shared/searchInput';
 
 // firstName/lastName aren't guaranteed on every Admin account (the original
 // legacy seed account predates those fields being required) — fall back
@@ -115,7 +116,7 @@ export default function LeadsManager({ stageGroup }) {
   // Debounce search
   useEffect(() => {
     const timer = setTimeout(() => {
-      setDebouncedSearchTerm(searchTerm);
+      setDebouncedSearchTerm(cleanTerm(searchTerm));
       setCurrentPage(1); // Reset to page 1 on new search
     }, 500);
 
@@ -604,7 +605,7 @@ export default function LeadsManager({ stageGroup }) {
             type="text"
             placeholder="Search name, email, phone or Lead ID..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => setSearchTerm(cleanSearchInput(e.target.value))}
             className="w-full bg-app-bg border border-app-border rounded-lg pl-10 pr-4 py-2 text-sm text-app-text focus:outline-none focus:border-primary transition-colors"
           />
         </div>

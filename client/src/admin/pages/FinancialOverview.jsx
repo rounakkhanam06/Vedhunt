@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { useCrm } from '../../shared/crmAccess';
 import { useTheme } from '../../context/ThemeContext';
+import { STICKY_HEADER } from '../utils/stickyHeader';
 
 // Categorical series, validated (dataviz validator: light + dark both pass). Fixed order, never
 // cycled; "Unassigned" is a neutral gray, not a series hue. Light contrast is under 3:1 for some
@@ -262,6 +263,8 @@ export default function FinancialOverview() {
 
   return (
     <div className="p-4 sm:p-6 space-y-5 text-app-text">
+      {/* Title, period and filters stay pinned under the admin top bar while scrolling */}
+      <div className={STICKY_HEADER}>
       {/* Title + the period the numbers cover */}
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
         <div className="min-w-0">
@@ -329,6 +332,7 @@ export default function FinancialOverview() {
             </div>
           </div>
         </div>
+      </div>
       </div>
 
       {error && <p className="p-4 rounded-xl border border-rose-500/30 text-rose-400 text-sm">{error.response?.data?.message || 'Could not load the overview.'}</p>}

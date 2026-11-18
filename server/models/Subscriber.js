@@ -55,14 +55,15 @@ const subscriberSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Synchronize status and active boolean before saving
-subscriberSchema.pre('save', function (next) {
+// Synchronize status and active boolean before saving.
+// Mongoose 9 no longer passes `next` to pre hooks — a synchronous hook just
+// returns (calling next() threw "next is not a function").
+subscriberSchema.pre('save', function () {
   if (this.isModified('active') && !this.isModified('status')) {
     this.status = this.active ? 'Subscribed' : 'Unsubscribed';
   } else if (this.isModified('status')) {
     this.active = this.status === 'Subscribed';
   }
-  next();
 });
 
 // Index for faster queries in admin panel and duplicate checks

@@ -11,6 +11,7 @@ import toast from 'react-hot-toast';
 import api from '../../services/api';
 import { formatMinutes } from '../../shared/formatDuration';
 import { LEAD_PRIORITY_BADGE_CLASSES } from '../../shared/serviceQualification';
+import { STICKY_HEADER } from '../utils/stickyHeader';
 
 // Donut slices, in order — distinct in both themes
 const SLICE_COLORS = ['#3b82f6', '#f97316', '#10b981', '#a855f7', '#ef4444', '#06b6d4', '#eab308', '#ec4899', '#64748b', '#84cc16'];
@@ -396,6 +397,8 @@ export default function ManagementDashboard() {
 
   return (
     <div className="space-y-6">
+      {/* Title, period and filters stay pinned under the admin top bar while scrolling */}
+      <div className={STICKY_HEADER}>
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-app-text font-heading flex items-center gap-2">
@@ -539,6 +542,7 @@ export default function ManagementDashboard() {
           <button type="button" onClick={() => setFilters({ platform: 'All', service: 'All', assignedTo: 'All', status: 'All' })} className="text-xs text-primary hover:underline cursor-pointer">Clear filters</button>
         )}
         {loading && <span className="w-4 h-4 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />}
+      </div>
       </div>
 
       {/* KPI tiles — leads received in the period; arrows compare with the equally long period before */}

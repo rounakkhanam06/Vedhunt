@@ -42,12 +42,12 @@ const LAST_30 = (() => {
 
 /** % change vs the previous 30 days; a rise is red when `goodWhenUp` is false. */
 function Change({ value, goodWhenUp = true }) {
-  if (value == null) return <span className="text-[10px] font-medium text-[#9CA3AF]">vs previous 30 days</span>;
+  if (value == null) return <span className="text-[10px] font-medium text-app-text-muted">vs previous 30 days</span>;
   const good = value === 0 || (value > 0) === goodWhenUp;
   return (
-    <span className={`inline-flex items-center gap-0.5 text-[10px] font-bold ${good ? 'text-[#00FF94]' : 'text-red-400'}`}>
+    <span className={`inline-flex items-center gap-0.5 text-[10px] font-bold ${good ? 'text-[#22C55E]' : 'text-red-400'}`}>
       {value > 0 ? <ArrowUp className="w-3 h-3" /> : value < 0 ? <ArrowDown className="w-3 h-3" /> : null}
-      {Math.abs(value)}% <span className="font-medium text-[#9CA3AF]">vs previous 30 days</span>
+      {Math.abs(value)}% <span className="font-medium text-app-text-muted">vs previous 30 days</span>
     </span>
   );
 }
@@ -56,7 +56,7 @@ function Change({ value, goodWhenUp = true }) {
 function MiniDonut({ title, rows, onSlice }) {
   const data = rows.filter((r) => r.count > 0);
   return (
-    <div className="bg-admin-glass border border-white/5 p-6 rounded-xl flex flex-col">
+    <div className="bg-admin-glass border border-app-border p-6 rounded-xl flex flex-col">
       <h3 className="text-xl font-semibold text-on-surface mb-6 border-b border-outline-variant pb-4">{title}</h3>
       {data.length === 0 ? (
         <p className="text-sm text-on-primary-container text-center py-16">No leads in this window yet.</p>
@@ -211,42 +211,42 @@ const Dashboard = () => {
       {/* Financial Overview */}
       {canSeeFinance && (
       <section>
-        <h2 className="text-xl font-bold text-white mb-4">Financial Overview</h2>
+        <h2 className="text-xl font-bold text-app-text mb-4">Financial Overview</h2>
         {loading ? (
-          <div className="flex items-center justify-center h-24 bg-admin-glass border border-white/5 rounded-xl">
+          <div className="flex items-center justify-center h-24 bg-admin-glass border border-app-border rounded-xl">
             <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
           </div>
         ) : financialData && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Link to="/admin/invoices" className="bg-admin-glass border border-white/5 p-6 rounded-xl transition-transform duration-300 hover:scale-[1.02] group">
+            <Link to="/admin/invoices" className="bg-admin-glass border border-app-border p-6 rounded-xl transition-transform duration-300 hover:scale-[1.02] group">
               <div className="flex justify-between items-start mb-4">
                 <span className="text-sm font-medium text-on-primary-container">Total Earnings</span>
                 <IndianRupee className="w-5 h-5 text-[#22C55E] group-hover:scale-110 transition-transform" />
               </div>
               <div className="text-3xl font-bold mb-1 text-[#22C55E]">{fmt(financialData.overview.totalRevenue)}</div>
-              <div className="flex items-center gap-1 text-[10px] font-medium text-[#9CA3AF]">
+              <div className="flex items-center gap-1 text-[10px] font-medium text-app-text-muted">
                 From {financialData.overview.totalInvoices} invoice{financialData.overview.totalInvoices === 1 ? '' : 's'}
               </div>
             </Link>
 
-            <Link to="/admin/invoices" className="bg-admin-glass border border-white/5 p-6 rounded-xl transition-transform duration-300 hover:scale-[1.02] group">
+            <Link to="/admin/invoices" className="bg-admin-glass border border-app-border p-6 rounded-xl transition-transform duration-300 hover:scale-[1.02] group">
               <div className="flex justify-between items-start mb-4">
                 <span className="text-sm font-medium text-on-primary-container">Total Pending</span>
                 <Clock className="w-5 h-5 text-yellow-500 group-hover:scale-110 transition-transform" />
               </div>
               <div className="text-3xl font-bold mb-1 text-yellow-500">{fmt(financialData.overview.totalPending)}</div>
-              <div className="flex items-center gap-1 text-[10px] font-medium text-[#9CA3AF]">
+              <div className="flex items-center gap-1 text-[10px] font-medium text-app-text-muted">
                 Requires follow-up
               </div>
             </Link>
 
-            <Link to="/admin/projects" className="bg-admin-glass border border-white/5 p-6 rounded-xl transition-transform duration-300 hover:scale-[1.02] group">
+            <Link to="/admin/projects" className="bg-admin-glass border border-app-border p-6 rounded-xl transition-transform duration-300 hover:scale-[1.02] group">
               <div className="flex justify-between items-start mb-4">
                 <span className="text-sm font-medium text-on-primary-container">Active Projects</span>
                 <Briefcase className="w-5 h-5 text-primary group-hover:scale-110 transition-transform" />
               </div>
-              <div className="text-3xl font-bold mb-1 text-white">{financialData.overview.activeProjects ?? financialData.overview.totalProjects}</div>
-              <div className="flex items-center gap-1 text-[10px] font-medium text-[#9CA3AF]">
+              <div className="text-3xl font-bold mb-1 text-app-text">{financialData.overview.activeProjects ?? financialData.overview.totalProjects}</div>
+              <div className="flex items-center gap-1 text-[10px] font-medium text-app-text-muted">
                 Across all clients
               </div>
             </Link>
@@ -264,17 +264,17 @@ const Dashboard = () => {
 
       {/* Follow-up Compliance — Manager/CEO view, gated to those who can assign leads */}
       {canSeeCompliance && (
-        <section className="bg-admin-glass border border-white/5 rounded-xl overflow-hidden">
-          <div className="p-6 border-b border-white/5 flex items-center justify-between flex-wrap gap-3">
+        <section className="bg-admin-glass border border-app-border rounded-xl overflow-hidden">
+          <div className="p-6 border-b border-app-border flex items-center justify-between flex-wrap gap-3">
             <div>
-              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+              <h3 className="text-lg font-semibold text-app-text flex items-center gap-2">
                 <AlertTriangle className="w-5 h-5 text-secondary" /> Follow-up Compliance
               </h3>
               <p className="text-xs text-on-primary-container mt-1">Live snapshot across the BD team — click any number to see the leads behind it</p>
             </div>
             {compliance && compliance.totals.total > 0 && (
               <div className="text-right">
-                <div className="text-2xl font-bold text-white">{compliance.totals.onTrackPct}%</div>
+                <div className="text-2xl font-bold text-app-text">{compliance.totals.onTrackPct}%</div>
                 <div className="text-[10px] text-on-primary-container uppercase tracking-wider">On Track</div>
               </div>
             )}
@@ -288,16 +288,16 @@ const Dashboard = () => {
             <div className="p-6 text-center text-on-primary-container text-sm">No active follow-ups scheduled right now.</div>
           ) : (
             <>
-              <div className="grid grid-cols-3 divide-x divide-white/5 border-b border-white/5">
-                <button onClick={() => navigate('/admin/follow-ups?bucket=Overdue')} className="p-4 text-center hover:bg-white/[0.03] transition-colors cursor-pointer">
+              <div className="grid grid-cols-3 divide-x divide-app-border border-b border-app-border">
+                <button onClick={() => navigate('/admin/follow-ups?bucket=Overdue')} className="p-4 text-center hover:bg-surface-variant/30 transition-colors cursor-pointer">
                   <div className="text-2xl font-bold text-red-400">{compliance.totals.overdue}</div>
                   <div className="text-[10px] text-on-primary-container uppercase tracking-wider mt-1">Overdue</div>
                 </button>
-                <button onClick={() => navigate('/admin/follow-ups?bucket=Today')} className="p-4 text-center hover:bg-white/[0.03] transition-colors cursor-pointer">
+                <button onClick={() => navigate('/admin/follow-ups?bucket=Today')} className="p-4 text-center hover:bg-surface-variant/30 transition-colors cursor-pointer">
                   <div className="text-2xl font-bold text-orange-400">{compliance.totals.dueToday}</div>
                   <div className="text-[10px] text-on-primary-container uppercase tracking-wider mt-1">Due Today</div>
                 </button>
-                <button onClick={() => navigate('/admin/follow-ups?bucket=Upcoming')} className="p-4 text-center hover:bg-white/[0.03] transition-colors cursor-pointer">
+                <button onClick={() => navigate('/admin/follow-ups?bucket=Upcoming')} className="p-4 text-center hover:bg-surface-variant/30 transition-colors cursor-pointer">
                   <div className="text-2xl font-bold text-emerald-400">{compliance.totals.upcoming}</div>
                   <div className="text-[10px] text-on-primary-container uppercase tracking-wider mt-1">Upcoming</div>
                 </button>
@@ -305,7 +305,7 @@ const Dashboard = () => {
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="bg-white/5 text-xs text-[#9CA3AF] uppercase tracking-wider">
+                    <tr className="bg-app-bg text-xs text-app-text-muted uppercase tracking-wider">
                       <th className="px-6 py-3 font-medium">BD</th>
                       <th className="px-6 py-3 font-medium text-center">Overdue</th>
                       <th className="px-6 py-3 font-medium text-center">Due Today</th>
@@ -313,18 +313,18 @@ const Dashboard = () => {
                       <th className="px-6 py-3 font-medium text-right">On Track</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-white/5">
+                  <tbody className="divide-y divide-app-border">
                     {compliance.byBd.map((row) => (
                       <tr
                         key={row.bd._id}
                         onClick={() => navigate(`/admin/follow-ups?by=${row.bd._id}`)}
-                        className="hover:bg-white/[0.02] transition-colors cursor-pointer"
+                        className="hover:bg-surface-variant/30 transition-colors cursor-pointer"
                       >
-                        <td className="px-6 py-3 text-sm text-white font-medium">{displayName(row.bd)}</td>
+                        <td className="px-6 py-3 text-sm text-app-text font-medium">{displayName(row.bd)}</td>
                         <td className="px-6 py-3 text-sm text-center text-red-400 font-bold">{row.overdue}</td>
                         <td className="px-6 py-3 text-sm text-center text-orange-400 font-bold">{row.dueToday}</td>
                         <td className="px-6 py-3 text-sm text-center text-emerald-400 font-bold">{row.upcoming}</td>
-                        <td className="px-6 py-3 text-sm text-right font-semibold text-white">{row.onTrackPct}%</td>
+                        <td className="px-6 py-3 text-sm text-right font-semibold text-app-text">{row.onTrackPct}%</td>
                       </tr>
                     ))}
                   </tbody>
@@ -337,14 +337,14 @@ const Dashboard = () => {
 
       {/* Project-Level Earnings */}
       {financialData?.projectStats?.length > 0 && (
-        <section className="bg-admin-glass border border-white/5 rounded-xl overflow-hidden">
-          <div className="p-6 border-b border-white/5">
-            <h3 className="text-lg font-semibold text-white">Project-Level Earnings</h3>
+        <section className="bg-admin-glass border border-app-border rounded-xl overflow-hidden">
+          <div className="p-6 border-b border-app-border">
+            <h3 className="text-lg font-semibold text-app-text">Project-Level Earnings</h3>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-white/5 text-xs text-[#9CA3AF] uppercase tracking-wider">
+                <tr className="bg-app-bg text-xs text-app-text-muted uppercase tracking-wider">
                   <th className="px-6 py-4 font-medium">Project ID</th>
                   <th className="px-6 py-4 font-medium">Project Name</th>
                   <th className="px-6 py-4 font-medium">Client</th>
@@ -353,13 +353,13 @@ const Dashboard = () => {
                   <th className="px-6 py-4 font-medium text-right">Pending</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/5">
+              <tbody className="divide-y divide-app-border">
                 {financialData.projectStats.map((proj) => (
-                  <tr key={proj._id} onClick={() => navigate('/admin/projects')} className="hover:bg-white/[0.02] transition-colors cursor-pointer">
-                    <td className="px-6 py-4 text-sm font-mono text-[#9CA3AF]">{proj.projectId}</td>
-                    <td className="px-6 py-4 text-sm text-white font-medium">{proj.projectName}</td>
-                    <td className="px-6 py-4 text-sm text-[#9CA3AF]">{proj.clientName}</td>
-                    <td className="px-6 py-4 text-sm text-white text-right font-semibold">{fmt(proj.totalPrice)}</td>
+                  <tr key={proj._id} onClick={() => navigate('/admin/projects')} className="hover:bg-surface-variant/30 transition-colors cursor-pointer">
+                    <td className="px-6 py-4 text-sm font-mono text-app-text-muted">{proj.projectId}</td>
+                    <td className="px-6 py-4 text-sm text-app-text font-medium">{proj.projectName}</td>
+                    <td className="px-6 py-4 text-sm text-app-text-muted">{proj.clientName}</td>
+                    <td className="px-6 py-4 text-sm text-app-text text-right font-semibold">{fmt(proj.totalPrice)}</td>
                     <td className="px-6 py-4 text-sm text-[#22C55E] text-right font-bold">{fmt(proj.paidAmount)}</td>
                     <td className="px-6 py-4 text-sm text-yellow-500 text-right font-bold">{fmt(proj.pendingAmount)}</td>
                   </tr>
@@ -375,13 +375,13 @@ const Dashboard = () => {
       {isSuperAdmin && (
         <>
           {leadsLoading ? (
-            <div className="flex items-center justify-center h-24 bg-admin-glass border border-white/5 rounded-xl">
+            <div className="flex items-center justify-center h-24 bg-admin-glass border border-app-border rounded-xl">
               <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
             </div>
           ) : (
             <>
               <section className="flex items-center justify-between">
-                <h2 className="text-xl font-bold text-white">Leads Overview <span className="text-xs font-normal text-on-primary-container">(last 30 days)</span></h2>
+                <h2 className="text-xl font-bold text-app-text">Leads Overview <span className="text-xs font-normal text-on-primary-container">(last 30 days)</span></h2>
                 <Link to="/admin/management-dashboard" className="flex items-center gap-1.5 text-xs font-semibold text-secondary hover:opacity-80">
                   <Gauge size={14} /> Full Leads Overview
                 </Link>
@@ -398,20 +398,20 @@ const Dashboard = () => {
                   { label: 'Never Contacted', icon: PhoneOff, tone: 'text-orange-400', value: k?.neverContacted ?? 0, sub: `${k?.neverContactedPct ?? 0}% of new leads`, onClick: () => goToLeads({ ...LAST_30, neverContacted: 'true' }) }
                 ].map(({ label, icon: Icon, tone, value, change, sub, onClick }) => (
                   <button key={label} onClick={onClick}
-                    className="text-left bg-admin-glass border border-white/5 p-5 rounded-xl transition-transform duration-300 hover:scale-[1.02] group cursor-pointer">
+                    className="text-left bg-admin-glass border border-app-border p-5 rounded-xl transition-transform duration-300 hover:scale-[1.02] group cursor-pointer">
                     <div className="flex justify-between items-start mb-3">
                       <span className="text-sm font-medium text-on-primary-container">{label}</span>
                       <Icon className={`w-5 h-5 ${tone} group-hover:scale-110 transition-transform`} />
                     </div>
-                    <div className="text-2xl font-bold mb-1 text-white truncate">{value}</div>
-                    {sub ? <div className="text-[10px] font-medium text-[#9CA3AF]">{sub}</div> : <Change value={change} />}
+                    <div className="text-2xl font-bold mb-1 text-app-text truncate">{value}</div>
+                    {sub ? <div className="text-[10px] font-medium text-app-text-muted">{sub}</div> : <Change value={change} />}
                   </button>
                 ))}
               </section>
 
               {/* Trend + Source + Service */}
               <section className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6">
-                <div className="lg:col-span-2 bg-admin-glass border border-white/5 p-6 rounded-xl">
+                <div className="lg:col-span-2 bg-admin-glass border border-app-border p-6 rounded-xl">
                   <h3 className="text-xl font-semibold text-on-surface mb-6 border-b border-outline-variant pb-4">Lead Flow — Past 30 Days</h3>
                   <div className="h-64">
                     <ResponsiveContainer width="100%" height="100%">
@@ -435,7 +435,7 @@ const Dashboard = () => {
               </section>
 
               {/* Recent Leads — real, clickable, exportable */}
-              <section className="bg-admin-glass border border-white/5 rounded-xl overflow-hidden">
+              <section className="bg-admin-glass border border-app-border rounded-xl overflow-hidden">
                 <div className="p-6 border-b border-outline-variant flex flex-wrap gap-2 justify-between items-center">
                   <h3 className="text-xl font-semibold text-on-surface">Recent Leads</h3>
                   <div className="flex flex-wrap items-center gap-3">

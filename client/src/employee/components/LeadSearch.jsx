@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Search, Lock, ChevronRight } from 'lucide-react';
 import { essGet, essKeys } from '../lib/ess';
+import { cleanSearchInput } from '../../shared/searchInput';
 
 /**
  * Global lead search — Lead ID, Meta Lead ID, name, phone, email, business
@@ -41,7 +42,7 @@ export default function LeadSearch() {
       <input
         type="search"
         value={input}
-        onChange={(e) => { setInput(e.target.value); setOpen(true); }}
+        onChange={(e) => { setInput(cleanSearchInput(e.target.value)); setOpen(true); }}
         onFocus={() => setOpen(true)}
         placeholder="Search Lead ID, Meta ID, name, phone, email, business…"
         className="w-full bg-app-card border border-app-border rounded-lg pl-9 pr-3 py-2 text-sm text-app-text placeholder-app-text-muted focus:outline-none focus:border-primary/50"

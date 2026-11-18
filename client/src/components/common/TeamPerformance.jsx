@@ -4,6 +4,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Phone, PhoneCall, PhoneOff, Clock, AlertTriangle, Trophy, Target, Search, CalendarCheck, Users, X } from 'lucide-react';
 import { fmtDateTime, fmtMinutes, fmtINR, toDateInput } from '../../employee/lib/datetime';
 import RemarkCell from './RemarkCell';
+import { cleanSearchInput } from '../../shared/searchInput';
 
 /**
  * My Team Performance — per-BDE calls, leads and follow-ups for a period, with
@@ -282,7 +283,7 @@ function SearchBox({ value, onChange, placeholder }) {
     <div className="relative w-full sm:w-72">
       <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-app-text-muted pointer-events-none" />
       <input
-        type="search" value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
+        type="search" value={value} onChange={(e) => onChange(cleanSearchInput(e.target.value))} placeholder={placeholder}
         className="w-full text-xs rounded-lg border border-app-border bg-form-input-bg pl-8 pr-2 py-1.5 text-app-text"
       />
     </div>

@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { usePageAccess } from '../../shared/crmAccess';
 import Modal from '../../components/ui/Modal';
+import { cleanSearchInput } from '../../shared/searchInput';
 
 const TYPE_LABEL = { Backdated: 'Backdated attendance', MissedClockOut: 'Missed clock-out', Correction: 'Correction', TimeEntry: 'Missing time entry' };
 const STATUS_CLASS = {
@@ -96,7 +97,7 @@ export default function CorrectionRequestsManager() {
           <p className="text-sm text-app-text-muted mt-1">Attendance regularization and timesheet corrections. Approved requests become the official record; the original stays in the request and audit log.</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search employee name or ID" aria-label="Search employee"
+          <input value={search} onChange={(e) => setSearch(cleanSearchInput(e.target.value))} placeholder="Search employee name or ID" aria-label="Search employee"
             className={`${select} w-56`} />
           <select value={kind} onChange={(e) => setKind(e.target.value)} className={select} aria-label="Type">
             <option value="All">All types</option><option value="Attendance">Attendance</option><option value="Timesheet">Timesheet</option>

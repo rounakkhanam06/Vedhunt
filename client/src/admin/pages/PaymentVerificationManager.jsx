@@ -3,6 +3,7 @@ import { IndianRupee, FileText, CheckCircle, XCircle, Search, Clock, ExternalLin
 import toast from 'react-hot-toast';
 import { useCrm } from '../../shared/crmAccess';
 import PaymentReviewModal from '../components/PaymentReviewModal';
+import { cleanSearchInput, searchTerm as cleanTerm } from '../../shared/searchInput';
 
 const PaymentVerificationManager = () => {
   // Admin panel (full access) or Employee Portal (person-wise grants) — shared/crmAccess.js
@@ -72,9 +73,9 @@ const PaymentVerificationManager = () => {
 
   const filteredPayments = payments.filter((p) => {
     const matchesSearch = 
-      p.client_ref?.businessName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.utrNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.invoice_ref?.invoiceId?.toLowerCase().includes(searchTerm.toLowerCase());
+      p.client_ref?.businessName?.toLowerCase().includes(cleanTerm(searchTerm).toLowerCase()) ||
+      p.utrNumber?.toLowerCase().includes(cleanTerm(searchTerm).toLowerCase()) ||
+      p.invoice_ref?.invoiceId?.toLowerCase().includes(cleanTerm(searchTerm).toLowerCase());
     const matchesStatus = filterStatus === 'All' || p.status === filterStatus;
     return matchesSearch && matchesStatus;
   });
@@ -106,7 +107,7 @@ const PaymentVerificationManager = () => {
               type="text"
               placeholder="Search client, UTR, invoice..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => setSearchTerm(cleanSearchInput(e.target.value))}
               className="w-full pl-10 pr-4 py-2.5 bg-admin-bg border border-outline-variant rounded-xl text-on-surface text-sm focus:outline-none focus:border-secondary focus:ring-1 focus:ring-secondary/50 transition-all placeholder:text-on-surface-variant/50"
             />
           </div>

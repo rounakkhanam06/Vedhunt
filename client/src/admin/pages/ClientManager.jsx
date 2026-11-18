@@ -27,6 +27,7 @@ import ClientCreationIssuesPanel from '../components/clients/ClientCreationIssue
 import AdPerformancePanel from '../components/clients/AdPerformancePanel';
 import CampaignsPanel from '../components/clients/CampaignsPanel';
 import ClientRiskPanel from '../components/clients/ClientRiskPanel';
+import { cleanSearchInput, searchTerm } from '../../shared/searchInput';
 
 const STATUS_TABS = [
   { id: '', label: 'All' },
@@ -130,7 +131,7 @@ export default function ClientManager() {
 
   // Debounce search
   useEffect(() => {
-    const t = setTimeout(() => { setDSearch(search); setPage(1); }, 500);
+    const t = setTimeout(() => { setDSearch(searchTerm(search)); setPage(1); }, 500);
     return () => clearTimeout(t);
   }, [search]);
 
@@ -399,7 +400,7 @@ export default function ClientManager() {
             type="text"
             placeholder="Search by business name, contact, email…"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => setSearch(cleanSearchInput(e.target.value))}
             className="w-full bg-admin-bg border border-outline-variant rounded-lg pl-9 pr-4 py-2.5 text-sm text-on-surface focus:outline-none focus:border-secondary transition-colors"
           />
         </div>

@@ -5,6 +5,7 @@ import { ChevronDown, ChevronRight, Download } from 'lucide-react';
 import { RangePicker, StatusBadge, Hours, HoursLegend, DayTable, MonthTable } from '../../shared/attendanceRegister';
 import EditAttendanceModal from './EditAttendanceModal';
 import { rangeFor, ymd, STATUSES, fmtDay, hoursText, downloadBlob } from '../../shared/attendanceRegisterUtils';
+import { cleanSearchInput } from '../../shared/searchInput';
 
 const PAGE = 200;
 
@@ -86,7 +87,7 @@ export default function AttendanceRegister({ http, root, canEdit = false }) {
 
       <div className="flex flex-wrap items-end gap-3">
         <RangePicker value={range} onChange={setRange} />
-        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search employee name or ID" aria-label="Search employee" className={`${select} w-56`} />
+        <input value={search} onChange={(e) => setSearch(cleanSearchInput(e.target.value))} placeholder="Search employee name or ID" aria-label="Search employee" className={`${select} w-56`} />
         {shownView === 'datewise' && (
           <select value={status} onChange={(e) => { setStatus(e.target.value); setPage(0); }} className={select} aria-label="Status">
             <option value="All">All statuses</option>

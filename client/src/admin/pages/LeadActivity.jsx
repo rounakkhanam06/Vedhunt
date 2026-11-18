@@ -6,6 +6,7 @@ import { useLeadAccess } from '../../shared/crmAccess';
 import RemarkCell from '../../components/common/RemarkCell';
 import employeeApi from '../../services/employeeApi';
 import { FOLLOW_UP_TYPE_BADGE } from '../../shared/leadConstants';
+import { cleanSearchInput } from '../../shared/searchInput';
 
 const STAGES = ['New', 'Contacted', 'Qualified', 'Proposal Sent', 'Negotiation', 'Hold', 'Won', 'Lost', 'Dropped'];
 
@@ -162,7 +163,7 @@ export default function LeadActivity({ portal = false }) {
           <input
             type="search"
             value={clientInput}
-            onChange={(e) => setClientInput(e.target.value)}
+            onChange={(e) => setClientInput(cleanSearchInput(e.target.value))}
             placeholder="Client name, phone or lead ID"
             className="flex-1 min-w-[200px] bg-app-bg border border-app-border rounded-lg px-3 py-2.5 text-sm text-app-text focus:outline-none focus:border-primary"
             aria-label="Client"

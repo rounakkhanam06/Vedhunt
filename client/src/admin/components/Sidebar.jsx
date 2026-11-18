@@ -10,6 +10,7 @@ import {
 import { useAdminStore } from '../../store/useAdminStore';
 import { usePermissions } from '../hooks/usePermissions';
 import BrandLogo from '../../components/brand/BrandLogo';
+import { cleanSearchInput } from '../../shared/searchInput';
 
 const Sidebar = ({ isOpen, setIsOpen }) => {
   const { logout, admin } = useAdminStore();
@@ -293,7 +294,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
             type="text"
             placeholder="Search pages..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => setSearchQuery(cleanSearchInput(e.target.value))}
             className="w-full bg-app-bg/60 border border-app-border rounded-xl pl-9 pr-8 py-2 text-xs text-app-text placeholder:text-app-text-muted focus:outline-none focus:border-primary/60 focus:ring-1 focus:ring-primary/40 transition-all"
           />
           {searchQuery && (

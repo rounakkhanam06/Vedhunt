@@ -5,6 +5,7 @@ import { Mail, Phone, Clock, Search, Filter, ChevronDown, ChevronLeft, ChevronRi
 import EmailAction from '../../shared/EmailAction';
 import toast from 'react-hot-toast';
 import { usePermissions } from '../hooks/usePermissions';
+import { cleanSearchInput, searchTerm as cleanTerm } from '../../shared/searchInput';
 
 export default function ContactInquiries() {
   const { can } = usePermissions();
@@ -25,7 +26,7 @@ export default function ContactInquiries() {
   // Debounce search
   useEffect(() => {
     const timer = setTimeout(() => {
-      setDebouncedSearchTerm(searchTerm);
+      setDebouncedSearchTerm(cleanTerm(searchTerm));
       setCurrentPage(1); // Reset to page 1 on new search
     }, 500);
 
@@ -110,7 +111,7 @@ export default function ContactInquiries() {
             type="text"
             placeholder="Search by name, email, or phone..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => setSearchTerm(cleanSearchInput(e.target.value))}
             className="w-full bg-app-bg border border-app-border rounded-lg pl-10 pr-4 py-2.5 text-sm text-app-text focus:outline-none focus:border-primary transition-colors"
           />
         </div>

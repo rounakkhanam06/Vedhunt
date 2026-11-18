@@ -148,7 +148,16 @@ async function resolveLeadForm(formId, platform, pageAccessToken) {
         logger.warn(`Could not fetch details for form ${formId}: ${err.message}`);
       }
 
-      form = await LeadForm.create({ formId, name, platform, questions });
+      try {
+        form = await LeadForm.create({ formId, name, platform, questions });
+      } catch (err) {
+        // Two leads from a brand-new form arrived together and the other
+        // request registered it first — use that record (keeps the lead's
+        // form/type instead of saving it with none).
+        if (err.code !== 11000) throw err;
+        form = await LeadForm.findOne({ formId });
+        if (!form) throw err;
+      }
       logger.warn(
         `New Facebook lead form registered: "${name || formId}" (${formId}). ` +
         'It defaults to Sales — classify it in Admin → Facebook Integration.'
@@ -301,13 +310,21 @@ async function saveFacebookLead({ fbLead, formId, pageAccessToken, notify = true
   if (useSubmittedTime && fbLead.created_time) doc.createdAt = new Date(fbLead.created_time);
 
   let lead;
-  try {
-    lead = await Lead.create(doc);
-  } catch (err) {
-    // A racing webhook and poller can both pass the exists() check; the unique
-    // index settles it and the loser simply reports a duplicate.
-    if (err.code === 11000) return { created: false, reason: 'duplicate' };
-    throw err;
+  for (let attempt = 1; ; attempt++) {
+    try {
+      lead = await Lead.create(doc);
+      break;
+    } catch (err) {
+      if (err.code !== 11000) throw err;
+      // A racing webhook and poller can both pass the exists() check; the
+      // unique fbLeadId index settles it and the loser reports a duplicate.
+      // Any OTHER unique clash (e.g. leadId) is not this lead existing —
+      // retry rather than silently dropping a real lead.
+      const fields = Object.keys(err.keyPattern || err.keyValue || {});
+      if (fields.includes('fbLeadId')) return { created: false, reason: 'duplicate' };
+      if (attempt >= 3) throw err;
+      logger.warn(`Retrying Facebook lead ${fbLeadId} after unique clash on ${fields.join(',') || 'unknown'}`);
+    }
   }
 
   logger.info(

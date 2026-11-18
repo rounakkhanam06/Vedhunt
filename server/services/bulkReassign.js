@@ -39,7 +39,7 @@ async function checkSelection({ ids, scopeFilter, target, expectedOwner, actorId
   const objectIds = ids.filter((id) => mongoose.isValidObjectId(id)).map((id) => new mongoose.Types.ObjectId(id));
   const projection = { leadId: 1, fullName: 1, assignedTo: 1, status: 1, lockedBy: 1, lockedAt: 1, callStartTime: 1, callEndTime: 1, callStartedBy: 1 };
   // Legacy leads may carry string _ids, so look both forms up
-  const all = await col.find({ _id: { $in: [...objectIds, ...ids] } }, { projection }).toArray();
+  const all = await col.find({ _id: { $in: [...objectIds, ...ids] }, isDeleted: { $ne: true } }, { projection }).toArray();
   const inScope = new Set((await col.find({ _id: { $in: all.map((l) => l._id) }, ...scopeFilter }, { projection: { _id: 1 } }).toArray()).map((l) => String(l._id)));
   const byId = new Map(all.map((l) => [String(l._id), l]));
 

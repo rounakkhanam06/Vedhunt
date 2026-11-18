@@ -10,6 +10,7 @@ import { WorkTimerProvider, TimerHeaderChip, TimerFloatingWidget } from './compo
 import { visibleModules, modulePath } from './config/modules';
 import { useAccess, useEssLeads } from './lib/ess';
 import { leadListCounts } from './lib/leads';
+import { cleanSearchInput } from '../shared/searchInput';
 
 const EmployeeLayout = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
@@ -85,7 +86,7 @@ const EmployeeLayout = () => {
               type="text"
               placeholder="Search pages..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => setSearchQuery(cleanSearchInput(e.target.value))}
               className="w-full bg-app-bg/60 border border-app-border rounded-xl pl-9 pr-8 py-2 text-xs text-app-text placeholder:text-app-text-muted focus:outline-none focus:border-primary/60 focus:ring-1 focus:ring-primary/40 transition-all"
             />
             {searchQuery && (

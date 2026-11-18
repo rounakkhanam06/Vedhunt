@@ -8,6 +8,7 @@ const { findDuplicateLead } = require('../services/leadDedup');
 const { recordRepeatEnquiry } = require('../services/repeatEnquiry');
 const { normalizePhone, normalizeEmail } = require('../utils/normalize');
 const AssignmentLog = require('../models/AssignmentLog');
+const FollowUpTask = require('../models/FollowUpTask');
 const { manualAssign, autoAssignLead } = require('../services/leadAssignment');
 const { alertNewLead } = require('../utils/notifyLeadManagers');
 const { findLeadRaw } = require('../utils/leadLookup');
@@ -968,11 +969,24 @@ exports.getImportStatus = async (req, res) => {
 exports.deleteLead = async (req, res, next) => {
   try {
     if (req.pageScope && !(await findLeadRaw(req.params.id, await leadFilter(req, req.pageScope, { shared: false })))) return notFound(res);
-    const lead = await Lead.findByIdAndDelete(req.params.id);
+    // Soft delete: the lead and its history stay in the database (spec §37);
+    // the Lead model hides it from every list, dashboard and search.
+    const lead = await Lead.findByIdAndUpdate(
+      req.params.id,
+      { $set: { isDeleted: true, deletedAt: new Date(), deletedBy: req.user._id } },
+      { new: true }
+    );
 
     if (!lead) {
       return res.status(404).json({ success: false, message: 'Lead not found' });
     }
+
+    // A deleted lead must not keep sending follow-up reminders
+    await FollowUpTask.updateMany(
+      { lead: lead._id, status: 'Pending' },
+      { $set: { status: 'Cancelled', result: 'Lead deleted' } }
+    );
+    await recordAudit(req, 'LEAD_DELETE', 'Lead', lead.leadId, { fullName: lead.fullName, status: lead.status }, { isDeleted: true });
 
     res.status(200).json({ success: true, data: {} });
   } catch (error) {

@@ -190,7 +190,7 @@ async function loadCandidateLeads(rows) {
   }
   if (emails.size) or.push({ emailNormalized: { $in: [...emails] } });
   if (!or.length) return [];
-  const leads = await mongoose.connection.db.collection('leads').find({ $or: or }).sort({ _id: 1 }).toArray();
+  const leads = await mongoose.connection.db.collection('leads').find({ $or: or, isDeleted: { $ne: true } }).sort({ _id: 1 }).toArray();
   // The notes each matched lead already has, so a repeated import can tell what is new
   const notes = await LeadNote.find({ lead: { $in: leads.map((l) => l._id) } }, { lead: 1, text: 1 }).lean();
   const textsByLead = new Map();

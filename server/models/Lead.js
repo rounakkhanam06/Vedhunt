@@ -521,7 +521,14 @@ const leadSchema = new mongoose.Schema({
   },
   closedDate: {
     type: Date
-  }
+  },
+  // ── Soft delete ──────────────────────────────────────────────────────────
+  // "Delete" in the panel only marks the lead; sales history is never erased
+  // (spec §37). Deleted leads are hidden from every query by the middleware
+  // below; pass { withDeleted: true } as a query/aggregate option to see them.
+  isDeleted: { type: Boolean, default: false, index: true },
+  deletedAt: { type: Date },
+  deletedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin' }
 }, { timestamps: true });
 
 // Keep the normalized contact fields in sync so duplicate-lead lookups
@@ -533,6 +540,37 @@ leadSchema.pre('save', function() {
   if (this.isModified('email')) this.emailNormalized = normalizeEmail(this.email);
 });
 
+// Lead IDs are VH-YYMMDD-NNN. The number comes from an atomic per-day counter
+// ($inc), so leads created at the same moment never get the same ID — the old
+// "read the highest, add 1" approach handed duplicates to concurrent requests.
+// Before each $inc the counter is raised ($max) to the highest number already
+// used that day, read numerically (string sort put "1000" before "999"), so
+// IDs issued before this counter existed, or written by scripts, are never
+// reused. The counter only ever moves up, so this is safe under concurrency.
+// Three digits minimum; it grows past 999 instead of wrapping to 000.
+async function nextLeadId(LeadModel, dateStr) {
+  const Counter = require('./Counter');
+  const prefix = `VH-${dateStr}-`;
+  const used = await LeadModel.collection
+    .find({ leadId: { $regex: `^${prefix}` } }, { projection: { leadId: 1, _id: 0 } })
+    .toArray();
+  let highest = 0;
+  for (const { leadId } of used) {
+    const n = parseInt(String(leadId).slice(prefix.length), 10);
+    if (Number.isFinite(n) && n > highest) highest = n;
+  }
+  const key = `lead-${dateStr}`;
+  try {
+    await Counter.updateOne({ _id: key }, { $max: { seq: highest } }, { upsert: true });
+  } catch (err) {
+    // two first-of-the-day upserts racing: the loser's doc now exists, apply $max to it
+    if (err.code !== 11000) throw err;
+    await Counter.updateOne({ _id: key }, { $max: { seq: highest } });
+  }
+  const { seq } = await Counter.findOneAndUpdate({ _id: key }, { $inc: { seq: 1 } }, { new: true });
+  return `${prefix}${String(seq).padStart(3, '0')}`;
+}
+
 // Add pre-save hook for auto-generating leadId
 leadSchema.pre('save', async function() {
   if (!this.leadId) {
@@ -542,23 +580,7 @@ leadSchema.pre('save', async function() {
     const day = ('0' + date.getDate()).slice(-2);
     const dateStr = `${year}${month}${day}`;
 
-    // Find the highest counter issued for this date. Sorting by leadId rather
-    // than createdAt matters for imported leads, which carry their original
-    // submission date — sorting by createdAt would reissue a used counter and
-    // trip the unique index.
-    const lastLead = await this.constructor.findOne({
-      leadId: new RegExp(`^VH-${dateStr}-`)
-    }).sort({ leadId: -1 });
-
-    let counter = 1;
-    if (lastLead && lastLead.leadId) {
-      const lastCounter = parseInt(lastLead.leadId.split('-')[2], 10);
-      if (!isNaN(lastCounter)) {
-        counter = lastCounter + 1;
-      }
-    }
-
-    this.leadId = `VH-${dateStr}-${('000' + counter).slice(-3)}`;
+    this.leadId = await nextLeadId(this.constructor, dateStr);
   }
   
   // Set default unassigned SLA (e.g. 2 hours) on creation
@@ -570,7 +592,6 @@ leadSchema.pre('save', async function() {
 // Add single-field indexes for fast sorting and filtering
 leadSchema.index({ status: 1 });
 leadSchema.index({ createdAt: -1 });
-leadSchema.index({ leadId: 1 });
 leadSchema.index({ leadType: 1, createdAt: -1 });
 leadSchema.index({ fbFormId: 1 });
 leadSchema.index({ assignedTo: 1, createdAt: -1 });
@@ -589,5 +610,31 @@ leadSchema.index({ emailNormalized: 1 });
 
 // Add compound text index for scalable backend searching
 leadSchema.index({ fullName: 'text', email: 'text', phone: 'text', leadId: 'text' });
+
+// Hide soft-deleted leads everywhere (lists, dashboards, dedupe, crons) unless
+// a caller explicitly asks for them with { withDeleted: true }. `$ne: true`
+// also matches leads created before the field existed.
+const NOT_DELETED = { isDeleted: { $ne: true } };
+const HIDE_DELETED_QUERIES = [
+  'find', 'findOne', 'findOneAndUpdate', 'findOneAndReplace', 'findOneAndDelete',
+  'countDocuments', 'distinct', 'updateOne', 'updateMany', 'replaceOne', 'deleteOne', 'deleteMany'
+];
+leadSchema.pre(HIDE_DELETED_QUERIES, function () {
+  if (this.getOptions().withDeleted) return;
+  if (this.getFilter().isDeleted !== undefined) return;
+  this.where(NOT_DELETED);
+});
+leadSchema.pre('aggregate', function () {
+  if (this.options && this.options.withDeleted) return;
+  const pipeline = this.pipeline();
+  const first = pipeline[0];
+  if (first && first.$match) {
+    if (first.$match.isDeleted === undefined) first.$match = { $and: [first.$match, NOT_DELETED] };
+  } else if (first && (first.$geoNear || first.$search || first.$vectorSearch)) {
+    pipeline.splice(1, 0, { $match: NOT_DELETED });
+  } else {
+    pipeline.unshift({ $match: NOT_DELETED });
+  }
+});
 
 module.exports = mongoose.model('Lead', leadSchema);

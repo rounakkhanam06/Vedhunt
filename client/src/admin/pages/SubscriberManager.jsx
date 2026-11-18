@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Download, Search, CheckCircle2, XCircle, Mail, Send, Loader2, Plus, Trash2, RefreshCw, AlertCircle, User, Globe } from 'lucide-react';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
+import { cleanSearchInput, searchTerm } from '../../shared/searchInput';
 
 const SubscriberManager = () => {
   const [subscribers, setSubscribers] = useState([]);
@@ -33,7 +34,7 @@ const SubscriberManager = () => {
   const fetchSubscribers = async (page = 1) => {
     try {
       setLoading(true);
-      const res = await api.get(`/subscribe/admin/list?page=${page}&limit=${pagination.limit}&search=${encodeURIComponent(search)}&status=${statusFilter}`);
+      const res = await api.get(`/subscribe/admin/list?page=${page}&limit=${pagination.limit}&search=${encodeURIComponent(searchTerm(search))}&status=${statusFilter}`);
       if (res.data.success) {
         setSubscribers(res.data.data);
         setPagination(res.data.pagination);
@@ -253,7 +254,7 @@ const SubscriberManager = () => {
             type="text"
             placeholder="Search email, name or source..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => setSearch(cleanSearchInput(e.target.value))}
             className="w-full bg-app-bg border border-app-border rounded-lg py-2 pl-9 pr-4 text-sm text-app-text focus:outline-none focus:border-primary transition-colors"
           />
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-app-text-muted pointer-events-none" />

@@ -65,7 +65,8 @@ exports.getInquiries = async (req, res, next) => {
     }
 
     if (req.query.search) {
-      const searchRegex = new RegExp(req.query.search, 'i');
+      // Escape so a typed ( [ * etc. is searched literally instead of crashing the regex
+      const searchRegex = new RegExp(String(req.query.search).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
       query.$or = [
         { firstName: searchRegex },
         { lastName: searchRegex },
