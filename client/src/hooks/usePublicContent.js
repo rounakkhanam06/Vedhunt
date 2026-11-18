@@ -106,7 +106,9 @@ export const useHomePricing = () =>
     queryKey: ['home-pricing'],
     queryFn: async () => {
       const res = await api.get('/home-pricing?showOnHome=true');
-      return res.data?.success ? res.data.data : [];
+      // The section is laid out for one row of 3 cards; never render more
+      // (the server caps it too — this guards an older API response).
+      return res.data?.success ? res.data.data.slice(0, 3) : [];
     },
     staleTime: STALE_TIME,
     gcTime: GC_TIME,

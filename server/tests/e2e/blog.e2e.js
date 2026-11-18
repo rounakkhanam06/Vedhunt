@@ -65,7 +65,7 @@ before(async () => {
     { key: 'employee_roles_seeded', value: DEFAULT_EMPLOYEE_ROLES.map((r) => r.name) },
     { key: 'permission_migration', value: { version: 1 } },
   ]);
-  const cms = await Role.create({ name: 'CMS_EDITOR', permissions: ['cms.manage'] });
+  const cms = await Role.create({ name: 'CMS_EDITOR', permissions: ['cms.manage', 'pricing.manage'] });
   const a = await Admin.create({ firstName: 'Cms', lastName: 'Editor', email: 'cms@e2e.test', password: 'Passw0rd!e2e', roles: [cms._id] });
   ids.cms = String(a._id);
 
@@ -90,6 +90,9 @@ before(async () => {
     if (server.exitCode !== null || Date.now() - started > 90_000) throw new Error(`Server did not start:\n${serverLog.slice(-3000)}`);
     await new Promise((r) => setTimeout(r, 250));
   }
+  // On a brand-new DB the unique slug index is built in the background; wait
+  // for it (production already has it) so the duplicate-slug test is reliable.
+  await require('../../models/Blog').init();
 }, { timeout: 300_000 });
 
 after(async () => {
@@ -135,5 +138,55 @@ describe('Creating a blog from the admin form', () => {
     const r = await call('cms', 'PUT', '/blogs/my-seo-tips-and-tricks', form({ title: 'Another (edited)', slug: 'Another Edited' }));
     assert.equal(r.status, 200, JSON.stringify(r.body));
     assert.equal(r.body.data.slug, 'another-edited');
+  });
+});
+
+describe('Home page pricing cards: at most 3 on the homepage', () => {
+  const tier = { price: '₹9,999', period: '/mo', features: ['One'] };
+  const card = (title, showOnHome) => ({
+    title, icon: 'Globe', description: 'd', color: '#FF6B00', showOnHome,
+    tiers: { starter: tier, growth: tier, enterprise: tier },
+  });
+  const made = {};
+
+  test('the first 3 home cards save', async () => {
+    // start-up seeds the 3 default cards into an empty DB — start clean
+    await mongoose.connection.db.collection('homepricingcards').deleteMany({});
+    for (const t of ['Website', 'Social', 'Performance']) {
+      const r = await call('cms', 'POST', '/home-pricing', card(t, true));
+      assert.equal(r.status, 201, JSON.stringify(r.body));
+      made[t] = r.body.data._id;
+    }
+  });
+
+  test('a 4th home card is refused with a clear message', async () => {
+    const r = await call('cms', 'POST', '/home-pricing', card('SEO', true));
+    assert.equal(r.status, 400);
+    assert.match(r.body.message, /Only 3 pricing cards/);
+  });
+
+  test('a card that is not on the home page still saves (used by landing pages)', async () => {
+    const r = await call('cms', 'POST', '/home-pricing', card('SEO', false));
+    assert.equal(r.status, 201, JSON.stringify(r.body));
+    made.SEO = r.body.data._id;
+  });
+
+  test('switching an extra card ON is refused; editing a home card is not', async () => {
+    const on = await call('cms', 'PUT', `/home-pricing/${made.SEO}`, card('SEO', true));
+    assert.equal(on.status, 400);
+    const edit = await call('cms', 'PUT', `/home-pricing/${made.Social}`, card('Social Media', true));
+    assert.equal(edit.status, 200, JSON.stringify(edit.body));
+  });
+
+  test('freeing a slot lets another card in', async () => {
+    assert.equal((await call('cms', 'PUT', `/home-pricing/${made.Website}`, card('Website', false))).status, 200);
+    assert.equal((await call('cms', 'PUT', `/home-pricing/${made.SEO}`, card('SEO', true))).status, 200);
+  });
+
+  test('the homepage list is capped at 3 even if older data marks more', async () => {
+    await mongoose.connection.db.collection('homepricingcards').updateMany({}, { $set: { showOnHome: true } });
+    const r = await fetch(`${base}/home-pricing?showOnHome=true`).then((x) => x.json());
+    assert.equal(r.data.length, 3);
+    assert.deepEqual(r.data.map((c) => c.title), ['Website', 'Social Media', 'Performance'], 'oldest first');
   });
 });

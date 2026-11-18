@@ -2,6 +2,18 @@ const HomePricingCard = require('../models/HomePricingCard');
 const logger = require('../utils/logger');
 const slugify = require('slugify');
 
+// The homepage pricing section is designed for exactly 3 cards in one row.
+// Enforced here (not only in the admin form) so two admins saving at once,
+// a stale admin list or a direct API call can't push a 4th card onto it.
+const MAX_HOME_CARDS = 3;
+const HOME_LIMIT_MESSAGE = `Only ${MAX_HOME_CARDS} pricing cards can be shown on the Home Page. Untick "Show on Main Home Page" on this card, or remove another card from the Home Page first.`;
+
+async function homeSlotTaken(excludeId) {
+  const filter = { showOnHome: true };
+  if (excludeId) filter._id = { $ne: excludeId };
+  return (await HomePricingCard.countDocuments(filter)) >= MAX_HOME_CARDS;
+}
+
 // @desc    Get all home pricing cards
 // @route   GET /api/home-pricing
 // @access  Public
@@ -15,7 +27,11 @@ exports.getHomePricingCards = async (req, res, next) => {
       filter.slug = req.query.slug;
     }
 
-    const cards = await HomePricingCard.find(filter).lean();
+    // Fixed order (oldest first) so the homepage never reshuffles; the home
+    // list is also capped in case older data already has more than 3 marked.
+    let query = HomePricingCard.find(filter).sort({ createdAt: 1, _id: 1 });
+    if (filter.showOnHome) query = query.limit(MAX_HOME_CARDS);
+    const cards = await query.lean();
     res.status(200).json({ success: true, count: cards.length, data: cards });
   } catch (error) {
     logger.error('Error fetching home pricing cards', error);
@@ -31,6 +47,11 @@ exports.createHomePricingCard = async (req, res, next) => {
     const data = { ...req.body };
     if (!data.slug && data.title) {
       data.slug = slugify(data.title, { lower: true, strict: true });
+    }
+
+    // showOnHome defaults to false in the model, so only an explicit "on" can exceed the limit
+    if (data.showOnHome === true && await homeSlotTaken()) {
+      return res.status(400).json({ success: false, message: HOME_LIMIT_MESSAGE });
     }
 
     const card = await HomePricingCard.create(data);
@@ -49,6 +70,12 @@ exports.updateHomePricingCard = async (req, res, next) => {
     const data = { ...req.body };
     if (!data.slug && data.title) {
       data.slug = slugify(data.title, { lower: true, strict: true });
+    }
+
+    // Only turning the flag ON can exceed the limit; leaving it untouched or
+    // switching it off never blocks an edit.
+    if (data.showOnHome === true && await homeSlotTaken(req.params.id)) {
+      return res.status(400).json({ success: false, message: HOME_LIMIT_MESSAGE });
     }
 
     const card = await HomePricingCard.findByIdAndUpdate(req.params.id, data, {
