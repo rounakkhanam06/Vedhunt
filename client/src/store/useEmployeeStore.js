@@ -51,3 +51,25 @@ export const useEmployeeStore = create((set) => ({
     set((state) => ({ employee: { ...state.employee, ...updates } }));
   },
 }));
+
+// The login (token + cookie) is shared by every tab of this browser. If someone
+// signs in as a different employee in another tab, this tab would keep showing
+// the old name in the sidebar while every request (profile, leads, clock-in)
+// already runs as the new person. Reload so the whole tab matches who is
+// really signed in, and no cached data of the previous person is left.
+if (typeof window !== 'undefined') {
+  const reloadIfSwitched = async () => {
+    const shown = useEmployeeStore.getState().employee;
+    if (!shown || getPreview('employee')) return;
+    try {
+      const { employee } = await employeeService.getMe();
+      if (employee?._id && String(employee._id) !== String(shown._id)) window.location.reload();
+    } catch (_) { /* signed out elsewhere: the next request's 401 handles it */ }
+  };
+  window.addEventListener('storage', (e) => {
+    if (e.key === 'employeeToken') reloadIfSwitched();
+  });
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') reloadIfSwitched();
+  });
+}
