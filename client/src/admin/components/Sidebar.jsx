@@ -12,6 +12,8 @@ import { usePermissions } from '../hooks/usePermissions';
 import BrandLogo from '../../components/brand/BrandLogo';
 import { cleanSearchInput } from '../../shared/searchInput';
 
+const LEAD_LISTS = ['leads.view', 'leads.viewAll'];
+
 const Sidebar = ({ isOpen, setIsOpen }) => {
   const { logout, admin } = useAdminStore();
   const { can } = usePermissions();
@@ -60,14 +62,15 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
       name: 'Leads Management',
       icon: Users,
       dropdownKey: 'leads',
-      requiredPermission: 'leads.view',
+      // Shown when any lead page below is allowed; each page checks its own permission
+      requiredPermission: ['leads.view', 'leads.viewAll', 'leads.assign', 'team.performance', 'dashboard.management'],
       subItems: [
-        { name: 'Raw Leads', path: '/admin/leads' },
-        { name: 'Working Leads', path: '/admin/leads/working' },
-        { name: 'Dropped & Hold', path: '/admin/leads/dropped-hold' },
-        { name: 'Unassigned Leads', path: '/admin/leads/unassigned' },
+        { name: 'Raw Leads', path: '/admin/leads', requiredPermission: LEAD_LISTS },
+        { name: 'Working Leads', path: '/admin/leads/working', requiredPermission: LEAD_LISTS },
+        { name: 'Dropped & Hold', path: '/admin/leads/dropped-hold', requiredPermission: LEAD_LISTS },
+        { name: 'Unassigned Leads', path: '/admin/leads/unassigned', requiredPermission: LEAD_LISTS },
         { name: 'All Leads', path: '/admin/leads/all', requiredPermission: 'leads.viewAll' },
-        { name: 'Lead Activity', path: '/admin/lead-activity', requiredPermission: 'leads.assign' },
+        { name: 'Lead Activity', path: '/admin/lead-activity', requiredPermission: ['leads.assign', 'dashboard.management'] },
         { name: 'BDE Calling Performance', path: '/admin/team-performance', requiredPermission: 'team.performance' },
         { name: 'Follow-ups', path: '/admin/follow-ups', requiredPermission: 'leads.assign' }
       ]
@@ -182,7 +185,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
       // Each page has its own permission (server/config/permissions.js);
       // the menu shows whenever at least one of them is granted.
       subItems: [
-        { name: 'Employees List', path: '/admin/employees', requiredPermission: 'employees.view' },
+        { name: 'Employees List', path: '/admin/employees', requiredPermission: ['employees.view', 'employees.manage'] },
         { name: 'Leave Requests', path: '/admin/leave-requests', requiredPermission: 'leave.manage' },
         { name: 'Attendance Roster', path: '/admin/attendance-roster', requiredPermission: 'attendance.manage' },
         { name: 'Correction Requests', path: '/admin/corrections', requiredPermission: 'attendance.manage' },

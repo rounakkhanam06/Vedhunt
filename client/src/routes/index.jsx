@@ -382,7 +382,7 @@ export const router = createBrowserRouter([
           {
             // List, and one employee's profile page at /admin/employees/:id
             path: 'employees/:id?',
-            element: withPermission(EmployeeManager, 'employees.view')
+            element: withPermission(EmployeeManager, ['employees.view', 'employees.manage'])
           },
           {
             path: 'holidays',
@@ -546,19 +546,19 @@ export const router = createBrowserRouter([
           },
           {
             path: 'leads',
-            element: withPermission(RawLeadsManager, 'leads.view')
+            element: withPermission(RawLeadsManager, ['leads.view', 'leads.viewAll'])
           },
           {
             path: 'leads/working',
-            element: withPermission(WorkingLeadsManager, 'leads.view')
+            element: withPermission(WorkingLeadsManager, ['leads.view', 'leads.viewAll'])
           },
           {
             path: 'leads/dropped-hold',
-            element: withPermission(DroppedHoldLeadsManager, 'leads.view')
+            element: withPermission(DroppedHoldLeadsManager, ['leads.view', 'leads.viewAll'])
           },
           {
             path: 'leads/unassigned',
-            element: withPermission(UnassignedLeadsManager, 'leads.view')
+            element: withPermission(UnassignedLeadsManager, ['leads.view', 'leads.viewAll'])
           },
           {
             path: 'leads/all',
@@ -566,7 +566,7 @@ export const router = createBrowserRouter([
           },
           {
             path: 'leads/:id',
-            element: withPermissionKeyedById(LeadWorkspace, 'leads.view')
+            element: withPermissionKeyedById(LeadWorkspace, ['leads.view', 'leads.viewAll'])
           },
           {
             path: 'audit/activity',
