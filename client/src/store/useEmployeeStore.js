@@ -63,9 +63,13 @@ if (typeof window !== 'undefined') {
     if (!shown || getPreview('employee')) return;
     try {
       const { employee } = await employeeService.getMe();
-      if (employee?._id && String(employee._id) !== String(shown._id)) window.location.reload();
+      if (employee?._id && String(employee._id) !== String(shown._id)) return window.location.reload();
+      // Same person: pick up role/permission changes an admin made meanwhile,
+      // so a newly assigned page shows without signing out and in again.
+      if (employee) useEmployeeStore.setState({ employee });
     } catch (_) { /* signed out elsewhere: the next request's 401 handles it */ }
   };
+  setInterval(() => { if (document.visibilityState === 'visible') reloadIfSwitched(); }, 60_000);
   window.addEventListener('storage', (e) => {
     if (e.key === 'employeeToken') reloadIfSwitched();
   });
