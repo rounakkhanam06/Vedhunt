@@ -1,11 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import api from '../../services/api';
 import { Loader, Edit2, Trash2, Plus, Tag, Eye, EyeOff } from 'lucide-react';
+import ModalScrollLock from '../components/ModalScrollLock';
 
 export default function BlogCategoryManager() {
   const [categories, setCategories] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const closeModal = useCallback(() => setIsModalOpen(false), []);
   const [isSaving, setIsSaving] = useState(false);
   const [editingId, setEditingId] = useState(null);
 
@@ -200,7 +202,8 @@ export default function BlogCategoryManager() {
       )}
 
       {isModalOpen && (
-        <div className="fixed inset-0 overflow-y-auto z-50 bg-black/60 backdrop-blur-sm flex items-center-safe justify-center p-4">
+        <div className="fixed inset-0 overflow-y-auto overscroll-contain z-50 bg-black/60 backdrop-blur-sm flex items-center-safe justify-center p-4">
+          <ModalScrollLock onClose={closeModal} />
           <div className="bg-app-card border border-app-border rounded-xl p-6 w-full max-w-md relative shadow-2xl animate-in fade-in zoom-in-95 duration-200">
             <h2 className="text-xl font-bold text-app-text mb-6">
               {editingId ? 'Edit Category' : 'Add New Category'}

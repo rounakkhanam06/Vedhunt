@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Plus, Edit2, Trash2, Search, Link as LinkIcon, Loader2 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import BlogCategoryManager from './BlogCategoryManager';
+import ModalScrollLock from '../components/ModalScrollLock';
 
 const BlogManager = () => {
   const [blogs, setBlogs] = useState([]);
@@ -14,6 +15,7 @@ const BlogManager = () => {
   const navigate = useNavigate();
 
   const [deleteTargetSlug, setDeleteTargetSlug] = useState(null);
+  const closeDeleteModal = useCallback(() => setDeleteTargetSlug(null), []);
 
   const fetchBlogs = async () => {
     try {
@@ -217,7 +219,8 @@ const BlogManager = () => {
 
           {/* Custom Delete Confirmation Modal */}
           {deleteTargetSlug && (
-            <div className="fixed inset-0 overflow-y-auto z-50 flex items-center-safe justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <div className="fixed inset-0 overflow-y-auto overscroll-contain z-50 flex items-center-safe justify-center p-4 bg-black/60 backdrop-blur-sm">
+              <ModalScrollLock onClose={closeDeleteModal} />
               <motion.div 
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}

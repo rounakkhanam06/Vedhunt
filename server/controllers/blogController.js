@@ -1,6 +1,37 @@
 const Blog = require('../models/Blog');
 const Settings = require('../models/Settings');
 const agenda = require('../jobs/agenda');
+const slugify = require('slugify');
+const logger = require('../utils/logger');
+
+// The blog's URL: from the typed slug, or from the title when the slug box is
+// left empty. "My SEO Tips & Tricks" → "my-seo-tips-and-tricks".
+const toSlug = (value) => slugify(String(value || ''), { lower: true, strict: true, trim: true });
+
+function withCleanSlug(body) {
+  const data = { ...body };
+  const slug = toSlug(data.slug) || toSlug(data.title);
+  if (slug) data.slug = slug;
+  else delete data.slug; // nothing usable → the "slug is required" validation message
+  return data;
+}
+
+// Mongoose validation → one readable 400 naming every missing/invalid field
+function validationMessage(error) {
+  if (error?.name !== 'ValidationError') return null;
+  return Object.values(error.errors).map((e) => e.message).join('. ');
+}
+
+// The newsletter is a side effect: queuing it must never fail the save itself
+function queueBlogNewsletter(blog) {
+  if (!blog.isPublished) return;
+  try {
+    Promise.resolve(agenda.now('sendNewsletterBatch', { type: 'BLOG_UPDATE', blogId: blog._id.toString() }))
+      .catch((err) => logger.error(`Could not queue blog newsletter for ${blog.slug}: ${err.message}`));
+  } catch (err) {
+    logger.error(`Could not queue blog newsletter for ${blog.slug}: ${err.message}`);
+  }
+}
 
 // --- Public Endpoints ---
 
@@ -63,19 +94,19 @@ exports.getAdminBlogBySlug = async (req, res) => {
 // Create a new blog
 exports.createBlog = async (req, res) => {
   try {
-    const blog = await Blog.create(req.body);
-    
+    const blog = await Blog.create(withCleanSlug(req.body));
+
     // Trigger email broadcast if the blog is published
-    if (blog.isPublished) {
-      agenda.now('sendNewsletterBatch', { type: 'BLOG_UPDATE', blogId: blog._id.toString() });
-    }
+    queueBlogNewsletter(blog);
 
     res.status(201).json({ success: true, data: blog });
   } catch (error) {
-    console.error('Error creating blog:', error);
     if (error.code === 11000) {
-      return res.status(400).json({ success: false, message: 'Blog with this slug already exists' });
+      return res.status(400).json({ success: false, message: 'Blog with this slug already exists — change the slug' });
     }
+    const invalid = validationMessage(error);
+    if (invalid) return res.status(400).json({ success: false, message: invalid });
+    logger.error('Error creating blog:', error);
     res.status(500).json({ success: false, message: 'Server error creating blog' });
   }
 };
@@ -83,7 +114,7 @@ exports.createBlog = async (req, res) => {
 // Update an existing blog
 exports.updateBlog = async (req, res) => {
   try {
-    const blog = await Blog.findOneAndUpdate({ slug: req.params.slug }, req.body, {
+    const blog = await Blog.findOneAndUpdate({ slug: req.params.slug }, withCleanSlug(req.body), {
       new: true,
       runValidators: true,
     });
@@ -94,16 +125,16 @@ exports.updateBlog = async (req, res) => {
     // Trigger email broadcast if the blog was just published
     // Note: To be perfectly accurate we would check if it transitioned from draft to published,
     // but for simplicity we trigger if it's published. Ideally, add a 'newsletterSent' flag to avoid duplicates.
-    if (blog.isPublished) {
-      agenda.now('sendNewsletterBatch', { type: 'BLOG_UPDATE', blogId: blog._id.toString() });
-    }
+    queueBlogNewsletter(blog);
 
     res.status(200).json({ success: true, data: blog });
   } catch (error) {
-    console.error('Error updating blog:', error);
     if (error.code === 11000) {
-      return res.status(400).json({ success: false, message: 'Blog with this slug already exists' });
+      return res.status(400).json({ success: false, message: 'Blog with this slug already exists — change the slug' });
     }
+    const invalid = validationMessage(error);
+    if (invalid) return res.status(400).json({ success: false, message: invalid });
+    logger.error('Error updating blog:', error);
     res.status(500).json({ success: false, message: 'Server error updating blog' });
   }
 };

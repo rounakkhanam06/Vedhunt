@@ -110,23 +110,40 @@ const CreateEditBlog = () => {
 
   const handleSave = async (e) => {
     e.preventDefault();
+
+    // Say exactly what's missing instead of a generic server error.
+    // The slug may be left empty — the server builds it from the title.
+    const missing = [
+      !formData.title.trim() && 'Title',
+      !formData.category && 'Category',
+      !formData.thumbnail && 'Thumbnail image',
+    ].filter(Boolean);
+    if (missing.length) {
+      toast.error(`Please add: ${missing.join(', ')}`);
+      return;
+    }
+    if (uploadingThumbnail || uploadingBlockId) {
+      toast.error('Please wait for the image upload to finish');
+      return;
+    }
+
     setSaving(true);
-    
     try {
       const url = isEdit ? `/blogs/${slug}` : '/blogs';
-      
+
       const res = isEdit ? await api.put(url, formData) : await api.post(url, formData);
-      
+
       const data = res.data;
       if (data.success) {
-        alert('Blog saved successfully!');
+        toast.success('Blog saved successfully!');
         navigate('/admin/blogs');
       } else {
-        alert('Failed to save blog: ' + (data.error || 'Unknown error'));
+        toast.error(data.message || 'Failed to save blog');
       }
     } catch (err) {
       console.error(err);
-      alert('Error saving blog');
+      // The server names the problem (missing field, duplicate slug, no permission)
+      toast.error(err.response?.data?.message || err.message || 'Error saving blog');
     } finally {
       setSaving(false);
     }
