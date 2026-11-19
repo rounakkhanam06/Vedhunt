@@ -27,6 +27,7 @@ const { getLeadScoringSettings, computeLeadScore } = require('../services/leadSc
 const Client = require('../models/Client');
 const { loginEmailTaken, applyLoginEmail, afterLoginEmailChange } = require('../services/clientLoginEmail');
 const { recordAudit } = require('../services/audit');
+const { syncLeadPhone } = require('../services/leadPhoneSync');
 
 // Which leads a login may see and change comes from req.pageScope, set by
 // requirePageAccess on each route (routes/leadRoutes.js): every lead with
@@ -869,6 +870,12 @@ exports.updateLead = async (req, res, next) => {
       }
     }
 
+    // Old phone, so copies of it on the client / drafts can be updated after
+    let oldPhone;
+    if ('phone' in updates && mongoose.isValidObjectId(req.params.id)) {
+      oldPhone = (await Lead.collection.findOne({ _id: new mongoose.Types.ObjectId(req.params.id) }, { projection: { phone: 1 } }))?.phone;
+    }
+
     const canReactivate = req.user?.permissions?.includes('leads.reactivate');
     const result = await applyLeadUpdate(req.params.id, updates, { id: req.user?._id, isSuperAdmin, canReactivate }, await leadFilter(req));
     if (!result.ok) {
@@ -887,6 +894,19 @@ exports.updateLead = async (req, res, next) => {
       } catch (e) {
         logger.error('Lead email saved, but syncing the client login email failed:', e);
         clientMessage = 'The lead was updated, but the client account email could not be changed — edit it on the client.';
+      }
+    }
+
+    if (oldPhone !== undefined) {
+      try {
+        const synced = await syncLeadPhone(result.lead._id, oldPhone, updates.phone);
+        if (synced.client) {
+          await recordAudit(req, 'CLIENT_PHONE_CHANGE', 'Client', synced.clientId, { phone: oldPhone }, { phone: updates.phone, via: 'lead' });
+        }
+        if (synced.skipped) clientMessage = [clientMessage, synced.skipped].filter(Boolean).join(' ');
+      } catch (e) {
+        logger.error('Lead phone saved, but syncing it to the client/drafts failed:', e);
+        clientMessage = [clientMessage, 'The lead was updated, but the phone could not be copied to the client account — edit it on the client.'].filter(Boolean).join(' ');
       }
     }
 
