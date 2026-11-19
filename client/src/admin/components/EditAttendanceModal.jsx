@@ -22,6 +22,14 @@ export default function EditAttendanceModal({ http, root, employee, day, onClose
   const [clockOut, setClockOut] = useState(clockToTimeInput(day.checkOut) || '');
   const [reason, setReason] = useState(DEFAULT_REASON);
   const [busy, setBusy] = useState(null); // 'save' | 'remove'
+  // Optional: apply the same entry to every day up to this date (admin has no backdate limit)
+  const [until, setUntil] = useState('');
+  const [skipSundays, setSkipSundays] = useState(true);
+  const [skipHolidays, setSkipHolidays] = useState(true);
+  const [overwrite, setOverwrite] = useState(false);
+  const todayStr = new Date().toLocaleDateString('en-CA');
+  const dayStr = String(day.date).slice(0, 10);
+  const isRange = Boolean(until) && until > dayStr;
 
   const url = `${root}/employees/admin/attendance/${employee._id}/day`;
 
@@ -31,7 +39,9 @@ export default function EditAttendanceModal({ http, root, employee, day, onClose
     try {
       const body = { date: day.date, status, reason };
       if (status === 'Present') Object.assign(body, { clockIn, clockOut });
-      const res = await http.put(url, body);
+      const res = isRange
+        ? await http.put(`${root}/employees/admin/attendance/${employee._id}/range`, { ...body, from: dayStr, to: until, skipSundays, skipHolidays, overwrite })
+        : await http.put(url, body);
       toast.success(res.data?.message || 'Attendance saved');
       onSaved();
     } catch (err) {
@@ -64,7 +74,7 @@ export default function EditAttendanceModal({ http, root, employee, day, onClose
       <form
         onSubmit={save}
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md bg-app-card border border-app-border rounded-xl shadow-2xl p-5 space-y-4"
+        className="w-full max-w-md max-h-[90vh] overflow-y-auto bg-app-card border border-app-border rounded-xl shadow-2xl p-5 space-y-4"
       >
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -105,6 +115,21 @@ export default function EditAttendanceModal({ http, root, employee, day, onClose
           </div>
         )}
 
+        <div className="rounded-lg border border-app-border p-3 space-y-2">
+          <label className={label}>Fill until (optional)</label>
+          <input type="date" value={until} min={dayStr} max={todayStr} onChange={(e) => setUntil(e.target.value)} className={input} />
+          <p className="text-[11px] text-app-text-muted">
+            Applies this entry to every day from {fmtDay(day.date)} to the chosen date. No 30-day limit for admins.
+          </p>
+          {isRange && (
+            <div className="space-y-1.5 pt-1 text-sm text-app-text">
+              <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={skipSundays} onChange={(e) => setSkipSundays(e.target.checked)} /> Skip Sundays</label>
+              <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={skipHolidays} onChange={(e) => setSkipHolidays(e.target.checked)} /> Skip holidays</label>
+              <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={overwrite} onChange={(e) => setOverwrite(e.target.checked)} /> Overwrite days that already have attendance</label>
+            </div>
+          )}
+        </div>
+
         <div>
           <label className={label}>Reason *</label>
           <input required minLength={3} maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} className={input} />
@@ -131,7 +156,7 @@ export default function EditAttendanceModal({ http, root, employee, day, onClose
               disabled={Boolean(busy)}
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#FF6B00] hover:bg-[#e66000] text-white text-sm font-semibold disabled:opacity-50 cursor-pointer"
             >
-              {busy === 'save' && <Loader2 size={14} className="animate-spin" />} Save
+              {busy === 'save' && <Loader2 size={14} className="animate-spin" />} {isRange ? 'Save all days' : 'Save'}
             </button>
           </div>
         </div>

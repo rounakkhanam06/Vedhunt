@@ -1176,6 +1176,19 @@ scoped.put('/admin/attendance/:id/day', requirePageAccess('attendance', 'edit'),
     res.status(500).json({ success: false, message: 'Could not save attendance' });
   }
 });
+// Admin: fill a From–To range in one go (no 30-day limit — that applies only to
+// employees' own correction requests).
+scoped.put('/admin/attendance/:id/range', requirePageAccess('attendance', 'edit'), async (req, res) => {
+  try {
+    if (!(await attendanceEditGuard(req, res))) return;
+    const result = await attendanceAdmin.setAttendanceRange(req.user, req.params.id, req.body || {}, req.ip);
+    if (!result.ok) return res.status(result.status).json({ success: false, message: result.message });
+    res.json({ success: true, message: result.message, saved: result.saved, skipped: result.skipped });
+  } catch (error) {
+    logger.error('Error saving manual attendance range:', error);
+    res.status(500).json({ success: false, message: 'Could not save attendance' });
+  }
+});
 scoped.delete('/admin/attendance/:id/day', requirePageAccess('attendance', 'edit'), async (req, res) => {
   try {
     if (!(await attendanceEditGuard(req, res))) return;

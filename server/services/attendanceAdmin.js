@@ -6,6 +6,7 @@
 const Employee = require('../models/Employee');
 const Settings = require('../models/Settings');
 const AuditLog = require('../models/AuditLog');
+const Holiday = require('../models/Holiday');
 const { formatHHmm, parseClock, lateByMinutes } = require('../utils/clockTime');
 const logger = require('../utils/logger');
 
@@ -144,4 +145,70 @@ async function clearAttendanceDay(admin, employeeId, dateStr, reason, ipAddress)
   return ok({ message: 'Attendance record removed.' });
 }
 
-module.exports = { setAttendanceDay, clearAttendanceDay, STATUSES };
+const MAX_FILL_DAYS = 366;
+const ymdStr = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+/**
+ * Fill a From–To range for one employee in one go (e.g. migrating a month from the
+ * manual register). No backdate limit — admins can fill any past range; only the
+ * range length is capped. Each day is saved through setAttendanceDay, so it gets
+ * the same checks and its own audit entry.
+ * body: { from, to, status, clockIn?, clockOut?, reason, skipSundays = true,
+ *         skipHolidays = true, overwrite = false }
+ * Days skipped: future, Sunday / holiday (if asked), and days that already have a
+ * record unless overwrite is true.
+ */
+async function setAttendanceRange(admin, employeeId, body, ipAddress) {
+  const from = parseDayStr(body.from);
+  const to = parseDayStr(body.to);
+  if (!from || !to) return fail(400, 'Please choose a valid From and To date.');
+  if (to < from) return fail(400, 'The To date cannot be before the From date.');
+  const span = Math.round((to - from) / 86400000) + 1;
+  if (span > MAX_FILL_DAYS) return fail(400, `A range can cover up to ${MAX_FILL_DAYS} days.`);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const last = to > today ? today : to;
+  if (from > last) return fail(400, 'Attendance cannot be entered for a future date.');
+
+  const skipSundays = body.skipSundays !== false;
+  const skipHolidays = body.skipHolidays !== false;
+  const overwrite = body.overwrite === true;
+
+  const lastEnd = new Date(last);
+  lastEnd.setHours(23, 59, 59, 999);
+  const [employee, holidays] = await Promise.all([
+    Employee.findById(employeeId, {
+      attendance: { $filter: { input: { $ifNull: ['$attendance', []] }, as: 'a', cond: { $and: [{ $gte: ['$$a.date', from] }, { $lte: ['$$a.date', lastEnd] }] } } },
+    }).lean(),
+    skipHolidays ? Holiday.find({ date: { $gte: from, $lte: lastEnd } }).select('date').lean() : [],
+  ]);
+  if (!employee) return fail(404, 'Employee not found.');
+  const recorded = new Set((employee.attendance || []).map((a) => ymdStr(new Date(a.date))));
+  const holidayDays = new Set(holidays.map((h) => ymdStr(new Date(h.date))));
+
+  let saved = 0;
+  const skipped = { sunday: 0, holiday: 0, existing: 0, future: span - (Math.round((last - from) / 86400000) + 1) };
+  for (let d = new Date(from); d <= last; d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1)) {
+    const key = ymdStr(d);
+    if (skipSundays && d.getDay() === 0) { skipped.sunday += 1; continue; }
+    if (holidayDays.has(key)) { skipped.holiday += 1; continue; }
+    if (!overwrite && recorded.has(key)) { skipped.existing += 1; continue; }
+    const r = await setAttendanceDay(admin, employeeId, { ...body, date: key }, ipAddress);
+    if (!r.ok) return fail(r.status, saved ? `${r.message} (${saved} day(s) before ${key} were saved.)` : r.message);
+    saved += 1;
+  }
+
+  const parts = [
+    skipped.sunday && `${skipped.sunday} Sunday(s)`,
+    skipped.holiday && `${skipped.holiday} holiday(s)`,
+    skipped.existing && `${skipped.existing} day(s) that already had attendance`,
+    skipped.future && `${skipped.future} future day(s)`,
+  ].filter(Boolean);
+  return ok({
+    saved,
+    skipped,
+    message: `Saved ${saved} day(s).${parts.length ? ` Skipped ${parts.join(', ')}.` : ''}`,
+  });
+}
+
+module.exports = { setAttendanceDay, setAttendanceRange, clearAttendanceDay, STATUSES };
