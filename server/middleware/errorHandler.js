@@ -26,6 +26,15 @@ const errorHandler = (err, req, res, next) => {
     error = new ErrorResponse(message, 400);
   }
 
+  // Upload limits (file too large, too many files) are the uploader's mistake, not a server error
+  if (err.name === 'MulterError') {
+    const message = err.code === 'LIMIT_FILE_SIZE' ? 'The file is too large.' : err.code === 'LIMIT_FILE_COUNT' ? 'Too many files.' : err.message;
+    error = new ErrorResponse(message, 400);
+  }
+
+  // e.g. a missing file under /uploads
+  if (!error.statusCode && err.status >= 400 && err.status < 500) error.statusCode = err.status;
+
   const statusCode = error.statusCode || 500;
   const responseData = {
     success: false,

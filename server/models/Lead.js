@@ -480,7 +480,7 @@ const leadSchema = new mongoose.Schema({
 
   // ── Documents ────────────────────────────────────────────────────────────
   // Proposal/quotation/scope files and other attachments. Stored on
-  // Cloudinary (see server/utils/cloudinary.js's uploadLeadDocument), pushed
+  // the server (see server/utils/storage.js's uploadLeadDocument), pushed
   // via the raw driver in leadController.uploadLeadDocument, same as every
   // other lead write.
   documents: [{

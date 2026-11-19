@@ -47,7 +47,7 @@ const DynamicFormRenderer = ({ config, initialData = {}, onSubmit, isLoading }) 
       try {
         await uploadService.deleteImage(publicId);
       } catch (err) {
-        console.error("Delete from cloudinary failed", err);
+        console.error("Deleting the uploaded file failed", err);
       }
     }
     

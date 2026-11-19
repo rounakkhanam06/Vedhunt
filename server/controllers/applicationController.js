@@ -1,7 +1,7 @@
 const Application = require('../models/Application');
 const Job = require('../models/Job');
 const Settings = require('../models/Settings');
-const { deleteFromCloudinary } = require('../utils/cloudinary');
+const { deleteUpload } = require('../utils/storage');
 const { applicationSchema } = require('../validators/applicationValidator');
 const { sendEmail } = require('../utils/sendEmail');
 
@@ -12,10 +12,10 @@ exports.createApplication = async (req, res) => {
     try {
       await applicationSchema.parseAsync(req.body);
     } catch (validationError) {
-      // If validation fails, delete the uploaded file from Cloudinary
+      // If validation fails, delete the uploaded file
       if (req.file) {
         try {
-          await deleteFromCloudinary(req.file.filename, true);
+          await deleteUpload(req.file.filename, true);
         } catch (err) {
           console.error("Failed to delete file after validation error", err);
         }
@@ -56,9 +56,9 @@ exports.createApplication = async (req, res) => {
     const validExts = ['.pdf', '.doc', '.docx'];
 
     if (!validMimes.includes(req.file.mimetype) || !validExts.includes(ext)) {
-      // Delete uploaded file from Cloudinary before returning error
+      // Delete the uploaded file before returning error
       try {
-        await deleteFromCloudinary(req.file.filename, true);
+        await deleteUpload(req.file.filename, true);
       } catch (err) {
         console.error("Failed to delete file after file type check error", err);
       }
@@ -69,11 +69,11 @@ exports.createApplication = async (req, res) => {
     if (jobId && jobId !== 'general') {
       const jobExists = await Job.findById(jobId).lean();
       if (!jobExists) {
-        await deleteFromCloudinary(req.file.filename, true);
+        await deleteUpload(req.file.filename, true);
         return res.status(400).json({ message: 'Selected position does not exist.' });
       }
       if (jobExists.status !== 'Published') {
-        await deleteFromCloudinary(req.file.filename, true);
+        await deleteUpload(req.file.filename, true);
         return res.status(400).json({ message: 'This position is no longer open. Please choose another position or send a General Application.' });
       }
     }
@@ -81,11 +81,11 @@ exports.createApplication = async (req, res) => {
     // Check for duplicate application (same email, same job)
     const existingApp = await Application.findOne({ email, jobId });
     if (existingApp) {
-      await deleteFromCloudinary(req.file.filename, true);
+      await deleteUpload(req.file.filename, true);
       return res.status(400).json({ message: 'You have already applied for this position with this email.' });
     }
 
-    // Cloudinary file URL
+    // uploaded file URL
     const resumeUrl = req.file.path;
 
     const newApplication = new Application({

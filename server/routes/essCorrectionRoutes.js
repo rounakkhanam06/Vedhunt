@@ -3,7 +3,7 @@
 const express = require('express');
 const { sendResult: respond } = require('../utils/apiResponse');
 const corrections = require('../services/corrections');
-const { uploadTicketAttachment } = require('../utils/cloudinary');
+const { uploadTicketAttachment } = require('../utils/storage');
 
 const router = express.Router();
 

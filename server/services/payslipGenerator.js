@@ -1,7 +1,7 @@
 const Payslip = require('../models/Payslip');
 const PayrollRun = require('../models/PayrollRun');
 const Employee = require('../models/Employee');
-const { uploadBuffer } = require('../utils/cloudinary');
+const { uploadBuffer } = require('../utils/storage');
 const { sendEmail } = require('../utils/sendEmail');
 const logger = require('../utils/logger');
 const { recomputeTotals } = require('./payrollEngine');

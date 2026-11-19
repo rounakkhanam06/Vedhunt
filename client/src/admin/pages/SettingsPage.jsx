@@ -1158,7 +1158,7 @@ const SettingsPage = () => {
                         type="url"
                         value={paymentSettings.upiQrCodeUrl}
                         onChange={e => setPaymentSettings(p => ({ ...p, upiQrCodeUrl: e.target.value }))}
-                        placeholder="https://res.cloudinary.com/..."
+                        placeholder="https://…/upi-qr.png"
                         className={`flex-1 ${inputClasses}`}
                       />
                       <label className="flex items-center justify-center px-4 bg-surface-variant hover:bg-surface-variant/80 text-white rounded-lg cursor-pointer transition-colors whitespace-nowrap">

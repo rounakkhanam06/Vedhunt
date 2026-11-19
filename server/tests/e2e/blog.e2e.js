@@ -5,6 +5,8 @@
  *
  *   npm run test:e2e
  */
+// Generated files (proposal/payslip PDFs) go to a temp folder, never server/uploads; child servers inherit it
+process.env.UPLOAD_DIR = process.env.UPLOAD_DIR || require('fs').mkdtempSync(require('path').join(require('os').tmpdir(), 'vh-e2e-uploads-'));
 const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('path');

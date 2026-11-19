@@ -13,7 +13,7 @@ const { buildProposalPdfBuffer } = require('./proposalPdf');
 const { inr, getCompanyProfile } = require('./pdfBranding');
 const { buildProformaPdfBuffer } = require('./proformaPdf');
 const { highestDocumentNumber } = require('./invoiceDocument');
-const { uploadBuffer } = require('../utils/cloudinary');
+const { uploadBuffer } = require('../utils/storage');
 const { sendEmail } = require('../utils/sendEmail');
 const logger = require('../utils/logger');
 

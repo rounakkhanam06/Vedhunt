@@ -19,7 +19,7 @@ const approvals = require('../services/approvals');
 const CreditNote = require('../models/CreditNote');
 const { buildReceiptPdf, buildCreditNotePdf } = require('../services/receiptPdf');
 const kpi = require('../services/kpi');
-const { uploadTicketAttachment, deleteFromCloudinary } = require('../utils/cloudinary');
+const { uploadTicketAttachment, deleteUpload } = require('../utils/storage');
 const { notifyTicketStaff, notifyPermissionHolders } = require('../services/staffNotify');
 const multer = require('multer');
 const kyc = require('../services/kyc');
@@ -856,7 +856,7 @@ router.post('/tickets/:id/attachments', loadOwnTicket, (req, res, next) => {
     }
     const existing = req.ticket.attachments || [];
     if (existing.length + files.length > MAX_TICKET_ATTACHMENTS) {
-      await Promise.all(files.map((f) => deleteFromCloudinary(f.filename, !f.mimetype.startsWith('image/')).catch(() => {})));
+      await Promise.all(files.map((f) => deleteUpload(f.filename, !f.mimetype.startsWith('image/')).catch(() => {})));
       return res.status(400).json({
         success: false,
         message: `A ticket can have at most ${MAX_TICKET_ATTACHMENTS} attachments (${MAX_TICKET_ATTACHMENTS - existing.length} more allowed).`,

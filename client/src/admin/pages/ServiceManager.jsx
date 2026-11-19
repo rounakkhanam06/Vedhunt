@@ -197,7 +197,7 @@ const ServiceManager = ({ isNested = false }) => {
       try {
         await uploadService.deleteImage(formData.imagePublicId);
       } catch (error) {
-        console.error('Failed to delete image from Cloudinary', error);
+        console.error('Failed to delete the uploaded image', error);
       }
     }
     setFormData(prev => ({

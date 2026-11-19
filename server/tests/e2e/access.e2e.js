@@ -10,6 +10,8 @@
  * Roles mirror production as read on 2026-10-16 (SUPER_ADMIN '*', EDITOR with
  * no holders, PROJECT MANAGER / BDE employee roles, HR with careers.manage).
  */
+// Generated files (proposal/payslip PDFs) go to a temp folder, never server/uploads; child servers inherit it
+process.env.UPLOAD_DIR = process.env.UPLOAD_DIR || require('fs').mkdtempSync(require('path').join(require('os').tmpdir(), 'vh-e2e-uploads-'));
 const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('path');

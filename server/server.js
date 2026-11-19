@@ -107,7 +107,7 @@ app.set('trust proxy', 1);
 // Security & Global Middleware
 // helmet's default Content-Security-Policy allows images only from this site
 // ("img-src 'self' data:"), which blocked every uploaded image — they're served
-// from Cloudinary (payment screenshots, client logos, CMS images). Images may
+// from the uploads server (payment screenshots, client logos, CMS images). Images may
 // come from any HTTPS host; every other directive keeps helmet's default.
 app.use(helmet({
   contentSecurityPolicy: {
@@ -146,6 +146,29 @@ app.get('/api/sitemap.xml', generateSitemap);
 // Also at the conventional address, so tools and crawlers that ask for
 // /sitemap.xml get the live list instead of a 404 or a stale uploaded copy
 app.get('/sitemap.xml', generateSitemap);
+
+// Uploaded files (utils/storage.js). The website runs on another domain, so allow
+// cross-origin loading (helmet defaults to same-origin). Public files have random
+// names that never change, so browsers may cache them for a year; private files
+// (resumes, documents, payslips…) are never cached by proxies or indexed.
+const { UPLOAD_ROOT } = require('./utils/storage');
+app.use('/uploads', (req, res, next) => {
+  res.set('Cross-Origin-Resource-Policy', 'cross-origin');
+  res.set('X-Content-Type-Options', 'nosniff');
+  if (req.path.toLowerCase().endsWith('.svg')) res.set('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; sandbox");
+  if (req.path.startsWith('/private/')) {
+    res.set('Cache-Control', 'private, max-age=3600');
+    res.set('X-Robots-Tag', 'noindex, nofollow');
+  }
+  next();
+}, express.static(UPLOAD_ROOT, {
+  index: false,
+  dotfiles: 'deny',
+  fallthrough: false, // a missing file is a 404 here, never the website's index.html
+  setHeaders: (res, filePath) => {
+    if (!filePath.includes(`${path.sep}private${path.sep}`)) res.set('Cache-Control', 'public, max-age=31536000, immutable');
+  },
+}));
 
 // Serve public directory for local uploads
 app.use(express.static(path.join(__dirname, 'public')));

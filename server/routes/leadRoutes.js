@@ -16,7 +16,7 @@ const requirePageAccess = require('../middleware/requirePageAccess');
 const assignee = require('../middleware/allowLeadAssignee');
 
 // In-memory only — the uploaded spreadsheet is parsed and discarded, never
-// persisted anywhere (unlike lead documents, which go to Cloudinary).
+// persisted anywhere (unlike lead documents, which are saved by utils/storage.js).
 const uploadLeadFile = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
