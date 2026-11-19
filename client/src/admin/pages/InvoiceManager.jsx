@@ -227,7 +227,10 @@ export default function InvoiceManager() {
       await http.delete(`${base}/invoices/${id}`);
       toast.success('Invoice deleted');
       fetchInvoices();
-    } catch { toast.error('Failed to delete'); }
+    } catch (err) {
+      // Show why (receipts / credit notes / tax invoice already issued), not just "failed"
+      toast.error(err?.response?.data?.message || 'Failed to delete invoice', { duration: 7000 });
+    }
   };
 
   const updateLineItem = (i, k, v) =>
