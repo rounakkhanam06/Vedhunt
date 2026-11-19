@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import api from '../../services/api';
+import ModalScrollLock from '../components/ModalScrollLock';
 import { Shield, Plus, Edit2, Trash2, CheckCircle2 } from 'lucide-react';
 
 const permissionLabels = {
@@ -32,6 +33,7 @@ const RoleManager = () => {
   const [loading, setLoading] = useState(true);
   
   const [showModal, setShowModal] = useState(false);
+  const closeModal = useCallback(() => setShowModal(false), []);
   const [editingRole, setEditingRole] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
@@ -300,7 +302,8 @@ const RoleManager = () => {
 
       {/* Role Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overscroll-contain">
+          <ModalScrollLock onClose={closeModal} />
           <div className="bg-app-card border border-app-border rounded-xl w-full max-w-2xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
             <div className="p-6 border-b border-app-border flex justify-between items-center shrink-0">
               <h3 className="text-xl font-bold text-app-text">{editingRole ? 'Edit Role' : 'Create New Role'}</h3>
