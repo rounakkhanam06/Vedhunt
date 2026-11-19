@@ -36,14 +36,13 @@ const defaultCards = [
 
 exports.getPublic = async (req, res, next) => {
   try {
-    // Check if migration is needed
-    const cardCount = await LifeAtVedhuntCard.countDocuments();
-    if (cardCount === 0) {
-      await LifeAtVedhuntCard.insertMany(defaultCards);
-    }
-
     let header = await LifeAtVedhuntHeader.findOne().lean().select('-_id -__v -updatedAt -createdAt');
     if (!header) {
+      // First run only: seed default cards. Checking header (not card count)
+      // so deleting every card doesn't bring the defaults back.
+      if ((await LifeAtVedhuntCard.countDocuments()) === 0) {
+        await LifeAtVedhuntCard.insertMany(defaultCards);
+      }
       header = { 
         heading: 'Life at', 
         highlightText: 'Vedhunt', 
@@ -167,15 +166,17 @@ exports.updateCard = async (req, res, next) => {
 exports.deleteCard = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const card = await LifeAtVedhuntCard.findByIdAndUpdate(id, { isActive: false, updatedBy: req.user._id }, { new: true }).lean();
-    
+    // Hard delete: a soft-deleted card stayed in the admin list looking live
+    // while the website hid it. "Is Active" off is the way to hide a card.
+    const card = await LifeAtVedhuntCard.findByIdAndDelete(id).lean();
+
     if (!card) {
       const error = new Error('Card not found');
       error.statusCode = 404;
       throw error;
     }
 
-    res.status(200).json(new SuccessResponse(null, 'Card soft-deleted successfully'));
+    res.status(200).json(new SuccessResponse(null, 'Card deleted successfully'));
   } catch (error) {
     next(error);
   }

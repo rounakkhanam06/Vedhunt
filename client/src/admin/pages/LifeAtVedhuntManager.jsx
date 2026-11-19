@@ -235,6 +235,11 @@ export default function LifeAtVedhuntManager() {
                 <div className="absolute top-2 left-2 bg-black/70 backdrop-blur-xs px-2.5 py-1 rounded text-xs font-mono text-white">
                   Order: {card.order} | Span: {card.span}
                 </div>
+                {!card.isActive && (
+                  <div className="absolute top-2 right-2 bg-red-600 px-2.5 py-1 rounded text-xs font-semibold text-white">
+                    Inactive · hidden on website
+                  </div>
+                )}
               </div>
               <div className="flex-1">
                 <span className="text-[11px] uppercase tracking-wider text-primary font-bold bg-primary/10 border border-primary/20 px-2.5 py-0.5 rounded inline-block mb-2">
