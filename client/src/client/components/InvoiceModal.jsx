@@ -138,7 +138,7 @@ const InvoiceModal = ({ invoiceId, onClose }) => {
             <>
               {/* Status + Dates */}
               <div className="flex flex-wrap gap-3 items-center">
-                <StatusBadge status={data.data.paymentStatus} />
+                <StatusBadge status={data.data.isPartiallyPaid && data.data.paymentStatus === 'Unpaid' ? 'Partially Paid' : data.data.paymentStatus} />
                 <span className="text-[#6B7280] text-xs">
                   Issued: {new Date(data.data.issueDate).toLocaleDateString('en-IN')}
                 </span>

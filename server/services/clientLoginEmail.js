@@ -25,6 +25,7 @@ async function applyLoginEmail(client, email) {
   }
   const from = client.email;
   client.email = to;
+  client.emailIsPlaceholder = false; // a real address has been entered
   // Log out existing portal sessions; they sign in again with the new email
   client.refreshToken = undefined;
   // A pending activation/reset link went to the old address — void it
@@ -38,6 +39,7 @@ async function applyLoginEmail(client, email) {
  * at the new address (the old one is void). Returns a staff-facing message.
  */
 async function afterLoginEmailChange(client, change) {
+  if (client.recordOnly) return `The client email is now ${change.to}. This is a record-only client, so nothing was emailed.`;
   if (!client.activatedAt && client.isActive && !client.deletedAt) {
     const withToken = await Client.findById(client._id).select('+resetPasswordToken +resetPasswordExpire');
     const r = await sendActivationLink(withToken);

@@ -6,6 +6,7 @@ const STATUS_STYLES = {
   Paid:     'bg-[#22C55E]/15 text-[#22C55E] border-[#22C55E]/25',
   Unpaid:   'bg-[#F59E0B]/15 text-[#F59E0B] border-[#F59E0B]/25',
   Overdue:  'bg-[#EF4444]/15 text-[#EF4444] border-[#EF4444]/25',
+  'Partially Paid': 'bg-[#60A5FA]/15 text-[#60A5FA] border-[#60A5FA]/25',
   // Project
   Active:      'bg-[#60A5FA]/15 text-[#60A5FA] border-[#60A5FA]/25',
   'On Hold':   'bg-[#F59E0B]/15 text-[#F59E0B] border-[#F59E0B]/25',

@@ -47,14 +47,15 @@ function emailHtml({ contactName, heading, lines, ctaLabel, link }) {
  */
 async function notifyClient({ clientId, type, title, message, link, emailLines, emailEvent, ctaLabel = 'Open Client Portal' }) {
   try {
-    const client = await Client.findById(clientId).select('email contactName isActive').lean();
+    const client = await Client.findById(clientId).select('email contactName isActive recordOnly').lean();
     if (!client || !client.isActive) return null;
 
     const notification = await ClientNotification.create({ client: client._id, type, title, message, link });
 
     // Email in the background — Resend latency/outages never slow or fail the request.
     // Only events switched on in the email policy are emailed; the rest stay in the bell.
-    if (client.email && emailEvent && await shouldEmail(emailEvent)) {
+    // Record-only clients (past / ghosted, no portal) are never emailed
+    if (client.email && !client.recordOnly && emailEvent && await shouldEmail(emailEvent)) {
       mailer.sendEmail({
         email: client.email,
         subject: `${title} — Vedhunt`,

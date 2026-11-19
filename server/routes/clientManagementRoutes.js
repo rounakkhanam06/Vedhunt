@@ -178,6 +178,7 @@ router.get('/clients', crm('clients', 'view'), async (req, res) => {
       active: { isActive: true, deletedAt: null },
       suspended: { isActive: false, deletedAt: null },
       archived: { deletedAt: { $ne: null } },
+      recordOnly: { recordOnly: true, deletedAt: null },
       all: {},
     };
     Object.assign(filter, STATUS_FILTERS[req.query.status] || { deletedAt: null });
@@ -375,6 +376,7 @@ router.get('/clients/:id', crm('clients', 'view'), async (req, res) => {
       success: true,
       data: {
         ...client,
+        ...(client.emailIsPlaceholder && { email: '' }), // internal placeholder, never shown
         summary: { invoiceCount, projectCount, activeRetainerCount: retainerCount, openTicketCount: ticketCount },
         // Client 360: the full pre-sale timeline from the lead this client
         // converted from — pipeline/stage history, every call attempt, and
@@ -406,16 +408,30 @@ router.post('/clients', crm('clients', 'create'), async (req, res) => {
       return res.status(403).json({ success: false, message: 'Creating clients needs access to all clients.' });
     }
     // No password: the client sets their own through the emailed activation link (SOP §4)
-    const { businessName, contactName, email, phone, notes, leadRef } = req.body;
+    const { businessName, contactName, phone, notes, leadRef } = req.body;
+    const email = String(req.body.email || '').trim();
+    // Record-only: a past / ghosted client kept for records — Super Admin only, email optional,
+    // nothing emailed, no portal login until invited
+    const recordOnly = req.body.recordOnly === true;
+    if (recordOnly && !req.user?.permissions?.includes('*')) {
+      return res.status(403).json({ success: false, message: 'Only a Super Admin can add a record-only client.' });
+    }
+    let onboardingDate;
+    if (recordOnly && req.body.onboardingDate) {
+      onboardingDate = new Date(`${String(req.body.onboardingDate).slice(0, 10)}T00:00:00`);
+      if (Number.isNaN(onboardingDate.getTime()) || onboardingDate > new Date()) {
+        return res.status(400).json({ success: false, message: 'Onboarding date must be a valid past date.' });
+      }
+    }
 
-    if (!businessName || !contactName || !email) {
+    if (!businessName || !contactName || (!email && !recordOnly)) {
       return res.status(400).json({
         success: false,
         message: 'businessName, contactName and email are required',
       });
     }
 
-    const validationErrors = validateClientInput(req.body);
+    const validationErrors = validateClientInput({ ...req.body, email: email || undefined });
     if (validationErrors.length > 0) {
       return res.status(400).json({
         success: false,
@@ -423,7 +439,7 @@ router.post('/clients', crm('clients', 'create'), async (req, res) => {
       });
     }
 
-    const existingClient = await Client.findOne({ email: email.toLowerCase().trim() }).lean();
+    const existingClient = email ? await Client.findOne({ email: email.toLowerCase() }).lean() : null;
     if (existingClient) {
       return res.status(409).json({ success: false, message: 'A client with this email already exists' });
     }
@@ -440,7 +456,19 @@ router.post('/clients', crm('clients', 'create'), async (req, res) => {
       notes,
       leadRef: leadRef && isValidId(leadRef) ? leadRef : undefined,
       createdBy: req.user._id,
+      recordOnly,
+      onboardingDate,
     });
+
+    if (recordOnly) {
+      await recordAudit(req, 'CLIENT_CREATE_RECORD_ONLY', 'Client', client.clientId, null, { businessName, onboardingDate, emailGiven: Boolean(email) });
+      return res.status(201).json({
+        success: true,
+        message: 'Record-only client added. Nothing was emailed and portal login stays off — use "Send activation link" if they come back.',
+        activationEmailSent: false,
+        data: { _id: client._id, clientId: client.clientId, businessName: client.businessName, contactName: client.contactName, email: client.emailIsPlaceholder ? '' : client.email, recordOnly: true },
+      });
+    }
 
     res.status(201).json({
       success: true,
@@ -648,6 +676,15 @@ router.post('/clients/:id/send-activation', crm('clients', 'edit'), async (req, 
     const client = await Client.findById(req.params.id).select('+resetPasswordToken +resetPasswordExpire');
     if (!client || client.deletedAt) return outOfScope(res, 'Client');
     if (!client.isActive) return res.status(409).json({ success: false, message: 'This account is suspended. Reactivate it before sending a link.' });
+    // Inviting a record-only client turns their portal on — Super Admin only, and needs a real email
+    const wasRecordOnly = client.recordOnly;
+    if (wasRecordOnly) {
+      if (!req.user?.permissions?.includes('*')) return res.status(403).json({ success: false, message: 'Only a Super Admin can invite a record-only client to the portal.' });
+      if (client.emailIsPlaceholder) return res.status(409).json({ success: false, message: 'Add the client’s real email address (Edit) before sending the activation link.' });
+      client.recordOnly = false;
+      await client.save({ validateBeforeSave: false });
+      await recordAudit(req, 'CLIENT_PORTAL_ENABLED', 'Client', client.clientId, { recordOnly: true }, { recordOnly: false });
+    }
     const r = await sendActivationLink(client);
     await recordAudit(req, 'CLIENT_ACTIVATION_LINK', 'Client', client.clientId, null, { kind: client.activatedAt ? 'reset' : 'activation', sent: r.sent });
     if (!r.sent) return res.status(502).json({ success: false, message: 'The email could not be sent. Check the client’s email address and try again.' });

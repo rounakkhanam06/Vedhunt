@@ -42,7 +42,7 @@ const clientAuthMiddleware = async (req, res, next) => {
         .json({ success: false, message: 'Client account not found' });
     }
 
-    if (!req.client.isActive || req.client.deletedAt) {
+    if (!req.client.isActive || req.client.deletedAt || req.client.recordOnly) {
       return res
         .status(401)
         .json({

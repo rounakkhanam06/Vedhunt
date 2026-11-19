@@ -60,7 +60,7 @@ async function buildPortfolio(opts = {}, now = new Date()) {
   if (opts.clientIds) base._id = { $in: opts.clientIds };
 
   const allClients = await Client.find(base,
-    'clientId businessName contactName email phone isActive deletedAt createdAt profile serviceStatus holdReason holdSince offboardedAt offboardReason offboardSource isTemporaryPassword agreementVersion acceptedAgreementVersion agreementDetails.domain agreementDetails.agreementDate agreementDetails.effectiveDate')
+    'clientId businessName contactName email emailIsPlaceholder recordOnly phone isActive deletedAt createdAt profile serviceStatus holdReason holdSince offboardedAt offboardReason offboardSource isTemporaryPassword agreementVersion acceptedAgreementVersion agreementDetails.domain agreementDetails.agreementDate agreementDetails.effectiveDate')
     .populate('profile.accountManager', 'firstName lastName')
     .lean();
 
@@ -78,7 +78,8 @@ async function buildPortfolio(opts = {}, now = new Date()) {
       clientId: c.clientId,
       businessName: c.businessName,
       contactName: c.contactName,
-      email: c.email,
+      email: c.emailIsPlaceholder ? '' : c.email,
+      recordOnly: Boolean(c.recordOnly),
       phone: c.phone,
       createdAt: c.createdAt,
       state: clientState(c),
@@ -132,6 +133,7 @@ async function buildPortfolio(opts = {}, now = new Date()) {
   let list = rows;
   const status = opts.status || 'default';
   if (status === 'default') list = list.filter((r) => r.state !== 'archived');
+  else if (status === 'recordOnly') list = list.filter((r) => r.recordOnly && r.state !== 'archived');
   else if (status !== 'all') list = list.filter((r) => r.state === status);
   if (opts.sector) list = list.filter((r) => (r.profile.sectors || []).includes(opts.sector));
   if (opts.service) list = list.filter((r) => (r.profile.services || []).includes(opts.service));

@@ -35,6 +35,7 @@ const STATUS_TABS = [
   { id: 'hold', label: 'On hold' },
   { id: 'inactive', label: 'Inactive (suspended)' },
   { id: 'archived', label: 'Deleted' },
+  { id: 'recordOnly', label: 'Record only' },
 ];
 
 const SORT_OPTIONS = [
@@ -80,6 +81,7 @@ const fmtDate = (d) => (d ? new Date(d).toLocaleString('en-IN', { day: '2-digit'
 const EMPTY_FORM = {
   businessName: '', contactName: '', email: '', phone: '',
   password: '', notes: '', leadRef: '',
+  recordOnly: false, onboardingDate: '',
 };
 
 export default function ClientManager() {
@@ -198,7 +200,7 @@ export default function ClientManager() {
     setForm({
       businessName: client.businessName || '',
       contactName: client.contactName || '',
-      email: client.email || '',
+      email: client.emailIsPlaceholder ? '' : client.email || '',
       phone: client.phone || '',
       password: '',
       notes: client.notes || '',
@@ -251,7 +253,8 @@ export default function ClientManager() {
     if (form.phone && !/^\+?[1-9]\d{9,14}$/.test(form.phone)) {
       newErrors.phone = 'Please enter a valid phone number (10-15 digits)';
     }
-    if (!/^\S+@\S+\.\S+$/.test(form.email)) {
+    const emailOptional = (!selectedClient && form.recordOnly) || (selectedClient?.emailIsPlaceholder && !form.email);
+    if (!(emailOptional && !form.email) && !/^\S+@\S+\.\S+$/.test(form.email)) {
       newErrors.email = 'Please enter a valid email address';
     }
 
@@ -266,12 +269,21 @@ export default function ClientManager() {
       // No passwords here: the client sets their own through an emailed link (SOP §4)
       const payload = { ...form };
       delete payload.password;
+      delete payload.recordOnly;
+      delete payload.onboardingDate;
+      // A record-only client with no real email yet: leave the internal placeholder alone
+      if (selectedClient?.emailIsPlaceholder && !payload.email) delete payload.email;
+      if (!selectedClient && form.recordOnly) {
+        payload.recordOnly = true;
+        if (form.onboardingDate) payload.onboardingDate = form.onboardingDate;
+        if (!payload.email) delete payload.email;
+      }
       if (selectedClient) {
         const upd = await http.put(`${base}/clients/${selectedClient._id}`, payload);
         toast.success(upd.data?.message || 'Client updated');
       } else {
         const res = await http.post(`${base}/clients`, payload);
-        if (res.data.activationEmailSent) toast.success(res.data.message);
+        if (res.data.activationEmailSent || res.data.data?.recordOnly) toast.success(res.data.message);
         else toast(res.data.message, { icon: '⚠️', duration: 8000 });
       }
       setShowModal(false);
@@ -529,6 +541,7 @@ export default function ClientManager() {
                       >
                         {STATUS_BADGE[clientStatus(c)].label}
                       </span>
+                      {c.recordOnly && <span title="Kept for records — no portal login, no emails" className="block mt-1 text-[10px] font-bold text-violet-400">Record only</span>}
                       {c.stage && <span title={c.stageReason} className="block mt-1 text-[10px] text-on-surface-variant">{c.stage}</span>}
                     </td>
                     <td className="px-4 py-3">
@@ -635,7 +648,7 @@ export default function ClientManager() {
                 {[
                   { k: 'businessName', label: 'Business Name *', type: 'text', icon: Building },
                   { k: 'contactName', label: 'Contact Name *', type: 'text', icon: UserCheck },
-                  { k: 'email', label: 'Email *', type: 'email', icon: Mail },
+                  { k: 'email', label: (!selectedClient && form.recordOnly) || selectedClient?.emailIsPlaceholder ? 'Email (optional)' : 'Email *', type: 'email', icon: Mail },
                   { k: 'phone', label: 'Phone', type: 'tel', icon: Phone },
                 ].map(({ k, label, type, icon: Icon }) => (
                   <div key={k}>
@@ -646,7 +659,7 @@ export default function ClientManager() {
                         type={type}
                         value={form[k]}
                         onChange={f(k)}
-                        required={['businessName', 'contactName', 'email'].includes(k)}
+                        required={['businessName', 'contactName'].includes(k) || (k === 'email' && !(!selectedClient && form.recordOnly) && !selectedClient?.emailIsPlaceholder)}
                         className={`w-full pl-9 pr-4 py-2.5 bg-admin-bg border ${errors[k] ? 'border-red-500/50 focus:border-red-500' : 'border-outline-variant focus:border-secondary'} rounded-xl text-on-surface text-sm focus:outline-none transition-colors`}
                       />
                     </div>
@@ -655,12 +668,33 @@ export default function ClientManager() {
                 ))}
               </div>
 
+              {!selectedClient && isSuperAdmin && (
+                <div className="rounded-xl border border-outline-variant bg-admin-bg/60 px-3 py-3 space-y-2">
+                  <label className="flex items-start gap-2 cursor-pointer">
+                    <input type="checkbox" className="mt-0.5" checked={form.recordOnly}
+                      onChange={(e) => setForm((p) => ({ ...p, recordOnly: e.target.checked }))} />
+                    <span>
+                      <span className="block text-sm font-semibold text-on-surface">Record-only (past / inactive client)</span>
+                      <span className="block text-[11px] text-on-surface-variant">For keeping records of a client who is not active (e.g. stopped responding). Nothing is emailed, the client cannot log in, and email is optional. You can invite them later with “Send activation link”.</span>
+                    </span>
+                  </label>
+                  {form.recordOnly && (
+                    <div>
+                      <label className="block text-on-surface-variant text-xs font-medium mb-1.5">Onboarding date (when they started with you)</label>
+                      <input type="date" value={form.onboardingDate} max={new Date().toLocaleDateString('en-CA')}
+                        onChange={(e) => setForm((p) => ({ ...p, onboardingDate: e.target.value }))}
+                        className="w-full px-3 py-2.5 bg-admin-bg border border-outline-variant focus:border-secondary rounded-xl text-on-surface text-sm focus:outline-none" />
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* No password field: the client sets their own through an emailed link (SOP §4) */}
-              <p className="text-[11px] text-on-surface-variant rounded-lg bg-admin-bg/60 border border-outline-variant px-3 py-2">
+              {!(!selectedClient && form.recordOnly) && <p className="text-[11px] text-on-surface-variant rounded-lg bg-admin-bg/60 border border-outline-variant px-3 py-2">
                 {selectedClient
                   ? 'Passwords are never set by staff. To give the client a new password, use “Send activation / reset link” on the client’s Overview.'
                   : 'The client gets an email with a link to set their own password (valid 72 hours). No password is created or shown here.'}
-              </p>
+              </p>}
 
               <div>
                 <label className="block text-on-surface-variant text-xs font-medium mb-1.5">Lead Reference (optional)</label>

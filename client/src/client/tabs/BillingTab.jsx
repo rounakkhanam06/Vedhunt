@@ -136,9 +136,13 @@ const BillingTab = () => {
                         <IndianRupee size={12} className="text-[#D1D5DB]" />
                         {(inv.totalAmount || 0).toLocaleString('en-IN')}
                       </span>
+                      {inv.isPartiallyPaid && (
+                        <span className="block text-[11px] text-primary mt-0.5">₹{(inv.balance || 0).toLocaleString('en-IN')} due</span>
+                      )}
                     </td>
                     <td className="px-4 py-3.5 text-center">
-                      <StatusBadge status={inv.paymentStatus} />
+                      {/* Overdue wins; otherwise some money received → Partially Paid */}
+                      <StatusBadge status={inv.isPartiallyPaid && inv.paymentStatus === 'Unpaid' ? 'Partially Paid' : inv.paymentStatus} />
                     </td>
                     <td className="px-4 py-3.5 text-center">
                       <button

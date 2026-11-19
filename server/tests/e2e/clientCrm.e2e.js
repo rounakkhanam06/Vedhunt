@@ -3366,3 +3366,63 @@ describe('Financial Overview — revenue by service, risk, campaigns, ad spend v
     assert.equal(lineService(''), undefined);
   });
 });
+
+describe('record-only clients — past / ghosted clients kept for records', () => {
+  const Client = () => require('../../models/Client');
+  let rec;
+
+  test('a Super Admin can add one with no email; nothing is emailed and no activation link is made', async () => {
+    const res = await admin('POST', '/admin/clients', {
+      businessName: 'Ghosted Co', contactName: 'Old Owner', recordOnly: true, onboardingDate: '2025-04-01',
+    });
+    assert.equal(res.status, 201, JSON.stringify(res.body));
+    assert.equal(res.body.data.recordOnly, true);
+    assert.equal(res.body.data.email, '');
+    rec = await Client().findById(res.body.data._id).select('+resetPasswordToken').lean();
+    assert.equal(rec.recordOnly, true);
+    assert.equal(rec.emailIsPlaceholder, true);
+    assert.equal(rec.resetPasswordToken, undefined);
+    assert.equal(rec.activationSentAt, undefined);
+    assert.equal(new Date(rec.profile.onboardingDate).getFullYear(), 2025);
+  });
+
+  test('without recordOnly, email is still required', async () => {
+    const res = await admin('POST', '/admin/clients', { businessName: 'No Mail Co', contactName: 'Some One' });
+    assert.equal(res.status, 400);
+  });
+
+  test('the placeholder email is never shown, and the list can filter record-only clients', async () => {
+    const one = await admin('GET', `/admin/clients/${rec._id}`);
+    assert.equal(one.body.data.email, '');
+    const list = await admin('GET', '/admin/portfolio?status=recordOnly');
+    const rows = list.body.data?.clients || list.body.data?.rows || list.body.data || [];
+    const found = (Array.isArray(rows) ? rows : []).find((r) => String(r._id) === String(rec._id));
+    if (found) assert.equal(found.email, '');
+  });
+
+  test('a record-only client cannot use the portal, even with a valid token', async () => {
+    ids.rec = String(rec._id);
+    assert.equal((await asClient('rec', 'GET', '/client/dashboard')).status, 401);
+  });
+
+  test('client notifications for it are stored but never emailed', async () => {
+    const sent = [];
+    require('../../utils/sendEmail').sendEmail = async (o) => { sent.push(o); };
+    await require('../../services/clientNotify').notifyInvoiceCreated({ client_ref: rec._id, invoiceId: 'VH-INV-R', totalAmount: 100, dueDate: new Date() });
+    await new Promise((r) => setTimeout(r, 30));
+    assert.equal(sent.length, 0);
+  });
+
+  test('inviting needs a real email first; then it turns the portal on', async () => {
+    const blocked = await admin('POST', `/admin/clients/${rec._id}/send-activation`, {});
+    assert.equal(blocked.status, 409);
+    const upd = await admin('PUT', `/admin/clients/${rec._id}`, { email: 'ghosted@example.com' });
+    assert.equal(upd.status, 200, JSON.stringify(upd.body));
+    let doc = await Client().findById(rec._id).lean();
+    assert.equal(doc.emailIsPlaceholder, false);
+    assert.equal(doc.recordOnly, true); // changing the email alone does not invite them
+    await admin('POST', `/admin/clients/${rec._id}/send-activation`, {}); // mail may fail in tests (no provider)
+    doc = await Client().findById(rec._id).lean();
+    assert.equal(doc.recordOnly, false);
+  });
+});

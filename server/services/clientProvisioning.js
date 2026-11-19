@@ -45,11 +45,12 @@ async function sendActivationLink(client) {
  *
  * @returns the created Client document (with `activationEmail` = { sent, error })
  */
-async function provisionClientAccount({ businessName, contactName, email, phone, leadRef, createdBy, notes }) {
+async function provisionClientAccount({ businessName, contactName, email, phone, leadRef, createdBy, notes, recordOnly = false, onboardingDate }) {
+  const placeholder = recordOnly && !email;
   const clientData = {
     businessName,
     contactName,
-    email,
+    email: placeholder ? `record-${crypto.randomBytes(6).toString('hex')}@no-email.vedhunt.in` : email,
     phone,
     // Nobody ever learns this one: the client sets their own through the activation link
     password: crypto.randomBytes(24).toString('base64url'),
@@ -58,8 +59,15 @@ async function provisionClientAccount({ businessName, contactName, email, phone,
     createdBy
   };
   if (leadRef) clientData.leadRef = leadRef;
+  if (recordOnly) {
+    clientData.recordOnly = true;
+    clientData.emailIsPlaceholder = placeholder;
+    if (onboardingDate) clientData.profile = { onboardingDate };
+  }
 
   const client = await Client.create(clientData);
+  // Record-only: nothing is emailed; a Super Admin invites them later if they come back
+  if (recordOnly) return client;
   const withToken = await Client.findById(client._id).select('+resetPasswordToken +resetPasswordExpire');
   client.activationEmail = await sendActivationLink(withToken);
   client.activationSentAt = withToken.activationSentAt;

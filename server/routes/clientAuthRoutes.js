@@ -96,6 +96,12 @@ router.post('/login', ...loginMiddleware, async (req, res) => {
         message: 'Your account has been suspended. Please contact Vedhunt support.',
       });
     }
+    if (client.recordOnly) {
+      return res.status(401).json({
+        success: false,
+        message: 'Portal access is not enabled for this account. Please contact your Vedhunt account manager.',
+      });
+    }
 
     const accessToken = generateClientAccessToken(client._id, client.tokenVersion || 0);
     const refreshToken = generateClientRefreshToken(client._id, client.tokenVersion || 0);
@@ -153,7 +159,7 @@ router.post('/refresh', async (req, res) => {
       .select('+refreshToken')
       .lean();
 
-    if (!client || !client.isActive || !client.refreshToken) {
+    if (!client || !client.isActive || client.recordOnly || !client.refreshToken) {
       return res
         .status(401)
         .json({ success: false, message: 'Invalid refresh token' });
@@ -306,7 +312,7 @@ router.post('/forgot-password', async (req, res) => {
     }).select('+resetPasswordToken +resetPasswordExpire');
 
     // Suspended/closed accounts get the same generic answer and no email
-    if (!client || !client.isActive || client.deletedAt) {
+    if (!client || !client.isActive || client.deletedAt || client.recordOnly) {
       // Security: don't reveal whether email exists
       return res.json({
         success: true,

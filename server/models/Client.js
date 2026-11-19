@@ -48,6 +48,13 @@ const clientSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    // Record-only (client decision, Nov 2026): a past / ghosted client added by a Super Admin
+    // only to keep records — invoices, documents, logs. No activation email, no portal login,
+    // no client emails, until a Super Admin invites them (Send activation link clears it).
+    recordOnly: { type: Boolean, default: false, index: true },
+    // No real email was known when the record was made; `email` holds an internal placeholder
+    // (…@no-email.vedhunt.in) that is never mailed or shown.
+    emailIsPlaceholder: { type: Boolean, default: false },
     // ── Portfolio profile (Client Portal CRM §2–3) ─────────────────────────
     // Descriptive account data the portfolio filters, groups and shows. Status,
     // fees and payments are NOT stored here — they're derived from the linked
