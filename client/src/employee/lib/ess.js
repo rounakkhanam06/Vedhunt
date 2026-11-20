@@ -37,6 +37,7 @@ export const essKeys = {
   team: ['ess', 'team'],
   projects: ['ess', 'projects'],
   performance: ['ess', 'performance'],
+  holidays: ['ess', 'holidays'],
 };
 
 /** Permission/segment checks for the signed-in employee (same rules as the server). */
@@ -68,6 +69,9 @@ export const useEssLeads = (enabled = true) =>
 
 export const useEssToday = (enabled = true) =>
   useQuery({ queryKey: essKeys.today, queryFn: () => essGet('/today'), enabled, ...LIVE });
+
+export const useEssHolidays = () =>
+  useQuery({ queryKey: essKeys.holidays, queryFn: () => essGet('/holidays'), staleTime: 10 * 60_000, refetchOnWindowFocus: true });
 
 export const useEssTimer = () =>
   useQuery({ queryKey: essKeys.timer, queryFn: () => essGet('/timer').then((d) => d.activeTimer), staleTime: 30_000 });

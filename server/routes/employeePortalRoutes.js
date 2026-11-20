@@ -6,6 +6,7 @@ const LeaveRequest = require('../models/LeaveRequest');
 const SupportTicket = require('../models/SupportTicket');
 const Lead = require('../models/Lead');
 const Payslip = require('../models/Payslip');
+const Holiday = require('../models/Holiday');
 const { getMyNotifications, markRead, markAllRead, registerDevice } = require('../controllers/notificationController');
 const { findLeadRaw } = require('../utils/leadLookup');
 const { LEAD_UPDATE_FIELDS } = require('../utils/leadStateMachine');
@@ -300,6 +301,23 @@ router.post('/ess/attendance/clock', async (req, res) => {
     }
   } catch (error) {
     logger.error('Error clocking attendance:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// ── Holidays (read-only for every employee) ──────────────────────────────
+// Today's holiday (if any) and the next few, so employees know in advance.
+router.get('/ess/holidays', async (req, res) => {
+  try {
+    const todayStart = startOfDay(new Date());
+    const todayEnd = new Date(todayStart); todayEnd.setHours(23, 59, 59, 999);
+    const yearAhead = new Date(todayStart); yearAhead.setFullYear(yearAhead.getFullYear() + 1);
+    const list = await Holiday.find({ date: { $gte: todayStart, $lte: yearAhead } })
+      .select('date name type').sort({ date: 1 }).limit(11).lean();
+    const today = list.find((h) => new Date(h.date) <= todayEnd) || null;
+    res.json({ success: true, today, upcoming: list.filter((h) => h !== today).slice(0, 10) });
+  } catch (error) {
+    logger.error('Error fetching holidays:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });

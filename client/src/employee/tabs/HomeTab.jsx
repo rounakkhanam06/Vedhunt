@@ -1,9 +1,9 @@
 import { useNavigate } from 'react-router-dom';
 import {
-  UserPlus, PhoneCall, CalendarClock, AlertCircle, Flame, FileText, Handshake, Trophy, Users, ListTodo, CircleDashed, ChevronRight,
+  UserPlus, PhoneCall, CalendarClock, AlertCircle, Flame, FileText, Handshake, Trophy, Users, ListTodo, CircleDashed, ChevronRight, CalendarDays, PartyPopper,
 } from 'lucide-react';
 import { StatTile, LateBadge } from '../components/PortalUI';
-import { useAccess, useEssLeads, useEssToday } from '../lib/ess';
+import { useAccess, useEssLeads, useEssToday, useEssHolidays } from '../lib/ess';
 import { fmtDateTime, fmtINR } from '../lib/datetime';
 import { followUpBucket, isCallPending, needsNextAction, isWonThisMonth, leadListCounts, PIPELINE_STAGES } from '../lib/leads';
 import { taskStatusLabel } from '../../shared/taskConstants';
@@ -123,6 +123,45 @@ function LeadWidgets({ leads, isLoading, today, navigate }) {
   );
 }
 
+const fmtHoliday = (d) => new Date(d).toLocaleDateString('en-IN', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' });
+
+function HolidayBanner({ holiday }) {
+  return (
+    <div className="flex items-center gap-3 p-4 rounded-xl border border-teal-500/30 bg-teal-500/10 text-teal-400">
+      <PartyPopper size={22} className="shrink-0" />
+      <div>
+        <div className="font-bold">Today is a holiday: {holiday.name}</div>
+        <div className="text-xs opacity-80">{fmtHoliday(holiday.date)}{holiday.type === 'Restricted' ? ' · Restricted holiday' : ''}</div>
+      </div>
+    </div>
+  );
+}
+
+function UpcomingHolidays({ holidays, isLoading }) {
+  return (
+    <div className="bg-app-card p-6 rounded-xl border border-app-border space-y-3">
+      <h3 className="text-lg font-bold flex items-center gap-2"><CalendarDays size={18} className="text-primary" /> Upcoming Holidays</h3>
+      {isLoading ? (
+        <p className="text-sm text-app-text-muted">Loading…</p>
+      ) : holidays.length === 0 ? (
+        <p className="text-sm text-app-text-muted">No upcoming holidays announced.</p>
+      ) : (
+        <div className="divide-y divide-app-border">
+          {holidays.map((h) => (
+            <div key={h._id} className="py-2.5 flex justify-between items-center gap-3">
+              <div className="min-w-0">
+                <div className="text-sm font-semibold text-app-text truncate">{h.name}</div>
+                {h.type === 'Restricted' && <div className="text-[10px] uppercase font-bold text-amber-400">Restricted</div>}
+              </div>
+              <span className="text-xs text-app-text-muted shrink-0">{fmtHoliday(h.date)}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** Dashboard tab: BD lead widgets (for lead roles), today's agenda, and the personal summary. */
 export default function HomeTab({ employee }) {
   const navigate = useNavigate();
@@ -130,6 +169,8 @@ export default function HomeTab({ employee }) {
   const canViewLeads = can('leads.view');
   const { data: leads = [], isLoading: leadsLoading } = useEssLeads(canViewLeads);
   const { data: today, isLoading: todayLoading } = useEssToday();
+  const { data: holidayData, isLoading: holidaysLoading } = useEssHolidays();
+  const todayHoliday = holidayData?.today;
 
   const tasks = employee.tasks || [];
   const openTasks = tasks.filter((t) => !['Completed', 'Cancelled'].includes(t.status)).length;
@@ -139,6 +180,7 @@ export default function HomeTab({ employee }) {
 
   return (
     <div className="space-y-6">
+      {todayHoliday && <HolidayBanner holiday={todayHoliday} />}
       {canViewLeads && <LeadWidgets leads={leads} isLoading={leadsLoading} today={today} navigate={navigate} />}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -162,7 +204,7 @@ export default function HomeTab({ employee }) {
                       <LateBadge minutes={todayLog.lateByMins} />
                     )}
                   </div>
-                ) : 'Not Logged Today'}
+                ) : todayHoliday ? `Holiday · ${todayHoliday.name}` : 'Not Logged Today'}
               </div>
             </div>
           </div>
@@ -189,6 +231,7 @@ export default function HomeTab({ employee }) {
         </div>
 
         <div className="space-y-6">
+          <UpcomingHolidays holidays={holidayData?.upcoming || []} isLoading={holidaysLoading} />
           <div className="bg-app-card p-6 rounded-xl border border-app-border text-center space-y-4">
             {employee.profilePhoto ? (
               <img src={employee.profilePhoto} alt="" className="w-16 h-16 rounded-full object-cover mx-auto border border-primary/15" />
