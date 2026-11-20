@@ -1088,7 +1088,7 @@ const ESSDashboard = () => {
                   {kpiTargets.map(t => (
                     <div key={t._id} className="bg-white/[0.02] border border-white/5 rounded-xl p-4">
                       <div className="flex justify-between items-start mb-4">
-                        <div className="text-sm font-bold text-gray-300">{t.metricType}</div>
+                        <div className="text-sm font-bold text-gray-300">{t.label || t.metricType}</div>
                         <div className="text-xs text-gray-500 px-2 py-0.5 bg-white/5 rounded font-bold">wt: {t.weightage}%</div>
                       </div>
                       

@@ -229,6 +229,25 @@ export default function ClientManager() {
       toast.error(err?.response?.data?.message || 'Could not send the link');
     } finally { setSendingLink(false); }
   };
+  // Super Admin: turn an existing client into a record-only one (no login, no emails)
+  const [markingRecordOnly, setMarkingRecordOnly] = useState(false);
+  const markRecordOnly = async () => {
+    const reason = window.prompt(`Mark ${previewClient.businessName} as record-only?
+
+The client will be logged out, cannot log in, and will not get any emails. You can bring them back later with "Send activation link".
+
+Reason (optional):`, '');
+    if (reason === null) return;
+    setMarkingRecordOnly(true);
+    try {
+      const res = await http.post(`${base}/clients/${previewClient._id}/record-only`, { reason });
+      toast.success(res.data.message);
+      refreshPreview(previewClient._id);
+      fetchClients();
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Could not mark the client record-only');
+    } finally { setMarkingRecordOnly(false); }
+  };
   const refreshPreview = async (id) => {
     try {
       const res = await http.get(`${base}/clients/${id}`);
@@ -919,6 +938,10 @@ export default function ClientManager() {
                     }`}>
                       {previewClient.isTemporaryPassword ? 'Not activated yet' : 'Activated'}
                     </span>
+                    {previewClient.recordOnly && (
+                      <span className="inline-flex self-start items-center rounded-full text-[10px] font-bold px-2.5 py-0.5 bg-violet-500/10 text-violet-400 border border-violet-500/20"
+                        title="Kept for records — no portal login, no emails">Record only</span>
+                    )}
                     <p className="text-on-surface-variant text-[11px]">
                       {!previewClient.isTemporaryPassword && previewClient.activatedAt && `Since ${fmtDate(previewClient.activatedAt)}. `}
                       {previewClient.activationSentAt && `Last link sent ${fmtDate(previewClient.activationSentAt)}.`}
@@ -927,6 +950,13 @@ export default function ClientManager() {
                       <button type="button" disabled={sendingLink} onClick={sendLink}
                         className="self-start mt-0.5 px-2.5 py-1 rounded-lg border border-secondary/40 text-secondary text-[11px] font-semibold hover:bg-secondary/10 disabled:opacity-50 cursor-pointer">
                         {sendingLink ? 'Sending…' : previewClient.isTemporaryPassword ? 'Send activation link' : 'Send password reset link'}
+                      </button>
+                    )}
+                    {isSuperAdmin && !previewClient.deletedAt && !previewClient.recordOnly && (
+                      <button type="button" disabled={markingRecordOnly} onClick={markRecordOnly}
+                        title="For a client who stopped responding: blocks their login and all client emails"
+                        className="self-start px-2.5 py-1 rounded-lg border border-violet-500/40 text-violet-400 text-[11px] font-semibold hover:bg-violet-500/10 disabled:opacity-50 cursor-pointer">
+                        {markingRecordOnly ? 'Saving…' : 'Mark as record-only'}
                       </button>
                     )}
                   </div>

@@ -132,7 +132,7 @@ export default function PerformanceTab() {
             {kpiTargets.map((t) => (
               <div key={t._id} className="bg-white/[0.02] border border-app-border rounded-xl p-4">
                 <div className="flex justify-between items-start mb-4">
-                  <div className="text-sm font-bold text-app-text">{metricDefs[t.metricType]?.label || t.metricType}</div>
+                  <div className="text-sm font-bold text-app-text">{metricDefs[t.metricType]?.label || t.label || t.metricType}</div>
                   <div className="text-xs text-app-text-muted px-2 py-0.5 bg-app-border/20 rounded font-bold">wt: {t.weightage}%</div>
                 </div>
                 <div className="flex justify-between items-end mb-2">

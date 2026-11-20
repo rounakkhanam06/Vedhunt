@@ -1,7 +1,81 @@
 import { useState, useEffect, useCallback } from 'react';
 import { usePageAccess } from '../../shared/crmAccess';
 import toast from 'react-hot-toast';
-import { Target, Plus, Trash2, AlertCircle, CheckCircle, Info } from 'lucide-react';
+import { Target, Plus, Trash2, AlertCircle, CheckCircle, Info, Sparkles } from 'lucide-react';
+
+const fieldClass = 'w-full text-sm rounded-lg border border-app-border bg-form-input-bg px-3 py-2 text-app-text placeholder-app-text-muted focus:outline-none focus:ring-1 focus:ring-orange-500';
+
+/** Admin-defined KPIs for designations the built-in list doesn't cover (services/kpiMetrics.js on the server). */
+function CustomKpiPanel({ http, root, metricDefs, units, canEdit, onChanged }) {
+  const [form, setForm] = useState({ label: '', unit: 'count', lowerIsBetter: false });
+  const [busy, setBusy] = useState(false);
+  const custom = Object.entries(metricDefs).filter(([, d]) => d.custom && !d.archived);
+
+  const create = async (e) => {
+    e.preventDefault();
+    if (form.label.trim().length < 2) { toast.error('Enter a KPI name.'); return; }
+    setBusy(true);
+    try {
+      await http.post(`${root}/performance/custom-metrics`, form);
+      toast.success(`Custom KPI "${form.label.trim()}" created. Pick it under Metric Type.`);
+      setForm({ label: '', unit: 'count', lowerIsBetter: false });
+      onChanged();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to create the KPI.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const remove = async (key, label) => {
+    if (!window.confirm(`Remove "${label}"? It won't be offered for new KPIs. Employees who already have it keep it.`)) return;
+    try {
+      await http.delete(`${root}/performance/custom-metrics/${key}`);
+      toast.success('Custom KPI removed.');
+      onChanged();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to remove the KPI.');
+    }
+  };
+
+  return (
+    <div className="bg-app-card border border-app-border rounded-2xl p-5 space-y-3">
+      <div>
+        <h3 className="font-bold text-sm text-app-text-muted uppercase tracking-wider flex items-center gap-2"><Sparkles size={14} className="text-orange-400" /> Custom KPIs</h3>
+        <p className="text-xs text-app-text-muted mt-1">Create your own KPI for any designation (e.g. Designs Delivered, GST Filings On Time). It counts in the KPI score; the manager enters the achieved value in the Performance Matrix.</p>
+      </div>
+      {custom.length > 0 && (
+        <ul className="divide-y divide-app-border border border-app-border rounded-lg">
+          {custom.map(([key, d]) => (
+            <li key={key} className="flex items-center justify-between gap-2 px-3 py-2 text-sm">
+              <span className="min-w-0 truncate">{d.label} <span className="text-[11px] text-app-text-muted">({d.unit}{d.lowerIsBetter ? ', lower is better' : ''})</span></span>
+              {canEdit && (
+                <button type="button" onClick={() => remove(key, d.label)} aria-label={`Remove ${d.label}`} className="text-rose-400 hover:text-rose-300 cursor-pointer shrink-0"><Trash2 size={13} /></button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      {canEdit && (
+        <form onSubmit={create} className="space-y-2">
+          <input value={form.label} maxLength={60} placeholder="KPI name, e.g. Designs Delivered" onChange={(e) => setForm({ ...form, label: e.target.value })} className={fieldClass} />
+          <div className="grid grid-cols-2 gap-2">
+            <select value={form.unit} aria-label="Unit" onChange={(e) => setForm({ ...form, unit: e.target.value })} className={fieldClass}>
+              {units.map((u) => <option key={u} value={u}>{u}</option>)}
+            </select>
+            <label className="flex items-center gap-2 text-xs text-app-text cursor-pointer">
+              <input type="checkbox" checked={form.lowerIsBetter} onChange={(e) => setForm({ ...form, lowerIsBetter: e.target.checked })} />
+              Lower is better
+            </label>
+          </div>
+          <button type="submit" disabled={busy} className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-orange-500/10 text-orange-400 hover:bg-orange-500/20 text-xs font-bold border border-orange-500/20 cursor-pointer disabled:opacity-50">
+            <Plus size={14} /> {busy ? 'Creating…' : 'Create Custom KPI'}
+          </button>
+        </form>
+      )}
+    </div>
+  );
+}
 
 const emptyKPI = () => ({ metricType: 'Revenue', targetValue: '', weightage: '' });
 
@@ -14,6 +88,7 @@ const PerformanceGoalAssigner = () => {
   const [metricTypes, setMetricTypes] = useState([]);
   // Labels/units/source come from the server's KPI catalog (models/KPITarget.js)
   const [metricDefs, setMetricDefs] = useState({});
+  const [units, setUnits] = useState([]);
 
   const [selectedCycle, setSelectedCycle] = useState('');
   const [selectedEmployee, setSelectedEmployee] = useState('');
@@ -39,6 +114,7 @@ const PerformanceGoalAssigner = () => {
         setPresets(presetRes.data.presets || {});
         setMetricTypes(presetRes.data.metricTypes || []);
         setMetricDefs(presetRes.data.metricDefs || {});
+        setUnits(presetRes.data.units || []);
 
         // Auto-select active cycle
         const active = cycleRes.data.cycles?.find(c => c.status === 'Active');
@@ -151,6 +227,13 @@ const PerformanceGoalAssigner = () => {
   }
 
   const selectedEmpObj = employees.find(e => e._id === selectedEmployee);
+  const canEdit = allowed('performance.manage', 'performance', 'edit');
+
+  // Re-read the catalog after a custom KPI is created or removed
+  const reloadMetrics = () => http.get(`${root}/performance/presets`).then((r) => {
+    setMetricTypes(r.data.metricTypes || []);
+    setMetricDefs(r.data.metricDefs || {});
+  }).catch(() => {});
 
   return (
     <div className="text-app-text space-y-6">
@@ -223,6 +306,8 @@ const PerformanceGoalAssigner = () => {
             </div>
           </div>
 
+          <CustomKpiPanel http={http} root={root} metricDefs={metricDefs} units={units} canEdit={canEdit} onChanged={reloadMetrics} />
+
           {/* Employee Info */}
           {selectedEmpObj && (
             <div className="bg-app-card border border-app-border rounded-2xl p-5">
@@ -292,8 +377,8 @@ const PerformanceGoalAssigner = () => {
                     onChange={e => handleKPIChange(idx, 'metricType', e.target.value)}
                     className="w-full text-sm rounded-lg border border-app-border bg-form-input-bg px-3 py-2 text-app-text focus:outline-none focus:ring-1 focus:ring-orange-500"
                   >
-                    {metricTypes.map(m => (
-                      <option key={m} value={m}>{metricDefs[m]?.label || m}</option>
+                    {(metricTypes.includes(kpi.metricType) ? metricTypes : [...metricTypes, kpi.metricType]).map(m => (
+                      <option key={m} value={m}>{metricDefs[m]?.label || m}{metricDefs[m]?.custom ? ' (custom)' : ''}</option>
                     ))}
                   </select>
                   <div className="flex items-center gap-1 mt-1.5 text-[10px] text-app-text-muted">

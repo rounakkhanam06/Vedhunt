@@ -668,6 +668,28 @@ router.post('/clients/:id/logo', crm('clients', 'edit'), (req, res, next) => {
   });
 });
 
+// ─── Mark an existing client record-only (Super Admin) ──────────────────────
+// For clients created before the record-only option existed, or who stopped responding later.
+// Same effect as creating them record-only: portal login and any open session stop at once
+// (auth checks recordOnly), and no client emails go out. Undo = "Send activation link".
+router.post('/clients/:id/record-only', crm('clients', 'edit'), async (req, res) => {
+  try {
+    if (!req.user?.permissions?.includes('*')) return res.status(403).json({ success: false, message: 'Only a Super Admin can mark a client record-only.' });
+    if (!isValidId(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid client ID' });
+    if (!clientAllowed(req, req.params.id)) return outOfScope(res, 'Client');
+    const client = await Client.findById(req.params.id).select('clientId recordOnly deletedAt').lean();
+    if (!client || client.deletedAt) return outOfScope(res, 'Client');
+    if (client.recordOnly) return res.status(409).json({ success: false, message: 'This client is already record-only.' });
+    const reason = String(req.body?.reason || '').trim().slice(0, 300);
+    await Client.updateOne({ _id: client._id }, { $set: { recordOnly: true }, $unset: { refreshToken: 1 } });
+    await recordAudit(req, 'CLIENT_MARKED_RECORD_ONLY', 'Client', client.clientId, { recordOnly: false }, { recordOnly: true, ...(reason && { reason }) });
+    res.json({ success: true, message: 'Marked record-only. The client can no longer log in and will not get emails. Use “Send activation link” to bring them back.' });
+  } catch (error) {
+    logger.error('Mark record-only error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
 // ─── Activation / reset link (SOP §4: no password by email, none shown to staff) ──
 
 router.post('/clients/:id/send-activation', crm('clients', 'edit'), async (req, res) => {

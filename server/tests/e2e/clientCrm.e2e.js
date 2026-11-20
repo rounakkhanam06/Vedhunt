@@ -3427,4 +3427,32 @@ describe('record-only clients — past / ghosted clients kept for records', () =
     doc = await Client().findById(rec._id).lean();
     assert.equal(doc.recordOnly, false);
   });
+
+  test('an existing client can be marked record-only by a Super Admin only; it blocks the portal and is audited', async () => {
+    const made = await admin('POST', '/admin/clients', { businessName: 'Went Quiet Co', contactName: 'Was Active', email: 'quiet@example.com' });
+    assert.equal(made.status, 201, JSON.stringify(made.body));
+    ids.quiet = String(made.body.data._id);
+    await Client().updateOne({ _id: ids.quiet }, { $set: { refreshToken: 'some-token' } });
+
+    const Role = require('../../models/Role');
+    const Admin = require('../../models/Admin');
+    const role = await Role.create({ name: 'CRM_E2E_RECORDONLY', permissions: ['cms.manage'] });
+    const a = await Admin.create({ firstName: 'Crm', lastName: 'Staff', email: 'crm-recordonly@e2e.test', password: 'Passw0rd!e2e', roles: [role._id] });
+    const crmToken = jwt.sign({ id: a._id }, JWT_SECRET, { expiresIn: '1h' });
+    assert.equal((await request(crmToken, 'POST', `/admin/clients/${ids.quiet}/record-only`, {})).status, 403);
+
+    const res = await admin('POST', `/admin/clients/${ids.quiet}/record-only`, { reason: 'Stopped responding' });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    const doc = await Client().findById(ids.quiet).select('+refreshToken').lean();
+    assert.equal(doc.recordOnly, true);
+    assert.equal(doc.refreshToken, undefined);
+    assert.equal((await asClient('quiet', 'GET', '/client/dashboard')).status, 401);
+    const audit = await require('../../models/AuditLog').findOne({ action: 'CLIENT_MARKED_RECORD_ONLY', recordId: doc.clientId }).lean();
+    assert.ok(audit, 'audit entry written');
+
+    assert.equal((await admin('POST', `/admin/clients/${ids.quiet}/record-only`, {})).status, 409);
+    // Undo: the activation link turns the portal back on (real email already present)
+    await admin('POST', `/admin/clients/${ids.quiet}/send-activation`, {});
+    assert.equal((await Client().findById(ids.quiet).lean()).recordOnly, false);
+  });
 });

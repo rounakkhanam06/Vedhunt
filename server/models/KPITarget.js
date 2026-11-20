@@ -23,10 +23,11 @@ const METRIC_DEFS = {
 };
 const METRIC_TYPES = Object.keys(METRIC_DEFS);
 
-/** Achievement % for one KPI; lower-is-better metrics score target ÷ actual (0 until there's data). */
-function achievementPct(metricType, targetValue, actualValue) {
+/** Achievement % for one KPI; lower-is-better metrics score target ÷ actual (0 until there's data).
+ *  `lowerIsBetter` is passed for custom KPIs (services/kpiMetrics.js); built-ins use METRIC_DEFS. */
+function achievementPct(metricType, targetValue, actualValue, lowerIsBetter) {
   let pct = 0;
-  if (METRIC_DEFS[metricType]?.lowerIsBetter) pct = actualValue > 0 ? (targetValue / actualValue) * 100 : 0;
+  if (METRIC_DEFS[metricType]?.lowerIsBetter ?? lowerIsBetter) pct = actualValue > 0 ? (targetValue / actualValue) * 100 : 0;
   else if (targetValue > 0) pct = (actualValue / targetValue) * 100;
   return parseFloat(pct.toFixed(2));
 }
@@ -71,11 +72,14 @@ const kpiTargetSchema = new mongoose.Schema(
     },
 
     // ── KPI Definition ──────────────────────────────────────────────────────
+    // A built-in METRIC_TYPES key, or a custom KPI key ('custom_…') — validated by the route
     metricType: {
       type: String,
-      enum: METRIC_TYPES,
       required: true
     },
+    // Copied from the metric when assigned, so the name and scoring stay even if a custom KPI is removed later
+    label: { type: String, trim: true },
+    lowerIsBetter: { type: Boolean, default: false },
     targetValue: {
       type: Number,
       required: true,
@@ -130,7 +134,7 @@ kpiTargetSchema.index({ employeeId: 1 });
 
 // Pre-save: auto-compute achievementPct and weightedScore
 kpiTargetSchema.pre('save', function () {
-  this.achievementPct = achievementPct(this.metricType, this.targetValue, this.actualValue);
+  this.achievementPct = achievementPct(this.metricType, this.targetValue, this.actualValue, this.lowerIsBetter);
   this.weightedScore = parseFloat((this.achievementPct * (this.weightage / 100)).toFixed(2));
 });
 

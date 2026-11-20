@@ -28,7 +28,8 @@ const scoped = express.Router();
 const perf = (action) => requirePageAccess('performance', action);
 const notFound = (res, what) => res.status(404).json({ success: false, message: `${what} not found.` });
 
-const { METRIC_TYPES, ROLE_PRESETS, METRIC_DEFS } = require('../models/KPITarget');
+const { ROLE_PRESETS } = require('../models/KPITarget');
+const kpiMetrics = require('../services/kpiMetrics');
 const { getBand } = require('../models/PerformanceReview');
 
 // ─── Helper: Recompute finalScore + band + rank for a cycle ────────────────
@@ -135,8 +136,39 @@ router.put('/cycles/:id', requirePermission('performance.manage'), async (req, r
 // ════════════════════════════════════════════════════════════════
 
 // GET /api/performance/presets — return role presets + metric types
-scoped.get('/presets', perf('view'), (req, res) => {
-  res.json({ success: true, presets: ROLE_PRESETS, metricTypes: METRIC_TYPES, metricDefs: METRIC_DEFS });
+scoped.get('/presets', perf('view'), async (req, res) => {
+  try {
+    const metricDefs = await kpiMetrics.getMetricDefs();
+    res.json({ success: true, presets: ROLE_PRESETS, metricTypes: kpiMetrics.selectableTypes(metricDefs), metricDefs, units: kpiMetrics.UNITS });
+  } catch (err) {
+    logger.error('Error loading KPI presets:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// Custom KPIs — admin-defined metrics for designations the built-in list doesn't cover.
+// Always manual (actual entered by the manager); counted in the KPI score like the others.
+scoped.post('/custom-metrics', perf('edit'), async (req, res) => {
+  try {
+    const result = await kpiMetrics.createCustom(req.body || {});
+    if (result.error) return res.status(400).json({ success: false, message: result.error });
+    res.status(201).json({ success: true, metric: result.metric });
+  } catch (err) {
+    logger.error('Error creating custom KPI:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// Remove = archive: no longer offered for new KPIs; KPIs already assigned keep working
+scoped.delete('/custom-metrics/:key', perf('edit'), async (req, res) => {
+  try {
+    const result = await kpiMetrics.archiveCustom(req.params.key);
+    if (result.error) return res.status(404).json({ success: false, message: result.error });
+    res.json({ success: true });
+  } catch (err) {
+    logger.error('Error removing custom KPI:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
 });
 
 // ════════════════════════════════════════════════════════════════
@@ -168,10 +200,13 @@ scoped.post('/targets', perf('edit'), async (req, res) => {
       return res.status(400).json({ success: false, message: `Total weightage must equal 100%. Current total: ${totalWeight}%` });
     }
 
-    // Validate metric types
+    // Validate metric types (built-in or custom; an archived custom KPI may stay if already assigned)
+    const metricDefs = await kpiMetrics.getMetricDefs();
+    const assignedBefore = new Set((await KPITarget.find({ cycleId, employeeId }).select('metricType').lean()).map((t) => t.metricType));
     for (const kpi of kpis) {
-      if (!METRIC_TYPES.includes(kpi.metricType)) {
-        return res.status(400).json({ success: false, message: `Invalid metricType: ${kpi.metricType}` });
+      const def = metricDefs[kpi.metricType];
+      if (!def || (def.archived && !assignedBefore.has(kpi.metricType))) {
+        return res.status(400).json({ success: false, message: `Invalid KPI: ${kpi.metricType}` });
       }
     }
 
@@ -183,9 +218,11 @@ scoped.post('/targets', perf('edit'), async (req, res) => {
         cycleId,
         employeeId,
         metricType: k.metricType,
+        label: metricDefs[k.metricType].label,
+        lowerIsBetter: Boolean(metricDefs[k.metricType].lowerIsBetter),
         targetValue: Number(k.targetValue),
         weightage: Number(k.weightage),
-        unit: k.unit || '',
+        unit: metricDefs[k.metricType].unit || k.unit || '',
         actualValue: 0,
         autoFilled: false
       }))
@@ -258,7 +295,7 @@ scoped.put('/targets/:id/manual-actual', perf('edit'), async (req, res) => {
     }
     const target = mongoose.Types.ObjectId.isValid(req.params.id) ? await KPITarget.findById(req.params.id) : null;
     if (!target || !employeeInScope(await scopedEmployeeIds(req), target.employeeId)) return res.status(404).json({ success: false, message: 'KPI target not found.' });
-    if (METRIC_DEFS[target.metricType]?.auto) {
+    if ((await kpiMetrics.getMetricDefs())[target.metricType]?.auto) {
       return res.status(400).json({ success: false, message: `${target.metricType} is synced automatically — use "Sync actuals" instead.` });
     }
 
@@ -519,7 +556,7 @@ router.get('/scorecard/me/:cycleId', async (req, res) => {
       .populate('managerReview.reviewedBy', 'firstName lastName');
     const cycle  = await PerformanceCycle.findById(req.params.cycleId);
 
-    res.json({ success: true, targets, review, cycle, metricDefs: METRIC_DEFS });
+    res.json({ success: true, targets, review, cycle, metricDefs: await kpiMetrics.getMetricDefs() });
   } catch (err) {
     logger.error('Error fetching scorecard:', err);
     res.status(500).json({ success: false, message: 'Server error' });

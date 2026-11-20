@@ -383,7 +383,7 @@ const CompanyPerformanceMatrix = () => {
                               {targets.map(t => (
                                 <div key={t._id} className="bg-app-card rounded-xl p-3 border border-app-border">
                                   <div className="text-xs text-app-text-muted mb-1">
-                                    {metricDefs[t.metricType]?.label || t.metricType}
+                                    {metricDefs[t.metricType]?.label || t.label || t.metricType}
                                     {metricDefs[t.metricType]?.lowerIsBetter && <span className="ml-1 text-[10px]">(lower is better)</span>}
                                   </div>
                                   <div className="flex justify-between items-end">
