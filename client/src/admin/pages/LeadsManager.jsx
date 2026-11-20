@@ -1161,6 +1161,12 @@ export default function LeadsManager({ stageGroup }) {
                               className="border border-white/5 bg-white/[0.02] hover:border-app-border focus:border-primary px-2 py-1 rounded w-full focus:outline-none cursor-pointer text-xs"
                             >
                               <option className="bg-app-bg text-app-text" value="">Unassigned</option>
+                              {/* Owner no longer in the active BD list (deactivated): show them, not a false "Unassigned" */}
+                              {lead.assignedTo?._id && !bds.some((bd) => bd._id === lead.assignedTo._id) && (
+                                <option className="bg-app-bg text-app-text" value={lead.assignedTo._id} disabled>
+                                  {displayName(lead.assignedTo)} (inactive)
+                                </option>
+                              )}
                               {bds.map((bd) => (
                                 <option key={bd._id} className="bg-app-bg text-app-text" value={bd._id}>
                                   {bd.firstName} {bd.lastName}

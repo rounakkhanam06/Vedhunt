@@ -251,4 +251,33 @@ async function autoAssignLead(lead) {
   }
 }
 
-module.exports = { getBDERole, assignableAdminFilter, autoAssignPoolFilter,activeLeadCount, applyAssignment, manualAssign, autoAssignLead, TERMINAL_STATUSES };
+/**
+ * Open leads (not Won / Lost / Dropped) owned by a deactivated account go back to Unassigned,
+ * so they reach the Unassigned queue and filter instead of sitting with someone who can't log in.
+ * Closed leads keep their owner for history and credit. Each release is in the Assignment Log.
+ * Called when an account is deactivated, and every 15 minutes as a safety net (which also
+ * picks up accounts deactivated before this existed). Pass `adminId` to limit it to one account.
+ */
+async function releaseLeadsOfInactiveOwners({ adminId = null, assignedBy = null } = {}) {
+  const Lead = require('../models/Lead');
+  const inactiveIds = adminId
+    ? [new mongoose.Types.ObjectId(String(adminId))]
+    : (await Admin.find({ isActive: false }).select('_id').lean()).map((a) => a._id);
+  if (!inactiveIds.length) return { released: 0 };
+  const leads = await Lead.collection.find(
+    { assignedTo: { $in: inactiveIds }, status: { $nin: TERMINAL_STATUSES } },
+    { projection: { _id: 1, assignedTo: 1, fullName: 1, service: 1, platform: 1 } },
+  ).toArray();
+  let released = 0;
+  for (const lead of leads) {
+    try {
+      await applyAssignment(lead, { toAdmin: null, assignedBy, mode: 'Manual', reason: 'Owner account deactivated — returned to Unassigned' });
+      released += 1;
+    } catch (err) {
+      logger.error(`Could not release lead ${lead._id} of an inactive owner:`, err);
+    }
+  }
+  return { released };
+}
+
+module.exports = { releaseLeadsOfInactiveOwners, getBDERole, assignableAdminFilter, autoAssignPoolFilter,activeLeadCount, applyAssignment, manualAssign, autoAssignLead, TERMINAL_STATUSES };

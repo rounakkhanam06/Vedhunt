@@ -176,6 +176,13 @@ const startCronJobs = () => {
   // 6. Check for Unassigned Lead SLA breaches (Every 15 mins)
   cron.schedule('*/15 * * * *', async () => {
     try {
+      // Safety net: open leads still owned by deactivated accounts go back to Unassigned
+      const { released } = await require('./leadAssignment').releaseLeadsOfInactiveOwners();
+      if (released) logger.info(`Returned ${released} open lead(s) of deactivated accounts to Unassigned.`);
+    } catch (err) {
+      logger.error('Releasing leads of deactivated accounts failed:', err);
+    }
+    try {
       const Lead = require('../models/Lead');
       const Notification = require('../models/Notification');
       const Admin = require('../models/Admin');
