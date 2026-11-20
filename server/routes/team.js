@@ -182,6 +182,10 @@ router.put('/:id', requirePermission('team.manage'), async (req, res) => {
     }
 
     await admin.save({ validateBeforeSave: false });
+    // Deactivated: their open leads go back to Unassigned (closed ones keep the owner)
+    if (isActive === false) {
+      await require('../services/leadAssignment').releaseLeadsOfInactiveOwners({ adminId: admin._id, assignedBy: req.user._id });
+    }
 
     const populatedAdmin = await Admin.findById(admin._id).select('-password').populate('roles');
 

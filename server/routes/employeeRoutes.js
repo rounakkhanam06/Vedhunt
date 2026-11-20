@@ -824,6 +824,10 @@ scoped.put('/:id', employeeEditGuard, async (req, res) => {
           admin.refreshToken = undefined;
         }
         await admin.save();
+        // Deactivated: their open leads go back to Unassigned (closed ones keep the owner)
+        if (isActive === false) {
+          await require('../services/leadAssignment').releaseLeadsOfInactiveOwners({ adminId: admin._id, assignedBy: req.user._id });
+        }
       }
     }
 

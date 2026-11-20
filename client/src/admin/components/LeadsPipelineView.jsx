@@ -273,6 +273,9 @@ export default function LeadsPipelineView({
                                className="bg-app-bg border border-app-border rounded px-1.5 py-1 text-app-text focus:outline-none focus:border-primary cursor-pointer w-[100px] truncate"
                              >
                                <option value="">Unassigned</option>
+                               {(lead.assignedTo?._id || lead.assignedTo) && !bds?.some((bd) => bd._id === (lead.assignedTo?._id || lead.assignedTo)) && (
+                                 <option value={lead.assignedTo?._id || lead.assignedTo} disabled>{lead.bd || 'Previous owner'} (inactive)</option>
+                               )}
                                {bds?.map(bd => (
                                  <option key={bd._id} value={bd._id}>{bd.firstName} {bd.lastName}</option>
                                ))}
