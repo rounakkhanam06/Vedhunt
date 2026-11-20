@@ -1107,6 +1107,25 @@ const EmployeeManager = () => {
         )}
       </div>
 
+      {/* Head count: login access active vs deactivated */}
+      {!isLoading && employees.length > 0 && (() => {
+        const active = employees.filter((e) => e.adminId?.isActive).length;
+        return (
+          <div className="grid grid-cols-3 gap-3 sm:max-w-xl">
+            {[
+              { label: 'Total Head Count', value: employees.length, tone: 'text-app-text' },
+              { label: 'Active', value: active, tone: 'text-emerald-400' },
+              { label: 'Inactive', value: employees.length - active, tone: 'text-rose-400' },
+            ].map((t) => (
+              <div key={t.label} className="bg-app-card p-4 rounded-xl border border-app-border">
+                <div className="text-[11px] uppercase tracking-wider text-app-text-muted">{t.label}</div>
+                <div className={`text-2xl font-extrabold mt-1 ${t.tone}`}>{t.value}</div>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
+
       {/* Employee Portal Login Guidance Banner */}
       <div className="p-4 rounded-xl border border-blue-500/20 bg-blue-500/5 dark:bg-blue-950/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-start gap-3">

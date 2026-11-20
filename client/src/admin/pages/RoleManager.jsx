@@ -78,6 +78,7 @@ const RoleManager = () => {
       setEditingRole(role);
       setFormData({
         name: role.name,
+        label: role.label || role.name.replace(/_/g, ' '),
         description: role.description || '',
         permissions: role.permissions || [],
         isEmployeeRole: Boolean(role.isEmployeeRole),
@@ -88,6 +89,7 @@ const RoleManager = () => {
       setEditingRole(null);
       setFormData({
         name: '',
+        label: '',
         description: '',
         permissions: [],
         isEmployeeRole: false,
@@ -234,7 +236,7 @@ const RoleManager = () => {
                         <Shield className="text-primary" size={18} />
                         <div>
                           <div className="text-app-text font-medium flex items-center gap-2">
-                            {role.name}
+                            {role.label || role.name}
                             {role.isSystem && (
                               <span className="px-1.5 py-0.5 rounded text-[10px] bg-red-500/10 text-red-400 border border-red-500/20 uppercase">System</span>
                             )}
@@ -325,8 +327,9 @@ const RoleManager = () => {
                     required
                     placeholder="e.g. Sales Manager"
                     className={inputClasses}
-                    value={formData.name}
-                    onChange={(e) => setFormData({...formData, name: e.target.value.toUpperCase()})}
+                    value={formData.label ?? formData.name}
+                    // Shown exactly as typed; the server derives the uppercase code name on create
+                    onChange={(e) => setFormData({ ...formData, label: e.target.value, ...(editingRole ? {} : { name: e.target.value }) })}
                   />
                 </div>
 

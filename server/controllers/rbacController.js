@@ -36,7 +36,9 @@ exports.createRole = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Role name is required' });
     }
 
-    const roleExists = await Role.findOne({ name: name.toUpperCase() });
+    // `name` is the fixed code (e.g. SALES_MANAGER); `label` keeps the text as typed
+    const code = String(name).trim().toUpperCase().replace(/\s+/g, '_');
+    const roleExists = await Role.findOne({ name: { $in: [code, String(name).trim().toUpperCase()] } });
     if (roleExists) {
       return res.status(400).json({ success: false, message: 'Role already exists' });
     }
@@ -59,8 +61,8 @@ exports.createRole = async (req, res) => {
     const isEmployeeRole = Boolean(req.body.isEmployeeRole) && !finalPermissions.includes('*');
 
     const role = await Role.create({
-      name: name.toUpperCase(),
-      label: req.body.label || name,
+      name: code,
+      label: String(req.body.label || name).trim(),
       description,
       permissions: finalPermissions,
       isEmployeeRole,

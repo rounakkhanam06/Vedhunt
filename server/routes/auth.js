@@ -251,7 +251,7 @@ router.put('/resetpassword/:resettoken', async (req, res) => {
     admin.password = req.body.password;
     admin.resetPasswordToken = undefined;
     admin.resetPasswordExpire = undefined;
-    await admin.save();
+    await admin.save({ validateModifiedOnly: true }); // unrelated stale fields must not block a password change
 
     // A password the person chose themselves must never sit readable in the
     // HR vault (that field is only for admin-issued temporary passwords)
@@ -305,34 +305,39 @@ router.post('/logout', authMiddleware, async (req, res) => {
 router.put('/profile', authMiddleware, async (req, res) => {
   try {
     const { firstName, lastName, email } = req.body;
-    const admin = await Admin.findById(req.user._id);
+    const admin = await Admin.findById(req.user._id).select('firstName lastName email').lean();
     if (!admin) {
       return res.status(404).json({ success: false, message: 'Admin account not found' });
     }
 
-    if (firstName) admin.firstName = firstName.trim();
-    if (lastName) admin.lastName = lastName.trim();
+    // Only these three fields change. Saving the whole account would re-validate
+    // unrelated stored data (old page grants etc.) and fail with a server error.
+    const updates = {};
+    if (typeof firstName === 'string' && firstName.trim()) updates.firstName = firstName.trim();
+    if (typeof lastName === 'string' && lastName.trim()) updates.lastName = lastName.trim();
 
-    if (email && email.trim().toLowerCase() !== admin.email) {
+    if (typeof email === 'string' && email.trim()) {
       const emailLower = email.trim().toLowerCase();
-      const existing = await Admin.findOne({ email: emailLower, _id: { $ne: admin._id } });
-      if (existing) {
-        return res.status(400).json({ success: false, message: 'This email is already in use by another account.' });
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailLower)) {
+        return res.status(400).json({ success: false, message: 'Please enter a valid email address.' });
       }
-      admin.email = emailLower;
+      if (emailLower !== admin.email) {
+        const [adminClash, employeeClash] = await Promise.all([
+          Admin.exists({ email: emailLower, _id: { $ne: admin._id } }),
+          Employee.exists({ email: emailLower, adminId: { $ne: admin._id } }),
+        ]);
+        if (adminClash || employeeClash) {
+          return res.status(400).json({ success: false, message: 'This email is already in use by another account.' });
+        }
+        updates.email = emailLower;
+      }
     }
 
-    await admin.save();
-
-    // If linked to Employee profile, keep Employee names/email in sync
-    await Employee.findOneAndUpdate(
-      { adminId: admin._id },
-      {
-        firstName: admin.firstName,
-        lastName: admin.lastName,
-        email: admin.email
-      }
-    );
+    if (Object.keys(updates).length) {
+      await Admin.updateOne({ _id: admin._id }, { $set: updates });
+      // Keep the linked Employee profile (if any) in sync
+      await Employee.updateOne({ adminId: admin._id }, { $set: updates });
+    }
 
     const populatedAdmin = await Admin.findById(admin._id).populate('roles');
 
@@ -359,7 +364,10 @@ router.put('/profile', authMiddleware, async (req, res) => {
     });
   } catch (error) {
     logger.error('Error updating admin profile:', error);
-    res.status(500).json({ success: false, message: 'Server error' });
+    if (error?.code === 11000) {
+      return res.status(400).json({ success: false, message: 'This email is already in use by another account.' });
+    }
+    res.status(500).json({ success: false, message: 'Could not update the profile. Please try again.' });
   }
 });
 
@@ -390,7 +398,7 @@ router.put('/password', authMiddleware, async (req, res) => {
 
     admin.password = newPassword;
     admin.isTemporaryPassword = false;
-    await admin.save();
+    await admin.save({ validateModifiedOnly: true });
 
     // Chosen by the person themselves — clear the HR vault instead of filling it
     await Employee.updateOne({ adminId: req.user._id }, { $unset: { tempPassword: 1 } });
@@ -425,7 +433,7 @@ router.post('/reset-temp-password', authMiddleware, async (req, res) => {
 
     admin.password = newPassword;
     admin.isTemporaryPassword = false;
-    await admin.save();
+    await admin.save({ validateModifiedOnly: true });
 
     // Chosen by the person themselves — clear the HR vault, same as PUT /password
     await Employee.updateOne({ adminId: req.user._id }, { $unset: { tempPassword: 1 } });
