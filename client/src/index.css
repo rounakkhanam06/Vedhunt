@@ -472,3 +472,9 @@ input[type="password"]::-ms-clear {
   display: none;
 }
 
+
+/* While a popup is open (shared/useAutoModalScrollLock.js) the page behind it does not scroll */
+html.modal-scroll-locked,
+html.modal-scroll-locked body {
+  overflow: hidden;
+}

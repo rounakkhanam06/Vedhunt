@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
-import { Loader, Users, Download, ExternalLink, Eye, EyeOff, X } from 'lucide-react';
+import { Loader, Users, Download, ExternalLink, Eye, EyeOff, X, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function ApplicationManager() {
@@ -31,6 +31,20 @@ export default function ApplicationManager() {
       console.error(error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Permanently remove an application (e.g. test submissions); the resume file goes too
+  const handleDelete = async (app) => {
+    if (!window.confirm(`Delete the application from ${app.fullName} (${app.email})?
+
+This removes it and the resume permanently.`)) return;
+    try {
+      await api.delete(`/applications/${app._id}`);
+      setApplications(prev => prev.filter(a => a._id !== app._id));
+      toast.success('Application deleted');
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to delete the application');
     }
   };
 
@@ -225,7 +239,13 @@ export default function ApplicationManager() {
               {applications.map((app) => (
                 <tr key={app._id} className="hover:bg-app-bg/60 transition-colors">
                   <td className="px-6 py-4 text-sm text-app-text font-medium whitespace-nowrap">
-                    {app.fullName}
+                    <div className="flex items-center gap-2">
+                      <button type="button" onClick={() => handleDelete(app)} title="Delete application" aria-label={`Delete application from ${app.fullName}`}
+                        className="p-1 rounded text-rose-400/70 hover:text-rose-400 hover:bg-rose-500/10 cursor-pointer">
+                        <Trash2 size={14} />
+                      </button>
+                      {app.fullName}
+                    </div>
                   </td>
                   <td className="px-6 py-4 text-sm text-app-text-muted whitespace-nowrap">
                     {app.email}

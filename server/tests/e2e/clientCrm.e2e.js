@@ -3456,3 +3456,21 @@ describe('record-only clients — past / ghosted clients kept for records', () =
     assert.equal((await Client().findById(ids.quiet).lean()).recordOnly, false);
   });
 });
+
+describe('career applications — admin can delete test submissions', () => {
+  test('delete removes the application and writes an audit entry; needs admin auth', async () => {
+    const Application = require('../../models/Application');
+    const { insertedId } = await Application.collection.insertOne({
+      jobId: new mongoose.Types.ObjectId(), fullName: 'Test Candidate', email: 'candidate@e2e.test', phone: '9000000000',
+      experienceYears: '1', resumeUrl: '/uploads/private/resumes/does-not-exist.pdf', status: 'Pending', createdAt: new Date(),
+    });
+    const appDoc = { _id: insertedId };
+    assert.equal((await request(null, 'DELETE', `/applications/${appDoc._id}`)).status, 401);
+    const res = await admin('DELETE', `/applications/${appDoc._id}`);
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.equal(await Application.countDocuments({ _id: appDoc._id }), 0);
+    const audit = await require('../../models/AuditLog').findOne({ action: 'APPLICATION_DELETED', recordId: String(appDoc._id) }).lean();
+    assert.equal(audit?.beforeSnapshot?.email, 'candidate@e2e.test');
+    assert.equal((await admin('DELETE', `/applications/${appDoc._id}`)).status, 404);
+  });
+});

@@ -6,12 +6,15 @@ import NotificationBell from './components/NotificationBell';
 import { Toaster } from 'react-hot-toast';
 import { useAdminStore } from '../store/useAdminStore';
 import { useTheme } from '../context/ThemeContext';
+import useAutoModalScrollLock from '../shared/useAutoModalScrollLock';
 
 const AdminLayout = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const navigate = useNavigate();
   const { admin } = useAdminStore();
   const { theme, toggleTheme } = useTheme();
+  // Any open popup form freezes the page behind it
+  useAutoModalScrollLock();
   const isEmployee = admin?.roles?.some(r => r.name === 'EMPLOYEE');
   const isEmployeeOnly = isEmployee && admin?.roles?.length === 1;
 

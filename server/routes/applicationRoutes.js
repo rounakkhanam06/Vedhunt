@@ -25,4 +25,7 @@ router.get('/', protect, authorize('careers.manage'), applicationController.getA
 // Update application status (Admin)
 router.patch('/:id/status', protect, authorize('careers.manage'), applicationController.updateStatus);
 
+// Delete an application, e.g. test submissions (Admin)
+router.delete('/:id', protect, authorize('careers.manage'), applicationController.deleteApplication);
+
 module.exports = router;

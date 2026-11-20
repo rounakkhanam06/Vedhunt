@@ -11,8 +11,11 @@ import { visibleModules, modulePath } from './config/modules';
 import { useAccess, useEssLeads } from './lib/ess';
 import { leadListCounts } from './lib/leads';
 import { cleanSearchInput } from '../shared/searchInput';
+import useAutoModalScrollLock from '../shared/useAutoModalScrollLock';
 
 const EmployeeLayout = () => {
+  // Any open popup form freezes the page behind it
+  useAutoModalScrollLock();
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
     if (typeof window !== 'undefined') {
       return window.innerWidth >= 1024;

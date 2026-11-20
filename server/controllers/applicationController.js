@@ -184,3 +184,25 @@ exports.updateStatus = async (req, res) => {
     res.status(500).json({ message: 'Error updating status', error: error.message });
   }
 };
+
+// Delete an application (Admin) — e.g. test submissions. The resume file is removed too, and a
+// snapshot of who/what was deleted is kept in the Activity Log.
+exports.deleteApplication = async (req, res) => {
+  try {
+    const { recordAudit } = require('../services/audit');
+    const mongoose = require('mongoose');
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) return res.status(400).json({ message: 'Invalid application ID' });
+    const application = await Application.findByIdAndDelete(req.params.id).lean();
+    if (!application) return res.status(404).json({ message: 'Application not found' });
+    if (application.resumeUrl) {
+      try { await deleteUpload(application.resumeUrl); } catch { /* record is gone; a leftover file is harmless */ }
+    }
+    await recordAudit(req, 'APPLICATION_DELETED', 'Application', String(application._id), {
+      name: application.fullName, email: application.email, phone: application.phone,
+      jobId: application.jobId ? String(application.jobId) : 'General Application', status: application.status, appliedAt: application.createdAt,
+    }, null);
+    res.status(200).json({ success: true, message: 'Application deleted.' });
+  } catch (error) {
+    res.status(500).json({ message: 'Error deleting application', error: error.message });
+  }
+};
