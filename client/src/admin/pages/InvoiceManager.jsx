@@ -9,7 +9,7 @@ import { openPdf } from '../../employee/lib/ess';
 import { openPortalPreview } from '../../shared/portalPreview';
 import { usePermissions } from '../hooks/usePermissions';
 import toast from 'react-hot-toast';
-import { useServiceList } from '../../shared/useServiceList';
+import { useServiceList, useServiceMaster } from '../../shared/useServiceList';
 import {
   FileText, Plus, Search, X, Save, IndianRupee,
   ChevronLeft, ChevronRight, Trash2, Edit2, Filter, Eye, Send, MonitorSmartphone, Wallet,
@@ -43,6 +43,8 @@ export default function InvoiceManager() {
   // Admin panel (full access) or Employee Portal (person-wise grants) — shared/crmAccess.js
   const { http, base, can: canCrm, full } = useCrm();
   const services = useServiceList(http, base);
+  const serviceMaster = useServiceMaster(http, base);
+  const sacCodes = [...new Set(serviceMaster.map((m) => m.sac).filter(Boolean))];
   // Super Admin (Admin panel): open the client's own portal, read-only, to see what they got
   const { can } = usePermissions();
   const canPreviewPortal = full && can('*');
@@ -245,6 +247,17 @@ export default function InvoiceManager() {
       items[i] = { ...items[i], [k]: val };
       return { ...p, lineItems: items };
     });
+
+  // Picking a Service Master entry fills the line's description and HSN/SAC (both stay editable)
+  const pickMasterService = (i, name) => {
+    const m = serviceMaster.find((x) => x.name === name);
+    if (!m) return;
+    setForm(p => {
+      const items = [...p.lineItems];
+      items[i] = { ...items[i], description: [m.name, m.description].filter(Boolean).join('\n'), sac: m.sac || items[i].sac };
+      return { ...p, lineItems: items };
+    });
+  };
 
   const addLineItem = () => setForm(p => ({ ...p, lineItems: [...p.lineItems, { description: '', qty: 1, unitPrice: '', sac: '', revenueType: 'Retainer', service: '' }] }));
   const removeLineItem = (i) => setForm(p => ({ ...p, lineItems: p.lineItems.filter((_, idx) => idx !== i) }));
@@ -505,6 +518,9 @@ export default function InvoiceManager() {
                     <Plus size={12} /> Add Row
                   </button>
                 </div>
+                <datalist id="invoice-sac-codes">
+                  {sacCodes.map((c) => <option key={c} value={c} />)}
+                </datalist>
                 <div className="space-y-2">
                   {form.lineItems.map((item, i) => (
                     <div key={i} className="grid grid-cols-12 gap-2 items-start">
@@ -519,11 +535,19 @@ export default function InvoiceManager() {
                         <option value="">Service: Unassigned</option>
                         {[...new Set([...services, ...(item.service ? [item.service] : [])])].map((sv) => <option key={sv} value={sv}>{sv}</option>)}
                       </select>
+                      {serviceMaster.length > 0 && (
+                        <select value="" aria-label="Pick from Service Master" title="Fills the description and HSN/SAC from the Service Master"
+                          onChange={e => pickMasterService(i, e.target.value)}
+                          className="col-span-12 px-2 py-1.5 bg-admin-bg border border-outline-variant rounded-lg text-on-surface-variant text-[11px] focus:outline-none focus:border-secondary">
+                          <option value="">Pick service (fills description + SAC)…</option>
+                          {serviceMaster.map((m) => <option key={m.name} value={m.name}>{m.name} · SAC {m.sac}</option>)}
+                        </select>
+                      )}
                       <textarea value={item.description} rows={2} required
                         placeholder={'Service (first line, bold)\nDetails, one per line'}
                         onChange={e => updateLineItem(i, 'description', e.target.value)}
                         className="col-span-12 sm:col-span-5 px-3 py-2 bg-admin-bg border border-outline-variant rounded-lg text-on-surface text-xs focus:outline-none focus:border-secondary resize-y" />
-                      <input type="text" value={item.sac || ''} maxLength={12} placeholder="HSN/SAC"
+                      <input type="text" value={item.sac || ''} maxLength={12} placeholder="HSN/SAC" list="invoice-sac-codes"
                         onChange={e => updateLineItem(i, 'sac', e.target.value)}
                         className="col-span-3 sm:col-span-2 px-2 py-2 bg-admin-bg border border-outline-variant rounded-lg text-on-surface text-xs focus:outline-none focus:border-secondary font-mono" />
                       <input type="number" value={item.qty} min={1} placeholder="Qty"

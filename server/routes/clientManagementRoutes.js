@@ -74,6 +74,7 @@ const Campaign = require('../models/Campaign');
 const { riskReasons } = require('../services/clientRisk');
 const { buildOverview } = require('../services/financialOverview');
 const serviceCatalog = require('../services/serviceCatalog');
+const { SERVICE_MASTER } = require('../config/serviceMaster');
 const AdPerformance = require('../models/AdPerformance');
 const CampaignStrategy = require('../models/CampaignStrategy');
 const WorkLog = require('../models/WorkLog');
@@ -2632,7 +2633,8 @@ router.get('/financial-overview', crm('invoices', 'view'), async (req, res) => {
 /** The admin's service list (client profiles + invoice lines). Anyone in the panel can read it. */
 router.get('/service-catalog', async (req, res) => {
   try {
-    res.json({ success: true, services: await serviceCatalog.getServiceList(), unassigned: serviceCatalog.UNASSIGNED });
+    // `master`: billable services with HSN/SAC (config/serviceMaster.js) for invoice line pickers
+    res.json({ success: true, services: await serviceCatalog.getServiceList(), unassigned: serviceCatalog.UNASSIGNED, master: SERVICE_MASTER });
   } catch (error) {
     logger.error('Service catalog error:', error);
     res.status(500).json({ success: false, message: 'Server error' });

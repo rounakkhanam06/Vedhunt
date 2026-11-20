@@ -14,3 +14,13 @@ export function useServiceList(http, base) {
   });
   return data || [];
 }
+
+/** Service Master (name, HSN/SAC, unit, GST %, description) for picking invoice lines. Same request as above. */
+export function useServiceMaster(http, base) {
+  const { data } = useQuery({
+    queryKey: ['service-master', base],
+    queryFn: () => http.get(`${base}/service-catalog`).then((r) => r.data.master || []),
+    staleTime: 5 * 60 * 1000,
+  });
+  return data || [];
+}
