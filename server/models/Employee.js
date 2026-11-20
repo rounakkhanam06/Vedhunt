@@ -41,6 +41,11 @@ const taskSchema = new mongoose.Schema({
   priority: { type: String, enum: TASK_PRIORITIES, default: 'Normal' },
   project: { type: String, trim: true },
   client: { type: String, trim: true },
+  // Real links (set from Organization Tasks). With clientVisible, the task's title, status
+  // and dates show in that client's portal (Work tab) along with outcomes shared on it.
+  client_ref: { type: mongoose.Schema.Types.ObjectId, ref: 'Client' },
+  project_ref: { type: mongoose.Schema.Types.ObjectId, ref: 'Project' },
+  clientVisible: { type: Boolean, default: false },
   estimatedHours: { type: Number, min: 0 },
   acceptanceCriteria: { type: String, trim: true },
   // Why the task is blocked (or late) — required to move it to Blocked.

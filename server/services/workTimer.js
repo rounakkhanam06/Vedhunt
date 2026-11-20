@@ -182,11 +182,19 @@ async function startTimer(adminId, input = {}) {
     taskId = assigned._id;
   }
 
+  // A task assigned for a client carries its client / project onto the timer —
+  // the assignment itself is the permission to log work for that client.
+  const assignedTask = taskId && employee.tasks.find((t) => String(t._id) === String(taskId));
+  const fromTask = Boolean(assignedTask?.client_ref);
+  if (fromTask) {
+    input = { ...input, client_ref: assignedTask.client_ref, project_ref: assignedTask.project_ref || input.project_ref };
+  }
+
   // Optional client / project / ticket links — each must exist and agree with the client
   const links = await resolveLinks(input);
   if (!links.ok) return links;
   // Enforced here, not just in the picker: staff can only log against clients they are linked to
-  if (links.refs.client_ref && !(await linkableClientIds(adminId)).has(String(links.refs.client_ref))) {
+  if (!fromTask && links.refs.client_ref && !(await linkableClientIds(adminId)).has(String(links.refs.client_ref))) {
     return fail(403, 'You are not assigned to that client, so you cannot log work against it.');
   }
 

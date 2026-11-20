@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Clock } from 'lucide-react';
+import { Clock, ChevronDown, ChevronUp } from 'lucide-react';
 import clientApi from '../../services/clientApi';
 
 const PERIODS = [
@@ -29,6 +29,63 @@ function Bars({ rows, color = '#3987e5' }) {
   );
 }
 
+const STATUS_CLASS = {
+  'Not Started': 'bg-white/5 text-[#9CA3AF]', 'In Progress': 'bg-sky-500/10 text-sky-400',
+  'On Hold': 'bg-amber-500/10 text-amber-400', Completed: 'bg-emerald-500/10 text-emerald-400',
+};
+const fmtFull = (d) => new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+
+/** Tasks the team chose to share: what is being done, its status and dated updates. */
+function TaskList() {
+  const [tasks, setTasks] = useState(null);
+  const [open, setOpen] = useState(null);
+  useEffect(() => {
+    let live = true;
+    clientApi.get('/client/tasks')
+      .then(({ data: res }) => { if (live) setTasks(res.data || []); })
+      .catch(() => { if (live) setTasks([]); });
+    return () => { live = false; };
+  }, []);
+  if (!tasks?.length) return null;
+  return (
+    <section className="rounded-xl border border-border-default bg-bg-surface/30 p-4" aria-label="Tasks">
+      <h3 className="text-white text-sm font-semibold mb-3">Tasks on your account</h3>
+      <ul className="divide-y divide-white/5">
+        {tasks.map((t) => {
+          const expanded = open === t._id;
+          const when = t.status === 'Completed' && t.completedAt ? `Completed ${fmtFull(t.completedAt)}`
+            : t.dueDate ? `Due ${fmtFull(t.dueDate)}` : `Started ${fmtFull(t.startDate || t.assignedAt)}`;
+          return (
+            <li key={t._id} className="py-3">
+              <button type="button" onClick={() => setOpen(expanded ? null : t._id)} aria-expanded={expanded}
+                className="w-full flex items-start justify-between gap-3 text-left cursor-pointer">
+                <div className="min-w-0">
+                  <p className="text-white text-sm font-medium">{t.title}</p>
+                  <p className="text-[#9CA3AF] text-xs mt-0.5">{[t.project, when, t.updates.length ? `${t.updates.length} update${t.updates.length > 1 ? 's' : ''}` : ''].filter(Boolean).join(' · ')}</p>
+                </div>
+                <span className="flex items-center gap-2 shrink-0">
+                  <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${STATUS_CLASS[t.status] || STATUS_CLASS['Not Started']}`}>{t.status}</span>
+                  {t.updates.length > 0 && (expanded ? <ChevronUp size={14} className="text-[#9CA3AF]" /> : <ChevronDown size={14} className="text-[#9CA3AF]" />)}
+                </span>
+              </button>
+              {expanded && t.updates.length > 0 && (
+                <ul className="mt-2 ml-1 pl-3 border-l border-white/10 space-y-2">
+                  {t.updates.map((u, i) => (
+                    <li key={i} className="text-sm">
+                      <span className="text-[#9CA3AF] text-xs">{fmtFull(u.date)}</span>
+                      <p className="text-[#C3C8D2]">{u.text}</p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
 /** What the Vedhunt team worked on for this client, and how long — by activity and by project. */
 const WorkTab = () => {
   const [period, setPeriod] = useState('this_month');
@@ -54,6 +111,8 @@ const WorkTab = () => {
         <h2 className="text-white text-lg font-semibold">Work log</h2>
         <p className="text-[#9CA3AF] text-xs mt-1">Time your Vedhunt team spent on your account, by activity and project.</p>
       </div>
+
+      <TaskList />
 
       <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1" role="group" aria-label="Period">
         {PERIODS.map((p) => (

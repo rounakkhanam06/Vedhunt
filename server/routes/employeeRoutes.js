@@ -2,6 +2,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const Employee = require('../models/Employee');
 const Client = require('../models/Client');
+const Project = require('../models/Project');
 const { TASK_STATUSES } = Employee;
 const { reviewLeaveRequest } = require('../services/leaveReview');
 const attendanceRegister = require('../services/attendanceRegister');
@@ -139,6 +140,26 @@ router.get('/roles', requirePermission(['employees.view', 'employees.manage']), 
 
 // Get all employees (Admin/HR only)
 // The Employees, Organization Tasks and Performance pages all read this list
+// Clients and their projects for linking a task (Organization Tasks → Assign Task)
+scoped.get('/task-clients', requirePageAccess('tasks', 'view'), async (req, res) => {
+  try {
+    const [clients, projects] = await Promise.all([
+      Client.find({ deletedAt: null }).select('businessName').sort({ businessName: 1 }).lean(),
+      Project.find({ status: { $in: ['Active', 'On Hold'] } }).select('projectName client_ref').sort({ projectName: 1 }).lean(),
+    ]);
+    const byClient = new Map();
+    for (const p of projects) {
+      const k = String(p.client_ref);
+      if (!byClient.has(k)) byClient.set(k, []);
+      byClient.get(k).push({ _id: p._id, projectName: p.projectName });
+    }
+    res.json({ success: true, clients: clients.map((c) => ({ _id: c._id, businessName: c.businessName, projects: byClient.get(String(c._id)) || [] })) });
+  } catch (error) {
+    logger.error('Error fetching task clients:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
 scoped.get('/', requirePageAccess([['employees', 'view'], ['tasks', 'view'], ['performance', 'view']]), async (req, res) => {
   try {
     const ids = await scopedEmployeeIds(req);
@@ -741,6 +762,22 @@ scoped.put('/:id', employeeEditGuard, async (req, res) => {
     const historyEntry = (text) => ({ text, by: req.user._id, byName: adminName(req.user), at: new Date() });
     if (newTask) {
       const task = Object.fromEntries(NEW_TASK_FIELDS.filter((k) => newTask[k] !== undefined && newTask[k] !== '').map((k) => [k, newTask[k]]));
+      // Optional real client / project link; their names replace the free-text fields
+      if (newTask.client_ref) {
+        if (!mongoose.Types.ObjectId.isValid(newTask.client_ref)) return res.status(400).json({ success: false, message: 'Invalid client.' });
+        const client = await Client.findOne({ _id: newTask.client_ref, deletedAt: null }).select('businessName').lean();
+        if (!client) return res.status(400).json({ success: false, message: 'That client was not found.' });
+        task.client_ref = client._id;
+        task.client = client.businessName;
+        if (newTask.project_ref) {
+          const project = mongoose.Types.ObjectId.isValid(newTask.project_ref)
+            && await Project.findOne({ _id: newTask.project_ref, client_ref: client._id }).select('projectName').lean();
+          if (!project) return res.status(400).json({ success: false, message: 'That project does not belong to the selected client.' });
+          task.project_ref = project._id;
+          task.project = project.projectName;
+        }
+        task.clientVisible = Boolean(newTask.clientVisible);
+      }
       employee.tasks.push({ ...task, status: 'Pending', assignedBy: req.user._id, history: [historyEntry(`Assigned by ${adminName(req.user)}`)] });
     }
     if (taskStatusUpdate) {

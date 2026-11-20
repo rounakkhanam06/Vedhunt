@@ -64,6 +64,12 @@ function StartTimerModal({ onClose, onStarted }) {
     if (!picked) return;
     setTask(picked.title);
     setProject(picked.project || picked.client || project || 'Vedhunt');
+    // A task assigned for a client logs to that client (the server applies it either way)
+    if (picked.client_ref && linkableClients.some((c) => c._id === picked.client_ref)) {
+      setClientId(picked.client_ref);
+      setProjectRef(picked.project_ref || '');
+      setTicketRef('');
+    }
     if (!activityType && activityTypes.some((a) => a.name === 'Vedhunt Task')) setActivityType('Vedhunt Task');
   };
 

@@ -84,4 +84,41 @@ async function workSummary(clientId, query = {}, now = new Date()) {
   };
 }
 
-module.exports = { resolveRange, summarise, workSummary };
+// Client-facing names for task statuses ('Pending' is "Not Started" everywhere else too)
+const CLIENT_TASK_STATUS = { Pending: 'Not Started', 'In Progress': 'In Progress', Blocked: 'On Hold', Completed: 'Completed' };
+
+/**
+ * Tasks staff marked client-visible for this client: title, status and dates, plus the
+ * outcomes shared on each (newest first). Never employee names, descriptions, comments,
+ * blocker reasons or cancelled tasks.
+ */
+async function clientTasks(clientId) {
+  const Employee = require('../models/Employee');
+  const rows = await Employee.aggregate([
+    { $match: { 'tasks.client_ref': clientId } },
+    { $unwind: '$tasks' },
+    { $match: { 'tasks.client_ref': clientId, 'tasks.clientVisible': true, 'tasks.status': { $ne: 'Cancelled' } } },
+    { $project: { _id: '$tasks._id', title: '$tasks.title', status: '$tasks.status', project: '$tasks.project', project_ref: '$tasks.project_ref',
+      startDate: '$tasks.startDate', dueDate: '$tasks.dueDate', completedAt: '$tasks.completedAt', assignedAt: '$tasks.createdAt' } },
+  ]);
+  if (!rows.length) return [];
+  const logs = await WorkLog.find({ taskId: { $in: rows.map((r) => r._id) }, client_ref: clientId, visibility: 'Client', outcome: { $nin: [null, ''] } })
+    .select('taskId date outcome').sort({ date: -1 }).lean();
+  const updates = new Map();
+  for (const l of logs) {
+    const k = String(l.taskId);
+    if (!updates.has(k)) updates.set(k, []);
+    updates.get(k).push({ date: l.date, text: l.outcome });
+  }
+  const rank = { 'In Progress': 0, Blocked: 1, Pending: 2, Completed: 3 };
+  const recent = (r) => new Date(r.completedAt || r.assignedAt || 0);
+  return rows
+    .sort((a, b) => (rank[a.status] ?? 9) - (rank[b.status] ?? 9) || recent(b) - recent(a))
+    .map((r) => ({
+      _id: r._id, title: r.title, status: CLIENT_TASK_STATUS[r.status] || r.status, project: r.project || '',
+      assignedAt: r.assignedAt, startDate: r.startDate, dueDate: r.dueDate, completedAt: r.completedAt,
+      updates: (updates.get(String(r._id)) || []).slice(0, 20),
+    }));
+}
+
+module.exports = { resolveRange, summarise, workSummary, clientTasks };

@@ -25,7 +25,7 @@ const multer = require('multer');
 const kyc = require('../services/kyc');
 const onboardingService = require('../services/onboarding');
 const OnboardingChecklist = require('../models/OnboardingChecklist');
-const { workSummary } = require('../services/clientWork');
+const { workSummary, clientTasks } = require('../services/clientWork');
 const adPerformance = require('../services/adPerformance');
 const Client = require('../models/Client');
 const { recordAudit } = require('../services/audit');
@@ -473,6 +473,20 @@ router.get('/work', async (req, res) => {
     res.json({ success: true, data });
   } catch (error) {
     logger.error('Client work summary error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+/**
+ * @route  GET /api/client/tasks
+ * @desc   Tasks the team marked visible to this client: title, status, dates and shared updates
+ * @access Client Private
+ */
+router.get('/tasks', async (req, res) => {
+  try {
+    res.json({ success: true, data: await clientTasks(req.client._id) });
+  } catch (error) {
+    logger.error('Client tasks error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });

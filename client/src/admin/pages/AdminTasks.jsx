@@ -5,7 +5,7 @@ import { Search, Filter, Calendar, CheckCircle, Clock, AlertCircle, AlertTriangl
 import { TASK_STATUSES, TASK_PRIORITIES, taskStatusLabel, taskCode, TASK_PRIORITY_CLASSES } from '../../shared/taskConstants';
 import { cleanSearchInput, searchTerm } from '../../shared/searchInput';
 
-const EMPTY_TASK = { employeeId: '', title: '', description: '', dueDate: '', startDate: '', priority: 'Normal', project: '', client: '', estimatedHours: '', acceptanceCriteria: '' };
+const EMPTY_TASK = { employeeId: '', title: '', description: '', dueDate: '', startDate: '', priority: 'Normal', project: '', client: '', client_ref: '', project_ref: '', clientVisible: true, estimatedHours: '', acceptanceCriteria: '' };
 const inputClass = 'w-full text-sm rounded-lg border border-app-border bg-form-input-bg px-3 py-2.5 text-app-text focus:outline-none focus:ring-1 focus:ring-primary';
 const fmtWhen = (d) => new Date(d).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
 
@@ -30,6 +30,13 @@ export default function AdminTasks() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  // Clients + their projects for linking a task (loaded once, quietly — linking is optional)
+  const [taskClients, setTaskClients] = useState([]);
+  useEffect(() => {
+    http.get(`${root}/employees/task-clients`).then((r) => setTaskClients(r.data.clients || [])).catch(() => {});
+  }, [http, root]);
+  const linkedClient = taskClients.find((c) => c._id === assignForm.client_ref);
 
   const fetchData = async () => {
     try {
@@ -133,6 +140,9 @@ export default function AdminTasks() {
           priority: assignForm.priority,
           project: assignForm.project.trim(),
           client: assignForm.client.trim(),
+          client_ref: assignForm.client_ref || undefined,
+          project_ref: assignForm.client_ref ? (assignForm.project_ref || undefined) : undefined,
+          clientVisible: Boolean(assignForm.client_ref) && assignForm.clientVisible,
           estimatedHours: assignForm.estimatedHours ? Number(assignForm.estimatedHours) : undefined,
           acceptanceCriteria: assignForm.acceptanceCriteria.trim(),
         }
@@ -462,13 +472,33 @@ export default function AdminTasks() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-app-text-muted mb-1.5">Project</label>
-                  <input value={assignForm.project} onChange={(e) => setAssignForm(f => ({ ...f, project: e.target.value }))} className={inputClass} />
+                  <label className="block text-xs font-medium text-app-text-muted mb-1.5">Client</label>
+                  <select value={assignForm.client_ref}
+                    onChange={(e) => { const c = taskClients.find((x) => x._id === e.target.value); setAssignForm(f => ({ ...f, client_ref: e.target.value, project_ref: '', client: c?.businessName || '', project: c ? '' : f.project })); }}
+                    className={inputClass}>
+                    <option value="">None (internal work)</option>
+                    {taskClients.map((c) => <option key={c._id} value={c._id}>{c.businessName}</option>)}
+                  </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-app-text-muted mb-1.5">Client</label>
-                  <input value={assignForm.client} onChange={(e) => setAssignForm(f => ({ ...f, client: e.target.value }))} className={inputClass} />
+                  <label className="block text-xs font-medium text-app-text-muted mb-1.5">Project</label>
+                  {linkedClient ? (
+                    <select value={assignForm.project_ref}
+                      onChange={(e) => { const p = linkedClient.projects.find((x) => x._id === e.target.value); setAssignForm(f => ({ ...f, project_ref: e.target.value, project: p?.projectName || '' })); }}
+                      className={inputClass}>
+                      <option value="">{linkedClient.projects.length ? 'No specific project' : 'No active projects'}</option>
+                      {linkedClient.projects.map((p) => <option key={p._id} value={p._id}>{p.projectName}</option>)}
+                    </select>
+                  ) : (
+                    <input value={assignForm.project} placeholder="e.g. Vedhunt ERP" onChange={(e) => setAssignForm(f => ({ ...f, project: e.target.value }))} className={inputClass} />
+                  )}
                 </div>
+                {linkedClient && (
+                  <label className="col-span-2 flex items-start gap-2 text-xs text-app-text cursor-pointer">
+                    <input type="checkbox" className="mt-0.5" checked={assignForm.clientVisible} onChange={(e) => setAssignForm(f => ({ ...f, clientVisible: e.target.checked }))} />
+                    <span>Show this task to the client in their portal <span className="text-app-text-muted">(title, status, dates and updates the employee shares, never the description or names)</span></span>
+                  </label>
+                )}
                 <div>
                   <label className="block text-xs font-medium text-app-text-muted mb-1.5">Priority</label>
                   <select value={assignForm.priority} onChange={(e) => setAssignForm(f => ({ ...f, priority: e.target.value }))} className={inputClass}>{TASK_PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}</select>
